@@ -9,9 +9,10 @@ user = Path(os.environ['APPDATA'])/'ForestRail'
 mapping = {'qa_model/results.json': 'model_results.json', 'qa_model/physics.json': 'physics_results.json',
            'qa_model/drive_campaign.json': 'drive_campaign.json', 'qa_model/handcar_revision.json': 'handcar_revision.json',
            'qa_interaction/results.json': 'interaction_results.json', 'qa_visual/results.json': 'visual_results.json'}
+mapping['qa_model/art_v3_results.json'] = 'art_v3_results.json'
 for source, target in mapping.items():
     shutil.copyfile(user/source, root/'qa'/target)
-shutil.copyfile(user/'qa_visual'/'handcar_loaded.png', root/'qa'/'preview_1_0_1.png')
+shutil.copyfile(user/'qa_visual'/'handcar_loaded.png', root/'qa'/'preview_1_0_2.png')
 physics = json.loads((root/'qa'/'physics_results.json').read_text(encoding='utf-8'))
 campaign = json.loads((root/'qa'/'drive_campaign.json').read_text(encoding='utf-8'))
 minutes = sum(m['seconds'] for m in campaign['missions'][:10])/60

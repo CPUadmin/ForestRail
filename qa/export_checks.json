@@ -3,42 +3,49 @@
     "suite": "check_model",
     "exit_code": 0,
     "success": true,
-    "seconds": 0.578,
+    "seconds": 0.765,
     "log": "export_check_model.log"
   },
   {
     "suite": "check_physics",
     "exit_code": 0,
     "success": true,
-    "seconds": 1.828,
+    "seconds": 3.735,
     "log": "export_check_physics.log"
   },
   {
     "suite": "check_interaction",
     "exit_code": 0,
     "success": true,
-    "seconds": 1.234,
+    "seconds": 3.781,
     "log": "export_check_interaction.log"
   },
   {
     "suite": "drive_campaign",
     "exit_code": 0,
     "success": true,
-    "seconds": 34.344,
+    "seconds": 60.25,
     "log": "export_drive_campaign.log"
   },
   {
     "suite": "check_handcar_revision",
     "exit_code": 0,
     "success": true,
-    "seconds": 0.438,
+    "seconds": 0.594,
     "log": "export_check_handcar_revision.log"
   },
   {
     "suite": "check_presentation",
     "exit_code": 0,
     "success": true,
-    "seconds": 10.969,
+    "seconds": 17.578,
     "log": "export_check_presentation.log"
+  },
+  {
+    "suite": "check_art_v3",
+    "exit_code": 0,
+    "success": true,
+    "seconds": 1.219,
+    "log": "export_check_art_v3.log"
   }
 ]

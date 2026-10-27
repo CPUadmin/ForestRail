@@ -5,7 +5,7 @@ import shutil
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = '1.0.1'
+VERSION = '1.0.2'
 release = ROOT/'release'/'ForestRail'
 release.mkdir(parents=True, exist_ok=True)
 shutil.copytree(ROOT/'docs', release/'docs', dirs_exist_ok=True)
@@ -27,7 +27,7 @@ shutil.copyfile(ROOT/'README_RU.md', release/'ИНСТРУКЦИЯ.md')
 results = release/'qa'
 results.mkdir(exist_ok=True)
 for name in ['export_checks.json', 'model_results.json', 'physics_results.json',
-             'drive_campaign.json', 'interaction_results.json', 'visual_results.json', 'handcar_revision.json']:
+             'drive_campaign.json', 'interaction_results.json', 'visual_results.json', 'handcar_revision.json', 'art_v3_results.json']:
     source = ROOT/'qa'/name
     if source.exists(): shutil.copyfile(source, results/name)
 for log in (ROOT/'qa').glob('export_*.log'):
@@ -48,10 +48,9 @@ source_zip = ROOT/'release'/f'ForestRail_{VERSION}_Source.zip'
 with zipfile.ZipFile(source_zip, 'w', zipfile.ZIP_DEFLATED, compresslevel=6) as archive:
     for folder in ['ForestRail', 'docs']:
         for p in sorted((ROOT/folder).rglob('*')):
-            if p.is_file() and '.godot' not in p.parts and 'art_v3' not in p.parts:
+            if p.is_file() and '.godot' not in p.parts:
                 archive.write(p, p.relative_to(ROOT))
-    for p in [ROOT/'README_RU.md', ROOT/'tools'/'fetch_windows_template.py',
-              ROOT/'tools'/'run_checks.py', ROOT/'tools'/'package_release.py', ROOT/'tools'/'inspect_sprite_layout.py']:
+    for p in [ROOT/'README_RU.md', *sorted((ROOT/'tools').glob('*.py')), *sorted((ROOT/'tools').glob('*.ps1'))]:
         archive.write(p, p.relative_to(ROOT))
 for p in [portable, source_zip]:
     with zipfile.ZipFile(p) as archive:

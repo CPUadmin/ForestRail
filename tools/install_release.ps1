@@ -1,0 +1,38 @@
+param([string]$Version = '1.0.2')
+$ErrorActionPreference = 'Stop'
+$projectRoot = Split-Path $PSScriptRoot -Parent
+$sourceExe = Join-Path $projectRoot 'release/ForestRail/ForestRail.exe'
+$installDir = Join-Path $env:LOCALAPPDATA "Programs/ForestRail/$Version"
+$installedExe = Join-Path $installDir 'ForestRail.exe'
+$saveDir = Join-Path $env:APPDATA 'ForestRail'
+function Get-CareerHashes {
+    $result = @{}
+    foreach ($name in @('save_v2.json','save_v2.backup.json','settings.json')) {
+        $path = Join-Path $saveDir $name
+        if (Test-Path -LiteralPath $path) { $result[$name] = (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash }
+    }
+    return $result
+}
+$before = Get-CareerHashes
+New-Item -ItemType Directory -Path $installDir -Force | Out-Null
+Copy-Item -LiteralPath $sourceExe -Destination $installedExe
+$expected = (Get-FileHash -LiteralPath $sourceExe -Algorithm SHA256).Hash
+if ((Get-FileHash -LiteralPath $installedExe -Algorithm SHA256).Hash -ne $expected) { throw 'Installed file differs from release' }
+$shell = New-Object -ComObject WScript.Shell
+$shortcutPath = Join-Path ([Environment]::GetFolderPath('Desktop')) 'Лесная колея.lnk'
+$shortcut = $shell.CreateShortcut($shortcutPath)
+$shortcut.TargetPath = $installedExe
+$shortcut.WorkingDirectory = $installDir
+$shortcut.Description = "Лесная колея $Version"
+$shortcut.Save()
+$smokeDir = Join-Path $projectRoot 'qa/install_smoke'
+New-Item -ItemType Directory -Path $smokeDir -Force | Out-Null
+$shot = Join-Path $projectRoot 'qa/installed_menu_102.png'
+$launchArgs = @('--',('--qa-dir="{0}"' -f $smokeDir),('--screenshot="{0}"' -f $shot))
+$process = Start-Process -FilePath $installedExe -ArgumentList $launchArgs -WorkingDirectory $installDir -WindowStyle Hidden -Wait -PassThru
+if ($process.ExitCode -ne 0 -or -not (Test-Path -LiteralPath $shot)) { throw 'Installed game did not finish launch check' }
+$after = Get-CareerHashes
+if (($before | ConvertTo-Json -Compress) -ne ($after | ConvertTo-Json -Compress)) { throw 'Career/settings changed during launch check' }
+$report = @{version=$Version; executable=$installedExe; sha256=$expected; shortcut=$shortcutPath; saves_unchanged=$true; save_hashes=$after}
+$report | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $projectRoot 'qa/installation_102.json') -Encoding utf8
+$report | ConvertTo-Json -Depth 5

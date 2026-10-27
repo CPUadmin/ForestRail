@@ -8,6 +8,7 @@ qa/clean_start/
 qa/*_runtime/
 qa/visual/*.png
 qa/visual_101/
+qa/visual_102/
 qa/*.png
 qa/install_smoke/
 *.log
