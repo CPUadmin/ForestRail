@@ -1,0 +1,80 @@
+extends SceneTree
+
+const Model = preload("res://scripts/model.gd")
+var failures: Array = []
+var stats: Array = []
+var steps = 0
+
+func _initialize() -> void:
+	call_deferred("run")
+
+func run() -> void:
+	var m = Model.new()
+	m.new_game(42)
+	for chapter in range(10):
+		if chapter == 2: m.buy_vehicle("motorcar")
+		if chapter == 6: m.buy_vehicle("locomotive")
+		if chapter == 9: m.buy_wagon()
+		m.refuel()
+		var mission = m.current_mission()
+		if not m.accept_mission(mission): failures.append("accept " + str(mission.id)); break
+		for i in range(m.state.cargo.size()): m.transfer(m.state.cargo[i].id, m.slots()[i].key)
+		m.depart()
+		var timer = 0.0
+		var phase_time = 0.0
+		var last_stop = ""
+		while m.state.phase != "depot" and timer < 2400:
+			var destination = m.next_destination()
+			var target_s = float(m.route.station_s[station_index(m, destination)])
+			var remaining = (target_s - float(m.state.s)) * int(m.state.direction)
+			var speed = absf(float(m.state.v))
+			# The controller only manipulates the same inputs as a human. It never moves s.
+			var brake_force = 0.0
+			for id in m.body_ids(): brake_force += float(m.object_stats(id).brake)
+			var braking_distance = speed * speed / (2 * brake_force / m.train_mass()) + 4
+			var stopping = remaining < maxf(8, braking_distance)
+			if stopping:
+				m.state.throttle = 0
+				m.state.brake = 1.0
+			else:
+				m.state.brake = 0
+				if m.vehicle_id() == "handcar":
+					var next_angle = sin(timer * TAU) * deg_to_rad(28)
+					m.pump_motion(next_angle - m.pump_angle)
+				else:
+					if not m.state.engine:
+						m.state.throttle = 0
+						m.set_gear(0)
+						m.start_engine(true)
+						m.set_gear(2)
+					m.state.throttle = 0.95
+			m.physics_step(1.0 / 60)
+			timer += 1.0 / 60
+			steps += 1
+			if m.station_index() == station_index(m, destination) and m.stopped():
+				if destination == "A" and m.state.active.is_empty(): break
+				for item in m.state.cargo.duplicate(true):
+					if item.destination == destination and not item.delivered: m.transfer(item.id, "")
+				if m.state.active.get("phase", "") == "return":
+					m.turn()
+					# No engine restart required when changing the consist direction.
+					m.state.brake = 1
+			if steps % 18000 == 0:
+				print("DRIVE ", mission.id, " t=", int(timer), " s=", int(m.state.s), " v=", snappedf(m.state.v, 0.01))
+				await process_frame
+		if m.state.phase != "depot":
+			failures.append("Could not finish " + str(mission.id) + " s=" + str(m.state.s))
+			break
+		stats.append({"mission": mission.id, "seconds": timer, "money": m.state.money, "energy_remaining": m.state.fleet_by_id[m.vehicle_id()].fuel})
+		print("COMPLETED ", mission.id, " ", int(timer), " seconds; money ", m.state.money)
+		await process_frame
+	var output = FileAccess.open("user://qa_model/drive_campaign.json", FileAccess.WRITE)
+	output.store_string(JSON.stringify({"failures": failures, "missions": stats, "steps": steps}, "\t"))
+	output.close()
+	print("DRIVE CAMPAIGN: ", stats.size(), "/10, steps ", steps, ", failures ", failures)
+	quit(0 if failures.is_empty() and stats.size() == 10 else 1)
+
+func station_index(m, id: String) -> int:
+	for i in range(m.data.stations.size()):
+		if m.data.stations[i].id == id: return i
+	return 0

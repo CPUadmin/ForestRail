@@ -1,0 +1,923 @@
+{
+  "name": "Лесная колея",
+  "version": "2.1",
+  "created": "2026-10-27",
+  "generator": "built-in image_gen",
+  "status": "Asset pack for the complete-game specification. See asset guide for visual cleanup requirements.",
+  "coordinates": "Integer pixels, top-left origin; pivot_px is relative to region.",
+  "sheets": {
+    "vehicles": {
+      "file": "assets/vehicles.png",
+      "size_px": [
+        1254,
+        1254
+      ],
+      "mode": "RGBA",
+      "alpha_extrema": [
+        0,
+        255
+      ],
+      "sha256": "6ef6d22ebde1b54bf7a2e05588341b1f046e089b562eb0eb5c54db0f0fe92a9e"
+    },
+    "forest": {
+      "file": "assets/forest.png",
+      "size_px": [
+        1254,
+        1254
+      ],
+      "mode": "RGBA",
+      "alpha_extrema": [
+        0,
+        255
+      ],
+      "sha256": "ec95fd02032a95f5969bfba5633ffa802f6510274e5323c7be53f855afe3c54f"
+    },
+    "track_cargo": {
+      "file": "assets/track_cargo.png",
+      "size_px": [
+        1254,
+        1254
+      ],
+      "mode": "RGBA",
+      "alpha_extrema": [
+        0,
+        255
+      ],
+      "sha256": "23b2205a2ce127b1b133eab36269702e9dd1d4d50ec3b4d4dbdee714855da9c2"
+    },
+    "forest_background": {
+      "file": "assets/forest_background.png",
+      "size_px": [
+        1672,
+        941
+      ],
+      "mode": "RGB",
+      "sha256": "b3276f070dc830abcae57de99364d0bba479d66fb31636461ef2a6a8e7bd23de",
+      "seamless": false
+    },
+    "station_details": {
+      "file": "assets/station_details.png",
+      "size_px": [
+        1254,
+        1254
+      ],
+      "mode": "RGBA",
+      "alpha_extrema": [
+        0,
+        255
+      ],
+      "sha256": "b52266b9467366e535977f7897f270d502534b2cb8110f584dd5123120ca1e78"
+    }
+  },
+  "sprites": [
+    {
+      "id": "handcar_body",
+      "label_ru": "Ручная дрезина: кузов",
+      "sheet": "vehicles",
+      "region_px": [
+        0,
+        45,
+        315,
+        265
+      ]
+    },
+    {
+      "id": "motorcar_body",
+      "label_ru": "Моторная дрезина: кузов",
+      "sheet": "vehicles",
+      "region_px": [
+        315,
+        45,
+        315,
+        265
+      ]
+    },
+    {
+      "id": "locomotive_body",
+      "label_ru": "Локомотив: кузов",
+      "sheet": "vehicles",
+      "region_px": [
+        630,
+        45,
+        312,
+        265
+      ]
+    },
+    {
+      "id": "wagon_body",
+      "label_ru": "Грузовой вагон: кузов",
+      "sheet": "vehicles",
+      "region_px": [
+        942,
+        45,
+        312,
+        265
+      ]
+    },
+    {
+      "id": "rail_wheel",
+      "label_ru": "Колесо",
+      "sheet": "vehicles",
+      "region_px": [
+        16,
+        335,
+        285,
+        290
+      ],
+      "pivot_px": [
+        142,
+        146
+      ],
+      "pivot_status": "approximate; align in the scene"
+    },
+    {
+      "id": "pump_lever",
+      "label_ru": "Ручной рычаг",
+      "sheet": "vehicles",
+      "region_px": [
+        308,
+        430,
+        402,
+        90
+      ],
+      "pivot_px": [
+        194,
+        49
+      ],
+      "pivot_status": "approximate; align in the scene"
+    },
+    {
+      "id": "brake_lever",
+      "label_ru": "Тормозной рычаг",
+      "sheet": "vehicles",
+      "region_px": [
+        720,
+        325,
+        150,
+        305
+      ],
+      "pivot_px": [
+        64,
+        253
+      ],
+      "pivot_status": "approximate; align in the scene"
+    },
+    {
+      "id": "gear_lever",
+      "label_ru": "Рычаг передач",
+      "sheet": "vehicles",
+      "region_px": [
+        1025,
+        380,
+        135,
+        250
+      ],
+      "pivot_px": [
+        66,
+        199
+      ],
+      "pivot_status": "approximate; align in the scene"
+    },
+    {
+      "id": "throttle_lever",
+      "label_ru": "Рычаг подачи",
+      "sheet": "vehicles",
+      "region_px": [
+        100,
+        630,
+        130,
+        295
+      ],
+      "pivot_px": [
+        63,
+        240
+      ],
+      "pivot_status": "approximate; align in the scene"
+    },
+    {
+      "id": "coupler",
+      "label_ru": "Сцепка",
+      "sheet": "vehicles",
+      "region_px": [
+        335,
+        685,
+        280,
+        165
+      ]
+    },
+    {
+      "id": "engine",
+      "label_ru": "Двигатель",
+      "sheet": "vehicles",
+      "region_px": [
+        625,
+        630,
+        295,
+        285
+      ]
+    },
+    {
+      "id": "fuel_tank",
+      "label_ru": "Топливный бак",
+      "sheet": "vehicles",
+      "region_px": [
+        940,
+        675,
+        290,
+        230
+      ]
+    },
+    {
+      "id": "exhaust",
+      "label_ru": "Выхлопная труба",
+      "sheet": "vehicles",
+      "region_px": [
+        100,
+        915,
+        115,
+        300
+      ]
+    },
+    {
+      "id": "headlamp",
+      "label_ru": "Фонарь",
+      "sheet": "vehicles",
+      "region_px": [
+        390,
+        970,
+        175,
+        205
+      ]
+    },
+    {
+      "id": "crate",
+      "label_ru": "Ящик",
+      "sheet": "vehicles",
+      "region_px": [
+        645,
+        945,
+        265,
+        270
+      ]
+    },
+    {
+      "id": "sack",
+      "label_ru": "Мешок",
+      "sheet": "vehicles",
+      "region_px": [
+        960,
+        945,
+        265,
+        270
+      ]
+    },
+    {
+      "id": "pine",
+      "label_ru": "Ель",
+      "sheet": "forest",
+      "region_px": [
+        0,
+        0,
+        420,
+        575
+      ]
+    },
+    {
+      "id": "birch",
+      "label_ru": "Берёза",
+      "sheet": "forest",
+      "region_px": [
+        420,
+        0,
+        395,
+        575
+      ]
+    },
+    {
+      "id": "bush",
+      "label_ru": "Куст",
+      "sheet": "forest",
+      "region_px": [
+        815,
+        280,
+        439,
+        295
+      ]
+    },
+    {
+      "id": "rocks",
+      "label_ru": "Камни",
+      "sheet": "forest",
+      "region_px": [
+        0,
+        670,
+        420,
+        240
+      ]
+    },
+    {
+      "id": "station_hut",
+      "label_ru": "Станционный домик",
+      "sheet": "forest",
+      "region_px": [
+        420,
+        575,
+        400,
+        335
+      ]
+    },
+    {
+      "id": "platform",
+      "label_ru": "Платформа",
+      "sheet": "forest",
+      "region_px": [
+        820,
+        750,
+        434,
+        160
+      ]
+    },
+    {
+      "id": "log_pile",
+      "label_ru": "Штабель брёвен",
+      "sheet": "forest",
+      "region_px": [
+        0,
+        1000,
+        420,
+        230
+      ]
+    },
+    {
+      "id": "signpost",
+      "label_ru": "Указатель без текста",
+      "sheet": "forest",
+      "region_px": [
+        460,
+        910,
+        330,
+        320
+      ]
+    },
+    {
+      "id": "fern",
+      "label_ru": "Папоротник",
+      "sheet": "forest",
+      "region_px": [
+        825,
+        980,
+        429,
+        250
+      ]
+    },
+    {
+      "id": "rail_segment",
+      "label_ru": "Рельсы и шпалы",
+      "sheet": "track_cargo",
+      "region_px": [
+        0,
+        200,
+        420,
+        160
+      ]
+    },
+    {
+      "id": "soil_segment",
+      "label_ru": "Грунт с травой",
+      "sheet": "track_cargo",
+      "region_px": [
+        420,
+        140,
+        400,
+        220
+      ]
+    },
+    {
+      "id": "trestle",
+      "label_ru": "Деревянный мост",
+      "sheet": "track_cargo",
+      "region_px": [
+        820,
+        120,
+        434,
+        240
+      ]
+    },
+    {
+      "id": "crate_bundle",
+      "label_ru": "Два ящика",
+      "sheet": "track_cargo",
+      "region_px": [
+        0,
+        475,
+        420,
+        305
+      ]
+    },
+    {
+      "id": "sack_bundle",
+      "label_ru": "Два мешка",
+      "sheet": "track_cargo",
+      "region_px": [
+        420,
+        460,
+        400,
+        320
+      ]
+    },
+    {
+      "id": "log_bundle",
+      "label_ru": "Связка брёвен",
+      "sheet": "track_cargo",
+      "region_px": [
+        820,
+        520,
+        434,
+        260
+      ]
+    },
+    {
+      "id": "jerrycan",
+      "label_ru": "Канистра",
+      "sheet": "track_cargo",
+      "region_px": [
+        60,
+        830,
+        305,
+        370
+      ]
+    },
+    {
+      "id": "toolbox",
+      "label_ru": "Ящик инструментов",
+      "sheet": "track_cargo",
+      "region_px": [
+        420,
+        885,
+        400,
+        315
+      ]
+    },
+    {
+      "id": "fragile_crate",
+      "label_ru": "Ящик с посудой",
+      "sheet": "track_cargo",
+      "region_px": [
+        845,
+        850,
+        380,
+        350
+      ]
+    },
+    {
+      "id": "depot",
+      "label_ru": "Депо",
+      "sheet": "station_details",
+      "region_px": [
+        0,
+        100,
+        605,
+        520
+      ]
+    },
+    {
+      "id": "loading_crane",
+      "label_ru": "Погрузочный кран",
+      "sheet": "station_details",
+      "region_px": [
+        605,
+        135,
+        400,
+        485
+      ]
+    },
+    {
+      "id": "fuel_pump",
+      "label_ru": "Станционная заправка",
+      "sheet": "station_details",
+      "region_px": [
+        1005,
+        130,
+        249,
+        490
+      ]
+    },
+    {
+      "id": "semaphore",
+      "label_ru": "Семафор",
+      "sheet": "station_details",
+      "region_px": [
+        40,
+        620,
+        390,
+        530
+      ]
+    },
+    {
+      "id": "buffer_stop",
+      "label_ru": "Путевой упор",
+      "sheet": "station_details",
+      "region_px": [
+        320,
+        760,
+        440,
+        390
+      ]
+    },
+    {
+      "id": "final_flags",
+      "label_ru": "Флажки финального рейса",
+      "sheet": "station_details",
+      "region_px": [
+        795,
+        735,
+        450,
+        415
+      ]
+    }
+  ],
+  "vectors": [
+    {
+      "id": "ui_play",
+      "label_ru": "Играть",
+      "file": "assets/ui/play.svg",
+      "kind": "icon"
+    },
+    {
+      "id": "ui_pause",
+      "label_ru": "Пауза",
+      "file": "assets/ui/pause.svg",
+      "kind": "icon"
+    },
+    {
+      "id": "ui_settings",
+      "label_ru": "Настройки",
+      "file": "assets/ui/settings.svg",
+      "kind": "icon"
+    },
+    {
+      "id": "ui_fuel",
+      "label_ru": "Топливо",
+      "file": "assets/ui/fuel.svg",
+      "kind": "icon"
+    },
+    {
+      "id": "ui_cargo",
+      "label_ru": "Груз",
+      "file": "assets/ui/cargo.svg",
+      "kind": "icon"
+    },
+    {
+      "id": "ui_coins",
+      "label_ru": "Монеты",
+      "file": "assets/ui/coins.svg",
+      "kind": "icon"
+    },
+    {
+      "id": "ui_station",
+      "label_ru": "Станция",
+      "file": "assets/ui/station.svg",
+      "kind": "icon"
+    },
+    {
+      "id": "ui_train",
+      "label_ru": "Поезд",
+      "file": "assets/ui/train.svg",
+      "kind": "icon"
+    },
+    {
+      "id": "ui_brake",
+      "label_ru": "Тормоз",
+      "file": "assets/ui/brake.svg",
+      "kind": "icon"
+    },
+    {
+      "id": "ui_gear",
+      "label_ru": "Передача",
+      "file": "assets/ui/gear.svg",
+      "kind": "icon"
+    },
+    {
+      "id": "ui_turn",
+      "label_ru": "Разворот",
+      "file": "assets/ui/turn.svg",
+      "kind": "icon"
+    },
+    {
+      "id": "ui_help",
+      "label_ru": "Помощь",
+      "file": "assets/ui/help.svg",
+      "kind": "icon"
+    },
+    {
+      "id": "ui_check",
+      "label_ru": "Готово",
+      "file": "assets/ui/check.svg",
+      "kind": "icon"
+    },
+    {
+      "id": "ui_map",
+      "label_ru": "Карта",
+      "file": "assets/ui/map.svg",
+      "kind": "icon"
+    },
+    {
+      "id": "ui_volume",
+      "label_ru": "Звук",
+      "file": "assets/ui/volume.svg",
+      "kind": "icon"
+    },
+    {
+      "id": "ui_save",
+      "label_ru": "Сохранить",
+      "file": "assets/ui/save.svg",
+      "kind": "icon"
+    },
+    {
+      "id": "ui_close",
+      "label_ru": "Закрыть",
+      "file": "assets/ui/close.svg",
+      "kind": "icon"
+    },
+    {
+      "id": "ui_upgrade",
+      "label_ru": "Улучшение",
+      "file": "assets/ui/upgrade.svg",
+      "kind": "icon"
+    },
+    {
+      "id": "control_pump",
+      "label_ru": "Ручной привод",
+      "file": "assets/ui/control_pump.svg",
+      "kind": "control",
+      "pivot_px": [
+        128,
+        128
+      ],
+      "size_px": [
+        256,
+        256
+      ]
+    },
+    {
+      "id": "control_brake",
+      "label_ru": "Подвижный тормозной рычаг",
+      "file": "assets/ui/control_brake.svg",
+      "kind": "control",
+      "pivot_px": [
+        128,
+        224
+      ],
+      "size_px": [
+        256,
+        256
+      ]
+    },
+    {
+      "id": "control_gear",
+      "label_ru": "Подвижный рычаг передач",
+      "file": "assets/ui/control_gear.svg",
+      "kind": "control",
+      "pivot_px": [
+        128,
+        224
+      ],
+      "size_px": [
+        256,
+        256
+      ]
+    },
+    {
+      "id": "control_throttle",
+      "label_ru": "Подвижный рычаг подачи",
+      "file": "assets/ui/control_throttle.svg",
+      "kind": "control",
+      "pivot_px": [
+        128,
+        224
+      ],
+      "size_px": [
+        256,
+        256
+      ]
+    },
+    {
+      "id": "control_start",
+      "label_ru": "Тумблер запуска",
+      "file": "assets/ui/control_start.svg",
+      "kind": "control",
+      "pivot_px": [
+        128,
+        224
+      ],
+      "size_px": [
+        256,
+        256
+      ]
+    },
+    {
+      "id": "control_mount",
+      "label_ru": "Неподвижное основание",
+      "file": "assets/ui/control_mount.svg",
+      "kind": "control",
+      "pivot_px": [
+        128,
+        158
+      ],
+      "size_px": [
+        256,
+        256
+      ]
+    },
+    {
+      "id": "gauge_face",
+      "label_ru": "Циферблат",
+      "file": "assets/ui/gauge_face.svg",
+      "kind": "control",
+      "pivot_px": [
+        128,
+        128
+      ],
+      "size_px": [
+        256,
+        256
+      ]
+    },
+    {
+      "id": "gauge_needle",
+      "label_ru": "Отдельная стрелка",
+      "file": "assets/ui/gauge_needle.svg",
+      "kind": "control",
+      "pivot_px": [
+        32,
+        128
+      ],
+      "size_px": [
+        256,
+        256
+      ]
+    },
+    {
+      "id": "ui_panel",
+      "label_ru": "Панель",
+      "file": "assets/ui/panel.svg",
+      "kind": "panel"
+    },
+    {
+      "id": "ui_button",
+      "label_ru": "Кнопка",
+      "file": "assets/ui/button.svg",
+      "kind": "panel"
+    },
+    {
+      "id": "ui_cargo_slot",
+      "label_ru": "Место груза",
+      "file": "assets/ui/cargo_slot.svg",
+      "kind": "panel"
+    }
+  ],
+  "reference_images": [
+    {
+      "file": "assets/control_parts.png",
+      "status": "Reference only: soft colored background haze remains."
+    },
+    {
+      "file": "assets/control_parts_clean.png",
+      "status": "Cleanup attempt, reference only. Use the vector controls in assets/ui for animation."
+    }
+  ],
+  "audio": [
+    {
+      "id": "pump",
+      "label_ru": "Ход ручного механизма",
+      "file": "assets/audio/pump.wav",
+      "duration_s": 0.32,
+      "loop": false,
+      "rate": 44100,
+      "channels": 1,
+      "peak": 0.5064,
+      "rms": 0.06,
+      "endpoint_difference": 0.0
+    },
+    {
+      "id": "rail_clack",
+      "label_ru": "Стык рельса",
+      "file": "assets/audio/rail_clack.wav",
+      "duration_s": 0.16,
+      "loop": false,
+      "rate": 44100,
+      "channels": 1,
+      "peak": 0.3362,
+      "rms": 0.0526,
+      "endpoint_difference": 0.0
+    },
+    {
+      "id": "brake",
+      "label_ru": "Тормоз",
+      "file": "assets/audio/brake.wav",
+      "duration_s": 0.7,
+      "loop": false,
+      "rate": 44100,
+      "channels": 1,
+      "peak": 0.319,
+      "rms": 0.0652,
+      "endpoint_difference": 0.0
+    },
+    {
+      "id": "gear",
+      "label_ru": "Передача",
+      "file": "assets/audio/gear.wav",
+      "duration_s": 0.23,
+      "loop": false,
+      "rate": 44100,
+      "channels": 1,
+      "peak": 0.3335,
+      "rms": 0.0545,
+      "endpoint_difference": 0.0
+    },
+    {
+      "id": "cargo",
+      "label_ru": "Установка груза",
+      "file": "assets/audio/cargo.wav",
+      "duration_s": 0.3,
+      "loop": false,
+      "rate": 44100,
+      "channels": 1,
+      "peak": 0.4733,
+      "rms": 0.0576,
+      "endpoint_difference": 0.0
+    },
+    {
+      "id": "coins",
+      "label_ru": "Оплата",
+      "file": "assets/audio/coins.wav",
+      "duration_s": 0.6,
+      "loop": false,
+      "rate": 44100,
+      "channels": 1,
+      "peak": 0.2422,
+      "rms": 0.0386,
+      "endpoint_difference": 0.0
+    },
+    {
+      "id": "engine_loop",
+      "label_ru": "Двигатель",
+      "file": "assets/audio/engine_loop.wav",
+      "duration_s": 2.0,
+      "loop": true,
+      "rate": 44100,
+      "channels": 1,
+      "peak": 0.1662,
+      "rms": 0.0968,
+      "endpoint_difference": 0.00333
+    },
+    {
+      "id": "forest_loop",
+      "label_ru": "Тихий лес",
+      "file": "assets/audio/forest_loop.wav",
+      "duration_s": 24.0,
+      "loop": true,
+      "rate": 44100,
+      "channels": 1,
+      "peak": 0.0448,
+      "rms": 0.015,
+      "endpoint_difference": 2e-06
+    },
+    {
+      "id": "finale",
+      "label_ru": "Финальный сигнал",
+      "file": "assets/audio/finale.wav",
+      "duration_s": 3.5,
+      "loop": false,
+      "rate": 44100,
+      "channels": 1,
+      "peak": 0.2069,
+      "rms": 0.0496,
+      "endpoint_difference": 0.0
+    },
+    {
+      "id": "ui_click",
+      "label_ru": "Нажатие интерфейса",
+      "file": "assets/audio/ui_click.wav",
+      "duration_s": 0.075,
+      "loop": false,
+      "rate": 44100,
+      "channels": 1,
+      "peak": 0.0887,
+      "rms": 0.0246,
+      "endpoint_difference": 0.0
+    },
+    {
+      "id": "music_loop",
+      "label_ru": "Спокойная мелодия",
+      "file": "assets/audio/music_loop.wav",
+      "duration_s": 32.0,
+      "loop": true,
+      "rate": 44100,
+      "channels": 1,
+      "peak": 0.0638,
+      "rms": 0.0217,
+      "endpoint_difference": 0.0
+    }
+  ]
+}

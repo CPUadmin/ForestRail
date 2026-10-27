@@ -1,0 +1,6 @@
+ForestRail/.godot/
+tools/templates.tpz
+tools/templates/
+release/
+qa/runtime/
+*.log

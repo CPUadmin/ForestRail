@@ -1,0 +1,309 @@
+{
+  "rules": {
+    "level_values": "absolute relative to stock, not multiplied by previous level",
+    "level_costs": "incremental price for the next level",
+    "roll_coefficient_floor": 0.001,
+    "adhesion_cap_always": true,
+    "vehicle_upgrades_transfer": false,
+    "wagon_upgrades_follow_id": true,
+    "stock_wagon_capacity": 2,
+    "max_wagon_capacity": 4,
+    "motorcar_max_wagons": 1,
+    "locomotive_max_wagons": 3,
+    "handcar_max_wagons": 0
+  },
+  "catalog": [
+    {
+      "id": "handcar_lever",
+      "target_type": "handcar",
+      "name": "Рычажный привод",
+      "level_costs": [
+        35,
+        70
+      ],
+      "levels": 2,
+      "effects_at_level": {
+        "power_multiplier": [
+          1.15,
+          1.3
+        ],
+        "work_multiplier": [
+          1.15,
+          1.3
+        ]
+      },
+      "scope": "selected_vehicle_id"
+    },
+    {
+      "id": "handcar_bearings",
+      "target_type": "handcar",
+      "name": "Подшипники",
+      "level_costs": [
+        25,
+        55
+      ],
+      "levels": 2,
+      "effects_at_level": {
+        "rolling_multiplier": [
+          0.85,
+          0.7
+        ]
+      },
+      "scope": "selected_vehicle_id"
+    },
+    {
+      "id": "handcar_brakes",
+      "target_type": "handcar",
+      "name": "Тормоз",
+      "level_costs": [
+        30,
+        60
+      ],
+      "levels": 2,
+      "effects_at_level": {
+        "brake_multiplier": [
+          1.25,
+          1.5
+        ]
+      },
+      "scope": "selected_vehicle_id"
+    },
+    {
+      "id": "handcar_platform",
+      "target_type": "handcar",
+      "name": "Площадка",
+      "level_costs": [
+        50,
+        90
+      ],
+      "levels": 2,
+      "effects_at_level": {
+        "add_slots": [
+          1,
+          2
+        ],
+        "add_mass_kg": [
+          25,
+          50
+        ]
+      },
+      "scope": "selected_vehicle_id"
+    },
+    {
+      "id": "motorcar_engine",
+      "target_type": "motorcar",
+      "name": "Двигатель",
+      "level_costs": [
+        80,
+        150
+      ],
+      "levels": 2,
+      "effects_at_level": {
+        "traction_multiplier": [
+          1.15,
+          1.3
+        ]
+      },
+      "scope": "selected_vehicle_id"
+    },
+    {
+      "id": "motorcar_gearbox",
+      "target_type": "motorcar",
+      "name": "Коробка передач",
+      "level_costs": [
+        70,
+        130
+      ],
+      "levels": 2,
+      "effects_at_level": {
+        "low_gear_multiplier": [
+          1.1,
+          1.2
+        ],
+        "high_gear_speed_multiplier": [
+          1.08,
+          1.15
+        ]
+      },
+      "scope": "selected_vehicle_id"
+    },
+    {
+      "id": "motorcar_brakes",
+      "target_type": "motorcar",
+      "name": "Тормоз",
+      "level_costs": [
+        60,
+        120
+      ],
+      "levels": 2,
+      "effects_at_level": {
+        "brake_multiplier": [
+          1.25,
+          1.5
+        ]
+      },
+      "scope": "selected_vehicle_id"
+    },
+    {
+      "id": "motorcar_tank",
+      "target_type": "motorcar",
+      "name": "Бак",
+      "level_costs": [
+        40,
+        80
+      ],
+      "levels": 2,
+      "effects_at_level": {
+        "fuel_capacity_multiplier": [
+          1.35,
+          1.7
+        ]
+      },
+      "scope": "selected_vehicle_id"
+    },
+    {
+      "id": "locomotive_engine",
+      "target_type": "locomotive",
+      "name": "Двигатель",
+      "level_costs": [
+        140,
+        260
+      ],
+      "levels": 2,
+      "effects_at_level": {
+        "traction_multiplier": [
+          1.15,
+          1.3
+        ]
+      },
+      "scope": "selected_vehicle_id"
+    },
+    {
+      "id": "locomotive_gearbox",
+      "target_type": "locomotive",
+      "name": "Трансмиссия",
+      "level_costs": [
+        120,
+        220
+      ],
+      "levels": 2,
+      "effects_at_level": {
+        "low_gear_multiplier": [
+          1.1,
+          1.2
+        ],
+        "high_gear_speed_multiplier": [
+          1.08,
+          1.15
+        ]
+      },
+      "scope": "selected_vehicle_id"
+    },
+    {
+      "id": "locomotive_brakes",
+      "target_type": "locomotive",
+      "name": "Тормозная система",
+      "level_costs": [
+        100,
+        180
+      ],
+      "levels": 2,
+      "effects_at_level": {
+        "brake_multiplier": [
+          1.25,
+          1.5
+        ]
+      },
+      "scope": "selected_vehicle_id"
+    },
+    {
+      "id": "locomotive_tank",
+      "target_type": "locomotive",
+      "name": "Бак",
+      "level_costs": [
+        80,
+        150
+      ],
+      "levels": 2,
+      "effects_at_level": {
+        "fuel_capacity_multiplier": [
+          1.35,
+          1.7
+        ]
+      },
+      "scope": "selected_vehicle_id"
+    },
+    {
+      "id": "wagon_platform",
+      "target_type": "wagon",
+      "name": "Вместимость",
+      "level_costs": [
+        120,
+        220
+      ],
+      "levels": 2,
+      "effects_at_level": {
+        "add_slots": [
+          1,
+          2
+        ],
+        "add_mass_kg": [
+          35,
+          70
+        ]
+      },
+      "scope": "selected_wagon_id"
+    },
+    {
+      "id": "wagon_suspension",
+      "target_type": "wagon",
+      "name": "Подвеска",
+      "level_costs": [
+        45,
+        85
+      ],
+      "levels": 2,
+      "effects_at_level": {
+        "cargo_shock_multiplier": [
+          0.75,
+          0.5
+        ]
+      },
+      "scope": "selected_wagon_id"
+    },
+    {
+      "id": "wagon_bearings",
+      "target_type": "wagon",
+      "name": "Подшипники",
+      "level_costs": [
+        35,
+        65
+      ],
+      "levels": 2,
+      "effects_at_level": {
+        "rolling_multiplier": [
+          0.85,
+          0.7
+        ]
+      },
+      "scope": "selected_wagon_id"
+    },
+    {
+      "id": "wagon_brakes",
+      "target_type": "wagon",
+      "name": "Вагонный тормоз",
+      "level_costs": [
+        50,
+        90
+      ],
+      "levels": 2,
+      "effects_at_level": {
+        "add_brake_n": [
+          300,
+          600
+        ]
+      },
+      "scope": "selected_wagon_id"
+    }
+  ]
+}

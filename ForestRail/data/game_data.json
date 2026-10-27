@@ -1,0 +1,823 @@
+{
+  "schema_version": 3,
+  "title": "Лесная колея",
+  "target_session_minutes": [
+    75,
+    120
+  ],
+  "currency": "монеты",
+  "stations": [
+    {
+      "id": "A",
+      "name": "Лесная",
+      "s_m": 0,
+      "role": "Домашнее депо и погрузочная площадка"
+    },
+    {
+      "id": "B",
+      "name": "Сосновый разъезд",
+      "s_m": 300,
+      "role": "Первый привал и разгрузка"
+    },
+    {
+      "id": "C",
+      "name": "Лесопилка",
+      "s_m": 600,
+      "role": "Тяжёлые грузы"
+    },
+    {
+      "id": "D",
+      "name": "Тихая заводь",
+      "s_m": 950,
+      "role": "Промежуточная станция в низине"
+    },
+    {
+      "id": "E",
+      "name": "Верхний бор",
+      "s_m": 1300,
+      "role": "Затяжные подъёмы"
+    },
+    {
+      "id": "F",
+      "name": "Дальний бор",
+      "s_m": 1700,
+      "role": "Дальняя станция и финальная доставка"
+    }
+  ],
+  "cargo": [
+    {
+      "id": "sack",
+      "name": "Мешок муки",
+      "mass_kg": 35,
+      "slots": 1,
+      "fragile": false,
+      "sprite": "sack"
+    },
+    {
+      "id": "fragile",
+      "name": "Ящик с посудой",
+      "mass_kg": 60,
+      "slots": 1,
+      "fragile": true,
+      "sprite": "fragile_crate"
+    },
+    {
+      "id": "logs",
+      "name": "Связка брёвен",
+      "mass_kg": 120,
+      "slots": 1,
+      "fragile": false,
+      "sprite": "log_bundle"
+    },
+    {
+      "id": "parts",
+      "name": "Запчасти",
+      "mass_kg": 80,
+      "slots": 1,
+      "fragile": false,
+      "sprite": "crate"
+    }
+  ],
+  "vehicles": [
+    {
+      "id": "handcar",
+      "name": "Ручная дрезина",
+      "cost": 0,
+      "mass_kg": 180,
+      "deck_slots": 2,
+      "default_wagons": 0,
+      "fuel_l": 0
+    },
+    {
+      "id": "motorcar",
+      "name": "Моторная дрезина",
+      "cost": 180,
+      "mass_kg": 320,
+      "deck_slots": 2,
+      "default_wagons": 1,
+      "fuel_l": 2,
+      "traction_n": [
+        900,
+        495
+      ],
+      "gear_speed_mps": [
+        4,
+        6.5
+      ]
+    },
+    {
+      "id": "locomotive",
+      "name": "Локомотив",
+      "cost": 600,
+      "mass_kg": 1100,
+      "deck_slots": 0,
+      "default_wagons": 2,
+      "fuel_l": 4,
+      "traction_n": [
+        3000,
+        1650
+      ],
+      "gear_speed_mps": [
+        5,
+        8
+      ]
+    }
+  ],
+  "wagon": {
+    "mass_kg": 200,
+    "slots": 2,
+    "length_m": 2.2
+  },
+  "upgrades": [
+    {
+      "id": "third_wagon",
+      "name": "Третий вагон",
+      "cost": 180,
+      "requires": "locomotive",
+      "effect": {
+        "add_wagon": 1
+      },
+      "required_for_final": false,
+      "purpose": "Базовый способ получить 6 мест. Альтернатива — улучшить вместимость двух вагонов."
+    }
+  ],
+  "missions": [
+    {
+      "id": "M01",
+      "title": "Первый рейс",
+      "from": "A",
+      "to": "B",
+      "tier": "handcar",
+      "cargo": [
+        [
+          "sack",
+          2
+        ]
+      ],
+      "reward": 100,
+      "tutorial": "Ручной привод, тормоз, остановка и разгрузка",
+      "return_to": "A",
+      "complete_after_return": true,
+      "dropoffs": [
+        {
+          "station": "B",
+          "cargo": [
+            [
+              "sack",
+              2
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "M02",
+      "title": "Запчасти для разъезда",
+      "from": "A",
+      "to": "B",
+      "tier": "handcar",
+      "cargo": [
+        [
+          "parts",
+          1
+        ]
+      ],
+      "reward": 140,
+      "tutorial": "Разворот и накопление на двигатель",
+      "return_to": "A",
+      "complete_after_return": true,
+      "dropoffs": [
+        {
+          "station": "B",
+          "cargo": [
+            [
+              "parts",
+              1
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "M03",
+      "title": "Знакомство с мотором",
+      "from": "A",
+      "to": "B",
+      "tier": "motorcar",
+      "cargo": [
+        [
+          "fragile",
+          2
+        ]
+      ],
+      "reward": 120,
+      "tutorial": "Запуск, подача топлива, Н/1/2",
+      "return_to": "A",
+      "complete_after_return": true,
+      "dropoffs": [
+        {
+          "station": "B",
+          "cargo": [
+            [
+              "fragile",
+              2
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "M04",
+      "title": "К лесопилке",
+      "from": "A",
+      "to": "C",
+      "tier": "motorcar",
+      "cargo": [
+        [
+          "logs",
+          2
+        ]
+      ],
+      "reward": 160,
+      "return_to": "A",
+      "complete_after_return": true,
+      "dropoffs": [
+        {
+          "station": "C",
+          "cargo": [
+            [
+              "logs",
+              2
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "M05",
+      "title": "Мука для разъезда",
+      "from": "A",
+      "to": "D",
+      "tier": "motorcar",
+      "cargo": [
+        [
+          "sack",
+          4
+        ]
+      ],
+      "reward": 180,
+      "return_to": "A",
+      "complete_after_return": true,
+      "dropoffs": [
+        {
+          "station": "C",
+          "cargo": [
+            [
+              "sack",
+              2
+            ]
+          ]
+        },
+        {
+          "station": "D",
+          "cargo": [
+            [
+              "sack",
+              2
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "M06",
+      "title": "Тяжёлый перегон",
+      "from": "A",
+      "to": "D",
+      "tier": "motorcar",
+      "cargo": [
+        [
+          "logs",
+          4
+        ]
+      ],
+      "reward": 260,
+      "return_to": "A",
+      "complete_after_return": true,
+      "dropoffs": [
+        {
+          "station": "D",
+          "cargo": [
+            [
+              "logs",
+              4
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "M07",
+      "title": "Первый состав",
+      "from": "A",
+      "to": "D",
+      "tier": "locomotive",
+      "cargo": [
+        [
+          "parts",
+          4
+        ]
+      ],
+      "reward": 240,
+      "tutorial": "Два вагона и торможение всем составом",
+      "return_to": "A",
+      "complete_after_return": true,
+      "dropoffs": [
+        {
+          "station": "D",
+          "cargo": [
+            [
+              "parts",
+              4
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "M08",
+      "title": "Аккуратно, посуда",
+      "from": "A",
+      "to": "E",
+      "tier": "locomotive",
+      "cargo": [
+        [
+          "fragile",
+          4
+        ]
+      ],
+      "reward": 300,
+      "return_to": "A",
+      "complete_after_return": true,
+      "dropoffs": [
+        {
+          "station": "D",
+          "cargo": [
+            [
+              "fragile",
+              2
+            ]
+          ]
+        },
+        {
+          "station": "E",
+          "cargo": [
+            [
+              "fragile",
+              2
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "M09",
+      "title": "Лесной груз",
+      "from": "A",
+      "to": "F",
+      "tier": "locomotive",
+      "cargo": [
+        [
+          "logs",
+          4
+        ]
+      ],
+      "reward": 320,
+      "return_to": "A",
+      "complete_after_return": true,
+      "dropoffs": [
+        {
+          "station": "F",
+          "cargo": [
+            [
+              "logs",
+              4
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "M10",
+      "title": "Поезд до Дальнего бора",
+      "from": "A",
+      "to": "F",
+      "tier": "locomotive",
+      "cargo": [
+        [
+          "sack",
+          2
+        ],
+        [
+          "logs",
+          2
+        ],
+        [
+          "parts",
+          2
+        ]
+      ],
+      "reward": 500,
+      "final": true,
+      "return_to": "A",
+      "complete_after_return": true,
+      "dropoffs": [
+        {
+          "station": "D",
+          "cargo": [
+            [
+              "sack",
+              2
+            ]
+          ]
+        },
+        {
+          "station": "E",
+          "cargo": [
+            [
+              "logs",
+              2
+            ]
+          ]
+        },
+        {
+          "station": "F",
+          "cargo": [
+            [
+              "parts",
+              2
+            ]
+          ]
+        }
+      ],
+      "required_capacity": 6,
+      "recommended_wagons": 3
+    }
+  ],
+  "rules": {
+    "max_active_orders": 1,
+    "max_offers_per_station": 3,
+    "fragile_min_reward_multiplier": 0.7,
+    "refuel_cost": 0,
+    "rescue_cost": 0,
+    "save_interval_s": 60,
+    "physics_hz": 60,
+    "normal_grade_pct": 4,
+    "max_grade_pct": 6,
+    "handcar_max_grade_pct": 3,
+    "station_grade_pct": 0.2,
+    "station_length_m": 35,
+    "upgrade_in_depot_only": true,
+    "reward_on_return": true
+  },
+  "game_loop": [
+    "main_menu",
+    "depot",
+    "loading_station",
+    "outbound_route",
+    "delivery_stations",
+    "return_route",
+    "depot_results"
+  ],
+  "depot": {
+    "id": "home",
+    "station_id": "A",
+    "name": "Депо «Лесная»",
+    "upgrade_location_only": true,
+    "fleet_persistent": true,
+    "per_wagon_upgrades": true,
+    "reward_on_return": true,
+    "free_refuel": true
+  },
+  "upgrade_catalog": [
+    {
+      "id": "handcar_lever",
+      "target_type": "handcar",
+      "name": "Рычажный привод",
+      "level_costs": [
+        35,
+        70
+      ],
+      "levels": 2,
+      "effects_at_level": {
+        "power_multiplier": [
+          1.15,
+          1.3
+        ],
+        "work_multiplier": [
+          1.15,
+          1.3
+        ]
+      },
+      "scope": "selected_vehicle_id"
+    },
+    {
+      "id": "handcar_bearings",
+      "target_type": "handcar",
+      "name": "Подшипники",
+      "level_costs": [
+        25,
+        55
+      ],
+      "levels": 2,
+      "effects_at_level": {
+        "rolling_multiplier": [
+          0.85,
+          0.7
+        ]
+      },
+      "scope": "selected_vehicle_id"
+    },
+    {
+      "id": "handcar_brakes",
+      "target_type": "handcar",
+      "name": "Тормоз",
+      "level_costs": [
+        30,
+        60
+      ],
+      "levels": 2,
+      "effects_at_level": {
+        "brake_multiplier": [
+          1.25,
+          1.5
+        ]
+      },
+      "scope": "selected_vehicle_id"
+    },
+    {
+      "id": "handcar_platform",
+      "target_type": "handcar",
+      "name": "Площадка",
+      "level_costs": [
+        50,
+        90
+      ],
+      "levels": 2,
+      "effects_at_level": {
+        "add_slots": [
+          1,
+          2
+        ],
+        "add_mass_kg": [
+          25,
+          50
+        ]
+      },
+      "scope": "selected_vehicle_id"
+    },
+    {
+      "id": "motorcar_engine",
+      "target_type": "motorcar",
+      "name": "Двигатель",
+      "level_costs": [
+        80,
+        150
+      ],
+      "levels": 2,
+      "effects_at_level": {
+        "traction_multiplier": [
+          1.15,
+          1.3
+        ]
+      },
+      "scope": "selected_vehicle_id"
+    },
+    {
+      "id": "motorcar_gearbox",
+      "target_type": "motorcar",
+      "name": "Коробка передач",
+      "level_costs": [
+        70,
+        130
+      ],
+      "levels": 2,
+      "effects_at_level": {
+        "low_gear_multiplier": [
+          1.1,
+          1.2
+        ],
+        "high_gear_speed_multiplier": [
+          1.08,
+          1.15
+        ]
+      },
+      "scope": "selected_vehicle_id"
+    },
+    {
+      "id": "motorcar_brakes",
+      "target_type": "motorcar",
+      "name": "Тормоз",
+      "level_costs": [
+        60,
+        120
+      ],
+      "levels": 2,
+      "effects_at_level": {
+        "brake_multiplier": [
+          1.25,
+          1.5
+        ]
+      },
+      "scope": "selected_vehicle_id"
+    },
+    {
+      "id": "motorcar_tank",
+      "target_type": "motorcar",
+      "name": "Бак",
+      "level_costs": [
+        40,
+        80
+      ],
+      "levels": 2,
+      "effects_at_level": {
+        "fuel_capacity_multiplier": [
+          1.35,
+          1.7
+        ]
+      },
+      "scope": "selected_vehicle_id"
+    },
+    {
+      "id": "locomotive_engine",
+      "target_type": "locomotive",
+      "name": "Двигатель",
+      "level_costs": [
+        140,
+        260
+      ],
+      "levels": 2,
+      "effects_at_level": {
+        "traction_multiplier": [
+          1.15,
+          1.3
+        ]
+      },
+      "scope": "selected_vehicle_id"
+    },
+    {
+      "id": "locomotive_gearbox",
+      "target_type": "locomotive",
+      "name": "Трансмиссия",
+      "level_costs": [
+        120,
+        220
+      ],
+      "levels": 2,
+      "effects_at_level": {
+        "low_gear_multiplier": [
+          1.1,
+          1.2
+        ],
+        "high_gear_speed_multiplier": [
+          1.08,
+          1.15
+        ]
+      },
+      "scope": "selected_vehicle_id"
+    },
+    {
+      "id": "locomotive_brakes",
+      "target_type": "locomotive",
+      "name": "Тормозная система",
+      "level_costs": [
+        100,
+        180
+      ],
+      "levels": 2,
+      "effects_at_level": {
+        "brake_multiplier": [
+          1.25,
+          1.5
+        ]
+      },
+      "scope": "selected_vehicle_id"
+    },
+    {
+      "id": "locomotive_tank",
+      "target_type": "locomotive",
+      "name": "Бак",
+      "level_costs": [
+        80,
+        150
+      ],
+      "levels": 2,
+      "effects_at_level": {
+        "fuel_capacity_multiplier": [
+          1.35,
+          1.7
+        ]
+      },
+      "scope": "selected_vehicle_id"
+    },
+    {
+      "id": "wagon_platform",
+      "target_type": "wagon",
+      "name": "Вместимость",
+      "level_costs": [
+        120,
+        220
+      ],
+      "levels": 2,
+      "effects_at_level": {
+        "add_slots": [
+          1,
+          2
+        ],
+        "add_mass_kg": [
+          35,
+          70
+        ]
+      },
+      "scope": "selected_wagon_id"
+    },
+    {
+      "id": "wagon_suspension",
+      "target_type": "wagon",
+      "name": "Подвеска",
+      "level_costs": [
+        45,
+        85
+      ],
+      "levels": 2,
+      "effects_at_level": {
+        "cargo_shock_multiplier": [
+          0.75,
+          0.5
+        ]
+      },
+      "scope": "selected_wagon_id"
+    },
+    {
+      "id": "wagon_bearings",
+      "target_type": "wagon",
+      "name": "Подшипники",
+      "level_costs": [
+        35,
+        65
+      ],
+      "levels": 2,
+      "effects_at_level": {
+        "rolling_multiplier": [
+          0.85,
+          0.7
+        ]
+      },
+      "scope": "selected_wagon_id"
+    },
+    {
+      "id": "wagon_brakes",
+      "target_type": "wagon",
+      "name": "Вагонный тормоз",
+      "level_costs": [
+        50,
+        90
+      ],
+      "levels": 2,
+      "effects_at_level": {
+        "add_brake_n": [
+          300,
+          600
+        ]
+      },
+      "scope": "selected_wagon_id"
+    }
+  ],
+  "upgrade_rules": {
+    "level_values": "absolute relative to stock, not multiplied by previous level",
+    "level_costs": "incremental price for the next level",
+    "roll_coefficient_floor": 0.001,
+    "adhesion_cap_always": true,
+    "vehicle_upgrades_transfer": false,
+    "wagon_upgrades_follow_id": true,
+    "stock_wagon_capacity": 2,
+    "max_wagon_capacity": 4,
+    "motorcar_max_wagons": 1,
+    "locomotive_max_wagons": 3,
+    "handcar_max_wagons": 0
+  },
+  "fleet_rules": {
+    "start_owned": [
+      "handcar"
+    ],
+    "buy_motorcar_adds_wagons": 1,
+    "buy_locomotive_adds_wagons": 1,
+    "retain_old_vehicle": true,
+    "wagon_ids": [
+      "W01",
+      "W02",
+      "W03"
+    ],
+    "third_wagon_cost": 180
+  }
+}
