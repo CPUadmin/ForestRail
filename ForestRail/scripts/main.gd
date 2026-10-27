@@ -12,6 +12,7 @@ var model = Model.new()
 var saves = SaveGame.new()
 var sound
 var textures: Dictionary = {}
+var visual_layout: Dictionary = {}
 var font: Font
 var ui: Control
 var overlay: Control
@@ -31,6 +32,7 @@ var zoom_level = 1.0
 var drag = ""
 var drag_item = ""
 var drag_total = 0.0
+var drag_horizontal = 0.0
 var drag_initial = 0.0
 var grip_hits: Array = []
 var slot_hits: Array = []
@@ -63,7 +65,7 @@ func _ready() -> void:
 		for arg in qa_args:
 			if arg.begins_with("--qa-suite="):
 				var suite = arg.trim_prefix("--qa-suite=")
-				if suite not in ["check_model", "check_physics", "check_interaction", "drive_campaign", "check_presentation"]: get_tree().quit(2); return
+				if suite not in ["check_model", "check_physics", "check_interaction", "drive_campaign", "check_presentation", "check_handcar_revision"]: get_tree().quit(2); return
 				get_tree().root.set_meta("qa_running", true)
 				set_process(false)
 				set_physics_process(false)
@@ -111,11 +113,16 @@ func _ready() -> void:
 
 func load_textures() -> void:
 	var manifest = JSON.parse_string(FileAccess.get_file_as_string("res://assets_manifest.json"))
+	visual_layout = JSON.parse_string(FileAccess.get_file_as_string("res://data/visual_layout.json"))
 	for sprite in manifest.sprites:
 		var atlas = AtlasTexture.new()
 		atlas.atlas = load("res://" + str(manifest.sheets[sprite.sheet].file))
 		var r = sprite.region_px
 		atlas.region = Rect2(r[0], r[1], r[2], r[3])
+		if sprite.id in ["pine", "birch", "bush", "fern", "rocks", "depot", "station_hut", "fuel_pump", "log_pile"]:
+			var visible = visual_layout[sprite.id]
+			atlas.region = Rect2(r[0] + visible[0], r[1] + visible[1], visible[2] - visible[0], visible[3] - visible[1])
+			visual_layout[sprite.id] = [0, 0, visible[2] - visible[0], visible[3] - visible[1]]
 		atlas.filter_clip = true
 		textures[sprite.id] = atlas
 	textures.background = load("res://assets/forest_background.png")
@@ -513,7 +520,7 @@ func update_hud() -> void:
 	var returning = not state.active.is_empty() and state.active.phase == "return"
 	var stop_index = model.station_index()
 	var at_station = model.station_name(model.data.stations[stop_index].id) if stop_index >= 0 else ""
-	hud.text = "%.1f км/ч    ·    %d монет    ·    %s\n%s  →  %s   ·   %d м" % [absf(float(state.v)) * 3.6, state.money, energy_text(), "Домой" if returning else order, model.station_name(destination), absf(target_s - float(state.s))]
+	hud.text = "%.1f км/ч    ·    %d монет    ·    %s    ·    Тяга %s\n%s  →  %s   ·   %d м" % [absf(float(state.v)) * 3.6, state.money, energy_text(), "→" if model.drive_direction() > 0 else "←", "Домой" if returning else order, model.station_name(destination), absf(target_s - float(state.s))]
 	var hint = ""
 	if state.phase == "loading":
 		hint = "Перетащи груз с площадки в подсвеченные места на машине."
@@ -522,7 +529,7 @@ func update_hud() -> void:
 	elif stop_index >= 0 and model.stopped():
 		hint = "Станция «%s». Перетащи груз для этой станции на площадку внизу." % at_station
 	elif model.vehicle_id() == "handcar":
-		hint = "Зажми светлый конец деревянного рычага и води мышью вверх-вниз. Красный рычаг — тормоз."
+		hint = "Зажми деревянный хват и качай вверх-вниз. Ровные полные ходы разгоняют лучше. Красный рычаг — тормоз."
 	elif not state.engine:
 		hint = "Запуск: подача 0%, передача Н. Потяни тумблер вверх, затем выбери режим и подай тягу."
 	else:
@@ -534,7 +541,7 @@ func update_hud() -> void:
 	if model.vehicle_id() == "locomotive" and model.regen_kw > 0.01:
 		hint = "Рекуперация: +%.1f кВт. Часть энергии торможения возвращается в аккумулятор." % model.regen_kw
 	hint_label.text = hint if state.tutorial else ""
-	var key = "%s_%d_%s_%s_%s" % [state.phase, stop_index, str(model.stopped()), str(model.all_loaded()), str(returning)]
+	var key = "%s_%d_%s_%s_%s_%d" % [state.phase, stop_index, str(model.stopped()), str(model.all_loaded()), str(returning), model.drive_direction()]
 	if key != last_action_key:
 		last_action_key = key
 		clear_children(action_bar)
@@ -543,16 +550,23 @@ func update_hud() -> void:
 				if model.depart(): save_game(); rebuild()
 				else: notify(model.message), not model.all_loaded())
 			add_button(action_bar, "Вернуться в депо", func(): model.back_to_depot(); screen = "depot"; save_game(); rebuild())
-		elif model.stopped() and stop_index >= 0:
-			add_button(action_bar, "Развернуть состав", func():
-				if model.turn(): save_game(); notify("Состав развёрнут"); last_action_key = ""
-				else: notify(model.message), model.can_turn() != "")
+		elif model.stopped():
+			add_button(action_bar, "← Задний ход" if state.direction > 0 else "← Вперёд", func():
+				if model.set_reverser(-int(state.direction)): save_game(); last_action_key = ""
+				else: notify(model.message), model.drive_direction() < 0)
+			add_button(action_bar, "Вперёд →" if state.direction > 0 else "Задний ход →", func():
+				if model.set_reverser(int(state.direction)): save_game(); last_action_key = ""
+				else: notify(model.message), model.drive_direction() > 0)
+			if stop_index >= 0:
+				add_button(action_bar, "Развернуть состав", func():
+					if model.turn(): save_game(); notify("Состав развёрнут"); last_action_key = ""
+					else: notify(model.message), model.can_turn() != "")
 			if stop_index == 0:
 				add_button(action_bar, "В домашнее депо", func(): model.back_to_depot(); screen = "depot"; save_game(); rebuild())
 			add_button(action_bar, "Сохранить", func(): save_game(); notify("Сохранено"))
 
 func energy_text() -> String:
-	if model.vehicle_id() == "handcar": return "Ручной привод"
+	if model.vehicle_id() == "handcar": return "Ручной привод · %d Вт" % roundi(model.output_power)
 	var amount = float(model.state.fleet_by_id[model.vehicle_id()].fuel)
 	var cap = float(model.object_stats(model.vehicle_id()).tank)
 	if model.vehicle_id() == "locomotive":
@@ -645,7 +659,7 @@ func build_modal(size: Vector2) -> void:
 		add_button(box, "Готово", close_modal)
 	elif modal_kind == "help":
 		add_label(box, "Как играть", 32)
-		add_label(box, "1. В депо выбери рейс и нажми «К погрузке». Перетащи каждый предмет с площадки в свободное место на машине или вагоне. Отправляйся, когда всё погружено.\n\n2. Отпусти тормоз: зажми красную рукоять и потяни вниз. На ручной дрезине качай выделенный правый конец деревянного рычага вверх-вниз. На спуске можно катиться по инерции.\n\n3. Перед станцией плавно затяни тормоз вверх. Остановись в пределах платформы, затяни тормоз до 100% и перетащи нужные грузы на площадку. У каждого предмета указана станция.\n\n4. После последней доставки убери подачу, разверни пустой состав кнопкой на станции и вернись в Лесную. Деньги выдаются в домашнем депо.\n\n5. Моторная дрезина: передача Н, подача 0%, потяни тумблер запуска вверх. Затем выбери 1 и добавь подачу. На ровном участке можно включить 2, сначала снизив подачу ниже 15%. Бензин пополняется в депо.\n\n6. Электролокомотив: вместо бензина аккумулятор. Режим 1 — тяговый, 2 — ходовой. Без подачи он катится по инерции; торможение возвращает четверть доступной энергии. Зарядка бесплатна в депо.\n\n7. В гараже остаются все купленные машины. Вагоны выбираются отдельно, улучшения следуют за их ID. Для финального рейса нужны шесть мест: три обычных вагона или два расширенных.\n\nКолесо мыши — приблизить машину. Esc — пауза. При потере фокуса игра останавливается. Если застрял или кончилась энергия, вызови помощь депо из паузы.", 20)
+		add_label(box, "1. В депо выбери рейс и нажми «К погрузке». Перетащи каждый предмет с площадки в свободное место на машине или вагоне. Отправляйся, когда всё погружено.\n\n2. Отпусти тормоз: зажми красную рукоять и потяни вниз. На ручной дрезине качай выделенный правый конец деревянного рычага вверх-вниз. На спуске можно катиться по инерции.\n\n3. Перед станцией плавно затяни тормоз вверх. Остановись в пределах платформы, затяни тормоз до 100% и перетащи нужные грузы на площадку. У каждого предмета указана станция.\n\n4. После последней доставки убери подачу, разверни пустой состав кнопкой на станции и вернись в Лесную. Деньги выдаются в домашнем депо.\n\n5. Моторная дрезина: передача Н, подача 0%, потяни тумблер запуска вверх. Затем выбери 1 и добавь подачу. На ровном участке можно включить 2, сначала снизив подачу ниже 15%. Бензин пополняется в депо.\n\n6. Электролокомотив: вместо бензина аккумулятор. Режим 1 — тяговый, 2 — ходовой. Без подачи он катится по инерции; торможение возвращает четверть доступной энергии. Зарядка бесплатна в депо.\n\n7. В гараже остаются все купленные машины. Вагоны выбираются отдельно, улучшения следуют за их ID. Для финального рейса нужны шесть мест: три обычных вагона или два расширенных.\n\nЗадний ход: остановись, затяни тормоз и выбери стрелку направления. На ручной дрезине можно взять хват и толкнуть его влево или вправо с затянутым тормозом. Состав при этом сохраняет положение и груз.\n\nКолесо мыши — приблизить машину. Esc — пауза. При потере фокуса игра останавливается. Если застрял или кончилась энергия, вызови помощь депо из паузы.", 20)
 		if screen != "menu":
 			add_button(box, "Подсказки: " + ("вкл." if model.state.tutorial else "выкл."), func(): model.state.tutorial = not model.state.tutorial; save_game(); rebuild())
 		add_button(box, "Понятно", close_modal)
@@ -658,7 +672,7 @@ func build_modal(size: Vector2) -> void:
 		add_button(box, "В главное меню", func(): screen = "menu"; close_modal())
 	else:
 		add_label(box, "Лесная колея", 36)
-		add_label(box, "Небольшая игра о работе лесной железной дороги.\nРазработка: Codex совместно с владельцем проекта, 2026.\nГрафика: предоставленный комплект ForestRail, созданный с image_gen. Звуки синтезированы для этого комплекта.\nGodot Engine 4.7.2, лицензия MIT. Полные лицензии движка и его компонентов включены в поставку.\n\nВерсия игры 1.0.0 · ТЗ 2.1 с электрическим локомотивом.", 22)
+		add_label(box, "Небольшая игра о работе лесной железной дороги.\nРазработка: Codex совместно с владельцем проекта, 2026.\nГрафика: предоставленный комплект ForestRail, созданный с image_gen. Звуки синтезированы для этого комплекта.\nGodot Engine 4.7.2, лицензия MIT. Полные лицензии движка и его компонентов включены в поставку.\n\nВерсия игры 1.0.1 · ТЗ 2.1 с электрическим локомотивом.", 22)
 		add_button(box, "Назад", close_modal)
 
 func save_game() -> bool:
@@ -676,6 +690,7 @@ func cancel_drag() -> void:
 	drag = ""
 	drag_item = ""
 	drag_total = 0
+	drag_horizontal = 0
 	model.reset_input()
 	Input.set_default_cursor_shape(Input.CURSOR_ARROW)
 
@@ -736,6 +751,11 @@ func _input(event: InputEvent) -> void:
 		var delta_y = event.relative.y * float(settings.sensitivity)
 		drag_total += delta_y
 		if drag == "pump":
+			drag_horizontal += event.relative.x
+			if model.stopped() and absf(drag_horizontal) >= 38:
+				model.set_reverser(int(signf(drag_horizontal)) * int(model.state.direction))
+				drag_horizontal = 0
+			if float(model.state.brake) > 0.9 and absf(delta_y) > 2: notify("Тормоз затянут. Сначала отпусти красную рукоять вниз")
 			model.pump_motion(delta_y / maxf(90, 100 * zoom_level))
 		elif drag == "brake":
 			model.state.brake = clampf(drag_initial - drag_total / 130, 0, 1)
@@ -768,6 +788,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		if not nearest.is_empty():
 			drag = nearest.id
 			drag_total = 0
+			drag_horizontal = 0
 			drag_initial = float(model.state.get(drag, 0))
 			model.reset_input()
 			Input.set_default_cursor_shape(Input.CURSOR_DRAG)
@@ -821,6 +842,7 @@ func _draw() -> void:
 	else:
 		draw_world(size)
 		draw_train()
+		draw_foreground()
 		if screen == "game":
 			draw_map(size)
 			draw_loading_dock(size)
@@ -841,49 +863,109 @@ func draw_background(size: Vector2) -> void:
 func sprite(id: String, rect: Rect2, color: Color = Color.WHITE) -> void:
 	if textures.has(id): draw_texture_rect(textures[id], rect, false, color)
 
+func ellipse(center: Vector2, radii: Vector2, color: Color) -> void:
+	var polygon = PackedVector2Array()
+	for i in range(24): polygon.append(center + Vector2(cos(i * TAU / 24), sin(i * TAU / 24)) * radii)
+	draw_colored_polygon(polygon, color)
+
+func grounded_sprite(id: String, foot: Vector2, height: float, color: Color = Color.WHITE) -> void:
+	if not textures.has(id): return
+	var texture = textures[id]
+	var bounds = visual_layout.get(id, [0, 0, texture.get_width(), texture.get_height()])
+	var factor = height / maxf(1, float(bounds[3]) - float(bounds[1]))
+	var anchor = Vector2((float(bounds[0]) + float(bounds[2])) * 0.5, float(bounds[3]))
+	sprite(id, Rect2(foot - anchor * factor, texture.get_size() * factor), color)
+
+func terrain_band(track: PackedVector2Array, top: float, bottom: float, color: Color) -> void:
+	var polygon = PackedVector2Array()
+	for p in track: polygon.append(p + Vector2(0, top))
+	for i in range(track.size() - 1, -1, -1): polygon.append(track[i] + Vector2(0, bottom))
+	draw_colored_polygon(polygon, color)
+
 func draw_world(size: Vector2) -> void:
-	var begin_s = camera_s - 24
-	var end_s = camera_s + 24
-	var terrain = PackedVector2Array()
+	var begin_s = camera_s - 38
+	var end_s = camera_s + 38
+	var sc = view_scale()
 	var track = PackedVector2Array()
-	for i in range(97):
+	for i in range(153):
 		var s = begin_s + i * 0.5
 		var p = world_point(s)
-		terrain.append(p + Vector2(0, 13))
 		track.append(p)
-	terrain.append(Vector2(size.x + 500, size.y + 100))
-	terrain.append(Vector2(-500, size.y + 100))
-	draw_colored_polygon(terrain, Color("586b42"))
-	# Trees use their world position and never cover cargo or controls.
-	var first_tree = floori((camera_s - 30) / 4)
-	for i in range(first_tree, first_tree + 19):
-		var tree_s = i * 4.0 + sin(i * 4.3 + model.route.seed_value) * 0.8
-		var p = world_point(tree_s)
-		var h = 200 + fposmod(sin(i * 62.3 + model.route.seed_value) * 43758, 200)
-		var id = "pine" if posmod(i, 3) != 0 else "birch"
-		sprite(id, Rect2(p.x - h * 0.27, p.y - h - 30, h * 0.54, h), Color(0.55, 0.68, 0.54, 0.85))
+	terrain_band(track, -102 * sc, size.y, Color("9aa47b"))
+	# A more distant tree row moves more slowly than the railway.
+	for i in range(floori((camera_s - 55) / 3.6), ceili((camera_s + 55) / 3.6)):
+		var s = i * 3.6 + sin(i * 2.71 + model.route.seed_value) * 0.9
+		var p = world_point(s)
+		p.x = get_viewport_rect().size.x * 0.5 + (p.x - get_viewport_rect().size.x * 0.5) * 0.62
+		p.y -= 72 * sc
+		if p.x < -300 or p.x > size.x + 300: continue
+		var h = (155 + fposmod(sin(i * 13.1) * 3197, 100)) * sc
+		grounded_sprite("pine" if posmod(i, 4) else "birch", p, h, Color(0.68, 0.77, 0.65, 0.72))
+	terrain_band(track, -34 * sc, size.y, Color("728453"))
+	for i in range(floori(begin_s / 5.2), ceili(end_s / 5.2)):
+		var tree_s = i * 5.2 + sin(i * 4.3 + model.route.seed_value) * 1.25
+		var p = world_point(tree_s) + Vector2(0, -13 * sc)
+		if p.x < -400 or p.x > size.x + 400: continue
+		var h = (255 + fposmod(sin(i * 62.3 + model.route.seed_value) * 43758, 200)) * sc
+		ellipse(p + Vector2(12, 1) * sc, Vector2(h * 0.18, h * 0.025), Color(0.13, 0.22, 0.12, 0.22))
+		grounded_sprite("pine" if posmod(i, 3) else "birch", p, h, Color(0.88, 0.94, 0.83))
+		if posmod(i, 2) == 0:
+			grounded_sprite("bush", p + Vector2(-45, 3) * sc, 43 * sc, Color(0.8, 0.91, 0.72))
 	for station_index in range(model.data.stations.size()):
 		var p = world_point(float(model.route.station_s[station_index]))
 		if p.x < -500 or p.x > size.x + 500: continue
 		var station = model.data.stations[station_index]
-		sprite("depot" if station_index == 0 else "station_hut", Rect2(p.x + 170, p.y - 260, 260, 240))
+		ellipse(p + Vector2(290, -5), Vector2(155, 14), Color(0.12, 0.18, 0.1, 0.25))
+		grounded_sprite("depot" if station_index == 0 else "station_hut", p + Vector2(295, -8), 240)
 		if station_index == 2:
 			sprite("loading_crane", Rect2(p.x - 430, p.y - 300, 220, 280))
-			sprite("log_pile", Rect2(p.x + 430, p.y - 95, 150, 80))
+			grounded_sprite("log_pile", p + Vector2(490, -4), 80)
 		if station_index == 0:
-			sprite("fuel_pump", Rect2(p.x + 440, p.y - 165, 95, 145))
+			grounded_sprite("fuel_pump", p + Vector2(480, -5), 145)
 			if model.state.finale: sprite("final_flags", Rect2(p.x + 100, p.y - 335, 320, 130))
 		draw_line(Vector2(p.x - 420, p.y + 6), Vector2(p.x + 500, p.y + 6), Color("8f9970"), 15)
 		draw_style_box(style(PAPER, GOLD, 5), Rect2(p.x + 185, p.y - 285, 310, 48))
 		draw_string(font, Vector2(p.x + 195, p.y - 253), station.name, HORIZONTAL_ALIGNMENT_CENTER, 290, 22, INK)
+	terrain_band(track, 21 * sc, size.y, Color("564733"))
+	# The supplied soil has a grass lip and a shaded stone face. Its transparent
+	# border is accounted for so adjacent pieces form one embankment.
+	for i in range(floori(begin_s / 4), ceili(end_s / 4)):
+		var s = i * 4.0 + 2.0
+		var p = world_point(s)
+		if p.x < -350 or p.x > size.x + 350: continue
+		var width = 4 * 64 * sc * 400.0 / 371.0 + 3
+		var height = width * 220 / 400
+		draw_set_transform(p, -model.route.slope(s))
+		sprite("soil_segment", Rect2(-width * 0.5, 25 * sc - height * 36 / 220, width, height), Color(0.83, 0.86, 0.73))
+		draw_set_transform_matrix(Transform2D.IDENTITY)
+	terrain_band(track, -2 * sc, 25 * sc, Color("817a62"))
 	for i in range(floori(begin_s * 2), ceili(end_s * 2)):
 		var p = world_point(i * 0.5)
-		draw_line(p + Vector2(-9, 5), p + Vector2(11, 14), Color("64563f"), 9)
-	draw_polyline(track, Color("303e37"), 10, true)
-	draw_polyline(track, Color("b8b8a0"), 3, true)
-	var under = PackedVector2Array()
-	for p in track: under.append(p + Vector2(0, 9))
-	draw_polyline(under, Color("4b5145"), 3, true)
+		if p.x < -40 or p.x > size.x + 40: continue
+		var gravel = fposmod(sin(i * 52.31) * 41657, 1)
+		ellipse(p + Vector2(12 * sin(i * 7.2), 9 + gravel * 14) * sc, Vector2(4 + gravel * 6, 2 + gravel * 2) * sc, Color("b3ab8e"))
+		var sleeper = PackedVector2Array([p + Vector2(-14, -9) * sc, p + Vector2(9, -5) * sc, p + Vector2(17, 17) * sc, p + Vector2(-5, 15) * sc])
+		draw_colored_polygon(sleeper, Color("4d4030"))
+		draw_line(p + Vector2(-12, -8) * sc, p + Vector2(8, -4) * sc, Color("a08961"), 2 * sc, true)
+	var far_rail = PackedVector2Array()
+	var shine = PackedVector2Array()
+	for p in track:
+		far_rail.append(p + Vector2(0, -8 * sc))
+		shine.append(p + Vector2(0, -3 * sc))
+	draw_polyline(far_rail, Color("4b544f"), 5 * sc, true)
+	draw_polyline(track, Color("303b37"), 9 * sc, true)
+	draw_polyline(shine, Color("d1cfb6"), 2 * sc, true)
+
+func draw_foreground() -> void:
+	var sc = view_scale()
+	for i in range(floori((camera_s - 35) / 3), ceili((camera_s + 35) / 3)):
+		var p = world_point(i * 3.0 + sin(i * 3.7))
+		if p.x < -200 or p.x > get_viewport_rect().size.x + 200: continue
+		p.y += (58 + fposmod(sin(i * 23.7) * 1893, 35)) * sc
+		var id = ["fern", "bush", "rocks"][posmod(i, 3)]
+		var h = (32 + fposmod(sin(i * 1.9) * 5137, 28)) * sc
+		ellipse(p + Vector2(8, 0), Vector2(h * 0.65, h * 0.12), Color(0.08, 0.13, 0.07, 0.28))
+		grounded_sprite(id, p, h, Color(0.76, 0.84, 0.66))
 
 func draw_train() -> void:
 	var ids = model.body_ids()
@@ -910,11 +992,15 @@ func draw_body(id: String, s: float, controls: bool) -> void:
 	var body_scale = view_scale()
 	var body_transform = Transform2D(-model.route.slope(s), Vector2(body_scale * (model.state.direction if screen != "depot" else 1), body_scale), 0, world_point(s))
 	var body_id = "wagon_body" if id.begins_with("W") else id + "_body"
+	ellipse(Vector2(10, 9), Vector2(129, 8), Color(0.05, 0.08, 0.05, 0.23))
 	sprite(body_id, Rect2(-125, -226, 250, 210))
 	for x in [-77, 78]:
-		draw_set_transform_matrix(body_transform * Transform2D(-s * 64 / 31.0, Vector2(x, -23)))
+		draw_set_transform_matrix(body_transform * Transform2D(wheel_rotation(s, int(model.state.direction) if screen != "depot" else 1), Vector2(x, -31)))
 		sprite("rail_wheel", Rect2(-31, -31, 62, 62))
+		draw_circle(Vector2(0, -22), 2, Color("c9af73"))
 		draw_set_transform_matrix(body_transform)
+		ellipse(Vector2(x, -2), Vector2(9, 2), Color(0.04, 0.06, 0.04, 0.45))
+	if id == "handcar": draw_pump_linkage()
 	var stats = model.object_stats(id)
 	for index in range(int(stats.slots)):
 		var loc = slot_local(id, index)
@@ -935,6 +1021,35 @@ func draw_body(id: String, s: float, controls: bool) -> void:
 		draw_string(font, Vector2(2, -74), "⚡  DC", HORIZONTAL_ALIGNMENT_LEFT, 95, 18, PAPER)
 	if id.begins_with("W"):
 		draw_string(font, Vector2(-30, -48), id, HORIZONTAL_ALIGNMENT_LEFT, 80, 18, PAPER)
+
+func wheel_rotation(distance: float, facing: int) -> float:
+	# Positive rotation is clockwise in Godot. Mirrored bodies invert the local angle.
+	return distance * 64.0 / 28.0 * facing
+
+func draw_pump_linkage() -> void:
+	var pivot = Vector2(0, -177)
+	var bearing = Vector2(40, -48)
+	var normalized = clampf(sin(model.pump_angle) / sin(deg_to_rad(28)), -1, 1)
+	var phase = asin(normalized)
+	if model.pump_last_direction * model.drive_direction() < 0: phase = PI - phase
+	var attachment = pivot + Vector2(42, 0).rotated(model.pump_angle)
+	var crank_pin = bearing + Vector2(cos(phase), sin(phase)) * 20
+	draw_circle(bearing, 25, Color("242e2b"))
+	for i in range(14):
+		var a = phase + i * TAU / 14
+		var radial = Vector2(cos(a), sin(a))
+		var tangent = radial.orthogonal()
+		draw_colored_polygon(PackedVector2Array([bearing + radial * 22 - tangent * 3, bearing + radial * 29 - tangent * 2, bearing + radial * 29 + tangent * 2, bearing + radial * 22 + tangent * 3]), Color("8e805c"))
+	draw_arc(bearing, 23, 0, TAU, 32, Color("b5a275"), 3, true)
+	for i in range(8):
+		var a = phase + i * TAU / 8
+		draw_line(bearing + Vector2(cos(a), sin(a)) * 8, bearing + Vector2(cos(a), sin(a)) * 24, Color("736d54"), 4, true)
+	draw_line(attachment + Vector2(2, 1), crank_pin + Vector2(2, 1), Color("26332f"), 9, true)
+	draw_line(attachment, crank_pin, Color("b4a27a"), 6, true)
+	draw_line(attachment + Vector2(-1, 0), crank_pin + Vector2(-1, 0), Color("e0cba0"), 2, true)
+	for pin in [attachment, crank_pin, bearing]:
+		draw_circle(pin, 6, Color("34443e"))
+		draw_circle(pin, 3, GOLD)
 
 func find_slot_cargo(key: String) -> Dictionary:
 	for item in model.state.cargo:
@@ -978,7 +1093,11 @@ func draw_controls(body_transform: Transform2D) -> void:
 		# The base stays fixed; only the independent supplied SVG part rotates.
 		sprite("control_mount", Rect2(geo.pivot - Vector2(16, 20), Vector2(32, 32)))
 		draw_set_transform_matrix(body_transform * Transform2D(angle, geo.pivot))
-		sprite("control_" + id, Rect2(-pivot * factor, Vector2.ONE * 256 * factor))
+		if id == "pump":
+			var photo_scale = 102.0 / 143.0
+			sprite("pump_lever", Rect2(-Vector2(204, 49) * photo_scale, Vector2(402, 90) * photo_scale))
+		else:
+			sprite("control_" + id, Rect2(-pivot * factor, Vector2.ONE * 256 * factor))
 		draw_set_transform_matrix(body_transform)
 		draw_arc(geo.grip, 16, 0, TAU, 28, PAPER, 2, true)
 		var label = {"pump": "КАЧАЙ ↕", "brake": "%d%%" % (float(model.state.brake) * 100), "throttle": "%d%%" % (float(model.state.throttle) * 100), "gear": ["Н", "1", "2"][int(model.state.gear)], "start": "ВКЛ" if model.state.engine else "ПУСК"}[id]
@@ -1065,6 +1184,6 @@ func draw_menu_train(size: Vector2) -> void:
 		sprite("rail_wheel", Rect2(p + Vector2(x - 51, -55), Vector2(102, 102)))
 	var pivot = p + Vector2(0, -230)
 	var a = sin(time * 0.7) * 0.12
-	draw_line(pivot - Vector2(178, 0).rotated(a), pivot + Vector2(178, 0).rotated(a), INK, 20, true)
-	draw_line(pivot - Vector2(176, 0).rotated(a), pivot + Vector2(176, 0).rotated(a), GOLD, 12, true)
-	draw_circle(pivot, 13, INK)
+	draw_set_transform(pivot, a)
+	sprite("pump_lever", Rect2(-204 * 0.95, -49 * 0.95, 402 * 0.95, 90 * 0.95))
+	draw_set_transform_matrix(Transform2D.IDENTITY)

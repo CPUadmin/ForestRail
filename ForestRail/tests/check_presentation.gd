@@ -17,8 +17,7 @@ func _ready() -> void:
 	call_deferred("run")
 
 func shot(name: String) -> void:
-	await get_tree().process_frame
-	await get_tree().process_frame
+	for i in range(8): await get_tree().process_frame
 	await RenderingServer.frame_post_draw
 	var image = root.get_texture().get_image()
 	image.save_png(output_dir.path_join(name + ".png"))
@@ -33,9 +32,22 @@ func run() -> void:
 	game = load("res://main.tscn").instantiate()
 	root.add_child(game)
 	game.test_mode = true
+	game.settings.fullscreen = false
+	game.apply_settings()
 	game.saves.directory = "user://qa_visual_runtime"
 	DirAccess.make_dir_recursive_absolute(game.saves.directory)
 	game.model.new_game(42)
+	game.model.accept_mission(game.model.current_mission())
+	game.screen = "game"
+	game.camera_s = 0
+	game.camera_x = 1040
+	game.model.pump_angle = 0.23
+	game.rebuild()
+	await shot("handcar_mechanism")
+	for i in range(2): game.model.transfer(game.model.state.cargo[i].id, game.model.slots()[i].key)
+	await shot("handcar_loaded")
+	game.model.back_to_depot()
+	game.model.cancel_mission()
 	game.model.state.money = 5000
 	game.model.buy_vehicle("motorcar")
 	game.model.buy_vehicle("locomotive")

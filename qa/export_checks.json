@@ -3,28 +3,42 @@
     "suite": "check_model",
     "exit_code": 0,
     "success": true,
-    "seconds": 0.672,
+    "seconds": 0.578,
     "log": "export_check_model.log"
   },
   {
     "suite": "check_physics",
     "exit_code": 0,
     "success": true,
-    "seconds": 2.328,
+    "seconds": 1.828,
     "log": "export_check_physics.log"
   },
   {
     "suite": "check_interaction",
     "exit_code": 0,
     "success": true,
-    "seconds": 2.282,
+    "seconds": 1.234,
     "log": "export_check_interaction.log"
   },
   {
     "suite": "drive_campaign",
     "exit_code": 0,
     "success": true,
-    "seconds": 31.765,
+    "seconds": 34.344,
     "log": "export_drive_campaign.log"
+  },
+  {
+    "suite": "check_handcar_revision",
+    "exit_code": 0,
+    "success": true,
+    "seconds": 0.438,
+    "log": "export_check_handcar_revision.log"
+  },
+  {
+    "suite": "check_presentation",
+    "exit_code": 0,
+    "success": true,
+    "seconds": 10.969,
+    "log": "export_check_presentation.log"
   }
 ]

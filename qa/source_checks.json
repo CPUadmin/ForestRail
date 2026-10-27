@@ -3,21 +3,35 @@
     "suite": "check_model",
     "exit_code": 0,
     "success": true,
-    "seconds": 0.828,
+    "seconds": 0.594,
     "log": "source_check_model.log"
   },
   {
     "suite": "check_physics",
     "exit_code": 0,
     "success": true,
-    "seconds": 2.875,
+    "seconds": 4.031,
     "log": "source_check_physics.log"
   },
   {
     "suite": "check_interaction",
     "exit_code": 0,
     "success": true,
-    "seconds": 2.125,
+    "seconds": 3.516,
     "log": "source_check_interaction.log"
+  },
+  {
+    "suite": "check_handcar_revision",
+    "exit_code": 0,
+    "success": true,
+    "seconds": 0.813,
+    "log": "source_check_handcar_revision.log"
+  },
+  {
+    "suite": "drive_campaign",
+    "exit_code": 0,
+    "success": true,
+    "seconds": 72.407,
+    "log": "source_drive_campaign.log"
   }
 ]

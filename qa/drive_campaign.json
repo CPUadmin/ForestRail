@@ -5,13 +5,13 @@
 			"energy_remaining": 0.0,
 			"mission": "M01",
 			"money": 100,
-			"seconds": 232.750000000077
+			"seconds": 219.200000000067
 		},
 		{
 			"energy_remaining": 0.0,
 			"mission": "M02",
 			"money": 240,
-			"seconds": 233.716666666745
+			"seconds": 219.866666666734
 		},
 		{
 			"energy_remaining": 1.76398333333321,
@@ -80,5 +80,5 @@
 			"seconds": 476.216666666562
 		}
 	],
-	"steps": 230171
+	"steps": 228527
 }
