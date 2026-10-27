@@ -1,0 +1,22 @@
+{
+	"checks": 29,
+	"failures": [],
+	"images": [
+		"handcar_loading",
+		"handcar_driving",
+		"full_map",
+		"selected_station",
+		"arrival_unloading",
+		"petrol_low_fuel",
+		"electric_720",
+		"map_720",
+		"electric_900",
+		"map_900",
+		"electric_1080",
+		"map_1080",
+		"electric_text150_empty",
+		"map_text150",
+		"hud_720_text150",
+		"map_720_text150"
+	]
+}

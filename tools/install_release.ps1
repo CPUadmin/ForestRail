@@ -1,4 +1,4 @@
-param([string]$Version = '1.0.2')
+param([string]$Version = '1.1.0')
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path $PSScriptRoot -Parent
 $sourceExe = Join-Path $projectRoot 'release/ForestRail/ForestRail.exe'
@@ -27,12 +27,13 @@ $shortcut.Description = "Лесная колея $Version"
 $shortcut.Save()
 $smokeDir = Join-Path $projectRoot 'qa/install_smoke'
 New-Item -ItemType Directory -Path $smokeDir -Force | Out-Null
-$shot = Join-Path $projectRoot 'qa/installed_menu_102.png'
+$versionTag = $Version.Replace('.','')
+$shot = Join-Path $projectRoot "qa/installed_menu_$versionTag.png"
 $launchArgs = @('--',('--qa-dir="{0}"' -f $smokeDir),('--screenshot="{0}"' -f $shot))
 $process = Start-Process -FilePath $installedExe -ArgumentList $launchArgs -WorkingDirectory $installDir -WindowStyle Hidden -Wait -PassThru
 if ($process.ExitCode -ne 0 -or -not (Test-Path -LiteralPath $shot)) { throw 'Installed game did not finish launch check' }
 $after = Get-CareerHashes
 if (($before | ConvertTo-Json -Compress) -ne ($after | ConvertTo-Json -Compress)) { throw 'Career/settings changed during launch check' }
 $report = @{version=$Version; executable=$installedExe; sha256=$expected; shortcut=$shortcutPath; saves_unchanged=$true; save_hashes=$after}
-$report | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $projectRoot 'qa/installation_102.json') -Encoding utf8
+$report | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $projectRoot "qa/installation_$versionTag.json") -Encoding utf8
 $report | ConvertTo-Json -Depth 5

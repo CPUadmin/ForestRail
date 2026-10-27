@@ -88,9 +88,9 @@
 		}
 	],
 	"performance": {
-		"average_fps": 60.572450034459,
+		"average_fps": 60.2857342852674,
 		"frames": 180,
 		"renderer": "AMD Radeon 780M Graphics",
-		"seconds": 2.971648
+		"seconds": 2.985781
 	}
 }

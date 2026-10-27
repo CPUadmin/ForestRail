@@ -3,28 +3,28 @@
     "suite": "check_model",
     "exit_code": 0,
     "success": true,
-    "seconds": 0.765,
+    "seconds": 1.031,
     "log": "export_check_model.log"
   },
   {
     "suite": "check_physics",
     "exit_code": 0,
     "success": true,
-    "seconds": 3.735,
+    "seconds": 3.828,
     "log": "export_check_physics.log"
   },
   {
     "suite": "check_interaction",
     "exit_code": 0,
     "success": true,
-    "seconds": 3.781,
+    "seconds": 4.25,
     "log": "export_check_interaction.log"
   },
   {
     "suite": "drive_campaign",
     "exit_code": 0,
     "success": true,
-    "seconds": 60.25,
+    "seconds": 52.984,
     "log": "export_drive_campaign.log"
   },
   {
@@ -38,14 +38,21 @@
     "suite": "check_presentation",
     "exit_code": 0,
     "success": true,
-    "seconds": 17.578,
+    "seconds": 17.516,
     "log": "export_check_presentation.log"
   },
   {
     "suite": "check_art_v3",
     "exit_code": 0,
     "success": true,
-    "seconds": 1.219,
+    "seconds": 1.047,
     "log": "export_check_art_v3.log"
+  },
+  {
+    "suite": "check_instruments",
+    "exit_code": 0,
+    "success": true,
+    "seconds": 11.484,
+    "log": "export_check_instruments.log"
   }
 ]

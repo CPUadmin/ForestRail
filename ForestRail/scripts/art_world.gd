@@ -70,7 +70,7 @@ func update_view() -> void:
 	if art == null or game == null: return
 	var size = game.get_viewport_rect().size
 	var in_menu = game.screen == "menu"
-	var rail_y = size.y * 0.75 - 5 if in_menu else size.y * 0.63
+	var rail_y = size.y * 0.75 - 5 if in_menu else game.rail_baseline()
 	for name in ["far_hills", "far_forest", "mid_forest"]:
 		var height = size.y * {"far_hills": 0.25, "far_forest": 0.31, "mid_forest": 0.50}[name]
 		var baseline = rail_y - {"far_hills": 105.0, "far_forest": 48.0, "mid_forest": -4.0}[name]
@@ -104,7 +104,7 @@ func _draw() -> void:
 	if art == null: return
 	var size = game.get_viewport_rect().size
 	draw_texture_rect(art.textures["parallax/sky"], Rect2(Vector2.ZERO, size), false)
-	var rail_y = size.y * 0.75 - 5 if game.screen == "menu" else size.y * 0.63
+	var rail_y = size.y * 0.75 - 5 if game.screen == "menu" else game.rail_baseline()
 	draw_rect(Rect2(0, rail_y - 5, size.x, size.y), Color("63533b"))
 
 func draw_stations(canvas: Node2D) -> void:
@@ -132,7 +132,7 @@ func draw_foreground(canvas: Node2D) -> void:
 	var size = game.get_viewport_rect().size
 	var tex = art.textures["parallax/foreground"]
 	var height = 95 * (1.0 if game.screen == "menu" else game.view_scale())
-	var rail_y = size.y * 0.75 - 5 if game.screen == "menu" else size.y * 0.63
+	var rail_y = size.y * 0.75 - 5 if game.screen == "menu" else game.rail_baseline()
 	var width = height * tex.get_width() / tex.get_height()
 	var offset = fposmod(game.camera_s * art.PX * 1.12, width)
 	for i in range(-1, ceili(size.x / width)+2):

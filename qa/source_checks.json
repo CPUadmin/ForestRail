@@ -3,7 +3,7 @@
     "suite": "check_model",
     "exit_code": 0,
     "success": true,
-    "seconds": 1.156,
+    "seconds": 1.141,
     "log": "source_check_model.log"
   },
   {
@@ -17,7 +17,7 @@
     "suite": "check_interaction",
     "exit_code": 0,
     "success": true,
-    "seconds": 4.031,
+    "seconds": 3.484,
     "log": "source_check_interaction.log"
   },
   {
@@ -38,7 +38,7 @@
     "suite": "check_presentation",
     "exit_code": 0,
     "success": true,
-    "seconds": 19.157,
+    "seconds": 18.5,
     "log": "source_check_presentation.log"
   },
   {
@@ -47,5 +47,12 @@
     "success": true,
     "seconds": 1.234,
     "log": "source_check_art_v3.log"
+  },
+  {
+    "suite": "check_instruments",
+    "exit_code": 0,
+    "success": true,
+    "seconds": 12.453,
+    "log": "source_check_instruments.log"
   }
 ]

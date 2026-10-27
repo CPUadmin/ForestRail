@@ -17,7 +17,7 @@ results = []
 for suite in args.suite.split(','):
     script = root/'ForestRail'/'tests'/f'{suite}.gd'
     command = [str(args.engine.resolve())]
-    if suite not in ('check_interaction', 'check_presentation'):
+    if suite not in ('check_interaction', 'check_presentation', 'check_instruments'):
         command.append('--headless')
     if not args.exported:
         command += ['--path', str(root/'ForestRail')]
@@ -31,7 +31,7 @@ for suite in args.suite.split(','):
     success = process.returncode == 0 and 'SCRIPT ERROR' not in content and 'FAIL:' not in content
     # A script unavailable in an exported build must not be confused with a passed check.
     marker = {'check_model': 'MODEL CHECKS', 'check_physics': 'PHYSICS CHECKS',
-              'check_interaction': 'INTERACTION CHECKS', 'drive_campaign': 'DRIVE CAMPAIGN', 'check_handcar_revision': 'HANDCAR CHECKS', 'check_art_v3': 'ART V3 CHECKS'}
+              'check_interaction': 'INTERACTION CHECKS', 'drive_campaign': 'DRIVE CAMPAIGN', 'check_handcar_revision': 'HANDCAR CHECKS', 'check_art_v3': 'ART V3 CHECKS', 'check_instruments': 'INSTRUMENT CHECKS'}
     success &= marker.get(suite, 'PRESENTATION') in content
     result = {'suite': suite, 'exit_code': process.returncode, 'success': success,
               'seconds': round(time.monotonic()-start, 3), 'log': log.name}

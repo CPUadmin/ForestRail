@@ -5,6 +5,7 @@ const SaveGame = preload("res://scripts/save_game.gd")
 const Sound = preload("res://scripts/sound.gd")
 const ArtV3 = preload("res://scripts/art_v3.gd")
 const ArtWorld = preload("res://scripts/art_world.gd")
+const Instruments = preload("res://scripts/instruments.gd")
 const PAPER = Color("f5ecd6")
 const INK = Color("29383b")
 const GREEN = Color("466c51")
@@ -16,6 +17,8 @@ var sound
 var textures: Dictionary = {}
 var art
 var art_world
+var instruments
+var map_button: Button
 var visual_layout: Dictionary = {}
 var font: Font
 var ui: Control
@@ -69,7 +72,7 @@ func _ready() -> void:
 		for arg in qa_args:
 			if arg.begins_with("--qa-suite="):
 				var suite = arg.trim_prefix("--qa-suite=")
-				if suite not in ["check_model", "check_physics", "check_interaction", "drive_campaign", "check_presentation", "check_handcar_revision", "check_art_v3"]: get_tree().quit(2); return
+				if suite not in ["check_model", "check_physics", "check_interaction", "drive_campaign", "check_presentation", "check_handcar_revision", "check_art_v3", "check_instruments"]: get_tree().quit(2); return
 				get_tree().root.set_meta("qa_running", true)
 				set_process(false)
 				set_physics_process(false)
@@ -505,15 +508,34 @@ func fit_train_zoom() -> float:
 	return clampf(10.5 / maxf(10.5, model.train_length()), 0.75, 1.0)
 
 func build_hud(size: Vector2) -> void:
-	hud = positioned_label("", Rect2(42, 24, size.x - 220, 90), 22)
+	instruments = Instruments.new()
+	instruments.game = self
+	instruments.size = size
+	ui.add_child(instruments)
+	var mini_button = Button.new()
+	mini_button.position = instruments.mini_rect().position
+	mini_button.size = instruments.mini_rect().size
+	mini_button.flat = true
+	mini_button.tooltip_text = "Открыть карту линии [M]"
+	for state in ["normal","hover","pressed","focus"]: mini_button.add_theme_stylebox_override(state,StyleBoxEmpty.new())
+	mini_button.pressed.connect(toggle_map)
+	ui.add_child(mini_button)
+	var buttons_width = 270*float(settings.text_scale)
+	hud = positioned_label("", Rect2(42, 22, size.x - buttons_width - 110, 42), 22)
+	hud.autowrap_mode=TextServer.AUTOWRAP_OFF
+	hud.text_overrun_behavior=TextServer.OVERRUN_TRIM_ELLIPSIS
 	var pause_row = HBoxContainer.new()
-	pause_row.position = Vector2(size.x - 160, 26)
-	pause_row.size = Vector2(120, 48)
+	pause_row.position = Vector2(size.x - buttons_width - 42, 22)
+	pause_row.size = Vector2(buttons_width, 48)
+	pause_row.add_theme_constant_override("separation",10)
 	ui.add_child(pause_row)
+	map_button = add_button(pause_row, "Карта [M]", toggle_map)
 	add_button(pause_row, "Пауза", pause_game)
-	hint_label = positioned_label("", Rect2(42, 177, size.x - 84, 78), 22)
+	hint_label = positioned_label("", Rect2(42, 67, size.x - 84, 44), 18)
+	hint_label.autowrap_mode=TextServer.AUTOWRAP_OFF
+	hint_label.text_overrun_behavior=TextServer.OVERRUN_TRIM_ELLIPSIS
 	action_bar = HBoxContainer.new()
-	action_bar.position = Vector2(42, size.y - 253)
+	action_bar.position = Vector2(42, 126)
 	action_bar.size = Vector2(size.x - 84, 50)
 	action_bar.add_theme_constant_override("separation", 12)
 	ui.add_child(action_bar)
@@ -530,7 +552,7 @@ func update_hud() -> void:
 	var returning = not state.active.is_empty() and state.active.phase == "return"
 	var stop_index = model.station_index()
 	var at_station = model.station_name(model.data.stations[stop_index].id) if stop_index >= 0 else ""
-	hud.text = "%.1f км/ч    ·    %d монет    ·    %s    ·    Тяга %s\n%s  →  %s   ·   %d м" % [absf(float(state.v)) * 3.6, state.money, energy_text(), "→" if model.drive_direction() > 0 else "←", "Домой" if returning else order, model.station_name(destination), absf(target_s - float(state.s))]
+	hud.text = "%s → %s · %d м · %d монет" % ["Домой" if returning else order, model.station_name(destination), absf(target_s-float(state.s)),state.money]
 	var hint = ""
 	if state.phase == "loading":
 		hint = "Перетащи груз с площадки в подсвеченные места на машине."
@@ -561,18 +583,18 @@ func update_hud() -> void:
 				else: notify(model.message), not model.all_loaded())
 			add_button(action_bar, "Вернуться в депо", func(): model.back_to_depot(); screen = "depot"; save_game(); rebuild())
 		elif model.stopped():
-			add_button(action_bar, "← Задний ход" if state.direction > 0 else "← Вперёд", func():
+			add_button(action_bar, "Тяга ←", func():
 				if model.set_reverser(-int(state.direction)): save_game(); last_action_key = ""
 				else: notify(model.message), model.drive_direction() < 0)
-			add_button(action_bar, "Вперёд →" if state.direction > 0 else "Задний ход →", func():
+			add_button(action_bar, "Тяга →", func():
 				if model.set_reverser(int(state.direction)): save_game(); last_action_key = ""
 				else: notify(model.message), model.drive_direction() > 0)
 			if stop_index >= 0:
-				add_button(action_bar, "Развернуть состав", func():
+				add_button(action_bar, "Развернуть", func():
 					if model.turn(): save_game(); notify("Состав развёрнут"); last_action_key = ""
 					else: notify(model.message), model.can_turn() != "")
 			if stop_index == 0:
-				add_button(action_bar, "В домашнее депо", func(): model.back_to_depot(); screen = "depot"; save_game(); rebuild())
+				add_button(action_bar, "В депо", func(): model.back_to_depot(); screen = "depot"; save_game(); rebuild())
 			add_button(action_bar, "Сохранить", func(): save_game(); notify("Сохранено"))
 
 func energy_text() -> String:
@@ -597,6 +619,11 @@ func pause_game() -> void:
 	modal_kind = "pause"
 	rebuild()
 
+func toggle_map() -> void:
+	if screen != "game": return
+	if modal_kind == "map": close_modal()
+	elif modal_kind == "": show_modal("map")
+
 func show_modal(kind: String) -> void:
 	cancel_drag()
 	if screen != "menu": paused = true
@@ -614,6 +641,19 @@ func confirm(text: String, action: Callable) -> void:
 	show_modal("confirm")
 
 func build_modal(size: Vector2) -> void:
+	if modal_kind == "map":
+		var map_view = Instruments.new()
+		map_view.game = self
+		map_view.full_map = true
+		map_view.size = size
+		overlay.add_child(map_view)
+		var close_row = HBoxContainer.new()
+		var close_width = 230*float(settings.text_scale)
+		close_row.position = Vector2(size.x-close_width-50,38)
+		close_row.size = Vector2(close_width,48)
+		overlay.add_child(close_row)
+		add_button(close_row,"Закрыть [M / Esc]",close_modal)
+		return
 	var shade = ColorRect.new()
 	shade.color = Color(0.08, 0.13, 0.11, 0.76)
 	shade.size = size
@@ -682,7 +722,7 @@ func build_modal(size: Vector2) -> void:
 		add_button(box, "В главное меню", func(): screen = "menu"; close_modal())
 	else:
 		add_label(box, "Лесная колея", 36)
-		add_label(box, "Небольшая игра о работе лесной железной дороги.\nРазработка: Codex совместно с владельцем проекта, 2026.\nГрафика: предоставленный комплект ForestRail, созданный с image_gen. Звуки синтезированы для этого комплекта.\nGodot Engine 4.7.2, лицензия MIT. Полные лицензии движка и его компонентов включены в поставку.\n\nВерсия игры 1.0.1 · ТЗ 2.1 с электрическим локомотивом.", 22)
+		add_label(box, "Небольшая игра о работе лесной железной дороги.\nРазработка: Codex совместно с владельцем проекта, 2026.\nГрафика: предоставленный комплект ForestRail, созданный с image_gen. Звуки синтезированы для этого комплекта.\nGodot Engine 4.7.2, лицензия MIT. Полные лицензии движка и его компонентов включены в поставку.\n\nВерсия игры %s · ТЗ 2.1 с электрическим локомотивом." % ProjectSettings.get_setting("application/config/version"), 22)
 		add_button(box, "Назад", close_modal)
 
 func save_game() -> bool:
@@ -751,6 +791,10 @@ func _physics_process(dt: float) -> void:
 			save_game()
 
 func _input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and not event.echo and (event.physical_keycode==KEY_M or event.keycode==KEY_M) and screen=="game":
+		toggle_map()
+		get_viewport().set_input_as_handled()
+		return
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
 		if modal_kind == "": pause_game()
 		else: close_modal()
@@ -820,7 +864,7 @@ func finish_drag(mouse: Vector2) -> void:
 		for slot in slot_hits:
 			if slot.rect.has_point(mouse): target = slot.key; break
 		var size = get_viewport_rect().size
-		if Rect2(36, size.y - 182, size.x - 72, 160).has_point(mouse): target = ""
+		if dock_visible() and dock_rect().has_point(mouse): target = ""
 		if target != "invalid":
 			if model.transfer(drag_item, target): save_game()
 			else: notify(model.message)
@@ -837,7 +881,18 @@ func world_point(s: float) -> Vector2:
 	var cam = model.route.sample(camera_s)
 	var head_x = camera_x if camera_x > 0 else size.x * (0.31 if screen == "depot" else 0.65)
 	var scale_value = ArtV3.PX * view_scale()
-	return Vector2(head_x + (p.x - cam.x) * scale_value, size.y * 0.63 - (p.y - camera_y) * scale_value)
+	return Vector2(head_x + (p.x - cam.x) * scale_value, rail_baseline() - (p.y - camera_y) * scale_value)
+
+func dock_visible() -> bool:
+	return screen=="game" and (model.state.phase=="loading" or (model.station_index()>=0 and model.stopped()))
+
+func dock_rect() -> Rect2:
+	var size = get_viewport_rect().size
+	return Rect2(36,size.y-330,size.x-72,144)
+
+func rail_baseline() -> float:
+	var height = get_viewport_rect().size.y
+	return minf(height*0.63,height-350) if screen=="game" else height*0.63
 
 func view_scale() -> float:
 	if screen != "depot": return zoom_level
@@ -860,13 +915,12 @@ func _draw() -> void:
 			draw_style_box(style(Color(0.08,0.15,0.12,0.88),Color(0.5,0.57,0.39,0.45),8),Rect2(22,12,size.x-44,115))
 			draw_style_box(style(Color(0.08,0.15,0.12,0.88),Color(0.5,0.57,0.39,0.45),8),Rect2(22,151,size.x*0.46-28,195))
 		if screen == "game":
-			draw_style_box(style(Color(0.08,0.15,0.12,0.88),Color(0.5,0.57,0.39,0.45),8),Rect2(22,12,size.x-44,246))
-			draw_map(size)
-			draw_loading_dock(size)
+			draw_style_box(style(Color(0.08,0.15,0.12,0.88),Color(0.5,0.57,0.39,0.45),8),Rect2(22,12,size.x-44,101))
+			if dock_visible(): draw_loading_dock(size)
 			draw_tooltip()
 	if toast_seconds > 0 and modal_kind != "confirm":
 		var width = minf(1100, size.x - 100)
-		var rect = Rect2((size.x - width) / 2, size.y - 65, width, 44)
+		var rect = Rect2((size.x - width) / 2, 184 if screen=="game" else size.y - 65, width, 44)
 		draw_style_box(style(INK, GOLD, 8), rect)
 		draw_string(font, rect.position + Vector2(18, 29), toast, HORIZONTAL_ALIGNMENT_LEFT, width - 30, 19, PAPER)
 
@@ -1138,7 +1192,7 @@ func draw_map(size: Vector2) -> void:
 
 func draw_loading_dock(size: Vector2) -> void:
 	var station_index = model.station_index()
-	var rect = Rect2(36, size.y - 182, size.x - 72, 160)
+	var rect = dock_rect()
 	draw_style_box(style(Color(0.14, 0.21, 0.17, 0.95), Color("82916c"), 12), rect)
 	var title = "ПЛОЩАДКА · " + (model.station_name(model.data.stations[station_index].id) if station_index >= 0 else "ГРУЗ ЗАКРЕПЛЁН")
 	draw_string(font, rect.position + Vector2(20, 28), title, HORIZONTAL_ALIGNMENT_LEFT, 600, 18, PAPER)
@@ -1148,7 +1202,7 @@ func draw_loading_dock(size: Vector2) -> void:
 	for item in model.state.cargo:
 		if item.delivered or item.slot != "": continue
 		if station_index != 0: continue
-		var p = rect.position + Vector2(42 + index * 128, 73)
+		var p = rect.position + Vector2(42 + index * 128, 58)
 		if item.id != drag_item:
 			sprite(model.cargo_base(item.type).sprite, Rect2(p, Vector2(60, 65)))
 		cargo_hits.append({"id": item.id, "rect": Rect2(p - Vector2(8, 4), Vector2(96, 82))})
@@ -1159,7 +1213,7 @@ func draw_loading_dock(size: Vector2) -> void:
 			if item.id == drag_item:
 				sprite(model.cargo_base(item.type).sprite, Rect2(get_global_mouse_position() - Vector2(38, 48), Vector2(76, 80)))
 	if index == 0:
-		var text = "Площадка свободна. Груз должен оставаться на составе до нужной станции."
+		var text = "Груз закреплён. Можно отправляться."
 		if not model.state.active.is_empty() and model.state.active.phase == "return": text = "Все доставки выполнены. Дома ждут %d монет." % model.state.active.pending_reward
 		draw_string(font, rect.position + Vector2(25, 95), text, HORIZONTAL_ALIGNMENT_LEFT, rect.size.x - 50, 21, PAPER)
 

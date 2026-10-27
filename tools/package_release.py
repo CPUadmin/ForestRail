@@ -5,7 +5,7 @@ import shutil
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = '1.0.2'
+VERSION = '1.1.0'
 release = ROOT/'release'/'ForestRail'
 release.mkdir(parents=True, exist_ok=True)
 shutil.copytree(ROOT/'docs', release/'docs', dirs_exist_ok=True)
@@ -20,6 +20,8 @@ shutil.copyfile(ROOT/'README_RU.md', release/'ИНСТРУКЦИЯ.md')
     'Задний ход: остановитесь, затяните тормоз и выберите направление стрелкой.\n'
     'На ручной дрезине можно с затянутым тормозом взять хват и толкнуть его мышью влево или вправо.\n'
     'Esc — пауза и помощь депо. Колесо мыши — приблизить машину.\n'
+    'M или кнопка Карта — большая карта линии; повторное M или Esc закрывает её.\n'
+    'Внизу: спидометр, миникарта, масса, тормоз и запас топлива/заряда.\n'
     'Моторная дрезина: бензин. Электролокомотив: аккумулятор с рекуперацией.\n'
     'Заправка и зарядка бесплатны дома.\n\n'
     'Сохранения: %APPDATA%\\ForestRail\\\n'
@@ -27,7 +29,7 @@ shutil.copyfile(ROOT/'README_RU.md', release/'ИНСТРУКЦИЯ.md')
 results = release/'qa'
 results.mkdir(exist_ok=True)
 for name in ['export_checks.json', 'model_results.json', 'physics_results.json',
-             'drive_campaign.json', 'interaction_results.json', 'visual_results.json', 'handcar_revision.json', 'art_v3_results.json']:
+             'drive_campaign.json', 'interaction_results.json', 'visual_results.json', 'handcar_revision.json', 'art_v3_results.json', 'instruments_results.json']:
     source = ROOT/'qa'/name
     if source.exists(): shutil.copyfile(source, results/name)
 for log in (ROOT/'qa').glob('export_*.log'):
