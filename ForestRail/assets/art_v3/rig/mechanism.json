@@ -1,0 +1,30 @@
+{
+  "units": "pixels at 128 px/m, +Y down",
+  "origin": "midpoint between handcar wheel centres",
+  "rocker_pivot": [
+    0.0,
+    -140.8
+  ],
+  "crank_pivot": [
+    91.05253280318091,
+    0.0
+  ],
+  "rocker_pin_radius": 65.24187810614455,
+  "crank_radius": 16.0,
+  "rod_length": 143.14618365813897,
+  "lever_source_angle": -0.0010905121086089591,
+  "support_scale": 0.11744401966138722,
+  "drive_wheel": "right",
+  "gear_ratio": 1,
+  "branch": "rightmost circle intersection",
+  "axis_note": "Use axle_end at assembled wheel axis. Long axle.png is the disassembled shaft side view.",
+  "validation": {
+    "samples": 1441,
+    "max_rod_length_error_px": 5.684341886080802e-14,
+    "rocker_degrees": [
+      -14.108315364562051,
+      14.90033697842836
+    ],
+    "full_rotation_valid": true
+  }
+}

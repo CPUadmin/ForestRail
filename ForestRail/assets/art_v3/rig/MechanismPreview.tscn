@@ -1,0 +1,8 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="MechanismPreview.gd" id="1"]
+
+[node name="ArtV3MechanismPreview" type="Node2D"]
+position = Vector2(800, 620)
+scale = Vector2(2.8, 2.8)
+script = ExtResource("1")

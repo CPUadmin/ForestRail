@@ -1,0 +1,7 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="TrackStrip.gd" id="1"]
+
+[node name="ArtV3TrackPreview" type="Node2D"]
+position = Vector2(65, 420)
+script = ExtResource("1")

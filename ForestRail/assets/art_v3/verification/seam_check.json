@@ -1,0 +1,30 @@
+[
+  {
+    "asset": "terrain/soil",
+    "raw_left_right_mean_delta_0_1": 0.034681177096037775,
+    "material_boundary_epsilon": 1e-07,
+    "material_max_channel_delta": 3.228971669616554e-05,
+    "passed": true
+  },
+  {
+    "asset": "terrain/ballast",
+    "raw_left_right_mean_delta_0_1": 0.044173937517590765,
+    "material_boundary_epsilon": 1e-07,
+    "material_max_channel_delta": 4.316269830095809e-05,
+    "passed": true
+  },
+  {
+    "asset": "terrain/grass",
+    "raw_left_right_mean_delta_0_1": 0.07304932282191227,
+    "material_boundary_epsilon": 1e-07,
+    "material_max_channel_delta": 0.0001913161821394116,
+    "passed": true
+  },
+  {
+    "asset": "terrain/rail",
+    "raw_left_right_mean_delta_0_1": 0.019554488462051486,
+    "material_boundary_epsilon": 1e-07,
+    "material_max_channel_delta": 1.8068128704418207e-05,
+    "passed": true
+  }
+]

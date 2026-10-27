@@ -1,0 +1,34 @@
+{
+  "images": 28,
+  "native_engine": "Godot 4.7.2 Compatibility",
+  "texture_resources_loaded": 28,
+  "materials_loaded": 4,
+  "resource_errors": 0,
+  "full_rotation": {
+    "samples": 1441,
+    "max_rod_length_error_px": 5.684341886080802e-14,
+    "rocker_degrees": [
+      -14.108315364562051,
+      14.90033697842836
+    ],
+    "full_rotation_valid": true
+  },
+  "native_scenes": {
+    "mechanism": "passed",
+    "terrain": "passed"
+  },
+  "notes": [
+    "Raw PNG boundaries are not guaranteed seamless; use periodic materials.",
+    "Some raw alpha edges contain matte fringe; native previews use edge_clean shader.",
+    "Integration into the main game scene has not been performed."
+  ],
+  "browser": {
+    "errors": [],
+    "loadedImages": 28,
+    "errorText": "РћС€РёР±РєР° РґР»РёРЅС‹ С€Р°С‚СѓРЅР°: 5.7e-14 px",
+    "pausedButton": "Р—Р°РїСѓСЃС‚РёС‚СЊ",
+    "overflow": false,
+    "layers": 5
+  },
+  "material_seam_check": "seam_check.json"
+}

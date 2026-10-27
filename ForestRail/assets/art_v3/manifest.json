@@ -1,0 +1,826 @@
+{
+  "version": 3,
+  "style": "orthographic side / painted wood and pine-green steel",
+  "world_px_per_m": 128,
+  "assets": {
+    "mechanism/axle": {
+      "id": "mechanism/axle",
+      "label_ru": "Ось, разобранный вид",
+      "file": "mechanism/axle.png",
+      "size_px": [
+        2172,
+        724
+      ],
+      "region_px": [
+        86,
+        307,
+        2000,
+        124
+      ],
+      "mode": "RGBA",
+      "transparent_ratio": 0.87588,
+      "sha256": "c1def2bcbf7a56a6dd1129664413febb22e61814aaf82802731e67285a126059",
+      "pivot_px": [
+        1085.5,
+        368.5
+      ],
+      "pins_px": {
+        "axis": [
+          1085.5,
+          368.5
+        ]
+      },
+      "physical_width_m": 1.0,
+      "scale_at_128_px_per_m": 0.064,
+      "resource": "textures/mechanism_axle.tres"
+    },
+    "mechanism/axle_end": {
+      "id": "mechanism/axle_end",
+      "label_ru": "Торец ведущей оси",
+      "file": "mechanism/axle_end.png",
+      "size_px": [
+        1267,
+        1241
+      ],
+      "region_px": [
+        143,
+        110,
+        981,
+        989
+      ],
+      "mode": "RGBA",
+      "transparent_ratio": 0.52163,
+      "sha256": "0b687f6504333e3149b77553314e2f2e19105380989ae93c00574ccabd6480a4",
+      "pivot_px": [
+        633.0,
+        604.0
+      ],
+      "pins_px": {},
+      "physical_width_m": 0.14,
+      "scale_at_128_px_per_m": 0.018267074413863407,
+      "resource": "textures/mechanism_axle_end.tres"
+    },
+    "mechanism/connecting_rod": {
+      "id": "mechanism/connecting_rod",
+      "label_ru": "Шатун",
+      "file": "mechanism/connecting_rod.png",
+      "size_px": [
+        1983,
+        793
+      ],
+      "region_px": [
+        53,
+        266,
+        1877,
+        230
+      ],
+      "mode": "RGBA",
+      "transparent_ratio": 0.87344,
+      "sha256": "fc0f494952dc3c732150ab5f4e5fd0edba41057a381ff78109aa9985a6b7f6cf",
+      "pivot_px": [
+        165.0,
+        380.5
+      ],
+      "pins_px": {
+        "start": [
+          165.0,
+          380.5
+        ],
+        "end": [
+          1817.5,
+          380.5
+        ]
+      },
+      "physical_width_m": 1.2,
+      "scale_at_128_px_per_m": 0.08183271177410761,
+      "resource": "textures/mechanism_connecting_rod.tres"
+    },
+    "mechanism/crank": {
+      "id": "mechanism/crank",
+      "label_ru": "Кривошип",
+      "file": "mechanism/crank.png",
+      "size_px": [
+        2033,
+        773
+      ],
+      "region_px": [
+        172,
+        161,
+        1689,
+        460
+      ],
+      "mode": "RGBA",
+      "transparent_ratio": 0.73904,
+      "sha256": "988fe967f5fa171f3665cdd2b5766d506c5a3d7ec22960a4d9f63c7e64c83395",
+      "pivot_px": [
+        408.0,
+        396.5
+      ],
+      "pins_px": {
+        "start": [
+          408.0,
+          396.5
+        ],
+        "end": [
+          1731.0,
+          410.0
+        ]
+      },
+      "physical_width_m": 0.25,
+      "scale_at_128_px_per_m": 0.018946121965660152,
+      "resource": "textures/mechanism_crank.tres"
+    },
+    "mechanism/gear": {
+      "id": "mechanism/gear",
+      "label_ru": "Шестерня",
+      "file": "mechanism/gear.png",
+      "size_px": [
+        1267,
+        1241
+      ],
+      "region_px": [
+        65,
+        53,
+        1137,
+        1126
+      ],
+      "mode": "RGBA",
+      "transparent_ratio": 0.58948,
+      "sha256": "2e8605ead42758fb16c0eb37b7376e7ee06614f792b3c159b91575391e2cc627",
+      "pivot_px": [
+        633.0,
+        615.0
+      ],
+      "pins_px": {
+        "pivot": [
+          633.0,
+          615.0
+        ]
+      },
+      "physical_width_m": 0.36,
+      "scale_at_128_px_per_m": 0.04052770448548813,
+      "resource": "textures/mechanism_gear.tres"
+    },
+    "mechanism/lever": {
+      "id": "mechanism/lever",
+      "label_ru": "Качающийся рычаг",
+      "file": "mechanism/lever.png",
+      "size_px": [
+        2032,
+        774
+      ],
+      "region_px": [
+        29,
+        290,
+        1979,
+        174
+      ],
+      "mode": "RGBA",
+      "transparent_ratio": 0.87132,
+      "sha256": "4c7df45187c9f3682fadd9d1df070b6b491c9090c0e36641b9bd172f6beebcd4",
+      "pivot_px": [
+        1013.0,
+        376.0
+      ],
+      "pins_px": {
+        "pivot": [
+          1013.0,
+          376.0
+        ],
+        "link": [
+          1471.5,
+          375.5
+        ]
+      },
+      "physical_width_m": 2.2,
+      "scale_at_128_px_per_m": 0.14229408792319354,
+      "resource": "textures/mechanism_lever.tres"
+    },
+    "mechanism/support": {
+      "id": "mechanism/support",
+      "label_ru": "Неподвижная опора",
+      "file": "mechanism/support.png",
+      "size_px": [
+        1292,
+        1218
+      ],
+      "region_px": [
+        158,
+        92,
+        976,
+        1029
+      ],
+      "mode": "RGBA",
+      "transparent_ratio": 0.79728,
+      "sha256": "12ca6a39d529600b19ae6fda9588815d810dda8c440420f264fc4f37eecd24ca",
+      "pivot_px": [
+        646.0,
+        204.5
+      ],
+      "pins_px": {
+        "pivot": [
+          646.0,
+          204.5
+        ]
+      },
+      "physical_width_m": 1.0,
+      "scale_at_128_px_per_m": 0.13114754098360656,
+      "resource": "textures/mechanism_support.tres"
+    },
+    "parallax/far_forest": {
+      "id": "parallax/far_forest",
+      "label_ru": "Дальний лес",
+      "file": "parallax/far_forest.png",
+      "size_px": [
+        1672,
+        941
+      ],
+      "region_px": [
+        0,
+        524,
+        1672,
+        417
+      ],
+      "mode": "RGBA",
+      "transparent_ratio": 0.61959,
+      "sha256": "740296a7d419c3efbb77b94f98e0fefda5151fa22da45a8ec92f84e9a4341151",
+      "pivot_px": [
+        835.5,
+        940
+      ],
+      "pins_px": {},
+      "parallax_speed": 0.18,
+      "scale_policy": "camera background; no shared physical metre scale",
+      "resource": "textures/parallax_far_forest.tres"
+    },
+    "parallax/far_hills": {
+      "id": "parallax/far_hills",
+      "label_ru": "Дальние холмы",
+      "file": "parallax/far_hills.png",
+      "size_px": [
+        1672,
+        941
+      ],
+      "region_px": [
+        0,
+        553,
+        1672,
+        388
+      ],
+      "mode": "RGBA",
+      "transparent_ratio": 0.64146,
+      "sha256": "e38ae3ad1163fc82faf8094f36d99f2a44b2e1d18c8064fcf0773ba7224846f2",
+      "pivot_px": [
+        835.5,
+        940
+      ],
+      "pins_px": {},
+      "parallax_speed": 0.08,
+      "scale_policy": "camera background; no shared physical metre scale",
+      "resource": "textures/parallax_far_hills.tres"
+    },
+    "parallax/foreground": {
+      "id": "parallax/foreground",
+      "label_ru": "Ближняя растительность",
+      "file": "parallax/foreground.png",
+      "size_px": [
+        1672,
+        941
+      ],
+      "region_px": [
+        0,
+        526,
+        1672,
+        415
+      ],
+      "mode": "RGBA",
+      "transparent_ratio": 0.69932,
+      "sha256": "d2f6be8b7fe37d320a55729b3cdf287ed58dcb4734acfdec980158b43a86f68c",
+      "pivot_px": [
+        835.5,
+        940
+      ],
+      "pins_px": {},
+      "parallax_speed": 1.12,
+      "scale_policy": "camera background; no shared physical metre scale",
+      "resource": "textures/parallax_foreground.tres"
+    },
+    "parallax/mid_forest": {
+      "id": "parallax/mid_forest",
+      "label_ru": "Средний лес",
+      "file": "parallax/mid_forest.png",
+      "size_px": [
+        1672,
+        941
+      ],
+      "region_px": [
+        0,
+        122,
+        1672,
+        813
+      ],
+      "mode": "RGBA",
+      "transparent_ratio": 0.32188,
+      "sha256": "4566e318fcd96c5214c9ffa66e319df55c6719b39dda01fcc2291e489e13978c",
+      "pivot_px": [
+        835.5,
+        934
+      ],
+      "pins_px": {},
+      "parallax_speed": 0.42,
+      "scale_policy": "camera background; no shared physical metre scale",
+      "resource": "textures/parallax_mid_forest.tres"
+    },
+    "parallax/sky": {
+      "id": "parallax/sky",
+      "label_ru": "Небо",
+      "file": "parallax/sky.png",
+      "size_px": [
+        1672,
+        941
+      ],
+      "region_px": [
+        0,
+        0,
+        1672,
+        941
+      ],
+      "mode": "RGB",
+      "transparent_ratio": 0,
+      "sha256": "1605ded7535f557258be97e6bdeb56d1c8b6e6719247a31a13bd100f0fabec6f",
+      "pivot_px": [
+        835.5,
+        940
+      ],
+      "pins_px": {},
+      "parallax_speed": 0,
+      "scale_policy": "camera background; no shared physical metre scale",
+      "resource": "textures/parallax_sky.tres"
+    },
+    "stations/depot": {
+      "id": "stations/depot",
+      "label_ru": "Депо",
+      "file": "stations/depot.png",
+      "size_px": [
+        1916,
+        821
+      ],
+      "region_px": [
+        29,
+        98,
+        1858,
+        624
+      ],
+      "mode": "RGBA",
+      "transparent_ratio": 0.35951,
+      "sha256": "be49f3b7a341fd71c8d2e0428ca9e2b81a28f921fb275890aefd00e3ed0e4dd4",
+      "pivot_px": [
+        957.5,
+        721
+      ],
+      "pins_px": {},
+      "physical_width_m": 7,
+      "scale_at_128_px_per_m": 0.4822389666307858,
+      "resource": "textures/stations_depot.tres"
+    },
+    "stations/platform": {
+      "id": "stations/platform",
+      "label_ru": "Платформа",
+      "file": "stations/platform.png",
+      "size_px": [
+        2172,
+        724
+      ],
+      "region_px": [
+        33,
+        233,
+        2099,
+        292
+      ],
+      "mode": "RGBA",
+      "transparent_ratio": 0.83564,
+      "sha256": "0dbabe434c8ad597c1860bb1417366a285e66832dbc48ea7a334e6864dd2fb98",
+      "pivot_px": [
+        1082.0,
+        524
+      ],
+      "pins_px": {},
+      "physical_width_m": 7,
+      "scale_at_128_px_per_m": 0.4268699380657456,
+      "resource": "textures/stations_platform.tres"
+    },
+    "stations/sawmill_shelter": {
+      "id": "stations/sawmill_shelter",
+      "label_ru": "Навес лесопилки",
+      "file": "stations/sawmill_shelter.png",
+      "size_px": [
+        1916,
+        821
+      ],
+      "region_px": [
+        21,
+        167,
+        1873,
+        471
+      ],
+      "mode": "RGBA",
+      "transparent_ratio": 0.79088,
+      "sha256": "00fbe3de150cd6789baefd19bcd77c5e7114cfd557b7ea998fbcc0f2ae912411",
+      "pivot_px": [
+        957.0,
+        637
+      ],
+      "pins_px": {},
+      "physical_width_m": 7,
+      "scale_at_128_px_per_m": 0.4783769353977576,
+      "resource": "textures/stations_sawmill_shelter.tres"
+    },
+    "stations/station_house": {
+      "id": "stations/station_house",
+      "label_ru": "Станционный домик",
+      "file": "stations/station_house.png",
+      "size_px": [
+        1774,
+        887
+      ],
+      "region_px": [
+        61,
+        210,
+        1653,
+        459
+      ],
+      "mode": "RGBA",
+      "transparent_ratio": 0.55856,
+      "sha256": "6b03c6a7f84525039639120a97351084920dbf9bc0cd8c56dd5a9f4bd624dd60",
+      "pivot_px": [
+        887.0,
+        668
+      ],
+      "pins_px": {},
+      "physical_width_m": 5,
+      "scale_at_128_px_per_m": 0.3871748336358137,
+      "resource": "textures/stations_station_house.tres"
+    },
+    "terrain/ballast": {
+      "id": "terrain/ballast",
+      "label_ru": "Щебёночная насыпь",
+      "file": "terrain/ballast.png",
+      "size_px": [
+        1254,
+        1254
+      ],
+      "region_px": [
+        0,
+        0,
+        1254,
+        1254
+      ],
+      "mode": "RGB",
+      "transparent_ratio": 0,
+      "sha256": "f2da2c798c67bf9dfbd710c526c29bdd6fa5a8cffdcc8fa45da0d6b1aa572598",
+      "pivot_px": [
+        626.5,
+        1253
+      ],
+      "pins_px": {},
+      "physical_width_m": 2.0,
+      "scale_at_128_px_per_m": 0.20414673046251994,
+      "resource": "textures/terrain_ballast.tres"
+    },
+    "terrain/grass": {
+      "id": "terrain/grass",
+      "label_ru": "Трава",
+      "file": "terrain/grass.png",
+      "size_px": [
+        2172,
+        724
+      ],
+      "region_px": [
+        0,
+        278,
+        2172,
+        194
+      ],
+      "mode": "RGBA",
+      "transparent_ratio": 0.78682,
+      "sha256": "87ceeb904f27e4012faf74d73dd7db586ca6f4c6715da8f41ca179323d579605",
+      "pivot_px": [
+        1085.5,
+        471
+      ],
+      "pins_px": {},
+      "physical_width_m": 2.0,
+      "scale_at_128_px_per_m": 0.11786372007366483,
+      "resource": "textures/terrain_grass.tres"
+    },
+    "terrain/rail": {
+      "id": "terrain/rail",
+      "label_ru": "Рельс",
+      "file": "terrain/rail.png",
+      "size_px": [
+        2172,
+        724
+      ],
+      "region_px": [
+        0,
+        313,
+        2172,
+        147
+      ],
+      "mode": "RGBA",
+      "transparent_ratio": 0.79138,
+      "sha256": "a7ead23de1b2e48e15855d441490fb1256e0cab6e1a76a7925972cf8dde4513a",
+      "pivot_px": [
+        1085.5,
+        459
+      ],
+      "pins_px": {},
+      "physical_width_m": 2.0,
+      "scale_at_128_px_per_m": 0.11786372007366483,
+      "resource": "textures/terrain_rail.tres"
+    },
+    "terrain/sleeper": {
+      "id": "terrain/sleeper",
+      "label_ru": "Шпала",
+      "file": "terrain/sleeper.png",
+      "size_px": [
+        2033,
+        773
+      ],
+      "region_px": [
+        26,
+        274,
+        1982,
+        236
+      ],
+      "mode": "RGBA",
+      "transparent_ratio": 0.7373,
+      "sha256": "17940a4816a3e4b6161a7120dd1d0d776b619eeb26d5265c8d6fdaba7951b595",
+      "pivot_px": [
+        1016.5,
+        509
+      ],
+      "pins_px": {},
+      "physical_width_m": 0.72,
+      "scale_at_128_px_per_m": 0.046498486377396564,
+      "resource": "textures/terrain_sleeper.tres"
+    },
+    "terrain/soil": {
+      "id": "terrain/soil",
+      "label_ru": "Грунт",
+      "file": "terrain/soil.png",
+      "size_px": [
+        1254,
+        1254
+      ],
+      "region_px": [
+        0,
+        0,
+        1254,
+        1254
+      ],
+      "mode": "RGB",
+      "transparent_ratio": 0,
+      "sha256": "10bf711d54cb20bf71c9e0057215944a83e522531a84351a34c727ac8f6890a6",
+      "pivot_px": [
+        626.5,
+        1253
+      ],
+      "pins_px": {},
+      "physical_width_m": 2.0,
+      "scale_at_128_px_per_m": 0.20414673046251994,
+      "resource": "textures/terrain_soil.tres"
+    },
+    "vehicles/battery_locomotive_body": {
+      "id": "vehicles/battery_locomotive_body",
+      "label_ru": "Кузов аккумуляторного локомотива",
+      "file": "vehicles/battery_locomotive_body.png",
+      "size_px": [
+        2035,
+        773
+      ],
+      "region_px": [
+        10,
+        51,
+        2015,
+        658
+      ],
+      "mode": "RGBA",
+      "transparent_ratio": 0.58179,
+      "sha256": "d8e22fe0279ba817c8d3f71139a9b29040b792a10aa6d3035fd45a414c866559",
+      "pivot_px": [
+        1015.465,
+        642.8625
+      ],
+      "pins_px": {},
+      "wheel_centres_px": [
+        [
+          565.73,
+          642.8625
+        ],
+        [
+          1465.2,
+          642.8625
+        ]
+      ],
+      "anchor_status": "Bearing centres visually aligned; inspect vehicle preview before integration.",
+      "physical_width_m": 4.0,
+      "scale_at_128_px_per_m": 0.2540942928039702,
+      "resource": "textures/vehicles_battery_locomotive_body.tres"
+    },
+    "vehicles/coupler": {
+      "id": "vehicles/coupler",
+      "label_ru": "Сцепка",
+      "file": "vehicles/coupler.png",
+      "size_px": [
+        2033,
+        773
+      ],
+      "region_px": [
+        112,
+        199,
+        1816,
+        342
+      ],
+      "mode": "RGBA",
+      "transparent_ratio": 0.7563,
+      "sha256": "1c7b32e07c6167d265186147340d91532a82433523f43a4cfd9989dc07928c69",
+      "pivot_px": [
+        1019.5,
+        540
+      ],
+      "pins_px": {},
+      "physical_width_m": 0.36,
+      "scale_at_128_px_per_m": 0.025374449339207048,
+      "resource": "textures/vehicles_coupler.tres"
+    },
+    "vehicles/freight_wagon_body": {
+      "id": "vehicles/freight_wagon_body",
+      "label_ru": "Грузовой вагон",
+      "file": "vehicles/freight_wagon_body.png",
+      "size_px": [
+        2034,
+        773
+      ],
+      "region_px": [
+        11,
+        246,
+        2011,
+        279
+      ],
+      "mode": "RGBA",
+      "transparent_ratio": 0.71313,
+      "sha256": "35a3a37906d0fe7f78378fb8609af7c538079bcf73686fbb7f3a85c620579773",
+      "pivot_px": [
+        1013.9490000000001,
+        458.895
+      ],
+      "pins_px": {},
+      "wheel_centres_px": [
+        [
+          567.4860000000001,
+          458.895
+        ],
+        [
+          1460.412,
+          458.895
+        ]
+      ],
+      "anchor_status": "Bearing centres visually aligned; inspect vehicle preview before integration.",
+      "physical_width_m": 2.8,
+      "scale_at_128_px_per_m": 0.17821979114868225,
+      "resource": "textures/vehicles_freight_wagon_body.tres"
+    },
+    "vehicles/handcar_body": {
+      "id": "vehicles/handcar_body",
+      "label_ru": "Кузов ручной дрезины",
+      "file": "vehicles/handcar_body.png",
+      "size_px": [
+        2033,
+        773
+      ],
+      "region_px": [
+        11,
+        274,
+        2012,
+        237
+      ],
+      "mode": "RGBA",
+      "transparent_ratio": 0.75769,
+      "sha256": "f9e4214570ace411ea8ea1771a9fd3299fe63e678dd7e3d6838a01ff92dff04b",
+      "pivot_px": [
+        1016.5,
+        445.5
+      ],
+      "pins_px": {},
+      "wheel_centres_px": [
+        [
+          569.24,
+          445.5
+        ],
+        [
+          1463.76,
+          445.5
+        ]
+      ],
+      "anchor_status": "Bearing centres visually aligned; inspect vehicle preview before integration.",
+      "physical_width_m": 3.2,
+      "scale_at_128_px_per_m": 0.20357852882703778,
+      "resource": "textures/vehicles_handcar_body.tres"
+    },
+    "vehicles/petrol_motorcar_body": {
+      "id": "vehicles/petrol_motorcar_body",
+      "label_ru": "Кузов бензиновой дрезины",
+      "file": "vehicles/petrol_motorcar_body.png",
+      "size_px": [
+        2035,
+        773
+      ],
+      "region_px": [
+        5,
+        116,
+        2025,
+        465
+      ],
+      "mode": "RGBA",
+      "transparent_ratio": 0.69381,
+      "sha256": "6502db0017b3d1476d668d58ae9476654835b75bb7530ec9ae8d93e9985009f5",
+      "pivot_px": [
+        1008.3425,
+        514.8625
+      ],
+      "pins_px": {},
+      "wheel_centres_px": [
+        [
+          563.695,
+          514.8625
+        ],
+        [
+          1452.99,
+          514.8625
+        ]
+      ],
+      "anchor_status": "Bearing centres visually aligned; inspect vehicle preview before integration.",
+      "physical_width_m": 3.2,
+      "scale_at_128_px_per_m": 0.20227160493827162,
+      "resource": "textures/vehicles_petrol_motorcar_body.tres"
+    },
+    "vehicles/wheel_large": {
+      "id": "vehicles/wheel_large",
+      "label_ru": "Колесо локомотива",
+      "file": "vehicles/wheel_large.png",
+      "size_px": [
+        1278,
+        1230
+      ],
+      "region_px": [
+        88,
+        47,
+        1098,
+        1111
+      ],
+      "mode": "RGBA",
+      "transparent_ratio": 0.56826,
+      "sha256": "f7dc4e10fb20152475bd9c5dc51fd7700732d4164ef834cc93695a0199f09918",
+      "pivot_px": [
+        636.5,
+        602.0
+      ],
+      "pins_px": {},
+      "physical_width_m": 0.55,
+      "scale_at_128_px_per_m": 0.06411657559198543,
+      "resource": "textures/vehicles_wheel_large.tres"
+    },
+    "vehicles/wheel_small": {
+      "id": "vehicles/wheel_small",
+      "label_ru": "Колесо дрезины и вагона",
+      "file": "vehicles/wheel_small.png",
+      "size_px": [
+        1299,
+        1211
+      ],
+      "region_px": [
+        93,
+        42,
+        1110,
+        1119
+      ],
+      "mode": "RGBA",
+      "transparent_ratio": 0.5521,
+      "sha256": "67f035f75e408fa9c812622757d8adfb32c78f8207d621c254199865674fb275",
+      "pivot_px": [
+        647.5,
+        601.0
+      ],
+      "pins_px": {},
+      "physical_width_m": 0.42,
+      "scale_at_128_px_per_m": 0.04843243243243243,
+      "resource": "textures/vehicles_wheel_small.tres"
+    }
+  },
+  "raw_png_seamless_guarantee": false,
+  "terrain_seamless": "Use materials/*.tres; periodic four-sample blending. Use arclength UVs on slopes.",
+  "edge_cleanup": "Optional materials/edge_clean.gdshader suppresses saturated matte fringe without modifying source PNG.",
+  "generator": "built-in image_gen",
+  "rig": "rig/mechanism.json"
+}

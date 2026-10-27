@@ -1,0 +1,8 @@
+[gd_resource type="AtlasTexture" load_steps=2 format=3]
+
+[ext_resource type="Texture2D" path="../vehicles/freight_wagon_body.png" id="1"]
+
+[resource]
+atlas = ExtResource("1")
+region = Rect2(11, 246, 2011, 279)
+filter_clip = true
