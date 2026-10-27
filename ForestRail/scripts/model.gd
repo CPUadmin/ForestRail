@@ -86,7 +86,7 @@ func object_stats(id: String) -> Dictionary:
 		"cycle_work": 120.0 * float(ef.get("work_multiplier", 1.0)),
 		"tank": float(base.get("fuel_l", 0)) * float(ef.get("fuel_capacity_multiplier", 1.0))}
 	if id == "locomotive":
-		result.tank = 6.0 * float(ef.get("fuel_capacity_multiplier", 1.0))
+		result.tank = 0.6 * float(ef.get("fuel_capacity_multiplier", 1.0))
 	if not wagon and id != "handcar":
 		result.traction = [float(base.traction_n[0]) * float(ef.get("traction_multiplier", 1)) * float(ef.get("low_gear_multiplier", 1)),
 			float(base.traction_n[1]) * float(ef.get("traction_multiplier", 1))]
@@ -147,7 +147,7 @@ func buy_vehicle(id: String) -> bool:
 	if int(state.money) < int(base.cost):
 		return fail("Не хватает %d монет" % (int(base.cost) - int(state.money)))
 	state.money -= int(base.cost)
-	state.fleet_by_id[id] = {"levels": {}, "fuel": 6.0 if id == "locomotive" else float(base.fuel_l), "consist": []}
+	state.fleet_by_id[id] = {"levels": {}, "fuel": 0.6 if id == "locomotive" else float(base.fuel_l), "consist": []}
 	var wagon_id = "W01" if id == "motorcar" else "W02"
 	state.wagons_by_id[wagon_id] = {"levels": {}}
 	select_vehicle(id)
@@ -248,8 +248,14 @@ func mission_error(mission: Dictionary) -> String:
 	var count = mission_count(mission)
 	if capacity() < count:
 		return "Нужно %d мест: сейчас %d" % [count, capacity()]
-	if vehicle_id() != "handcar" and float(state.fleet_by_id[vehicle_id()].fuel) < 0.2:
-		return "Заправь машину в депо"
+	if vehicle_id() != "handcar":
+		var distance = 0.0
+		for stop in mission.dropoffs:
+			for i in range(data.stations.size()):
+				if data.stations[i].id == stop.station: distance = maxf(distance, float(route.station_s[i]) * 2)
+		var estimated = distance * (0.00045 if vehicle_id() == "motorcar" else 0.00009)
+		if float(state.fleet_by_id[vehicle_id()].fuel) < estimated:
+			return "Запас мал: нужно примерно %.2f %s. Пополни его в депо" % [estimated, "л" if vehicle_id() == "motorcar" else "кВт·ч"]
 	return ""
 
 func free_offers() -> Array:
@@ -259,9 +265,14 @@ func free_offers() -> Array:
 	for i in range(3):
 		var destination = 1 + ((i + int(state.offer_serial)) % max_station)
 		var cargo_type = types[(i + int(state.offer_serial)) % 3]
+		if vehicle_id() == "handcar" and cargo_type == "logs": cargo_type = "sack"
 		var count = mini(capacity(), 2 + i)
 		var dropoffs: Array = []
-		if i == 2 and destination > 1 and count >= 2:
+		if i == 2 and destination >= 3 and count >= 3:
+			dropoffs.append({"station": data.stations[destination - 2].id, "cargo": [[cargo_type, 1]]})
+			dropoffs.append({"station": data.stations[destination - 1].id, "cargo": [[cargo_type, 1]]})
+			dropoffs.append({"station": data.stations[destination].id, "cargo": [[cargo_type, count - 2]]})
+		elif i == 2 and destination > 1 and count >= 2:
 			dropoffs.append({"station": data.stations[destination - 1].id, "cargo": [[cargo_type, 1]]})
 			count -= 1
 			dropoffs.append({"station": data.stations[destination].id, "cargo": [[cargo_type, count]]})
@@ -274,6 +285,10 @@ func free_offers() -> Array:
 func accept_mission(mission: Dictionary) -> bool:
 	if not depot_editable():
 		return fail("Сначала закончи или отмени активный рейс")
+	if mission.get("id", "") in state.paid_ids:
+		return fail("Этот рейс уже оплачен")
+	if not mission.get("free", false) and mission.get("id", "") != current_mission().get("id", ""):
+		return fail("Основные рейсы открываются последовательно")
 	var problem = mission_error(mission)
 	if problem != "":
 		return fail(problem)
@@ -524,6 +539,7 @@ func physics_step(dt: float) -> void:
 		drive = float(state.direction) * minf(220, work / dt / maxf(absf(float(state.v)), 0.8)) * taper
 	else:
 		var fleet = state.fleet_by_id[vehicle_id()]
+		if fleet.fuel <= 0: state.engine = false
 		if state.engine and fleet.fuel > 0:
 			if vehicle_id() == "motorcar":
 				fleet.fuel = maxf(0, float(fleet.fuel) - (0.0003 + 0.002 * float(state.throttle)) * dt)

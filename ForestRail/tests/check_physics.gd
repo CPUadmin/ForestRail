@@ -1,4 +1,12 @@
-extends SceneTree
+extends Node
+
+var root: Window:
+	get: return get_tree().root
+
+func quit(code: int = 0) -> void:
+	get_tree().quit(code)
+
+
 
 const Model = preload("res://scripts/model.gd")
 var checks = 0
@@ -8,7 +16,7 @@ func check(value: bool, text: String) -> void:
 	checks += 1
 	if not value: failures.append(text); print("FAIL: ", text)
 
-func _initialize() -> void:
+func _ready() -> void:
 	call_deferred("run")
 
 func setup(id: String, seed_value: int = 42):
@@ -41,6 +49,33 @@ func pump_at_fps(fps: int) -> Dictionary:
 	return {"distance": distance, "braking": absf(float(m.state.s) - before)}
 
 func run() -> void:
+	var light = setup("motorcar")
+	var heavy = setup("motorcar")
+	light.state.cargo = []
+	for m in [light, heavy]:
+		m.state.engine = true
+		m.state.gear = 1
+		m.state.throttle = 1
+		m.state.brake = 0
+		for i in range(120): m.physics_step(1.0 / 60)
+	check(light.state.v > heavy.state.v, "cargo mass reduces acceleration under identical input")
+	var stopping: Array = []
+	for m in [light, heavy]:
+		m.state.s = 0
+		m.state.v = 3.0
+		m.state.engine = false
+		m.state.throttle = 0
+		m.state.brake = 1
+		for i in range(300): m.physics_step(1.0 / 60)
+		stopping.append(m.state.s)
+	check(stopping[1] > stopping[0], "cargo increases stopping distance")
+	var empty = setup("motorcar")
+	empty.state.fleet_by_id.motorcar.fuel = 0
+	empty.state.engine = true
+	empty.state.v = 2.0
+	empty.state.brake = 0
+	empty.physics_step(1.0 / 60)
+	check(not empty.state.engine and empty.state.v > 0, "empty petrol tank stops engine but permits coasting")
 	var fps30 = pump_at_fps(30)
 	var fps60 = pump_at_fps(60)
 	check(absf(fps30.distance - fps60.distance) / fps60.distance <= 0.05, "30/60 FPS travel within 5%")
@@ -86,6 +121,9 @@ func run() -> void:
 	m.state.brake = 1
 	for i in range(600): m.physics_step(1.0 / 60)
 	check(m.state.v == 0, "maximum 12-slot train holds on six percent")
+	m.state.direction = -1
+	for i in range(600): m.physics_step(1.0 / 60)
+	check(m.state.v == 0, "maximum 12-slot train holds reversed on six percent")
 	# Invalid semantic saves must be rejected before any live state is replaced.
 	var saved = m.serialize()
 	for corruption in ["points", "fuel", "cargo", "stats", "wagons"]:

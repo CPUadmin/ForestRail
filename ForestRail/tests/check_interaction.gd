@@ -1,10 +1,18 @@
-extends SceneTree
+extends Node
+
+var root: Window:
+	get: return get_tree().root
+
+func quit(code: int = 0) -> void:
+	get_tree().quit(code)
+
+
 
 var game
 var checks = 0
 var failures: Array = []
 
-func _initialize() -> void:
+func _ready() -> void:
 	call_deferred("run")
 
 func check(condition: bool, text: String) -> void:
@@ -45,7 +53,7 @@ func run() -> void:
 	game.camera_s = 0
 	game.camera_x = 1040
 	game.rebuild()
-	await process_frame
+	await get_tree().process_frame
 	await RenderingServer.frame_post_draw
 	check(game.cargo_hits.size() == 2 and game.slot_hits.size() == 2, "visible cargo and slot regions")
 	var source = game.cargo_hits[0].rect.get_center()
@@ -57,7 +65,7 @@ func run() -> void:
 	press(source)
 	release(target)
 	check(game.model.state.cargo[0].slot == "handcar:0", "drag-drop uses release event coordinates")
-	await process_frame
+	await get_tree().process_frame
 	await RenderingServer.frame_post_draw
 	for hit in game.cargo_hits:
 		if hit.id == "M01_1": source = hit.rect.get_center()
@@ -69,7 +77,7 @@ func run() -> void:
 	check(game.model.all_loaded(), "both sacks secured")
 	game.model.depart()
 	game.rebuild()
-	await process_frame
+	await get_tree().process_frame
 	await RenderingServer.frame_post_draw
 	var brake_grip = Vector2.ZERO
 	var pump_grip = Vector2.ZERO
@@ -128,12 +136,35 @@ func run() -> void:
 	game.sound.update(game.model, true, false, 0.1)
 	check(not game.sound.engine.playing, "engine stops on pause")
 	check(game.sound.voices.size() == 6, "bounded audio voices")
+	game.settings_path = "user://qa_interaction/settings.json"
+	var original = game.settings.duplicate(true)
+	game.settings.master = 0.3
+	game.settings.mechanisms = 0.4
+	game.settings.forest = 0.2
+	game.settings.music = 0.1
+	game.settings.sensitivity = 0.75
+	game.settings.text_scale = 1.25
+	game.save_settings()
+	game.settings.text_scale = 1.0
+	game.settings.sensitivity = 1.0
+	game.load_settings()
+	check(game.settings.text_scale == 1.25 and game.settings.sensitivity == 0.75 and game.settings.master == 0.3 and game.settings.forest == 0.2, "settings round trip in isolated file")
+	game.settings.fullscreen = true
+	game.apply_settings()
+	await get_tree().process_frame
+	check(DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_FULLSCREEN, "fullscreen mode applies")
+	game.settings.fullscreen = false
+	game.apply_settings()
+	await get_tree().process_frame
+	check(DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_WINDOWED, "windowed mode restores")
+	for key in original: game.settings[key] = original[key]
+	game.apply_settings()
 	var report = {"checks": checks, "failures": failures}
 	var file = FileAccess.open("user://qa_interaction/results.json", FileAccess.WRITE)
 	file.store_string(JSON.stringify(report, "\t"))
 	file.close()
 	print("INTERACTION CHECKS ", checks, "; FAILURES ", failures)
 	game.queue_free()
-	await process_frame
-	await process_frame
+	await get_tree().process_frame
+	await get_tree().process_frame
 	quit(0 if failures.is_empty() else 1)

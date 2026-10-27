@@ -1,0 +1,81 @@
+{
+	"failures": [],
+	"frames": [
+		{
+			"height": 720,
+			"name": "menu_720",
+			"width": 1280
+		},
+		{
+			"height": 720,
+			"name": "depot_720",
+			"width": 1280
+		},
+		{
+			"height": 720,
+			"name": "loading_720",
+			"width": 1280
+		},
+		{
+			"height": 900,
+			"name": "menu_900",
+			"width": 1600
+		},
+		{
+			"height": 900,
+			"name": "depot_900",
+			"width": 1600
+		},
+		{
+			"height": 900,
+			"name": "loading_900",
+			"width": 1600
+		},
+		{
+			"height": 1080,
+			"name": "menu_1080",
+			"width": 1920
+		},
+		{
+			"height": 1080,
+			"name": "depot_1080",
+			"width": 1920
+		},
+		{
+			"height": 1080,
+			"name": "loading_1080",
+			"width": 1920
+		},
+		{
+			"height": 1080,
+			"name": "menu_text150",
+			"width": 1920
+		},
+		{
+			"height": 1080,
+			"name": "upgrades_text150",
+			"width": 1920
+		},
+		{
+			"height": 1080,
+			"name": "settings_text150",
+			"width": 1920
+		},
+		{
+			"height": 1080,
+			"name": "finale",
+			"width": 1920
+		},
+		{
+			"height": 1080,
+			"name": "electric_1080",
+			"width": 1920
+		}
+	],
+	"performance": {
+		"average_fps": 60.3873445571041,
+		"frames": 180,
+		"renderer": "AMD Radeon 780M Graphics",
+		"seconds": 2.980757
+	}
+}

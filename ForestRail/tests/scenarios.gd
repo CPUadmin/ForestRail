@@ -1,10 +1,19 @@
-extends SceneTree
+extends Node
+
+var root: Window:
+	get: return get_tree().root
+
+func quit(code: int = 0) -> void:
+	get_tree().quit(code)
+
+
 
 const Model = preload("res://scripts/model.gd")
 const SaveGame = preload("res://scripts/save_game.gd")
 
-func _initialize() -> void:
+func _ready() -> void:
 	var args = OS.get_cmdline_user_args()
+	args = Array(args).filter(func(arg): return not arg.begins_with("--"))
 	var destination = args[0] if not args.is_empty() else "user://qa_scenario"
 	var scenario = args[1] if args.size() > 1 else "loading"
 	var m = Model.new()

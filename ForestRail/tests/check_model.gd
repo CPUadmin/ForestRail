@@ -1,4 +1,12 @@
-extends SceneTree
+extends Node
+
+var root: Window:
+	get: return get_tree().root
+
+func quit(code: int = 0) -> void:
+	get_tree().quit(code)
+
+
 
 const Model = preload("res://scripts/model.gd")
 const SaveGame = preload("res://scripts/save_game.gd")
@@ -11,7 +19,7 @@ func check(condition: bool, description: String) -> void:
 		failures.append(description)
 		print("FAIL: ", description)
 
-func _initialize() -> void:
+func _ready() -> void:
 	call_deferred("run")
 
 func run() -> void:
@@ -26,6 +34,12 @@ func run() -> void:
 	check(m.transfer(m.state.cargo[1].id, slots[1].key), "load second sack")
 	check(m.train_mass() == 250, "cargo changes physical mass")
 	check(m.depart(), "depart with all cargo")
+	m.state.v = 1.0
+	check(not m.transfer(m.state.cargo[0].id, ""), "cargo cannot move while train moves")
+	m.state.v = 0.0
+	m.state.s = m.route.station_s[2]
+	check(not m.transfer(m.state.cargo[0].id, ""), "wrong station cannot receive cargo")
+	m.state.s = 0.0
 	m.state.brake = 0.0
 	for frame in range(120): m.physics_step(1.0 / 60)
 	check(absf(m.state.v) < 0.001, "idle lever produces no drive")
@@ -75,6 +89,11 @@ func run() -> void:
 		check(m.settle(), "finish " + str(mission.id))
 	check(m.state.chapter == 10 and m.state.finale and m.state.money == 1360, "career economy and finale")
 	check(m.state.fleet_by_id.size() == 3 and m.state.wagons_by_id.size() == 3, "garage retains fleet")
+	var final_restore = Model.new()
+	check(final_restore.restore(m.serialize()) and final_restore.state.finale and final_restore.state.chapter == 10, "save and restore after finale")
+	check(m.upgrade("handcar", "handcar_lever"), "upgrade retained old vehicle")
+	check(m.select_vehicle("handcar") and is_equal_approx(m.object_stats("handcar").power, 207.0), "old handcar retains its own upgrades")
+	check(m.select_vehicle("locomotive") and m.state.consist_ids.size() == 3, "vehicle consist configuration retained")
 	check(m.upgrade("W01", "wagon_suspension"), "individual wagon upgrade")
 	check(m.object_stats("W01").shock == 0.75 and m.object_stats("W02").shock == 1.0, "W01 upgrade leaves W02 stock")
 	check(m.upgrade("W01", "wagon_suspension"), "second upgrade")
@@ -116,6 +135,7 @@ func run() -> void:
 	m.state.money = 5000
 	m.buy_vehicle("motorcar")
 	m.buy_vehicle("locomotive")
+	m.state.chapter = 6
 	m.accept_mission(m.data.missions[6])
 	for i in range(m.state.cargo.size()): m.transfer(m.state.cargo[i].id, m.slots()[i].key)
 	m.depart()
@@ -158,6 +178,7 @@ func run() -> void:
 	check(not storage.read_valid("save_v2.backup.json").is_empty(), "backup remains available")
 	check(storage.write(m), "save in memory after corrupt primary")
 	check(int(storage.read_valid("save_v2.backup.json").money) == backup_money, "corrupt primary cannot overwrite good backup")
+	worst_economy()
 	var report = {"checks": checks, "failures": failures, "engine": Engine.get_version_info().string}
 	var out = FileAccess.open("user://qa_model/results.json", FileAccess.WRITE)
 	out.store_string(JSON.stringify(report, "\t"))
@@ -169,3 +190,27 @@ func station_index(m, id: String) -> int:
 	for i in range(m.data.stations.size()):
 		if m.data.stations[i].id == id: return i
 	return 0
+
+func worst_economy() -> void:
+	var m = Model.new()
+	m.new_game(42)
+	for chapter in range(10):
+		if chapter == 2: check(m.buy_vehicle("motorcar"), "motorcar affordable with maximum fragile penalty")
+		if chapter == 6: check(m.buy_vehicle("locomotive"), "locomotive affordable with maximum fragile penalty")
+		if chapter == 9: check(m.buy_wagon(), "W03 affordable with maximum fragile penalty")
+		m.refuel()
+		var mission = m.current_mission()
+		check(m.accept_mission(mission), "accept maximum-penalty career " + str(mission.id))
+		for i in range(m.state.cargo.size()):
+			m.transfer(m.state.cargo[i].id, m.slots()[i].key)
+			if m.state.cargo[i].type == "fragile": m.state.cargo[i].health = 0.0
+		m.depart()
+		for stop in mission.dropoffs:
+			m.state.s = m.route.station_s[station_index(m, stop.station)]
+			m.state.v = 0
+			m.state.brake = 1
+			for item in m.state.cargo.duplicate(true):
+				if item.destination == stop.station: m.transfer(item.id, "")
+		m.state.s = 0
+		m.settle()
+	check(m.state.finale and m.state.money == 1234, "worst fragile penalty matches specified 1234 balance")

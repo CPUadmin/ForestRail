@@ -49,9 +49,28 @@ var time = 0.0
 var test_mode = false
 var smoke_frames = -1
 var screenshot_path = ""
+var settings_path = "user://settings.json"
 
 func _ready() -> void:
 	font = ThemeDB.fallback_font
+	var edge_shader = Shader.new()
+	edge_shader.code = "shader_type canvas_item; void fragment() { vec4 t = texture(TEXTURE, UV); if(t.r > 0.8 && t.g < 0.19 && t.b < 0.2) { COLOR.a = 0.0; } }"
+	var edge_material = ShaderMaterial.new()
+	edge_material.shader = edge_shader
+	material = edge_material
+	var qa_args = OS.get_cmdline_user_args()
+	if not get_tree().root.has_meta("qa_running"):
+		for arg in qa_args:
+			if arg.begins_with("--qa-suite="):
+				var suite = arg.trim_prefix("--qa-suite=")
+				if suite not in ["check_model", "check_physics", "check_interaction", "drive_campaign", "check_presentation"]: get_tree().quit(2); return
+				get_tree().root.set_meta("qa_running", true)
+				set_process(false)
+				set_physics_process(false)
+				set_process_input(false)
+				set_process_unhandled_input(false)
+				get_tree().root.add_child.call_deferred(load("res://tests/" + suite + ".gd").new())
+				return
 	get_tree().auto_accept_quit = false
 	load_textures()
 	load_settings()
@@ -104,8 +123,8 @@ func load_textures() -> void:
 		textures[name] = load("res://assets/ui/" + name + ".svg")
 
 func load_settings() -> void:
-	if FileAccess.file_exists("user://settings.json"):
-		var saved = JSON.parse_string(FileAccess.get_file_as_string("user://settings.json"))
+	if FileAccess.file_exists(settings_path):
+		var saved = JSON.parse_string(FileAccess.get_file_as_string(settings_path))
 		if saved is Dictionary:
 			for key in settings:
 				if saved.has(key):
@@ -119,7 +138,7 @@ func apply_settings() -> void:
 	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN if settings.fullscreen else DisplayServer.WINDOW_MODE_WINDOWED)
 
 func save_settings() -> void:
-	var file = FileAccess.open("user://settings.json", FileAccess.WRITE)
+	var file = FileAccess.open(settings_path, FileAccess.WRITE)
 	if file:
 		file.store_string(JSON.stringify(settings))
 	apply_settings()
@@ -223,6 +242,10 @@ func rebuild() -> void:
 	clear_children(overlay)
 	setup_theme()
 	var size = get_viewport_rect().size
+	if screen == "depot":
+		camera_s = 0.0
+		camera_y = 0.0
+		camera_x = size.x * 0.31 if model.state.consist_ids.is_empty() else size.x * 0.46 - 136
 	ui.size = size
 	overlay.size = size
 	if screen == "menu":
@@ -325,7 +348,7 @@ func build_depot(size: Vector2) -> void:
 			var base = model.vehicle_base(id)
 			var label = str(base.name) if id != "locomotive" else "Электролокомотив"
 			add_label(right, label, 24)
-			add_label(right, {"handcar": "Ручной рычаг · без топлива · до 4 мест", "motorcar": "Бензиновый двигатель · бак 2 л · один вагон", "locomotive": "Электротяга · батарея 6 кВт·ч · до трёх вагонов"}[id], 18)
+			add_label(right, {"handcar": "Ручной рычаг · без топлива · до 4 мест", "motorcar": "Бензиновый двигатель · бак 2 л · один вагон", "locomotive": "Электротяга · батарея 0,6 кВт·ч · до трёх вагонов"}[id], 18)
 			if owned:
 				add_button(right, "Выбрана" if model.vehicle_id() == id else "Выбрать", func():
 					if model.select_vehicle(id):
@@ -362,9 +385,9 @@ func build_depot(size: Vector2) -> void:
 	var stats = model.object_stats(model.vehicle_id())
 	var details = "%d кг  ·  %d мест  ·  тормоз %d Н" % [model.train_mass(), model.capacity(), stats.brake]
 	if model.vehicle_id() == "handcar":
-		details += "\nРычажный привод: %d Вт · %.0f Дж/цикл" % [stats.power, stats.cycle_work]
+		details += "\nРычажный привод: %d Вт · %.0f Дж/цикл\nКоэффициент качения: %.4f" % [stats.power, stats.cycle_work, stats.rolling]
 	else:
-		details += "\nТяга: %d / %d Н · " % [stats.traction[0], stats.traction[1]] + energy_text()
+		details += "\nТяга: %d / %d Н · скорость %.1f / %.1f м/с\n" % [stats.traction[0], stats.traction[1], stats.speeds[0], stats.speeds[1]] + energy_text()
 	positioned_label(details, Rect2(46, 239, left_width - 20, 105), 19)
 	var service = HBoxContainer.new()
 	service.position = Vector2(44, size.y - 150)
@@ -387,6 +410,8 @@ func build_upgrades(right: VBoxContainer) -> void:
 	var before = model.object_stats(selected_object)
 	add_label(right, "Выбран: " + (selected_object if selected_object.begins_with("W") else vehicle_display_name()), 22)
 	add_label(right, "%d мест · %d кг · тормоз %d Н" % [before.slots, before.mass, before.brake], 18)
+	if selected_object.begins_with("W"):
+		add_label(right, "Качение: %.4f · защита посуды: %d%%" % [before.rolling, roundi((1.0 - float(before.shock)) * 100)], 18)
 	for branch in model.data.upgrade_catalog:
 		if branch.target_type != ("wagon" if selected_object.begins_with("W") else selected_object):
 			continue
@@ -531,7 +556,7 @@ func energy_text() -> String:
 	var amount = float(model.state.fleet_by_id[model.vehicle_id()].fuel)
 	var cap = float(model.object_stats(model.vehicle_id()).tank)
 	if model.vehicle_id() == "locomotive":
-		return "Заряд %d%% · %.2f / %.1f кВт·ч" % [roundi(amount / cap * 100), amount, cap]
+		return "Заряд %d%% · %.2f / %.2f кВт·ч" % [roundi(amount / cap * 100), amount, cap]
 	return "Бензин %.2f / %.1f л" % [amount, cap]
 
 func vehicle_display_name() -> String:
@@ -594,7 +619,10 @@ func build_modal(size: Vector2) -> void:
 			screen = "depot"
 			camera_s = 0
 			save_game()
-			rebuild()))
+			if model.state.paid_ids.size() > last_paid_count:
+				last_paid_count = model.state.paid_ids.size()
+				show_modal("result")
+			else: rebuild()))
 		add_button(box, "В главное меню", func(): save_game(); screen = "menu"; close_modal())
 	elif modal_kind == "settings":
 		add_label(box, "Настройки", 32)
@@ -644,11 +672,11 @@ func notify(text: String) -> void:
 	toast = text
 	toast_seconds = 5.0
 
-func cancel_drag(preserve_motion: bool = false) -> void:
+func cancel_drag() -> void:
 	drag = ""
 	drag_item = ""
 	drag_total = 0
-	if not preserve_motion: model.reset_input()
+	model.reset_input()
 	Input.set_default_cursor_shape(Input.CURSOR_ARROW)
 
 func _process(dt: float) -> void:
@@ -730,12 +758,6 @@ func _unhandled_input(event: InputEvent) -> void:
 			for hit in body_hits:
 				if hit.rect.has_point(mouse): selected_object = hit.id; tab = "Улучшения"; rebuild(); return
 			return
-		for hit in cargo_hits:
-			if hit.rect.has_point(mouse):
-				if not model.stopped(): notify("Сначала остановись и затяни тормоз"); return
-				drag = "cargo"
-				drag_item = hit.id
-				return
 		var nearest: Dictionary = {}
 		var distance = 31.0
 		for hit in grip_hits:
@@ -749,6 +771,13 @@ func _unhandled_input(event: InputEvent) -> void:
 			drag_initial = float(model.state.get(drag, 0))
 			model.reset_input()
 			Input.set_default_cursor_shape(Input.CURSOR_DRAG)
+			return
+		for hit in cargo_hits:
+			if hit.rect.has_point(mouse):
+				if not model.stopped(): notify("Сначала остановись и затяни тормоз"); return
+				drag = "cargo"
+				drag_item = hit.id
+				return
 
 func finish_drag(mouse: Vector2) -> void:
 	if drag == "cargo":
@@ -765,7 +794,7 @@ func finish_drag(mouse: Vector2) -> void:
 		if not model.set_gear(value): notify(model.message)
 	elif drag == "start" and absf(drag_total) >= 12:
 		if not model.start_engine(drag_total < 0): notify(model.message)
-	cancel_drag(drag == "pump")
+	cancel_drag()
 
 func world_point(s: float) -> Vector2:
 	var size = get_viewport_rect().size

@@ -1,0 +1,23 @@
+[
+  {
+    "suite": "check_model",
+    "exit_code": 0,
+    "success": true,
+    "seconds": 0.828,
+    "log": "source_check_model.log"
+  },
+  {
+    "suite": "check_physics",
+    "exit_code": 0,
+    "success": true,
+    "seconds": 2.875,
+    "log": "source_check_physics.log"
+  },
+  {
+    "suite": "check_interaction",
+    "exit_code": 0,
+    "success": true,
+    "seconds": 2.125,
+    "log": "source_check_interaction.log"
+  }
+]

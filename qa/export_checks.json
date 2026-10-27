@@ -1,0 +1,30 @@
+[
+  {
+    "suite": "check_model",
+    "exit_code": 0,
+    "success": true,
+    "seconds": 0.672,
+    "log": "export_check_model.log"
+  },
+  {
+    "suite": "check_physics",
+    "exit_code": 0,
+    "success": true,
+    "seconds": 2.328,
+    "log": "export_check_physics.log"
+  },
+  {
+    "suite": "check_interaction",
+    "exit_code": 0,
+    "success": true,
+    "seconds": 2.282,
+    "log": "export_check_interaction.log"
+  },
+  {
+    "suite": "drive_campaign",
+    "exit_code": 0,
+    "success": true,
+    "seconds": 31.765,
+    "log": "export_drive_campaign.log"
+  }
+]

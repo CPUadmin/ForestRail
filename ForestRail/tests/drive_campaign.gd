@@ -1,22 +1,30 @@
-extends SceneTree
+extends Node
+
+var root: Window:
+	get: return get_tree().root
+
+func quit(code: int = 0) -> void:
+	get_tree().quit(code)
+
+
 
 const Model = preload("res://scripts/model.gd")
 var failures: Array = []
 var stats: Array = []
 var steps = 0
 
-func _initialize() -> void:
+func _ready() -> void:
 	call_deferred("run")
 
 func run() -> void:
 	var m = Model.new()
 	m.new_game(42)
-	for chapter in range(10):
+	for chapter in range(13):
 		if chapter == 2: m.buy_vehicle("motorcar")
 		if chapter == 6: m.buy_vehicle("locomotive")
 		if chapter == 9: m.buy_wagon()
 		m.refuel()
-		var mission = m.current_mission()
+		var mission = m.current_mission() if chapter < 10 else m.free_offers()[chapter - 10]
 		if not m.accept_mission(mission): failures.append("accept " + str(mission.id)); break
 		for i in range(m.state.cargo.size()): m.transfer(m.state.cargo[i].id, m.slots()[i].key)
 		m.depart()
@@ -61,18 +69,18 @@ func run() -> void:
 					m.state.brake = 1
 			if steps % 18000 == 0:
 				print("DRIVE ", mission.id, " t=", int(timer), " s=", int(m.state.s), " v=", snappedf(m.state.v, 0.01))
-				await process_frame
+				await get_tree().process_frame
 		if m.state.phase != "depot":
 			failures.append("Could not finish " + str(mission.id) + " s=" + str(m.state.s))
 			break
 		stats.append({"mission": mission.id, "seconds": timer, "money": m.state.money, "energy_remaining": m.state.fleet_by_id[m.vehicle_id()].fuel})
 		print("COMPLETED ", mission.id, " ", int(timer), " seconds; money ", m.state.money)
-		await process_frame
+		await get_tree().process_frame
 	var output = FileAccess.open("user://qa_model/drive_campaign.json", FileAccess.WRITE)
 	output.store_string(JSON.stringify({"failures": failures, "missions": stats, "steps": steps}, "\t"))
 	output.close()
-	print("DRIVE CAMPAIGN: ", stats.size(), "/10, steps ", steps, ", failures ", failures)
-	quit(0 if failures.is_empty() and stats.size() == 10 else 1)
+	print("DRIVE CAMPAIGN: ", stats.size(), "/13 (10 career + 3 free), steps ", steps, ", failures ", failures)
+	quit(0 if failures.is_empty() and stats.size() == 13 else 1)
 
 func station_index(m, id: String) -> int:
 	for i in range(m.data.stations.size()):

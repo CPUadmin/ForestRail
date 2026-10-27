@@ -1,0 +1,84 @@
+{
+	"failures": [],
+	"missions": [
+		{
+			"energy_remaining": 0.0,
+			"mission": "M01",
+			"money": 100,
+			"seconds": 232.750000000077
+		},
+		{
+			"energy_remaining": 0.0,
+			"mission": "M02",
+			"money": 240,
+			"seconds": 233.716666666745
+		},
+		{
+			"energy_remaining": 1.76398333333321,
+			"mission": "M03",
+			"money": 169,
+			"seconds": 110.533333333328
+		},
+		{
+			"energy_remaining": 1.5407933333331,
+			"mission": "M04",
+			"money": 329,
+			"seconds": 212.300000000061
+		},
+		{
+			"energy_remaining": 1.2782516666663,
+			"mission": "M05",
+			"money": 509,
+			"seconds": 333.033333333359
+		},
+		{
+			"energy_remaining": 1.27568833333297,
+			"mission": "M06",
+			"money": 769,
+			"seconds": 333.450000000025
+		},
+		{
+			"energy_remaining": 0.480237040490641,
+			"mission": "M07",
+			"money": 409,
+			"seconds": 260.350000000092
+		},
+		{
+			"energy_remaining": 0.435372545538832,
+			"mission": "M08",
+			"money": 656,
+			"seconds": 357.600000000003
+		},
+		{
+			"energy_remaining": 0.400020510037862,
+			"mission": "M09",
+			"money": 976,
+			"seconds": 456.833333333247
+		},
+		{
+			"energy_remaining": 0.361900670140116,
+			"mission": "M10",
+			"money": 1296,
+			"seconds": 475.966666666562
+		},
+		{
+			"energy_remaining": 0.54355566924627,
+			"mission": "F10_0",
+			"money": 1381,
+			"seconds": 91.9166666666627
+		},
+		{
+			"energy_remaining": 0.476744945042153,
+			"mission": "F11_1",
+			"money": 1531,
+			"seconds": 261.516666666757
+		},
+		{
+			"energy_remaining": 0.361187834704906,
+			"mission": "F12_2",
+			"money": 1746,
+			"seconds": 476.216666666562
+		}
+	],
+	"steps": 230171
+}

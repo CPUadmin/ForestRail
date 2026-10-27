@@ -3,4 +3,10 @@ tools/templates.tpz
 tools/templates/
 release/
 qa/runtime/
+qa/clean_export/
+qa/clean_start/
+qa/*_runtime/
+qa/visual/*.png
+qa/*.png
+qa/install_smoke/
 *.log
