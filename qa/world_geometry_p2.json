@@ -1,0 +1,232 @@
+{
+  "version": "1.2.0-preview.2",
+  "stage": "P2",
+  "specification": "3.0",
+  "source_commit": "3c3b7bec4e26e3d13ae2720f44251b99f15e6013",
+  "exe_sha256": "2214b5f3aec3725f2c9c3450fa3fbc6ff4cf80efe0fd5e9c6863bb571a30ec37",
+  "geometry": {
+    "P3_P4_physics": "not implemented by P2",
+    "actual_dimensions": {
+      "W01": {
+        "axle_positions_px": [
+          "(-72.91772, -20.16)",
+          "(73.85946, -20.16)"
+        ],
+        "deck_m": 0.634624624624625,
+        "length_m": 2.8,
+        "top_m": 0.645835835835836,
+        "wheel_m": 0.42
+      },
+      "handcar": {
+        "axle_positions_px": [
+          "(-63.78941, -20.16)",
+          "(63.43404, -20.16)"
+        ],
+        "deck_m": 0.571542416452442,
+        "length_m": 2.4,
+        "top_m": 0.580179948586118,
+        "wheel_m": 0.42
+      },
+      "locomotive": {
+        "axle_positions_px": [
+          "(-96.81127, -26.4)",
+          "(100.8676, -26.4)"
+        ],
+        "deck_m": 0.75387323943662,
+        "length_m": 4.0,
+        "top_m": 2.49471830985916,
+        "wheel_m": 0.55
+      },
+      "motorcar": {
+        "axle_positions_px": [
+          "(-68.72212, -20.16)",
+          "(68.85166, -20.16)"
+        ],
+        "deck_m": 0.606722891566265,
+        "length_m": 2.8,
+        "top_m": 0.940024096385542,
+        "wheel_m": 0.42
+      },
+      "stations/depot": {
+        "door_m": 2.05,
+        "height_m": 3.98504672897196,
+        "width_m": 11.8657320872274
+      },
+      "stations/sawmill_shelter": {
+        "height_m": 4.0,
+        "width_m": 15.9065817409766
+      },
+      "stations/station_house": {
+        "door_m": 2.05,
+        "height_m": 3.21143344709898,
+        "width_m": 11.5653583617747
+      }
+    },
+    "checks": 1195,
+    "failures": [],
+    "human_novice_trial": "not performed",
+    "max_coupling_gap_variation_px": 0.200959014892578,
+    "max_wheel_contact_error_px": 0.000856669212225825,
+    "terrain_s": {
+      "crest": 178.0,
+      "down": 202.0,
+      "flat": 0.0,
+      "up": 150.0
+    }
+  },
+  "station_checks": 135,
+  "station_failures": [],
+  "native_checks": [
+    {
+      "suite": "check_model",
+      "exit_code": 0,
+      "success": true,
+      "seconds": 0.844,
+      "log": "export_check_model.log"
+    },
+    {
+      "suite": "check_physics",
+      "exit_code": 0,
+      "success": true,
+      "seconds": 3.5,
+      "log": "export_check_physics.log"
+    },
+    {
+      "suite": "check_world_geometry",
+      "exit_code": 0,
+      "success": true,
+      "seconds": 13.547,
+      "log": "export_check_world_geometry.log"
+    },
+    {
+      "suite": "check_station_service",
+      "exit_code": 0,
+      "success": true,
+      "seconds": 25.047,
+      "log": "export_check_station_service.log"
+    },
+    {
+      "suite": "check_art_v3",
+      "exit_code": 0,
+      "success": true,
+      "seconds": 0.844,
+      "log": "export_check_art_v3.log"
+    },
+    {
+      "suite": "check_handcar_revision",
+      "exit_code": 0,
+      "success": true,
+      "seconds": 0.468,
+      "log": "export_check_handcar_revision.log"
+    },
+    {
+      "suite": "check_instruments",
+      "exit_code": 0,
+      "success": true,
+      "seconds": 8.188,
+      "log": "export_check_instruments.log"
+    },
+    {
+      "suite": "drive_campaign",
+      "exit_code": 0,
+      "success": true,
+      "seconds": 50.094,
+      "log": "export_drive_campaign.log"
+    }
+  ],
+  "campaign": {
+    "failures": [],
+    "missions": [
+      {
+        "energy_remaining": 0.0,
+        "mission": "M01",
+        "money": 100,
+        "seconds": 226.433333333406
+      },
+      {
+        "energy_remaining": 0.0,
+        "mission": "M02",
+        "money": 240,
+        "seconds": 226.900000000073
+      },
+      {
+        "energy_remaining": 1.75873333333321,
+        "mission": "M03",
+        "money": 171,
+        "seconds": 113.149999999995
+      },
+      {
+        "energy_remaining": 1.5356533333331,
+        "mission": "M04",
+        "money": 331,
+        "seconds": 214.86666666673
+      },
+      {
+        "energy_remaining": 1.2729216666663,
+        "mission": "M05",
+        "money": 511,
+        "seconds": 335.91666666669
+      },
+      {
+        "energy_remaining": 1.27047499999963,
+        "mission": "M06",
+        "money": 771,
+        "seconds": 336.050000000023
+      },
+      {
+        "energy_remaining": 0.479411918664265,
+        "mission": "M07",
+        "money": 411,
+        "seconds": 262.766666666756
+      },
+      {
+        "energy_remaining": 0.434533820123881,
+        "mission": "M08",
+        "money": 658,
+        "seconds": 360.366666666668
+      },
+      {
+        "energy_remaining": 0.399128265603917,
+        "mission": "M09",
+        "money": 978,
+        "seconds": 459.316666666578
+      },
+      {
+        "energy_remaining": 0.36082269027349,
+        "mission": "M10",
+        "money": 1298,
+        "seconds": 479.583333333226
+      },
+      {
+        "energy_remaining": 0.542467035705744,
+        "mission": "F10_0",
+        "money": 1383,
+        "seconds": 94.7999999999959
+      },
+      {
+        "energy_remaining": 0.475737135848335,
+        "mission": "F11_1",
+        "money": 1533,
+        "seconds": 264.333333333422
+      },
+      {
+        "energy_remaining": 0.360094663014629,
+        "mission": "F12_2",
+        "money": 1748,
+        "seconds": 479.849999999892
+      }
+    ],
+    "steps": 231260
+  },
+  "player_save_files_unchanged_since_install_check": true,
+  "save_baseline": "installation pre/post hashes; P0 snapshot predates player progress",
+  "human_novice_trial": "not performed",
+  "remaining_stages": [
+    "P3",
+    "P4",
+    "P5",
+    "P6",
+    "P7",
+    "P8"
+  ]
+}
