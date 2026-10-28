@@ -114,7 +114,7 @@ func draw_stations(canvas: Node2D) -> void:
 		if p.x < -700 or p.x > size.x + 700: continue
 		var name = "stations/depot" if i == 0 else ("stations/sawmill_shelter" if i == 2 else "stations/station_house")
 		var center = p + Vector2(370, -48)
-		art.draw_part(canvas, "stations/platform", p + Vector2(370,-15), 0, art.scale_for("stations/platform") * 0.72)
+		if game.screen=="game": draw_service_platform(canvas,i)
 		art.draw_part(canvas, name, center, 0, art.scale_for(name) * 0.72)
 		var plaque = Rect2(clampf(center.x - 150, 20, size.x-325), center.y-205, 300, 42)
 		canvas.draw_style_box(game.style(game.PAPER, game.GOLD, 5), plaque)
@@ -127,6 +127,30 @@ func draw_stations(canvas: Node2D) -> void:
 		var p = game.world_point(s)
 		if p.x < -40 or p.x > size.x+40: continue
 		art.draw_part(canvas,"terrain/sleeper",p+Vector2(0,12*game.view_scale()),-game.model.route.slope(s),art.scale_for("terrain/sleeper")*0.58*game.view_scale(),Transform2D.IDENTITY,Color(0.82,0.82,0.7))
+
+func draw_service_platform(canvas: Node2D, index: int) -> void:
+	var rect=game.world_platform_rect(index)
+	var sc=game.view_scale()
+	# Reuse the supplied platform as short uniform modules, then mark the
+	# exact same service interval used by the drop transaction.
+	var tex=art.textures["stations/platform"]
+	var tile_width=rect.size.y*float(tex.get_width())/float(tex.get_height())
+	var modules=ceili(rect.size.x/tile_width)
+	for i in range(modules):
+		var x=rect.position.x+i*tile_width
+		var width=minf(tile_width,rect.end.x-x)
+		canvas.draw_texture_rect_region(tex,Rect2(x,rect.position.y,width,rect.size.y),Rect2(0,0,float(tex.get_width())*width/tile_width,tex.get_height()),Color("c7c1a1"))
+	var interaction=game.station_state()
+	if int(interaction.station_index)!=index or not interaction.visible: return
+	var ready=interaction.can_transfer
+	var tint=game.GOLD if ready else Color("bdad7d")
+	canvas.draw_rect(rect,tint,false,2)
+	var marker=game.world_point(interaction.stop_s)
+	canvas.draw_line(marker+Vector2(0,8*sc),marker+Vector2(0,26*sc),tint,3,true)
+	canvas.draw_colored_polygon(PackedVector2Array([marker+Vector2(-8,29)*sc,marker+Vector2(8,29)*sc,marker+Vector2(0,19)*sc]),tint)
+	var label="✓ ПРИЁМ ГРУЗА · "+interaction.station_name if ready else "МЕСТО ОСТАНОВКИ · "+interaction.station_name
+	if ready and interaction.eligible.is_empty() and game.model.state.phase!="loading": label="СТАНЦИЯ · "+interaction.station_name
+	canvas.draw_string(ThemeDB.fallback_font,Vector2(maxf(20,rect.position.x+16),rect.position.y-12*sc),label,HORIZONTAL_ALIGNMENT_LEFT,minf(rect.size.x-30,700),18,tint)
 
 func draw_foreground(canvas: Node2D) -> void:
 	var size = game.get_viewport_rect().size

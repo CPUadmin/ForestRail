@@ -9,6 +9,14 @@ func quit(code: int = 0) -> void:
 
 
 const Model = preload("res://scripts/model.gd")
+
+# Model scenarios may position a fixture directly. Service still has to observe
+# the same physical dwell as the GUI, rather than bypassing the new guard.
+func park(m, index: int) -> void:
+	m.state.s=m.service_stop(index)
+	m.state.v=0
+	m.state.brake=1
+	for i in range(20): m.physics_step(1.0/60)
 const SaveGame = preload("res://scripts/save_game.gd")
 var checks = 0
 var failures: Array = []
@@ -53,7 +61,7 @@ func run() -> void:
 	check(m.pump_work == 0 and m.state.v > 0, "lever release permits coasting")
 	m.state.v = 0
 	m.state.brake = 1
-	m.state.s = m.route.station_s[1]
+	park(m,1)
 	var money = int(m.state.money)
 	for item in m.state.cargo.duplicate(true): check(m.transfer(item.id, ""), "unload at B")
 	check(m.state.money == money and m.state.active.pending_reward == 100, "reward deferred until return")
@@ -73,9 +81,7 @@ func run() -> void:
 		for i in range(m.state.cargo.size()): check(m.transfer(m.state.cargo[i].id, slots[i].key), "load " + str(mission.id))
 		check(m.depart(), "depart " + str(mission.id))
 		for stop in mission.dropoffs:
-			m.state.s = m.route.station_s[station_index(m, stop.station)]
-			m.state.v = 0
-			m.state.brake = 1
+			park(m,station_index(m,stop.station))
 			for item in m.state.cargo.duplicate(true):
 				if item.destination == stop.station:
 					check(m.transfer(item.id, ""), "dropoff " + str(mission.id))
@@ -107,9 +113,7 @@ func run() -> void:
 		for i in range(m.state.cargo.size()): m.transfer(m.state.cargo[i].id, m.slots()[i].key)
 		m.depart()
 		for stop in offer.dropoffs:
-			m.state.s = m.route.station_s[station_index(m, stop.station)]
-			m.state.brake = 1
-			m.state.v = 0
+			park(m,station_index(m,stop.station))
 			for item in m.state.cargo.duplicate(true):
 				if item.destination == stop.station: m.transfer(item.id, "")
 		m.state.s = 0
@@ -206,9 +210,7 @@ func worst_economy() -> void:
 			if m.state.cargo[i].type == "fragile": m.state.cargo[i].health = 0.0
 		m.depart()
 		for stop in mission.dropoffs:
-			m.state.s = m.route.station_s[station_index(m, stop.station)]
-			m.state.v = 0
-			m.state.brake = 1
+			park(m,station_index(m,stop.station))
 			for item in m.state.cargo.duplicate(true):
 				if item.destination == stop.station: m.transfer(item.id, "")
 		m.state.s = 0

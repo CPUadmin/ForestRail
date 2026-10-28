@@ -8,20 +8,23 @@ import time
 parser = argparse.ArgumentParser()
 parser.add_argument('engine', type=Path)
 parser.add_argument('--exported', action='store_true')
+parser.add_argument('--report-dir', type=Path)
 parser.add_argument('--suite', default='check_model,check_physics,check_interaction,drive_campaign')
 args = parser.parse_args()
 root = Path(__file__).resolve().parents[1]
-reports = root/'qa'
-reports.mkdir(exist_ok=True)
+reports = args.report_dir.resolve() if args.report_dir else root/'qa'
+reports.mkdir(parents=True, exist_ok=True)
 results = []
 for suite in args.suite.split(','):
     script = root/'ForestRail'/'tests'/f'{suite}.gd'
     command = [str(args.engine.resolve())]
-    if suite not in ('check_interaction', 'check_presentation', 'check_instruments'):
+    if suite not in ('check_interaction', 'check_presentation', 'check_instruments', 'check_station_service'):
         command.append('--headless')
     if not args.exported:
         command += ['--path', str(root/'ForestRail')]
     command += ['--', '--qa-suite='+suite]
+    if suite == 'check_station_service':
+        command.append('--station-output='+str(root/'qa'/'v3_p1'))
     log = reports/f'{"export" if args.exported else "source"}_{suite}.log'
     start = time.monotonic()
     with log.open('w', encoding='utf-8') as output:
@@ -31,7 +34,7 @@ for suite in args.suite.split(','):
     success = process.returncode == 0 and 'SCRIPT ERROR' not in content and 'FAIL:' not in content
     # A script unavailable in an exported build must not be confused with a passed check.
     marker = {'check_model': 'MODEL CHECKS', 'check_physics': 'PHYSICS CHECKS',
-              'check_interaction': 'INTERACTION CHECKS', 'drive_campaign': 'DRIVE CAMPAIGN', 'check_handcar_revision': 'HANDCAR CHECKS', 'check_art_v3': 'ART V3 CHECKS', 'check_instruments': 'INSTRUMENT CHECKS'}
+              'check_interaction': 'INTERACTION CHECKS', 'drive_campaign': 'DRIVE CAMPAIGN', 'check_handcar_revision': 'HANDCAR CHECKS', 'check_art_v3': 'ART V3 CHECKS', 'check_instruments': 'INSTRUMENT CHECKS', 'check_station_service': 'STATION SERVICE CHECKS'}
     success &= marker.get(suite, 'PRESENTATION') in content
     result = {'suite': suite, 'exit_code': process.returncode, 'success': success,
               'seconds': round(time.monotonic()-start, 3), 'log': log.name}

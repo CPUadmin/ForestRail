@@ -95,6 +95,7 @@ func run() -> void:
 	game.model.state.s=game.model.route.station_s[1]
 	game.model.state.v=0
 	game.model.state.brake=1
+	for i in range(20): game._physics_process(1.0/60)
 	game.camera_s=game.model.state.s
 	game.camera_y=game.model.route.sample(game.camera_s).y
 	game.rebuild()

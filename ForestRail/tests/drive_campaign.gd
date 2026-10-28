@@ -33,14 +33,14 @@ func run() -> void:
 		var last_stop = ""
 		while m.state.phase != "depot" and timer < 2400:
 			var destination = m.next_destination()
-			var target_s = float(m.route.station_s[station_index(m, destination)])
+			var target_s = m.service_stop(station_index(m,destination))
 			var remaining = (target_s - float(m.state.s)) * int(m.state.direction)
 			var speed = absf(float(m.state.v))
 			# The controller only manipulates the same inputs as a human. It never moves s.
 			var brake_force = 0.0
 			for id in m.body_ids(): brake_force += float(m.object_stats(id).brake)
-			var braking_distance = speed * speed / (2 * brake_force / m.train_mass()) + 4
-			var stopping = remaining < maxf(8, braking_distance)
+			var braking_distance = speed * speed / (2 * brake_force / m.train_mass()) + 0.3
+			var stopping = remaining < maxf(0.5, braking_distance)
 			if stopping:
 				m.state.throttle = 0
 				m.state.brake = 1.0
@@ -59,7 +59,7 @@ func run() -> void:
 			m.physics_step(1.0 / 60)
 			timer += 1.0 / 60
 			steps += 1
-			if m.station_index() == station_index(m, destination) and m.stopped():
+			if m.station_index() == station_index(m, destination) and m.station_interaction().can_transfer:
 				if destination == "A" and m.state.active.is_empty(): break
 				for item in m.state.cargo.duplicate(true):
 					if item.destination == destination and not item.delivered: m.transfer(item.id, "")

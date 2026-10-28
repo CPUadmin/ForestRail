@@ -14,3 +14,5 @@ qa/*.png
 qa/install_smoke/
 *.log
 qa/github_publication.json
+qa/v3_p0/
+qa/v3_p1/

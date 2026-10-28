@@ -26,6 +26,16 @@ var overlay: Control
 var hud: Label
 var hint_label: Label
 var action_bar: HBoxContainer
+var cargo_actions: HBoxContainer
+var unload_selected_button: Button
+var cargo_action_key = ""
+var selected_cargo = ""
+var drag_cursor = Vector2.ZERO
+var drag_source = Vector2.ZERO
+var drag_offset = Vector2.ZERO
+var drag_size = Vector2.ZERO
+var cargo_visuals: Dictionary = {}
+var delivery_ghost: Dictionary = {}
 var screen = "menu"
 var tab = "Рейсы"
 var selected_object = "handcar"
@@ -72,7 +82,7 @@ func _ready() -> void:
 		for arg in qa_args:
 			if arg.begins_with("--qa-suite="):
 				var suite = arg.trim_prefix("--qa-suite=")
-				if suite not in ["check_model", "check_physics", "check_interaction", "drive_campaign", "check_presentation", "check_handcar_revision", "check_art_v3", "check_instruments"]: get_tree().quit(2); return
+				if suite not in ["check_model", "check_physics", "check_interaction", "drive_campaign", "check_presentation", "check_handcar_revision", "check_art_v3", "check_instruments", "check_station_service"]: get_tree().quit(2); return
 				get_tree().root.set_meta("qa_running", true)
 				set_process(false)
 				set_physics_process(false)
@@ -88,6 +98,11 @@ func _ready() -> void:
 	art_world.game = self
 	art_world.art = art
 	add_child(art_world)
+	for argument in qa_args:
+		if argument.begins_with("--profile-dir="):
+			saves.directory=argument.trim_prefix("--profile-dir=")
+			DirAccess.make_dir_recursive_absolute(saves.directory)
+			settings_path=saves.directory.path_join("settings.json")
 	load_settings()
 	ui = Control.new()
 	ui.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -258,6 +273,7 @@ func positioned_label(text: String, rect: Rect2, size: int = 20, color: Color = 
 func rebuild() -> void:
 	if ui == null:
 		return
+	if drag!="": cancel_drag()
 	clear_children(ui)
 	clear_children(overlay)
 	setup_theme()
@@ -496,8 +512,8 @@ func take_mission(mission: Dictionary) -> void:
 	if model.accept_mission(mission):
 		screen = "game"
 		zoom_level = fit_train_zoom()
-		camera_s = 0
-		camera_y = 0
+		camera_s = float(model.state.s)
+		camera_y = model.route.sample(camera_s).y
 		last_phase = "loading"
 		save_game()
 		rebuild()
@@ -539,6 +555,11 @@ func build_hud(size: Vector2) -> void:
 	action_bar.size = Vector2(size.x - 84, 50)
 	action_bar.add_theme_constant_override("separation", 12)
 	ui.add_child(action_bar)
+	cargo_actions=HBoxContainer.new()
+	cargo_actions.position=Vector2(size.x-390,dock_rect().position.y+84)
+	cargo_actions.size=Vector2(334,44)
+	ui.add_child(cargo_actions)
+	cargo_action_key=""
 	last_action_key = ""
 	update_hud()
 
@@ -572,7 +593,9 @@ func update_hud() -> void:
 		hint = "Отпусти красный тормозной рычаг вниз, затем начинай движение."
 	if model.vehicle_id() == "locomotive" and model.regen_kw > 0.01:
 		hint = "Рекуперация: +%.1f кВт. Часть энергии торможения возвращается в аккумулятор." % model.regen_kw
-	hint_label.text = hint if state.tutorial else ""
+	var interaction=station_state()
+	hint_label.text = interaction.reason if interaction.visible else (hint if state.tutorial else "")
+	update_cargo_actions(interaction)
 	var key = "%s_%d_%s_%s_%s_%d" % [state.phase, stop_index, str(model.stopped()), str(model.all_loaded()), str(returning), model.drive_direction()]
 	if key != last_action_key:
 		last_action_key = key
@@ -746,15 +769,19 @@ func cancel_drag() -> void:
 
 func _process(dt: float) -> void:
 	time += dt
+	if not delivery_ghost.is_empty():
+		delivery_ghost.time+=dt
+		if delivery_ghost.time>0.45: delivery_ghost={}
 	toast_seconds = maxf(0, toast_seconds - dt)
 	if screen != "menu" and not model.state.is_empty():
 		var target_s = float(model.state.s)
 		if screen == "depot": target_s = 0
-		camera_s = lerpf(camera_s, target_s, 1 - exp(-dt * 6))
-		camera_y = lerpf(camera_y, model.route.sample(camera_s).y, 1 - exp(-dt * 4))
+		if drag=="":
+			camera_s = lerpf(camera_s, target_s, 1 - exp(-dt * 6))
+			camera_y = lerpf(camera_y, model.route.sample(camera_s).y, 1 - exp(-dt * 4))
 		var target_x = get_viewport_rect().size.x * (0.31 if screen == "depot" else (0.65 if model.state.direction > 0 else 0.35))
 		if screen == "depot" and not model.state.consist_ids.is_empty(): target_x = get_viewport_rect().size.x * 0.46 - 136
-		camera_x = lerpf(camera_x if camera_x > 0 else target_x, target_x, 1 - exp(-dt * 3))
+		if drag=="": camera_x = lerpf(camera_x if camera_x > 0 else target_x, target_x, 1 - exp(-dt * 3))
 		refresh_seconds += dt
 		if refresh_seconds >= 0.08:
 			refresh_seconds = 0
@@ -803,6 +830,10 @@ func _input(event: InputEvent) -> void:
 	if drag == "": return
 	if event is InputEventMouseMotion:
 		if paused: cancel_drag(); return
+		if drag=="cargo":
+			drag_cursor=event.position
+			get_viewport().set_input_as_handled()
+			return
 		var delta_y = event.relative.y * float(settings.sensitivity)
 		drag_total += delta_y
 		if drag == "pump":
@@ -841,7 +872,9 @@ func _unhandled_input(event: InputEvent) -> void:
 				distance = d
 				nearest = hit
 		for hit in cargo_hits:
-			if hit.rect.has_point(mouse) and mouse.distance_to(hit.rect.get_center()) < distance:
+			# Visible cargo wins over the enlarged control hit circle. The actual
+			# wooden grip still wins when the pointer is directly on it.
+			if hit.rect.has_point(mouse) and distance>10:
 				nearest = {}
 		if not nearest.is_empty():
 			drag = nearest.id
@@ -853,21 +886,33 @@ func _unhandled_input(event: InputEvent) -> void:
 			return
 		for hit in cargo_hits:
 			if hit.rect.has_point(mouse):
-				if not model.stopped(): notify("Сначала остановись и затяни тормоз"); return
+				selected_cargo=hit.id
+				cargo_action_key=""
+				var interaction=station_state()
+				if not interaction.can_transfer:
+					notify(interaction.reason)
+					return
 				drag = "cargo"
 				drag_item = hit.id
+				drag_cursor=mouse
+				drag_source=mouse
+				drag_offset=mouse-hit.rect.position
+				drag_size=hit.rect.size
 				return
 
 func finish_drag(mouse: Vector2) -> void:
 	if drag == "cargo":
+		if mouse.distance_to(drag_source)<5:
+			cancel_drag()
+			return
 		var target = "invalid"
 		for slot in slot_hits:
 			if slot.rect.has_point(mouse): target = slot.key; break
 		var size = get_viewport_rect().size
-		if dock_visible() and dock_rect().has_point(mouse): target = ""
+		if dock_visible() and (dock_rect().has_point(mouse) or world_platform_rect().has_point(mouse)): target = ""
 		if target != "invalid":
-			if model.transfer(drag_item, target): save_game()
-			else: notify(model.message)
+			transfer_cargo(drag_item,target,mouse)
+		else: notify("Перенеси груз в выделенную зону разгрузки или свободное место")
 	elif drag == "gear" and absf(drag_total) >= 12:
 		var value = clampi(int(model.state.gear) + (1 if drag_total < 0 else -1), 0, 2)
 		if not model.set_gear(value): notify(model.message)
@@ -884,7 +929,65 @@ func world_point(s: float) -> Vector2:
 	return Vector2(head_x + (p.x - cam.x) * scale_value, rail_baseline() - (p.y - camera_y) * scale_value)
 
 func dock_visible() -> bool:
-	return screen=="game" and (model.state.phase=="loading" or (model.station_index()>=0 and model.stopped()))
+	return screen=="game" and (station_state().visible or drag=="cargo")
+
+func station_state() -> Dictionary:
+	var result=model.station_interaction()
+	if drag=="cargo" and drag_item in result.eligible and result.can_transfer:
+		result.phase="dragging"
+		result.reason="Отпусти груз на подсвеченную платформу или в панель «Разгрузка»"
+	return result
+
+func world_platform_rect(index: int = -1) -> Rect2:
+	if index<0: index=int(station_state().station_index)
+	var center=float(model.route.station_s[index])
+	var half=Model.StationInteraction.SERVICE_LENGTH*0.5
+	var left=world_point(center-half)
+	var right=world_point(center+half)
+	return Rect2(Vector2(left.x,left.y-52.8*view_scale()),Vector2(right.x-left.x,48*view_scale()))
+
+func update_cargo_actions(interaction: Dictionary) -> void:
+	if not is_instance_valid(cargo_actions): return
+	cargo_actions.visible=dock_visible()
+	var item={}
+	for cargo in model.state.cargo:
+		if cargo.id==selected_cargo and not cargo.delivered and cargo.slot!="": item=cargo
+	var available=not item.is_empty() and interaction.can_transfer and (interaction.station_id=="A" or selected_cargo in interaction.eligible)
+	var key=selected_cargo+str(available)+str(item.is_empty())
+	if key==cargo_action_key: return
+	cargo_action_key=key
+	clear_children(cargo_actions)
+	unload_selected_button=null
+	if not item.is_empty():
+		unload_selected_button=add_button(cargo_actions,"Выгрузить выбранный",func(): transfer_cargo(selected_cargo,"",world_platform_rect().get_center()),not available)
+		unload_selected_button.add_theme_font_size_override("font_size",int(18*float(settings.text_scale)))
+		unload_selected_button.tooltip_text="Этот груз ждут в "+model.station_name(item.destination) if selected_cargo not in interaction.eligible and interaction.station_id!="A" else interaction.reason
+
+func transfer_cargo(id: String, target: String, from: Vector2) -> bool:
+	var interaction=station_state()
+	if not interaction.can_transfer:
+		notify(interaction.reason)
+		return false
+	var item={}
+	for cargo in model.state.cargo:
+		if cargo.id==id: item=cargo
+	if item.is_empty() or item.delivered: return false
+	var delivered_here=target=="" and item.destination==interaction.station_id
+	var sprite_id=str(model.cargo_base(item.type).sprite)
+	if not model.transfer(id,target):
+		notify(model.message)
+		return false
+	if delivered_here:
+		var platform=world_platform_rect()
+		var landing=Vector2(clampf(from.x,platform.position.x+20,platform.end.x-20),platform.position.y)
+		delivery_ghost={"sprite":sprite_id,"from":from,"to":landing,"time":0.0}
+		selected_cargo=""
+		notify("Доставлено в «%s». Выгружено %d из %d" % [interaction.station_name,interaction.delivered+1,interaction.total])
+	model.message=""
+	cargo_action_key=""
+	save_game()
+	update_hud()
+	return true
 
 func dock_rect() -> Rect2:
 	var size = get_viewport_rect().size
@@ -905,6 +1008,7 @@ func _draw() -> void:
 	grip_hits.clear()
 	slot_hits.clear()
 	cargo_hits.clear()
+	cargo_visuals.clear()
 	body_hits.clear()
 	if screen == "menu":
 		draw_rect(Rect2(0, 0, size.x * 0.55, size.y), Color(0.06, 0.13, 0.1, 0.72))
@@ -917,6 +1021,7 @@ func _draw() -> void:
 		if screen == "game":
 			draw_style_box(style(Color(0.08,0.15,0.12,0.88),Color(0.5,0.57,0.39,0.45),8),Rect2(22,12,size.x-44,101))
 			if dock_visible(): draw_loading_dock(size)
+			draw_cargo_feedback()
 			draw_tooltip()
 	if toast_seconds > 0 and modal_kind != "confirm":
 		var width = minf(1100, size.x - 100)
@@ -1071,15 +1176,21 @@ func draw_body(id: String, s: float, controls: bool) -> void:
 		var item = find_slot_cargo(key)
 		if controls and item.is_empty():
 			draw_style_box(style(Color(0.9, 0.87, 0.65, 0.35), Color("d1bd71"), 5), Rect2(loc - Vector2(32, 39), Vector2(64, 62)))
-		if not item.is_empty() and item.id != drag_item:
+		if not item.is_empty():
 			var sway = clampf(-model.acceleration * 0.04, -0.07, 0.07)
 			var sprite_id = str(model.cargo_base(item.type).sprite)
 			var bounds = visual_layout[sprite_id]
 			var ratio = float(bounds[2]-bounds[0])/maxf(1,float(bounds[3]-bounds[1]))
 			var height = minf(46.0 if id=="handcar" else 60.0,66.0/ratio)
-			grounded_sprite(sprite_id,loc+Vector2(-sway*10,19),height)
-			draw_line(loc + Vector2(-24, -25), loc + Vector2(24, 14), GOLD, 3)
-			draw_line(loc + Vector2(24, -25), loc + Vector2(-24, 14), GOLD, 3)
+			var foot=loc+Vector2(-sway*10,19)
+			var local_rect=Rect2(foot-Vector2(height*ratio*0.5,height),Vector2(height*ratio,height))
+			var screen_rect=Rect2(body_transform*local_rect.position,Vector2.ZERO)
+			for corner in [local_rect.end,Vector2(local_rect.end.x,local_rect.position.y),Vector2(local_rect.position.x,local_rect.end.y)]: screen_rect=screen_rect.expand(body_transform*corner)
+			cargo_visuals[item.id]=screen_rect.grow(4)
+			if item.id!=drag_item:
+				grounded_sprite(sprite_id,foot,height)
+				draw_line(loc + Vector2(-24, -25), loc + Vector2(24, 14), GOLD, 3)
+				draw_line(loc + Vector2(24, -25), loc + Vector2(-24, 14), GOLD, 3)
 	if id.begins_with("W"): art.draw_wagon_front(self,id,body_transform)
 	if id == model.vehicle_id() and controls:
 		draw_controls(body_transform)
@@ -1173,7 +1284,7 @@ func add_world_hits(id: String, index: int, transform: Transform2D) -> void:
 		var rect = Rect2(p - Vector2(37, 45) * zoom_level, Vector2(74, 80) * zoom_level)
 		slot_hits.append({"key": slot.key, "rect": rect})
 		var item = find_slot_cargo(slot.key)
-		if not item.is_empty(): cargo_hits.append({"id": item.id, "rect": rect})
+		if not item.is_empty(): cargo_hits.append({"id": item.id, "rect": cargo_visuals.get(item.id,rect)})
 
 func draw_map(size: Vector2) -> void:
 	var left = 80.0
@@ -1191,13 +1302,15 @@ func draw_map(size: Vector2) -> void:
 	draw_circle(Vector2(train_x, y), 5, PAPER)
 
 func draw_loading_dock(size: Vector2) -> void:
-	var station_index = model.station_index()
+	var interaction=station_state()
+	var station_index = int(interaction.station_index)
 	var rect = dock_rect()
-	draw_style_box(style(Color(0.14, 0.21, 0.17, 0.95), Color("82916c"), 12), rect)
-	var title = "ПЛОЩАДКА · " + (model.station_name(model.data.stations[station_index].id) if station_index >= 0 else "ГРУЗ ЗАКРЕПЛЁН")
+	var accepting=drag=="cargo" and interaction.can_transfer and (drag_item in interaction.eligible or station_index==0)
+	draw_style_box(style(Color(0.14, 0.21, 0.17, 0.95), GOLD if accepting else Color("82916c"), 12), rect)
+	var title = ("ПОГРУЗКА · " if model.state.phase=="loading" else "РАЗГРУЗКА · ")+interaction.station_name
 	draw_string(font, rect.position + Vector2(20, 28), title, HORIZONTAL_ALIGNMENT_LEFT, 600, 18, PAPER)
-	if station_index >= 0 and model.stopped():
-		draw_string(font, rect.position + Vector2(590, 28), "Отпусти груз здесь, чтобы выгрузить", HORIZONTAL_ALIGNMENT_RIGHT, rect.size.x - 615, 18, PAPER)
+	if accepting:
+		draw_string(font, rect.position + Vector2(590, 28), "✓ ОТПУСТИ ЗДЕСЬ · "+interaction.station_name, HORIZONTAL_ALIGNMENT_RIGHT, rect.size.x - 615, 18, GOLD)
 	var index = 0
 	for item in model.state.cargo:
 		if item.delivered or item.slot != "": continue
@@ -1208,14 +1321,38 @@ func draw_loading_dock(size: Vector2) -> void:
 		cargo_hits.append({"id": item.id, "rect": Rect2(p - Vector2(8, 4), Vector2(96, 82))})
 		draw_string(font, p + Vector2(65, 44), item.destination, HORIZONTAL_ALIGNMENT_LEFT, 45, 19, GOLD)
 		index += 1
-	if drag_item != "":
-		for item in model.state.cargo:
-			if item.id == drag_item:
-				sprite(model.cargo_base(item.type).sprite, Rect2(get_global_mouse_position() - Vector2(38, 48), Vector2(76, 80)))
 	if index == 0:
-		var text = "Груз закреплён. Можно отправляться."
-		if not model.state.active.is_empty() and model.state.active.phase == "return": text = "Все доставки выполнены. Дома ждут %d монет." % model.state.active.pending_reward
-		draw_string(font, rect.position + Vector2(25, 95), text, HORIZONTAL_ALIGNMENT_LEFT, rect.size.x - 50, 21, PAPER)
+		var text=interaction.reason
+		if model.state.phase=="loading" and model.all_loaded(): text="Груз закреплён. Можно отправляться."
+		if selected_cargo!="" and selected_cargo not in interaction.eligible and station_index!=0:
+			for cargo in model.state.cargo:
+				if cargo.id==selected_cargo and not cargo.delivered: text="Этот груз ждут в «%s»" % model.station_name(cargo.destination)
+		draw_string(font, rect.position + Vector2(25, 67), text, HORIZONTAL_ALIGNMENT_LEFT, rect.size.x - 50, 19, PAPER)
+		if selected_cargo=="": draw_string(font,rect.position+Vector2(25,115),"Перетащи предмет или выбери его кликом для выгрузки кнопкой",HORIZONTAL_ALIGNMENT_LEFT,rect.size.x-50,17,Color("b9c7b2"))
+
+func draw_cargo_feedback() -> void:
+	var interaction=station_state()
+	if interaction.visible:
+		var marker=world_point(interaction.stop_s)
+		var sc=view_scale()
+		draw_colored_polygon(PackedVector2Array([marker+Vector2(-8,17)*sc,marker+Vector2(8,17)*sc,marker+Vector2(0,5)*sc]),GOLD)
+		for hit in cargo_hits:
+			if hit.id==drag_item: continue
+			var selected=hit.id==selected_cargo
+			if hit.id in interaction.eligible or selected:
+				draw_rect(hit.rect,GOLD if selected else Color("8db78a"),false,3 if selected else 1.5)
+	if drag=="cargo":
+		if interaction.can_transfer and (drag_item in interaction.eligible or interaction.station_id=="A"):
+			draw_rect(world_platform_rect(),Color("e9ce83"),false,3)
+		var r=Rect2(drag_cursor-drag_offset,drag_size)
+		for cargo in model.state.cargo:
+			if cargo.id==drag_item:
+				grounded_sprite(model.cargo_base(cargo.type).sprite,r.position+Vector2(r.size.x*0.5,r.size.y),r.size.y)
+				draw_rect(r,GOLD,false,2)
+	if not delivery_ghost.is_empty():
+		var alpha=1-clampf(float(delivery_ghost.time)/0.45,0,1)
+		var point=Vector2(delivery_ghost.from).lerp(delivery_ghost.to,smoothstep(0,0.3,float(delivery_ghost.time)))
+		grounded_sprite(delivery_ghost.sprite,point,44,Color(1,1,1,alpha))
 
 func draw_tooltip() -> void:
 	if drag != "": return

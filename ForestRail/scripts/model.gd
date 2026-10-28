@@ -1,6 +1,7 @@
 extends RefCounted
 
 const Route = preload("res://scripts/route.gd")
+const StationInteraction = preload("res://scripts/station_interaction.gd")
 const G = 9.81
 const VEHICLE_IDS = ["handcar", "motorcar", "locomotive"]
 var data: Dictionary
@@ -19,6 +20,8 @@ var shock_time = 0.0
 var rail_distance = 0.0
 var regen_kw = 0.0
 var events: Array = []
+var stationary_seconds = 0.25
+var stationary_station = 0
 
 func _init() -> void:
 	data = JSON.parse_string(FileAccess.get_file_as_string("res://data/game_data.json"))
@@ -34,6 +37,24 @@ func new_game(world_seed: int = 42) -> void:
 		"stats": {"distance": 0.0, "deliveries": 0, "earned": 0, "rescues": 0, "seconds": 0.0}, "offer_serial": 0}
 	reset_input()
 	flywheel_energy = 0.0
+	stationary_seconds=0.25
+	stationary_station=0
+
+func station_interaction() -> Dictionary:
+	return StationInteraction.evaluate(self)
+
+func service_stop(index: int) -> float:
+	return StationInteraction.stop_position(self,index)
+
+func update_station_dwell(dt: float) -> void:
+	var interaction = station_interaction()
+	if interaction.in_zone and absf(float(state.v))<=StationInteraction.STOP_SPEED and float(state.brake)>=StationInteraction.BRAKE:
+		if stationary_station!=int(interaction.station_index): stationary_seconds=0.0
+		stationary_station=int(interaction.station_index)
+		stationary_seconds=minf(1,stationary_seconds+dt)
+	else:
+		stationary_seconds=0.0
+		stationary_station=-1
 
 func reset_input() -> void:
 	pump_pending = 0.0
@@ -320,6 +341,9 @@ func accept_mission(mission: Dictionary) -> bool:
 	state.gear = 0
 	state.engine = false
 	state.phase = "loading"
+	state.s = service_stop(0)
+	stationary_station=0
+	stationary_seconds=0.25
 	reset_input()
 	return true
 
@@ -330,9 +354,10 @@ func slot_occupied(key: String) -> bool:
 	return false
 
 func transfer(cargo_id: String, target_slot: String) -> bool:
-	if not stopped() or station_index() < 0 or state.phase == "depot":
-		return fail("Нужна станция, остановка и полный тормоз")
-	var station = str(data.stations[station_index()].id)
+	var interaction = station_interaction()
+	if not interaction.can_transfer:
+		return fail(interaction.reason)
+	var station = str(interaction.station_id)
 	for item in state.cargo:
 		if item.id != cargo_id or item.delivered:
 			continue
@@ -411,6 +436,9 @@ func resume_mission() -> bool:
 	if state.phase != "depot" or state.active.is_empty():
 		return false
 	state.phase = "loading"
+	state.s=service_stop(0)
+	stationary_station=0
+	stationary_seconds=0.25
 	return true
 
 func cancel_mission() -> bool:
@@ -527,6 +555,7 @@ func pump_motion(delta_radians: float) -> void:
 func physics_step(dt: float) -> void:
 	if state.is_empty():
 		return
+	update_station_dwell(dt)
 	if state.phase == "depot" or state.phase == "loading":
 		reset_input()
 		flywheel_energy = 0.0
@@ -669,6 +698,16 @@ func restore(saved: Dictionary) -> bool:
 	pump_angle = float(state.get("pump_angle", 0))
 	state.reverser = int(state.get("reverser", 1))
 	flywheel_energy = clampf(float(state.get("flywheel_energy", 0)), 0, 80)
+	stationary_seconds=0.0
+	stationary_station=-1
+	# Old loading saves used a fixed locomotive centre at s=0. A long
+	# consist can extend beyond the newly marked platform there. Position
+	# that parked depot formation once, before driving is enabled.
+	if state.phase=="loading":
+		var interaction=station_interaction()
+		if interaction.station_id=="A" and not interaction.in_zone:
+			state.s=service_stop(0)
+			message="Состав подготовлен на домашней погрузочной площадке"
 	reset_input()
 	return true
 
