@@ -639,8 +639,8 @@ func update_hud() -> void:
 	if model.vehicle_id() == "locomotive" and model.regen_kw > 0.01:
 		hint = "Рекуперация: +%.1f кВт. Часть энергии торможения возвращается в аккумулятор." % model.regen_kw
 	var interaction=station_state()
-	order_label.visible=state.phase=="loading" or (interaction.visible and model.stopped())
-	hint_label.visible=state.phase=="loading" or (interaction.visible and model.stopped()) or (drag!="" and state.tutorial)
+	order_label.visible=not control_zoom and (state.phase=="loading" or (interaction.visible and model.stopped()))
+	hint_label.visible=not control_zoom and (state.phase=="loading" or (interaction.visible and model.stopped()) or (drag!="" and state.tutorial))
 	hint_label.text = hint if state.phase=="loading" else (interaction.reason if interaction.visible else (hint if state.tutorial else ""))
 	update_cargo_actions(interaction)
 	var key = "%s_%d_%s_%s_%s_%d" % [state.phase, stop_index, str(model.stopped()), str(model.all_loaded()), str(returning), model.drive_direction()]
@@ -674,7 +674,7 @@ func update_hud() -> void:
 			add_button(action_bar, "Сохранить", func(): save_game(); notify("Сохранено"))
 		for child in action_bar.get_children():
 			if child is Button: child.size_flags_horizontal=Control.SIZE_SHRINK_BEGIN
-	action_bar.visible=action_bar.get_child_count()>0 and (state.phase=="loading" or model.stopped())
+	action_bar.visible=not control_zoom and action_bar.get_child_count()>0 and (state.phase=="loading" or model.stopped())
 
 func energy_text() -> String:
 	if model.vehicle_id() == "handcar": return "Ручной привод · %d Вт" % roundi(model.output_power)
@@ -707,10 +707,11 @@ func toggle_control_zoom() -> void:
 	if screen!="game" or paused or model.vehicle_id()=="handcar": return
 	cancel_drag()
 	control_zoom = not control_zoom
+	update_hud()
 	queue_redraw()
 
 func control_zoom_rect() -> Rect2:
-	return Rect2(36,236 if action_bar!=null and action_bar.visible else 90,430,320)
+	return Rect2(36,90,430,320)
 
 func control_zoom_transform() -> Transform2D:
 	return Transform2D(0,Vector2.ONE*2.2,0,control_zoom_rect().position+Vector2(330,392))

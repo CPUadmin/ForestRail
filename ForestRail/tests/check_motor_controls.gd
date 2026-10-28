@@ -103,11 +103,12 @@ func run() -> void:
 	game.saves.directory=out_dir.path_join("isolated_profile")
 	for resolution in [Vector2i(1280,720),Vector2i(1600,900),Vector2i(1920,1080)]:
 		get_tree().root.size=resolution
+		await get_tree().create_timer(0.15).timeout
 		for id in ["motorcar","locomotive"]:
 			context=id+" "+str(resolution)+" "
 			game.model=fixture(id);game.screen="game";game.rebuild()
 			game.camera_s=100;game.camera_y=0;game.camera_x=game.get_viewport_rect().size.x*0.65
-			await frame()
+			for i in range(6): await frame()
 			var buttons=game.ui.find_children("*","Button",true,false)
 			for b in buttons:
 				if b.text=="Пульт [C]":
