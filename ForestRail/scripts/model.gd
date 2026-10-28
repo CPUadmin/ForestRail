@@ -19,6 +19,7 @@ var acceleration = 0.0
 var shock_time = 0.0
 var rail_distance = 0.0
 var regen_kw = 0.0
+var motor_energy: Dictionary = {}
 var events: Array = []
 var stationary_seconds = 0.25
 var stationary_station = 0
@@ -320,6 +321,7 @@ func accept_mission(mission: Dictionary) -> bool:
 	if problem != "":
 		return fail(problem)
 	state.active = mission.duplicate(true)
+	state.active.origin_station_id = "A"
 	state.active.phase = "loading"
 	state.active.pending_reward = 0
 	state.active.paid = false
@@ -618,8 +620,6 @@ func physics_step(dt: float) -> void:
 		var fleet = state.fleet_by_id[vehicle_id()]
 		if fleet.fuel <= 0: state.engine = false
 		if state.engine and fleet.fuel > 0:
-			if vehicle_id() == "motorcar":
-				fleet.fuel = maxf(0, float(fleet.fuel) - (0.0003 + 0.002 * float(state.throttle)) * dt)
 			if fleet.fuel <= 0:
 				state.engine = false
 			if int(state.gear) > 0:
@@ -628,16 +628,6 @@ func physics_step(dt: float) -> void:
 				var adhesion = 0.35 * float(stats.mass) * G * cos(route.slope(float(state.s)))
 				drive = float(drive_direction()) * float(state.throttle) * minf(traction, adhesion)
 	var brake = float(state.brake) * max_brake
-	if vehicle_id() == "locomotive":
-		var battery = state.fleet_by_id.locomotive
-		# Recover only actual kinetic energy, never energy from a stationary brake.
-		var available_power = minf(brake * absf(float(state.v)), total * float(state.v) * float(state.v) / (2 * dt))
-		var recovered = available_power * 0.25 if float(state.throttle) < 0.01 else 0.0
-		regen_kw = recovered / 1000.0
-		var used = absf(drive * float(state.v)) / 0.82 + (120.0 if state.engine else 0.0)
-		battery.fuel = clampf(float(battery.fuel) + (recovered - used) * dt / 3600000.0, 0.0, float(stats.tank))
-		if battery.fuel <= 0:
-			state.engine = false
 	var old_v = float(state.v)
 	var new_v = old_v
 	var movement=0.0
@@ -654,6 +644,31 @@ func physics_step(dt: float) -> void:
 			new_v = old_v + (external - movement_sign * resist) / total * dt
 			if signf(new_v) != movement_sign and absf(external) <= rolling + brake: new_v = 0.0
 		movement=(old_v+new_v)*0.5*dt
+	if vehicle_id()!="handcar":
+		# Settle energy against the distance actually integrated, including
+		# the first accelerating step and the last stopping step.
+		var shaft_work=absf(drive*movement)
+		var kinetic_change=0.5*total*(new_v*new_v-old_v*old_v)
+		var dissipated=maxf(0,drive*movement+grade*movement-kinetic_change)
+		var resist=rolling+brake+1.2*old_v*old_v
+		var brake_work=minf(brake*absf(movement),dissipated*brake/maxf(0.000001,resist))
+		var fleet=state.fleet_by_id[vehicle_id()]
+		var before=float(fleet.fuel)
+		var used=0.0
+		var recovered=0.0
+		if vehicle_id()=="locomotive":
+			used=shaft_work/0.82+(120.0*dt if state.engine else 0.0)
+			recovered=0.25*brake_work if float(state.throttle)<0.01 else 0.0
+			recovered=minf(recovered,maxf(0,(float(stats.tank)-before)*3600000.0+used))
+			fleet.fuel=clampf(before+(recovered-used)/3600000.0,0,float(stats.tank))
+			regen_kw=recovered/dt/1000.0
+		else:
+			# Game calibration: petrol 34 MJ/l, 20% shaft efficiency,
+			# plus a small idle burn. Higher load costs more through work.
+			used=shaft_work/0.20+(10200.0*dt if state.engine else 0.0)
+			fleet.fuel=maxf(0,before-used/34000000.0)
+		motor_energy={"shaft_work_j":shaft_work,"brake_work_j":brake_work,"used_j":used,"recovered_j":recovered,"delta_store":float(fleet.fuel)-before}
+		if fleet.fuel<=0: state.engine=false
 	acceleration=(new_v-old_v)/dt
 	state.v=new_v
 	state.s+=movement
@@ -698,6 +713,17 @@ func next_destination() -> String:
 				return stop.station
 	return "A"
 
+func mission_origin() -> String:
+	return str(state.active.get("origin_station_id","A"))
+
+func journey_heading() -> String:
+	var destination=next_destination()
+	if not state.active.is_empty() and state.active.get("phase","")=="return":
+		return "Возвращение: "+station_name(destination)
+	var origin=mission_origin()
+	if origin==destination: return "Следующая: "+station_name(destination)
+	return station_name(origin)+" → "+station_name(destination)
+
 func serialize() -> Dictionary:
 	var result = state.duplicate(true)
 	result.route = route.serialize()
@@ -711,6 +737,7 @@ func restore(saved: Dictionary) -> bool:
 	if not validate_save(saved):
 		return false
 	state = saved.duplicate(true)
+	if not state.active.is_empty(): state.active.origin_station_id=state.active.get("origin_station_id","A")
 	route.restore(state.route, data.stations)
 	state.erase("route")
 	pump_angle = float(state.get("pump_angle", 0))
