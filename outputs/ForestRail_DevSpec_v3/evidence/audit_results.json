@@ -1,0 +1,133 @@
+{
+	"after_all": {
+		"deliveries": 2,
+		"money": 0,
+		"pending_reward": 100,
+		"phase": "return"
+	},
+	"brake_94": {
+		"dock_visible": false,
+		"message": "Нужна станция, остановка и полный тормоз",
+		"stopped": false,
+		"transfer": false
+	},
+	"coasting": {
+		"crank_change_deg": 0.0,
+		"distance_m": 3.87043446291298,
+		"rocker_change_deg": 0.0,
+		"velocity": 1.87153982508773,
+		"wheel_rotation_deg": 1055.99790288999
+	},
+	"dock_visible_at_full_brake": true,
+	"free_offer_title": "Свободный рейс · Дальний бор → Дальний бор · 1700 м · 4820 монет",
+	"load_response": {
+		"empty_mass": 180.0,
+		"empty_v": 1.48621423959286,
+		"lever_angle_difference_deg": 0.0,
+		"loaded_mass": 300.0,
+		"loaded_v": 1.08964944235142
+	},
+	"midstroke_direction_change": {
+		"crank_jump_deg": -176.754810753151,
+		"same_rocker_deg": 0.396010806933154
+	},
+	"motor_controls": {
+		"brake": {
+			"grip_height_m": 1.52413352330526,
+			"length_m": 0.989583333333333,
+			"pivot_m": [
+				-1.51041666666667,
+				-0.541666666666667
+			]
+		},
+		"gear": {
+			"grip_height_m": 1.21357138951619,
+			"length_m": 0.864583333333333,
+			"pivot_m": [
+				-0.364583333333333,
+				-0.5
+			]
+		},
+		"start": {
+			"grip_height_m": 1.65625,
+			"length_m": 0.260416666666667,
+			"pivot_m": [
+				-0.416666666666667,
+				-1.91666666666667
+			]
+		},
+		"throttle": {
+			"grip_height_m": 1.09322611490885,
+			"length_m": 0.791666587193807,
+			"pivot_m": [
+				0.833333333333333,
+				-0.541666666666667
+			]
+		}
+	},
+	"panel_drop": {
+		"captured": true,
+		"delivered": true,
+		"slot": "",
+		"source": [
+			708.0,
+			477.57080078125
+		],
+		"target": [
+			800.0,
+			642.0
+		],
+		"toast": ""
+	},
+	"scales": [
+		{
+			"handcar_width_px": 230.4,
+			"station_height_px": 95.9651542649728,
+			"station_to_handcar_width": 1.5,
+			"station_width_px": 345.6,
+			"zoom": 0.75
+		},
+		{
+			"handcar_width_px": 307.2,
+			"station_height_px": 95.9651542649728,
+			"station_to_handcar_width": 1.125,
+			"station_width_px": 345.6,
+			"zoom": 1.0
+		},
+		{
+			"handcar_width_px": 460.8,
+			"station_height_px": 95.9651542649728,
+			"station_to_handcar_width": 0.75,
+			"station_width_px": 345.6,
+			"zoom": 1.5
+		}
+	],
+	"second_panel_drop": {
+		"captured": true,
+		"delivered": true,
+		"slot": "",
+		"source": [
+			892.0,
+			477.57080078125
+		],
+		"target": [
+			800.0,
+			642.0
+		],
+		"toast": ""
+	},
+	"world_platform_drop": {
+		"captured": true,
+		"delivered": false,
+		"slot": "handcar:0",
+		"source": [
+			708.0,
+			477.57080078125
+		],
+		"target": [
+			1170.0,
+			528.0
+		],
+		"toast": ""
+	}
+}

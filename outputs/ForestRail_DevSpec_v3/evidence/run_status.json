@@ -1,0 +1,16 @@
+[
+  {
+    "suite": "check_model",
+    "code": 0,
+    "tail": "Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org\r\n\r\nMODEL CHECKS 9103; FAILURES 0\r\n"
+  },
+  {
+    "suite": "check_physics",
+    "code": 0,
+    "tail": "Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org\r\n\r\nPHYSICS CHECKS 57; FAILURES []; FPS { \"distance\": 68.7057695779085, \"braking\": 1.18495597506471 } vs { \"distance\": 68.8910837425221, \"braking\": 1.18909087053011 }\r\n"
+  },
+  {
+    "suite": "runtime_audit",
+    "code": 0
+  }
+]
