@@ -1,0 +1,240 @@
+{
+  "version": "1.2.0-preview.6",
+  "stage": "P6",
+  "source_commit": "00654ae899688a0712c3b878a12c2fbb0bb66677",
+  "exe_sha256": "b647bb7868b1a9d127c9a784ce87fee0d8b6636e19c0e4465b1e8d164838f3d4",
+  "loading": {
+    "checks": 272,
+    "economies": [
+      {
+        "partial": false,
+        "post_purchase_recovery": 1,
+        "recovery_trips": 0,
+        "rows": [
+          {
+            "accepted": 2,
+            "chapter": 1,
+            "money": 100
+          },
+          {
+            "accepted": 1,
+            "chapter": 2,
+            "money": 240
+          },
+          {
+            "accepted": 2,
+            "chapter": 3,
+            "money": 180
+          },
+          {
+            "accepted": 2,
+            "chapter": 4,
+            "money": 340
+          },
+          {
+            "accepted": 4,
+            "chapter": 5,
+            "money": 520
+          },
+          {
+            "accepted": 4,
+            "chapter": 6,
+            "money": 780
+          },
+          {
+            "accepted": 4,
+            "chapter": 7,
+            "money": 420
+          },
+          {
+            "accepted": 4,
+            "chapter": 8,
+            "money": 720
+          },
+          {
+            "accepted": 4,
+            "chapter": 9,
+            "money": 1040
+          },
+          {
+            "accepted": 6,
+            "chapter": 10,
+            "money": 1360
+          }
+        ],
+        "scope": "money/state fixture; station positions assigned"
+      },
+      {
+        "partial": true,
+        "post_purchase_recovery": 1,
+        "recovery_trips": 6,
+        "rows": [
+          {
+            "accepted": 1,
+            "chapter": 1,
+            "money": 50
+          },
+          {
+            "accepted": 1,
+            "chapter": 2,
+            "money": 190
+          },
+          {
+            "accepted": 1,
+            "chapter": 3,
+            "money": 70
+          },
+          {
+            "accepted": 1,
+            "chapter": 4,
+            "money": 150
+          },
+          {
+            "accepted": 1,
+            "chapter": 5,
+            "money": 185
+          },
+          {
+            "accepted": 1,
+            "chapter": 6,
+            "money": 250
+          },
+          {
+            "accepted": 1,
+            "chapter": 7,
+            "money": 104
+          },
+          {
+            "accepted": 1,
+            "chapter": 8,
+            "money": 167
+          },
+          {
+            "accepted": 1,
+            "chapter": 9,
+            "money": 247
+          },
+          {
+            "accepted": 1,
+            "chapter": 10,
+            "money": 273
+          }
+        ],
+        "scope": "money/state fixture; station positions assigned"
+      }
+    ],
+    "failures": [],
+    "input": "Viewport.push_input for choice/removal/departure/delivery; station arrivals are fixtures"
+  },
+  "native_checks": [
+    {
+      "suite": "check_loading_selection",
+      "exit_code": 0,
+      "success": true,
+      "seconds": 6.953,
+      "log": "export_check_loading_selection.log"
+    },
+    {
+      "suite": "check_model",
+      "exit_code": 0,
+      "success": true,
+      "seconds": 1.14,
+      "log": "export_check_model.log"
+    },
+    {
+      "suite": "check_station_service",
+      "exit_code": 0,
+      "success": true,
+      "seconds": 25.657,
+      "log": "export_check_station_service.log"
+    },
+    {
+      "suite": "check_motor_controls",
+      "exit_code": 0,
+      "success": true,
+      "seconds": 8.828,
+      "log": "export_check_motor_controls.log"
+    },
+    {
+      "suite": "check_physics",
+      "exit_code": 0,
+      "success": true,
+      "seconds": 7.703,
+      "log": "export_check_physics.log"
+    },
+    {
+      "suite": "check_world_geometry",
+      "exit_code": 0,
+      "success": true,
+      "seconds": 12.734,
+      "log": "export_check_world_geometry.log"
+    },
+    {
+      "suite": "check_instruments",
+      "exit_code": 0,
+      "success": true,
+      "seconds": 8.375,
+      "log": "export_check_instruments.log"
+    },
+    {
+      "suite": "check_art_v3",
+      "exit_code": 0,
+      "success": true,
+      "seconds": 0.735,
+      "log": "export_check_art_v3.log"
+    },
+    {
+      "suite": "check_handcar_revision",
+      "exit_code": 0,
+      "success": true,
+      "seconds": 0.828,
+      "log": "export_check_handcar_revision.log"
+    },
+    {
+      "suite": "check_handcar_drive",
+      "exit_code": 0,
+      "success": true,
+      "seconds": 9.578,
+      "log": "export_check_handcar_drive.log"
+    },
+    {
+      "suite": "check_handcar_input",
+      "exit_code": 0,
+      "success": true,
+      "seconds": 12.266,
+      "log": "export_check_handcar_input.log"
+    },
+    {
+      "suite": "check_mechanism",
+      "exit_code": 0,
+      "success": true,
+      "seconds": 13.375,
+      "log": "export_check_mechanism.log"
+    },
+    {
+      "suite": "check_mechanism_bench",
+      "exit_code": 0,
+      "success": true,
+      "seconds": 3.609,
+      "log": "export_check_mechanism_bench.log"
+    },
+    {
+      "suite": "drive_campaign",
+      "exit_code": 0,
+      "success": true,
+      "seconds": 89.672,
+      "log": "export_drive_campaign.log"
+    }
+  ],
+  "partial_driving": [
+    {
+      "suite": "drive_campaign",
+      "exit_code": 0,
+      "success": true,
+      "seconds": 8.937,
+      "log": "export_drive_campaign.log"
+    }
+  ],
+  "human_trial": "not performed",
+  "remaining": "P7-P8"
+}
