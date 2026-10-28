@@ -46,7 +46,11 @@ function Read-State {
     if ($battery -eq 255) {
         $battery=[int](Get-CimInstance Win32_Battery | Select-Object -First 1 -ExpandProperty EstimatedChargeRemaining)
     }
-    $limits=Get-Content -LiteralPath (Join-Path $runtime 'limits.json') -Raw | ConvertFrom-Json
+    $limits=$null
+    for ($retry=0;$retry -lt 3;$retry++) {
+        try { $limits=Get-Content -LiteralPath (Join-Path $runtime 'limits.json') -Raw | ConvertFrom-Json;break }
+        catch { if ($retry -eq 2) { throw };Start-Sleep -Milliseconds 100 }
+    }
     $now=[DateTimeOffset]::UtcNow
     $reason=Stop-Reason $battery ([double]$limits.remaining_percent) $now
     if (-not $reason -and ($now-[DateTimeOffset]$limits.checked_at_utc).TotalMinutes -gt 15) { $reason='limit_check_stale' }
@@ -86,6 +90,10 @@ try {
     }
 } catch {
     Write-State 'guard_error.json' @{at_utc=[DateTimeOffset]::UtcNow.ToString('o');message=$_.Exception.Message}
+    if (-not $state) { $state=@{} }
+    $state.stop_reason='guard_error'
+    Write-State 'stop.json' $state
+    & (Join-Path $PSScriptRoot 'autonomous_checkpoint.ps1') -Root $Root -Reason 'guard-error'
     throw
 } finally {
     [void][ForestRailRunGuard]::SetThreadExecutionState([uint32]2147483648)

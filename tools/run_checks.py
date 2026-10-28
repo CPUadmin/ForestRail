@@ -16,6 +16,8 @@ reports = args.report_dir.resolve() if args.report_dir else root/'qa'
 reports.mkdir(parents=True, exist_ok=True)
 results = []
 for suite in args.suite.split(','):
+    if (root/'qa/autonomous_run/stop.json').exists():
+        raise SystemExit('Autonomous guard requested a saved stop; no further QA started')
     script = root/'ForestRail'/'tests'/f'{suite}.gd'
     command = [str(args.engine.resolve())]
     if suite not in ('check_interaction', 'check_presentation', 'check_instruments', 'check_station_service', 'check_world_geometry', 'check_mechanism_bench', 'check_handcar_input'):
