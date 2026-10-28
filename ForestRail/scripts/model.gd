@@ -20,6 +20,7 @@ var shock_time = 0.0
 var rail_distance = 0.0
 var regen_kw = 0.0
 var motor_energy: Dictionary = {}
+var loading_cache: Dictionary = {}
 var events: Array = []
 var stationary_seconds = 0.25
 var stationary_station = 0
@@ -28,6 +29,7 @@ func _init() -> void:
 	data = JSON.parse_string(FileAccess.get_file_as_string("res://data/game_data.json"))
 
 func new_game(world_seed: int = 42) -> void:
+	loading_cache.clear()
 	route.generate(world_seed, data.stations)
 	state = {"version": 2, "fleet_by_id": {"handcar": {"levels": {}, "fuel": 0.0, "consist": []}},
 		"wagons_by_id": {}, "selected_vehicle_id": "handcar", "consist_ids": [],
@@ -273,9 +275,8 @@ func mission_error(mission: Dictionary) -> String:
 		return "Карьера завершена. Выбирай свободный рейс"
 	if mission.tier != vehicle_id():
 		return "Нужна техника: " + str(vehicle_base(mission.tier).name)
-	var count = mission_count(mission)
-	if capacity() < count:
-		return "Нужно %d мест: сейчас %d" % [count, capacity()]
+	if capacity() < 1:
+		return "Нужно хотя бы одно свободное место для груза"
 	if vehicle_id() != "handcar":
 		var distance = 0.0
 		for stop in mission.dropoffs:
@@ -322,6 +323,9 @@ func accept_mission(mission: Dictionary) -> bool:
 		return fail(problem)
 	state.active = mission.duplicate(true)
 	state.active.origin_station_id = "A"
+	state.active.selection_version = 1
+	state.active.selection_locked = false
+	state.active.offer_reward = int(mission.reward)
 	state.active.phase = "loading"
 	state.active.pending_reward = 0
 	state.active.paid = false
@@ -333,6 +337,10 @@ func accept_mission(mission: Dictionary) -> bool:
 				state.cargo.append({"id": str(mission.id) + "_" + str(serial), "type": pair[0], "destination": stop.station,
 					"slot": "", "delivered": false, "health": 1.0})
 				serial += 1
+	state.active.offered_count=state.cargo.size()
+	state.active.offer_value=0.0
+	for cargo in state.cargo: state.active.offer_value+=cargo_value(cargo)
+	loading_cache.clear()
 	state.s = route.station_s[0]
 	state.v = 0.0
 	state.direction = 1
@@ -407,14 +415,83 @@ func evaluate_delivery() -> void:
 func all_loaded() -> bool:
 	if state.cargo.is_empty():
 		return false
+	if selectable_loading():
+		for item in state.cargo:
+			if item.slot!="": return true
+		return false
 	for item in state.cargo:
 		if not item.delivered and item.slot == "":
 			return false
 	return true
 
+func selectable_loading() -> bool:
+	return not state.active.is_empty() and int(state.active.get("selection_version",0))==1 and not state.active.get("selection_locked",false)
+
+func cargo_value(item: Dictionary) -> float:
+	var distance=1.0
+	for i in range(data.stations.size()):
+		if data.stations[i].id==item.destination: distance=maxf(1,float(route.station_s[i])-float(route.station_s[0]))
+	return maxf(1,float(cargo_base(item.type).mass_kg))*distance
+
+func selected_reward() -> int:
+	if not selectable_loading(): return int(state.active.get("reward",0))
+	var value=0.0
+	for item in state.cargo:
+		if item.slot!="": value+=cargo_value(item)
+	if value==0: return 0
+	return maxi(1,roundi(float(state.active.offer_reward)*value/maxf(1,float(state.active.offer_value))))
+
+func loading_preview() -> Dictionary:
+	var loaded=0
+	var signature=vehicle_id()+str(state.consist_ids)+str(route.seed_value)
+	for item in state.cargo:
+		signature+=str(item.id)+str(item.slot)
+		if item.slot!="" and not item.delivered: loaded+=1
+	if loading_cache.get("signature","")==signature: return loading_cache
+	var target_id=next_destination()
+	var target_s=float(state.s)
+	for i in range(data.stations.size()):
+		if data.stations[i].id==target_id: target_s=float(route.station_s[i])
+	var required=0.0
+	var steepest=0.0
+	var first_hill=-1.0
+	var ids=body_ids()
+	for s in range(ceili(float(state.s)),ceili(target_s)+1,2):
+		var force=0.0
+		var positive=0.0
+		for i in range(ids.size()):
+			var slope=route.slope(float(s)-body_offset(i))
+			var mass=body_mass(ids[i])
+			force+=mass*G*(sin(slope)+float(object_stats(ids[i]).rolling)*cos(slope))
+			positive=maxf(positive,tan(slope))
+		required=maxf(required,force)
+		steepest=maxf(steepest,positive)
+		if first_hill<0 and positive>0.008: first_hill=float(s)-float(state.s)
+	var available=220.0/1.4
+	if vehicle_id()!="handcar":
+		var stats=object_stats(vehicle_id())
+		available=minf(float(stats.traction[0])*maxf(0,1-pow(1.4/float(stats.speeds[0]),2)),0.35*float(stats.mass)*G)
+	var ratio=required/maxf(1,available)
+	var difficulty="Потребуется меньшая загрузка" if ratio>1 else ("Тяжёлый подъём" if ratio>0.7 else "Легко")
+	loading_cache={"signature":signature,"loaded":loaded,"offered":int(state.active.get("offered_count",state.cargo.size())),"capacity":capacity(),"mass_kg":train_mass(),"reward":selected_reward(),"max_grade":steepest,"first_hill_m":first_hill,"required_force_n":required,"available_force_n":available,"difficulty":difficulty,"assessment_speed_mps":1.4}
+	return loading_cache
+
 func depart() -> bool:
 	if state.active.is_empty() or not all_loaded():
-		return fail("Сначала размести весь груз на составе")
+		return fail("Погрузи хотя бы один предмет" if selectable_loading() else "Сначала размести весь груз на составе")
+	if selectable_loading():
+		state.active.reward=selected_reward()
+		var accepted: Array=[]
+		var warehouse: Array=[]
+		for item in state.cargo:
+			if item.slot!="": accepted.append(item)
+			else: warehouse.append(item)
+		state.active.warehouse_cargo=warehouse
+		state.active.accepted_ids=[]
+		for item in accepted: state.active.accepted_ids.append(item.id)
+		state.active.selection_locked=true
+		state.cargo=accepted
+		loading_cache.clear()
 	state.phase = "route"
 	state.active.phase = "outbound"
 	return true
@@ -489,7 +566,7 @@ func settle() -> bool:
 		events.append("finale")
 	else:
 		events.append("coins")
-	state.last_result = {"title": state.active.title, "reward": reward, "final": state.active.get("final", false)}
+	state.last_result = {"title": state.active.title, "reward": reward, "final": state.active.get("final", false),"left_on_warehouse":state.active.get("warehouse_cargo",[]).size()}
 	state.active = {}
 	state.cargo = []
 	state.offer_serial += 1
@@ -709,9 +786,15 @@ func next_destination() -> String:
 		return "A"
 	for stop in state.active.dropoffs:
 		for item in state.cargo:
+			if selectable_loading() and not selected_loading_has_none() and item.slot=="": continue
 			if item.destination == stop.station and not item.delivered:
 				return stop.station
 	return "A"
+
+func selected_loading_has_none() -> bool:
+	for item in state.cargo:
+		if item.slot!="": return false
+	return true
 
 func mission_origin() -> String:
 	return str(state.active.get("origin_station_id","A"))
@@ -737,6 +820,7 @@ func restore(saved: Dictionary) -> bool:
 	if not validate_save(saved):
 		return false
 	state = saved.duplicate(true)
+	loading_cache.clear()
 	if not state.active.is_empty(): state.active.origin_station_id=state.active.get("origin_station_id","A")
 	route.restore(state.route, data.stations)
 	state.erase("route")

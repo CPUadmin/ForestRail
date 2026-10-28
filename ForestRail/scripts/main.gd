@@ -534,7 +534,7 @@ func mission_description(mission: Dictionary) -> String:
 		for pair in stop.cargo:
 			goods.append("%s × %d" % [model.cargo_base(pair[0]).name, pair[1]])
 		stops.append(model.station_name(stop.station) + ": " + ", ".join(goods))
-	return "\n".join(stops) + "\nВернись в Лесную. Оплата в депо: %d монет." % mission.reward
+	return "\n".join(stops) + "\nВозьми весь груз или часть. До %d монет за полный набор, оплата после возвращения." % mission.reward
 
 func take_mission(mission: Dictionary) -> void:
 	if model.accept_mission(mission):
@@ -609,7 +609,10 @@ func update_hud() -> void:
 	order_label.text=order
 	var hint = ""
 	if state.phase == "loading":
-		hint = "Перетащи груз с площадки в подсвеченные места на машине."
+		if model.selectable_loading():
+			var plan=model.loading_preview()
+			hint="Выбери груз мышью. Подъём до +%.1f%% · %s. Лишнее можно снять до отправления." % [plan.max_grade*100,plan.difficulty]
+		else: hint = "Сохранённый заказ: размести весь принятый груз. Его прежние условия сохранены."
 	elif returning and model.stopped() and stop_index > 0:
 		hint = "Груз доставлен. Разверни состав и возвращайся домой за оплатой."
 	elif stop_index >= 0 and model.stopped():
@@ -627,9 +630,10 @@ func update_hud() -> void:
 	if model.vehicle_id() == "locomotive" and model.regen_kw > 0.01:
 		hint = "Рекуперация: +%.1f кВт. Часть энергии торможения возвращается в аккумулятор." % model.regen_kw
 	var interaction=station_state()
-	hint_label.text = interaction.reason if interaction.visible else (hint if state.tutorial else "")
+	hint_label.text = hint if state.phase=="loading" else (interaction.reason if interaction.visible else (hint if state.tutorial else ""))
 	update_cargo_actions(interaction)
 	var key = "%s_%d_%s_%s_%s_%d" % [state.phase, stop_index, str(model.stopped()), str(model.all_loaded()), str(returning), model.drive_direction()]
+	if state.phase=="loading": key+=str(model.loading_preview().signature)
 	if key != last_action_key:
 		last_action_key = key
 		clear_children(action_bar)
@@ -638,6 +642,8 @@ func update_hud() -> void:
 				if model.depart(): save_game(); rebuild()
 				else: notify(model.message), not model.all_loaded())
 			add_button(action_bar, "Вернуться в депо", func(): model.back_to_depot(); screen = "depot"; save_game(); rebuild())
+			var plan=model.loading_preview()
+			add_label(action_bar,"Везём %d / %d · %d кг · %d монет" % [plan.loaded,plan.capacity,plan.mass_kg,plan.reward],19)
 		elif model.stopped():
 			if model.vehicle_id()!="handcar":
 				add_button(action_bar, "Тяга ←", func():
@@ -1473,6 +1479,9 @@ func draw_loading_dock(size: Vector2) -> void:
 	var accepting=drag=="cargo" and interaction.can_transfer and (drag_item in interaction.eligible or station_index==0)
 	draw_style_box(style(Color(0.14, 0.21, 0.17, 0.95), GOLD if accepting else Color("82916c"), 12), rect)
 	var title = ("ПОГРУЗКА · " if model.state.phase=="loading" else "РАЗГРУЗКА · ")+interaction.station_name
+	if model.state.phase=="loading" and model.selectable_loading():
+		var plan=model.loading_preview()
+		title+=" · На складе %d · Везём %d из %d" % [model.state.cargo.size()-int(plan.loaded),plan.loaded,plan.offered]
 	draw_string(font, rect.position + Vector2(20, 28), title, HORIZONTAL_ALIGNMENT_LEFT, 600, 18, PAPER)
 	if accepting:
 		draw_string(font, rect.position + Vector2(590, 28), "✓ ОТПУСТИ ЗДЕСЬ · "+interaction.station_name, HORIZONTAL_ALIGNMENT_RIGHT, rect.size.x - 615, 18, GOLD)
