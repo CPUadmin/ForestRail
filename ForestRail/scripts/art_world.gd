@@ -11,6 +11,7 @@ var strips: Dictionary = {}
 var stations
 var foreground
 var scenery
+var lake_layer: Sprite2D
 
 func _ready() -> void:
 	z_index = -10
@@ -36,6 +37,12 @@ func _ready() -> void:
 		part.z_index = 3 + strips.size() - 3
 		add_child(part)
 		strips[name] = part
+	lake_layer=Sprite2D.new()
+	lake_layer.texture=load("res://assets/art_p7/backwater_v1.png")
+	lake_layer.material=ShaderMaterial.new()
+	lake_layer.material.shader=load("res://assets/art_p7/backwater_blend.gdshader")
+	lake_layer.z_index=2
+	add_child(lake_layer)
 	scenery=PaintLayer.new()
 	scenery.z_index=2
 	scenery.painter=draw_scenery
@@ -79,6 +86,12 @@ func update_view() -> void:
 	var water=0.0 if in_menu else 1-smoothstep(12,65,absf(game.camera_s-float(game.model.route.station_s[3])))
 	var high=0.0 if in_menu else 1-smoothstep(12,65,absf(game.camera_s-float(game.model.route.station_s[4])))
 	var warm=0.0 if in_menu else 1-smoothstep(15,85,absf(game.camera_s-float(game.model.route.station_s[5])))
+	lake_layer.visible=not in_menu and water>0
+	if not in_menu:
+		var sc=game.view_scale()
+		lake_layer.position=game.world_point(float(game.model.route.station_s[3]))+Vector2(0,-150)*sc
+		lake_layer.scale=Vector2.ONE*(2600*sc/lake_layer.texture.get_width())
+		lake_layer.material.set_shader_parameter("presence",water)
 	for name in ["far_hills", "far_forest", "mid_forest"]:
 		var height = size.y * {"far_hills": 0.25, "far_forest": 0.31, "mid_forest": 0.50}[name]
 		var baseline = rail_y - {"far_hills": 105.0, "far_forest": 48.0, "mid_forest": -4.0}[name]
@@ -180,15 +193,6 @@ func grounded(canvas: Node2D,id: String,s: float,height_m: float,offset: Vector2
 
 func draw_scenery(canvas: Node2D) -> void:
 	var scale=game.view_scale()
-	var lake=game.world_point(float(game.model.route.station_s[3]))
-	if lake.x>-3500 and lake.x<game.get_viewport_rect().size.x+3500:
-		var water=PackedVector2Array([lake+Vector2(-1900,-55)*scale,lake+Vector2(-1000,-140)*scale,lake+Vector2(1000,-130)*scale,lake+Vector2(1900,-45)*scale,lake+Vector2(1600,100)*scale,lake+Vector2(-1500,100)*scale])
-		canvas.draw_colored_polygon(water,Color("789b9b"))
-		for i in range(18):
-			var y=-110+i*10.0
-			var center=sin(i*2.71)*740
-			var width=90+fposmod(i*137.1,500)
-			canvas.draw_line(lake+Vector2(center-width,y)*scale,lake+Vector2(center+width,y)*scale,Color(0.79,0.87,0.79,0.24),1.3*scale,true)
 	# Sparse trees have roots on the same sampled terrain as the railway.
 	# Their unequal spacing interrupts the periodic background silhouette.
 	for i in range(floori((game.camera_s-35)/9),ceili((game.camera_s+35)/9)):
@@ -203,21 +207,21 @@ func draw_scenery(canvas: Node2D) -> void:
 func draw_station_details(canvas: Node2D,index: int) -> void:
 	var s=float(game.model.route.station_s[index])
 	if index==0:
-		grounded(canvas,"fuel_pump",s-12,1.2)
+		grounded(canvas,"fuel_pump",s-7,1.2)
 		grounded(canvas,"log_pile",s+16,0.9)
 	elif index==1:
-		for offset in [-15,-12,18,23]: grounded(canvas,"pine",s+offset,3.8+0.05*absf(offset))
+		for offset in [-9,-6,12,17]: grounded(canvas,"pine",s+offset,3.8+0.05*absf(offset))
 	elif index==2:
-		for offset in [-16,-12,18]: grounded(canvas,"log_pile",s+offset,1.0+0.03*absf(offset))
+		for offset in [-8,-5,12]: grounded(canvas,"log_pile",s+offset,1.0+0.03*absf(offset))
 		grounded(canvas,"pine",s+25,4.0)
 	elif index==3:
-		for offset in [-23,-17,18,25]: grounded(canvas,"birch",s+offset,3.3+0.02*absf(offset))
-		grounded(canvas,"rocks",s-12,0.8)
+		for offset in [-9,-6,13,18]: grounded(canvas,"birch",s+offset,3.3+0.02*absf(offset))
+		grounded(canvas,"rocks",s-8,0.8)
 	elif index==4:
-		for offset in [-24,-16,18,27]: grounded(canvas,"rocks",s+offset,1.3+0.035*absf(offset))
+		for offset in [-9,-5,13,18]: grounded(canvas,"rocks",s+offset,1.3+0.035*absf(offset))
 		grounded(canvas,"pine",s+22,4.4,Vector2.ZERO,Color("b4b59b"))
 	else:
-		for offset in [-20,24]:
+		for offset in [-7,15]:
 			var at=game.world_point(s+offset)
 			art.draw_part(canvas,"stations/station_house",at,0,art.scale_for("stations/station_house")*game.view_scale()*0.65)
 		grounded(canvas,"birch",s-28,4.1)

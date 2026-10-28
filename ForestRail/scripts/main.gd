@@ -382,7 +382,7 @@ func load_career(saved: Dictionary) -> void:
 
 func build_depot(size: Vector2) -> void:
 	positioned_label("ДЕПО  /  ЛЕСНАЯ", Rect2(44, 30, 1000, 50), 32)
-	positioned_label("%d монет  ·  %d / 10 основных рейсов  ·  дорога %d" % [model.state.money, model.state.chapter, model.route.seed_value], Rect2(46, 87, 1100, 45), 20)
+	positioned_label("%d монет  ·  %d / 10 основных рейсов" % [model.state.money, model.state.chapter], Rect2(46, 87, 1000, 45), 20)
 	var menu_row = HBoxContainer.new()
 	menu_row.position = Vector2(size.x - 285, 28)
 	menu_row.size = Vector2(245, 50)
@@ -450,11 +450,11 @@ func build_depot(size: Vector2) -> void:
 		build_missions(right)
 	positioned_label(vehicle_display_name(), Rect2(44, 158, left_width - 20, 70), 32)
 	var stats = model.object_stats(model.vehicle_id())
-	var details = "%d кг  ·  %d мест  ·  тормоз %d Н" % [model.train_mass(), model.capacity(), stats.brake]
+	var details = "%d кг  ·  %d мест" % [model.train_mass(), model.capacity()]
 	if model.vehicle_id() == "handcar":
-		details += "\nРычажный привод: до %d Вт · маховик и цепь\nКоэффициент качения: %.4f" % [stats.power, stats.rolling]
+		details += "\nРучной привод · без топлива\nМаховик сохраняет накат"
 	else:
-		details += "\nТяга: %d / %d Н · скорость %.1f / %.1f м/с\n" % [stats.traction[0], stats.traction[1], stats.speeds[0], stats.speeds[1]] + energy_text()
+		details += "\nПередачи Н / I / II · до %.0f км/ч\n" % (float(stats.speeds[1])*3.6) + energy_text()
 	positioned_label(details, Rect2(46, 239, left_width - 20, 105), 19)
 	var service = HBoxContainer.new()
 	service.position = Vector2(44, size.y - 150)
@@ -579,6 +579,11 @@ func build_hud(size: Vector2) -> void:
 	map_button = add_button(pause_row, "Карта [M]", toggle_map)
 	if model.vehicle_id()!="handcar": add_button(pause_row,"Пульт [C]",toggle_control_zoom)
 	add_button(pause_row, "Пауза", pause_game)
+	for button in pause_row.get_children():
+		for state_name in ["normal","hover","pressed","disabled","focus"]:
+			var padding=button.get_theme_stylebox(state_name).duplicate()
+			padding.content_margin_top=2;padding.content_margin_bottom=2
+			button.add_theme_stylebox_override(state_name,padding)
 	order_label=positioned_label("",Rect2(34,64,size.x-68,28),16,Color("c7c3a0"))
 	order_label.autowrap_mode=TextServer.AUTOWRAP_OFF
 	order_label.text_overrun_behavior=TextServer.OVERRUN_TRIM_ELLIPSIS

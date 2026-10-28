@@ -5,11 +5,12 @@ var checks=0
 var failures: Array=[]
 var cases: Array=[]
 var out_dir=""
+var context=""
 
 func _ready() -> void: call_deferred("run")
 func check(ok: bool,label: String) -> void:
 	checks+=1
-	if not ok: failures.append(label);print("FAIL: ",label)
+	if not ok: failures.append(context+label);print("FAIL: ",context,label)
 
 func frame(count: int=2) -> void:
 	for i in range(count):
@@ -21,6 +22,7 @@ func click(point: Vector2) -> void:
 	for pressed in [true,false]:
 		var e=InputEventMouseButton.new();e.position=point;e.global_position=point
 		e.button_index=MOUSE_BUTTON_LEFT;e.pressed=pressed
+		e.button_mask=MOUSE_BUTTON_MASK_LEFT if pressed else 0
 		get_tree().root.push_input(e,true)
 		await frame()
 
@@ -56,10 +58,12 @@ func run() -> void:
 	game.settings.fullscreen=false;game.apply_settings()
 	for resolution in [Vector2i(1280,720),Vector2i(1600,900),Vector2i(1920,1080)]:
 		get_tree().root.size=resolution
+		await get_tree().create_timer(0.15).timeout
 		for scale in [1.0,1.25,1.5]:
 			game.settings.text_scale=scale
 			for id in ["handcar","motorcar","locomotive"]:
-				fixture(id);await frame()
+				context=str(resolution)+" "+str(scale)+" "+id+" "
+				fixture(id);await frame(6)
 				var viewport=game.get_viewport_rect()
 				var ratio=game.instruments.permanent_panel_height()/viewport.size.y
 				check(ratio<=0.22+0.0001,"permanent panels <=22% "+str(resolution))
@@ -68,6 +72,7 @@ func run() -> void:
 				check(game.hud.get_global_rect().end.x<=game.map_button.get_global_rect().position.x,"route heading and buttons do not overlap")
 				for b in game.ui.find_children("*","Button",true,false):
 					if b.is_visible_in_tree(): check(viewport.encloses(b.get_global_rect()),"visible HUD button remains inside window")
+					if b.text in ["Карта [M]","Пульт [C]","Пауза"]: check(b.size.y<=46,"actual header buttons fit declared panel height")
 				var state=JSON.stringify(game.model.serialize())
 				await frame(3)
 				check(JSON.stringify(game.model.serialize())==state,"redrawing does not change model")
@@ -78,7 +83,8 @@ func run() -> void:
 				check(game.modal_kind=="" and not game.paused,"mouse closes map and resumes")
 				if id!="handcar":
 					check(await click_button(game.ui,"Пульт [C]"),"mouse opens pult at every text scale")
-					check(game.control_zoom and viewport.encloses(game.control_zoom_rect()),"pult stays inside window")
+					check(game.control_zoom,"pult actually opened")
+					check(viewport.encloses(game.control_zoom_rect()),"pult stays inside window")
 					await click(game.control_zoom_rect().position+Vector2(390,20))
 					check(not game.control_zoom,"mouse closes pult")
 				cases.append({"window":str(resolution),"text_scale":scale,"vehicle":id,"hud_fraction":ratio})
