@@ -891,6 +891,27 @@ func validate_save(saved: Dictionary) -> bool:
 			for station in data.stations: known_origin=known_origin or saved.active.origin_station_id==station.id
 			if not known_origin: return false
 		if not numeric(saved.active.reward) or not numeric(saved.active.pending_reward): return false
+		if saved.active.has("selection_version"):
+			var active=saved.active
+			if not numeric(active.selection_version) or int(active.selection_version)!=1: return false
+			if not active.has_all(["selection_locked","offer_reward","offer_value","offered_count"]): return false
+			if not active.selection_locked is bool or not numeric(active.offer_reward) or not numeric(active.offer_value) or not numeric(active.offered_count): return false
+			if active.offer_reward<=0 or active.offer_value<=0 or active.offered_count<1 or active.offered_count>64: return false
+			if active.reward>active.offer_reward or active.reward<0: return false
+			if not active.selection_locked and active.phase!="loading": return false
+			if active.selection_locked:
+				if not active.has_all(["warehouse_cargo","accepted_ids"]) or not active.warehouse_cargo is Array or not active.accepted_ids is Array: return false
+				if saved.cargo.is_empty() or active.accepted_ids.size()!=saved.cargo.size() or active.warehouse_cargo.size()+saved.cargo.size()!=int(active.offered_count): return false
+				var accepted_ids: Array=[]
+				for item in saved.cargo:
+					if not item is Dictionary or not item.has("id") or item.id in accepted_ids or item.id not in active.accepted_ids: return false
+					accepted_ids.append(item.id)
+				var stock_ids: Array=[]
+				for item in active.warehouse_cargo:
+					if not item is Dictionary or not item.has_all(["id","type","slot","destination","delivered","health"]): return false
+					if item.id in accepted_ids or item.id in stock_ids or item.slot!="" or item.delivered: return false
+					if cargo_base(str(item.type)).is_empty() or not numeric(item.health): return false
+					stock_ids.append(item.id)
 		for stop in saved.active.dropoffs:
 			if not stop is Dictionary or not stop.has_all(["station", "cargo"]): return false
 	if not saved.fleet_by_id.has(saved.selected_vehicle_id) or int(saved.money) < 0 or int(saved.chapter) < 0 or int(saved.chapter) > 10:
