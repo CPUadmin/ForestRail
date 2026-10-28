@@ -120,6 +120,18 @@ func hand_grip(model) -> Vector2:
 
 func draw_vehicle(canvas: Node2D, id: String, distance: float, facing: int, outer: Transform2D, model, active: bool, pose_override: Dictionary = {}) -> void:
 	draw_part(canvas, body_key(id), Vector2(0, axis_height(id)), 0, scale_for(body_key(id)), outer)
+	if id=="locomotive":
+		# Reuse the supplied body, adding visible battery compartments and
+		# electrical markings in game coordinates rather than repainting it.
+		for x in [0.70,1.35]:
+			var box=Rect2(Vector2(x-0.26,-1.08)*PX,Vector2(0.52,0.40)*PX)
+			var casing=StyleBoxFlat.new()
+			casing.bg_color=Color(0.14,0.24,0.20,0.62);casing.border_color=Color("a39a6c");casing.set_border_width_all(1);casing.set_corner_radius_all(2)
+			canvas.draw_style_box(casing,box)
+			canvas.draw_line(box.position+Vector2(5,7),box.position+Vector2(5,box.size.y-5),Color("728b78"),1,true)
+		var bolt=PackedVector2Array([Vector2(0.05,-0.77),Vector2(-0.06,-0.61),Vector2(0.03,-0.61),Vector2(-0.02,-0.47),Vector2(0.13,-0.66),Vector2(0.04,-0.66)])
+		for i in range(bolt.size()): bolt[i]=(bolt[i]+Vector2(1.02,-0.28))*PX
+		canvas.draw_colored_polygon(bolt,Color("ddc37b"))
 	var p = mechanism_pose(model) if id=="handcar" and pose_override.is_empty() else pose_override
 	var wheel_id = "vehicles/wheel_large" if id == "locomotive" else "vehicles/wheel_small"
 	var radius = PX * (0.55 if id == "locomotive" else 0.42) * 0.5

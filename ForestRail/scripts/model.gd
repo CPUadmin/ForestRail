@@ -802,6 +802,10 @@ func validate_save(saved: Dictionary) -> bool:
 	if not saved.active.is_empty():
 		if not saved.active.has_all(["id", "title", "tier", "reward", "dropoffs", "phase", "pending_reward", "paid"]): return false
 		if saved.active.phase not in ["loading", "outbound", "return"] or not saved.active.dropoffs is Array: return false
+		if saved.active.has("origin_station_id"):
+			var known_origin=false
+			for station in data.stations: known_origin=known_origin or saved.active.origin_station_id==station.id
+			if not known_origin: return false
 		if not numeric(saved.active.reward) or not numeric(saved.active.pending_reward): return false
 		for stop in saved.active.dropoffs:
 			if not stop is Dictionary or not stop.has_all(["station", "cargo"]): return false

@@ -25,6 +25,7 @@ var font: Font
 var ui: Control
 var overlay: Control
 var hud: Label
+var order_label: Label
 var hint_label: Label
 var action_bar: HBoxContainer
 var cargo_actions: HBoxContainer
@@ -99,7 +100,7 @@ func _ready() -> void:
 		for arg in qa_args:
 			if arg.begins_with("--qa-suite="):
 				var suite = arg.trim_prefix("--qa-suite=")
-				if suite not in ["check_model", "check_physics", "check_interaction", "drive_campaign", "check_presentation", "check_handcar_revision", "check_art_v3", "check_instruments", "check_station_service", "check_world_geometry", "check_mechanism", "check_mechanism_bench", "check_handcar_drive", "check_handcar_input"]: get_tree().quit(2); return
+				if suite not in ["check_model", "check_physics", "check_interaction", "drive_campaign", "check_presentation", "check_handcar_revision", "check_art_v3", "check_instruments", "check_station_service", "check_world_geometry", "check_mechanism", "check_mechanism_bench", "check_handcar_drive", "check_handcar_input", "check_motor_controls"]: get_tree().quit(2); return
 				get_tree().root.set_meta("qa_running", true)
 				set_process(false)
 				set_physics_process(false)
@@ -575,7 +576,10 @@ func build_hud(size: Vector2) -> void:
 	map_button = add_button(pause_row, "Карта [M]", toggle_map)
 	if model.vehicle_id()!="handcar": add_button(pause_row,"Пульт [C]",toggle_control_zoom)
 	add_button(pause_row, "Пауза", pause_game)
-	hint_label = positioned_label("", Rect2(42, 67, size.x - 84, 44), 18)
+	order_label=positioned_label("",Rect2(42,61,size.x-84,28),16,Color("c7c3a0"))
+	order_label.autowrap_mode=TextServer.AUTOWRAP_OFF
+	order_label.text_overrun_behavior=TextServer.OVERRUN_TRIM_ELLIPSIS
+	hint_label = positioned_label("", Rect2(42, 88, size.x - 84, 32), 17)
 	hint_label.autowrap_mode=TextServer.AUTOWRAP_OFF
 	hint_label.text_overrun_behavior=TextServer.OVERRUN_TRIM_ELLIPSIS
 	action_bar = HBoxContainer.new()
@@ -601,7 +605,8 @@ func update_hud() -> void:
 	var returning = not state.active.is_empty() and state.active.phase == "return"
 	var stop_index = model.station_index()
 	var at_station = model.station_name(model.data.stations[stop_index].id) if stop_index >= 0 else ""
-	hud.text = "%s → %s · %d м · %d монет" % ["Домой" if returning else order, model.station_name(destination), absf(target_s-float(state.s)),state.money]
+	hud.text = "%s · %d м · %d монет" % [model.journey_heading(),absf(target_s-float(state.s)),state.money]
+	order_label.text=order
 	var hint = ""
 	if state.phase == "loading":
 		hint = "Перетащи груз с площадки в подсвеченные места на машине."
@@ -692,19 +697,37 @@ func draw_control_zoom() -> void:
 	var rect = control_zoom_rect()
 	draw_set_transform_matrix(Transform2D.IDENTITY)
 	draw_style_box(style(INK,GOLD,8),rect)
-	var outer = control_zoom_transform()
-	draw_set_transform_matrix(outer)
-	draw_controls(outer,false)
-	draw_set_transform_matrix(Transform2D.IDENTITY)
 	draw_rect(Rect2(rect.position,Vector2(rect.size.x,42)),INK)
-	draw_string(font,rect.position+Vector2(16,28),"ПУЛЬТ · крупное управление",HORIZONTAL_ALIGNMENT_LEFT,330,19,PAPER)
+	draw_string(font,rect.position+Vector2(16,28),"ПУЛЬТ",HORIZONTAL_ALIGNMENT_LEFT,330,19,PAPER)
 	draw_string(font,rect.position+Vector2(370,28),"C ×",HORIZONTAL_ALIGNMENT_LEFT,50,19,GOLD)
-	for id in ["brake","throttle","gear","start"]:
-		var point = outer*lever_geometry(id).grip
+	var ids=["brake","throttle","gear","start"]
+	for i in range(ids.size()):
+		var id=ids[i]
+		var pivot=rect.position+Vector2(65+100*i,225)
+		var value=float(model.state.get(id,0))
+		var angle=lerpf(0.55,-0.55,value)
+		if id=="gear": angle=lerpf(-0.55,0.55,float(model.state.gear)/2)
+		if id=="start": angle=0.0 if model.state.engine else PI
+		var length=90.0 if id!="start" else 42.0
+		var point=pivot+Vector2(0,-length).rotated(angle)
+		var source_length=float({"brake":166,"throttle":165,"gear":166,"start":138}[id])
+		var factor=length/source_length
+		sprite("control_mount",Rect2(pivot-Vector2(8,8),Vector2(16,16)))
+		draw_set_transform_matrix(Transform2D(angle,pivot))
+		sprite("control_"+id,Rect2(-Vector2(128,224)*factor,Vector2.ONE*256*factor))
+		draw_set_transform_matrix(Transform2D.IDENTITY)
 		grip_hits.append({"id":id,"position":point,"closeup":true})
-		var label = {"brake":"Тормоз %d%%" % (model.state.brake*100),"throttle":"Газ %d%%" % (model.state.throttle*100),"gear":"Передача "+["Н","1","2"][int(model.state.gear)],"start":"Пуск · "+("вкл." if model.state.engine else "выкл.")}[id]
-		draw_string(font,point+Vector2(16,-8),label,HORIZONTAL_ALIGNMENT_LEFT,180,16,PAPER)
-	draw_string(font,rect.position+Vector2(16,303),"Зажми рукоять и потяни вверх или вниз",HORIZONTAL_ALIGNMENT_LEFT,400,17,Color("c7c3a0"))
+		var title={"brake":"Тормоз","throttle":"Тяга" if model.vehicle_id()=="locomotive" else "Газ","gear":"Передача","start":"Пуск"}[id]
+		var label={"brake":"%d%%" % (model.state.brake*100),"throttle":"%d%%" % (model.state.throttle*100),"gear":["Н","1","2"][int(model.state.gear)],"start":"Вкл." if model.state.engine else "Выкл."}[id]
+		draw_string(font,rect.position+Vector2(15+100*i,78),title,HORIZONTAL_ALIGNMENT_CENTER,100,16,PAPER)
+		draw_string(font,rect.position+Vector2(15+100*i,253),label,HORIZONTAL_ALIGNMENT_CENTER,100,16,GOLD)
+		if id=="gear":
+			for detent in range(3):
+				var mark=pivot+Vector2(0,-length).rotated(lerpf(-0.55,0.55,detent/2.0))
+				draw_circle(mark,3,GOLD if detent==int(model.state.gear) else Color("66796b"))
+		if drag==id or point.distance_to(get_global_mouse_position())<24: draw_arc(point,10,0,TAU,28,PAPER,1.5,true)
+	var feedback=toast if toast_seconds>0 else "Зажми рукоять и потяни вверх или вниз"
+	draw_multiline_string(font,rect.position+Vector2(16,285),feedback,HORIZONTAL_ALIGNMENT_LEFT,400,15,2,GOLD if toast_seconds>0 else Color("c7c3a0"))
 
 func show_modal(kind: String) -> void:
 	cancel_drag()
@@ -1125,7 +1148,7 @@ func _draw() -> void:
 			draw_cargo_feedback()
 			if control_zoom and model.vehicle_id()!="handcar": draw_control_zoom()
 			draw_tooltip()
-	if toast_seconds > 0 and modal_kind != "confirm":
+	if toast_seconds > 0 and modal_kind != "confirm" and not control_zoom:
 		var width = minf(1100, size.x - 100)
 		var rect = Rect2((size.x - width) / 2, 184 if screen=="game" else size.y - 65, width, 44)
 		if control_zoom: rect=Rect2(480,195,size.x-500,44)
