@@ -86,9 +86,10 @@ func run() -> void:
 	for pressed in [true,false]:
 		var event = InputEventMouseButton.new()
 		event.position=point
+		event.global_position=point
 		event.button_index=MOUSE_BUTTON_LEFT
 		event.pressed=pressed
-		get_tree().root.push_input(event)
+		get_tree().root.push_input(event,true)
 		await get_tree().process_frame
 	check(game.modal_kind=="map","minimap click opens full map through GUI")
 	game.close_modal()
@@ -105,9 +106,10 @@ func run() -> void:
 	for pressed in [true,false]:
 		var event = InputEventMouseButton.new()
 		event.position=source if pressed else game.dock_rect().get_center()
+		event.global_position=event.position
 		event.button_index=MOUSE_BUTTON_LEFT
 		event.pressed=pressed
-		get_tree().root.push_input(event)
+		get_tree().root.push_input(event,true)
 		await get_tree().process_frame
 	check(game.model.state.cargo[0].delivered,"cargo unload works through GUI above dashboard")
 	check(game.model.train_mass()==mass+35,"mass readout source decreases after unloading")
