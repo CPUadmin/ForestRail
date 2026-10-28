@@ -19,14 +19,16 @@ func _ready() -> void:
 func run() -> void:
 	var m = Model.new()
 	m.new_game(42)
-	for chapter in range(13):
+	var partial="--partial-first" in OS.get_cmdline_user_args()
+	var trips=1 if partial else 13
+	for chapter in range(trips):
 		if chapter == 2: m.buy_vehicle("motorcar")
 		if chapter == 6: m.buy_vehicle("locomotive")
 		if chapter == 9: m.buy_wagon()
 		m.refuel()
 		var mission = m.current_mission() if chapter < 10 else m.free_offers()[chapter - 10]
 		if not m.accept_mission(mission): failures.append("accept " + str(mission.id)); break
-		for i in range(m.state.cargo.size()): m.transfer(m.state.cargo[i].id, m.slots()[i].key)
+		for i in range(1 if partial else m.state.cargo.size()): m.transfer(m.state.cargo[i].id, m.slots()[i].key)
 		m.depart()
 		var timer = 0.0
 		var phase_time = 0.0
@@ -75,11 +77,12 @@ func run() -> void:
 		stats.append({"mission": mission.id, "seconds": timer, "money": m.state.money, "energy_remaining": m.state.fleet_by_id[m.vehicle_id()].fuel})
 		print("COMPLETED ", mission.id, " ", int(timer), " seconds; money ", m.state.money)
 		await get_tree().process_frame
-	var output = FileAccess.open("user://qa_model/drive_campaign.json", FileAccess.WRITE)
+	var output = FileAccess.open("user://qa_model/drive_partial.json" if partial else "user://qa_model/drive_campaign.json", FileAccess.WRITE)
 	output.store_string(JSON.stringify({"failures": failures, "missions": stats, "steps": steps}, "\t"))
 	output.close()
-	print("DRIVE CAMPAIGN: ", stats.size(), "/13 (10 career + 3 free), steps ", steps, ", failures ", failures)
-	quit(0 if failures.is_empty() and stats.size() == 13 else 1)
+	print("DRIVE CAMPAIGN: ", stats.size(), "/",trips," (partial first trip)" if partial else " (10 career + 3 free)"," steps ", steps, ", failures ", failures)
+	if partial and (stats.is_empty() or stats[0].money!=50): failures.append("partial payment must be 50")
+	quit(0 if failures.is_empty() and stats.size() == trips else 1)
 
 func station_index(m, id: String) -> int:
 	for i in range(m.data.stations.size()):

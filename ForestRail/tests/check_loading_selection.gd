@@ -68,6 +68,7 @@ func numerical() -> void:
 	var old=m.serialize()
 	for key in ["selection_version","selection_locked","offer_reward","offer_value","offered_count"]: old.active.erase(key)
 	check(m.restore(old) and not m.selectable_loading(),"legacy contract remains fixed")
+	park(m,0)
 	m.transfer(m.state.cargo[0].id,m.slots()[0].key)
 	check(not m.depart(),"legacy partial departure remains prohibited")
 	m.transfer(m.state.cargo[1].id,m.slots()[1].key)
@@ -77,7 +78,7 @@ func numerical() -> void:
 	m.transfer(m.state.cargo[0].id,m.slots()[0].key)
 	for point in m.route.points: point[1]=0.0
 	m.loading_cache.clear();var easy=m.loading_preview().duplicate(true)
-	for point in m.route.points: point[1]=float(point[0])*0.06
+	for point in m.route.points: point[1]=float(point[0])*0.10
 	m.loading_cache.clear();var uphill=m.loading_preview().duplicate(true)
 	m.transfer(m.state.cargo[1].id,m.slots()[1].key)
 	var heavy=m.loading_preview()
@@ -136,6 +137,7 @@ func gui() -> void:
 	game=load("res://main.tscn").instantiate();get_tree().root.add_child(game)
 	game.test_mode=true;game.set_physics_process(false);game.set_process(false)
 	game.saves.directory=out_dir.path_join("isolated_profile")
+	DirAccess.make_dir_recursive_absolute(game.saves.directory)
 	for resolution in [Vector2i(1280,720),Vector2i(1600,900),Vector2i(1920,1080)]:
 		get_tree().root.size=resolution
 		game.model.new_game(42);game.model.accept_mission(game.model.current_mission());game.screen="game"

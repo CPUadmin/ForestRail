@@ -643,7 +643,9 @@ func update_hud() -> void:
 				else: notify(model.message), not model.all_loaded())
 			add_button(action_bar, "Вернуться в депо", func(): model.back_to_depot(); screen = "depot"; save_game(); rebuild())
 			var plan=model.loading_preview()
-			add_label(action_bar,"Везём %d / %d · %d кг · %d монет" % [plan.loaded,plan.capacity,plan.mass_kg,plan.reward],19)
+			var choice_label=add_label(action_bar,"Везём %d / %d · %d кг · %d монет" % [plan.loaded,plan.capacity,plan.mass_kg,plan.reward],19,PAPER)
+			choice_label.add_theme_stylebox_override("normal",style(INK,Color("5d7561"),6))
+			choice_label.vertical_alignment=VERTICAL_ALIGNMENT_CENTER
 		elif model.stopped():
 			if model.vehicle_id()!="handcar":
 				add_button(action_bar, "Тяга ←", func():
