@@ -1,0 +1,106 @@
+{
+  "version": "1.2.0-preview.5",
+  "stage": "P5",
+  "source_commit": "fc7069cfc475d80760d4cb59ba6648fb286e0e6c",
+  "exe_sha256": "698a87bb987134df105e871784c5e6e5d13135cee7271da6ebaa0467727fa447",
+  "motor": {
+    "checks": 298,
+    "failures": [],
+    "input": "actual Viewport.push_input; fixtures set only initial state and gear test speed"
+  },
+  "native_checks": [
+    {
+      "suite": "check_motor_controls",
+      "exit_code": 0,
+      "success": true,
+      "seconds": 9.375,
+      "log": "export_check_motor_controls.log"
+    },
+    {
+      "suite": "check_model",
+      "exit_code": 0,
+      "success": true,
+      "seconds": 1.125,
+      "log": "export_check_model.log"
+    },
+    {
+      "suite": "check_physics",
+      "exit_code": 0,
+      "success": true,
+      "seconds": 10.813,
+      "log": "export_check_physics.log"
+    },
+    {
+      "suite": "check_world_geometry",
+      "exit_code": 0,
+      "success": true,
+      "seconds": 12.328,
+      "log": "export_check_world_geometry.log"
+    },
+    {
+      "suite": "check_station_service",
+      "exit_code": 0,
+      "success": true,
+      "seconds": 25.062,
+      "log": "export_check_station_service.log"
+    },
+    {
+      "suite": "check_instruments",
+      "exit_code": 0,
+      "success": true,
+      "seconds": 8.391,
+      "log": "export_check_instruments.log"
+    },
+    {
+      "suite": "check_art_v3",
+      "exit_code": 0,
+      "success": true,
+      "seconds": 1.047,
+      "log": "export_check_art_v3.log"
+    },
+    {
+      "suite": "check_handcar_revision",
+      "exit_code": 0,
+      "success": true,
+      "seconds": 1.047,
+      "log": "export_check_handcar_revision.log"
+    },
+    {
+      "suite": "check_handcar_drive",
+      "exit_code": 0,
+      "success": true,
+      "seconds": 15.328,
+      "log": "export_check_handcar_drive.log"
+    },
+    {
+      "suite": "check_handcar_input",
+      "exit_code": 0,
+      "success": true,
+      "seconds": 11.765,
+      "log": "export_check_handcar_input.log"
+    },
+    {
+      "suite": "check_mechanism",
+      "exit_code": 0,
+      "success": true,
+      "seconds": 12.032,
+      "log": "export_check_mechanism.log"
+    },
+    {
+      "suite": "check_mechanism_bench",
+      "exit_code": 0,
+      "success": true,
+      "seconds": 3.047,
+      "log": "export_check_mechanism_bench.log"
+    },
+    {
+      "suite": "drive_campaign",
+      "exit_code": 0,
+      "success": true,
+      "seconds": 114.375,
+      "log": "export_drive_campaign.log"
+    }
+  ],
+  "human_trial": "not performed",
+  "remaining": "P6-P8"
+}
