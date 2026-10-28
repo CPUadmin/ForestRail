@@ -639,8 +639,9 @@ func update_hud() -> void:
 	if model.vehicle_id() == "locomotive" and model.regen_kw > 0.01:
 		hint = "Рекуперация: +%.1f кВт. Часть энергии торможения возвращается в аккумулятор." % model.regen_kw
 	var interaction=station_state()
-	order_label.visible=not control_zoom and (state.phase=="loading" or (interaction.visible and model.stopped()))
-	hint_label.visible=not control_zoom and (state.phase=="loading" or (interaction.visible and model.stopped()) or (drag!="" and state.tutorial))
+	order_label.visible=not control_zoom and state.phase=="loading"
+	hint_label.visible=not control_zoom and (state.phase=="loading" or (drag!="" and state.tutorial and not interaction.visible))
+	action_bar.position.y=168 if state.phase=="loading" else 70
 	hint_label.text = hint if state.phase=="loading" else (interaction.reason if interaction.visible else (hint if state.tutorial else ""))
 	update_cargo_actions(interaction)
 	var key = "%s_%d_%s_%s_%s_%d" % [state.phase, stop_index, str(model.stopped()), str(model.all_loaded()), str(returning), model.drive_direction()]

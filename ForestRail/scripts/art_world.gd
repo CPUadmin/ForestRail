@@ -109,6 +109,7 @@ func update_view() -> void:
 		var scale = 1.0 if in_menu else game.view_scale()
 		var top = {"soil": 16.0, "ballast": 0.0, "grass": 43.0, "rail": -0.5}[name] * scale
 		var depth = {"soil": 160.0, "ballast": 31.0, "grass": 22.0, "rail": 3.0}[name] * scale
+		if name=="soil": depth=maxf(depth,size.y-rail_y+80)
 		var tile_m = {"soil": 2.2, "ballast": 1.8, "grass": 3.2, "rail": 3.0}[name]
 		for i in range(97):
 			var s = game.camera_s - 32 + i * (64.0 / 96)
@@ -116,7 +117,7 @@ func update_view() -> void:
 			points.append(p + Vector2(0, top))
 			points.append(p + Vector2(0, top + depth))
 			uv.append(Vector2(s / tile_m, 0))
-			uv.append(Vector2(s / tile_m, 1))
+			uv.append(Vector2(s / tile_m, depth/(160*scale) if name=="soil" else 1))
 		strips[name].mesh = mesh_strip(points, uv, Color(0.88,0.9,0.8) if name=="soil" else Color.WHITE)
 	stations.visible = not in_menu
 	scenery.visible=not in_menu
@@ -221,9 +222,9 @@ func draw_station_details(canvas: Node2D,index: int) -> void:
 		for offset in [-9,-5,13,18]: grounded(canvas,"rocks",s+offset,1.3+0.035*absf(offset))
 		grounded(canvas,"pine",s+22,4.4,Vector2.ZERO,Color("b4b59b"))
 	else:
-		for offset in [-7,15]:
+		for offset in [-11]:
 			var at=game.world_point(s+offset)
-			art.draw_part(canvas,"stations/station_house",at,0,art.scale_for("stations/station_house")*game.view_scale()*0.65)
+			art.draw_part(canvas,"stations/station_house",at,0,art.scale_for("stations/station_house")*game.view_scale())
 		grounded(canvas,"birch",s-28,4.1)
 
 func draw_foreground(canvas: Node2D) -> void:

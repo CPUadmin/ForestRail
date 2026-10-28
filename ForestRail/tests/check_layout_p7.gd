@@ -79,6 +79,7 @@ func run() -> void:
 				await shot("route_"+id+"_"+str(resolution.x)+"_"+str(roundi(scale*100)))
 				await click(game.instruments.mini_rect().get_center())
 				check(game.modal_kind=="map" and game.paused,"minimap opens map through mouse")
+				if id=="locomotive" and scale==1.5: await shot("map_"+str(resolution.x)+"_150")
 				check(await click_button(game.overlay,"Закрыть [M / Esc]"),"map has mouse close action")
 				check(game.modal_kind=="" and not game.paused,"mouse closes map and resumes")
 				if id!="handcar":
