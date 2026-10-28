@@ -124,7 +124,7 @@ func draw_vehicle(canvas: Node2D, id: String, distance: float, facing: int, oute
 	var wheel_id = "vehicles/wheel_large" if id == "locomotive" else "vehicles/wheel_small"
 	var radius = PX * (0.55 if id == "locomotive" else 0.42) * 0.5
 	for position in wheel_positions(id):
-		var wheel_angle = fposmod(p.wheel_angle,TAU) if not pose_override.is_empty() and id=="handcar" else fposmod(distance*PX/radius*facing,TAU)
+		var wheel_angle = fposmod(p.wheel_angle,TAU) if id=="handcar" else fposmod(distance*PX/radius*facing,TAU)
 		draw_part(canvas, wheel_id, position, wheel_angle, scale_for(wheel_id), outer)
 		canvas.draw_set_transform_matrix(outer * Transform2D(wheel_angle, position))
 		canvas.draw_circle(Vector2(0, -radius * 0.72), 1.8, Color("c9af73"))
@@ -141,6 +141,9 @@ func mechanism_parts(p: Dictionary) -> Array:
 	parts.append({"id":"mechanism/support","position":p.rocker*PX,"angle":0.0,"scale":support_scale})
 	var crank_angle=fposmod(p.phase,TAU)
 	parts.append({"id":"mechanism/gear","position":p.crank*PX,"angle":crank_angle,"scale":scale_for("mechanism/gear")})
+	var gear_width=float(assets["mechanism/gear"].region_px[2])
+	parts.append({"id":"mechanism/gear","position":p.crank*PX,"angle":crank_angle,"scale":float(rig.drive_sprocket_radius)*2*PX/gear_width})
+	parts.append({"id":"mechanism/gear","position":wheel_positions("handcar")[1],"angle":fposmod(p.wheel_angle,TAU),"scale":float(rig.wheel_sprocket_radius)*2*PX/gear_width})
 	var crank_source = assets["mechanism/crank"].pins_px
 	var crank_vector = vec(crank_source.end) - vec(crank_source.start)
 	var crank_scale = float(rig.crank_radius)*PX/crank_vector.length()
@@ -158,3 +161,32 @@ func draw_mechanism(canvas: Node2D, model, outer: Transform2D, p: Dictionary = {
 	if p.is_empty(): p=mechanism_pose(model)
 	for part in mechanism_parts(p):
 		draw_part(canvas,part.id,part.position,part.angle,part.scale,outer)
+	draw_chain(canvas,p,outer)
+
+func draw_chain(canvas: Node2D, p: Dictionary, outer: Transform2D) -> void:
+	var a=p.crank*PX
+	var b=wheel_positions("handcar")[1]
+	var ra=float(rig.drive_sprocket_radius)*PX
+	var rb=float(rig.wheel_sprocket_radius)*PX
+	var u=(b-a).normalized()
+	var normal=Vector2(-u.y,u.x)
+	var c=(ra-rb)/a.distance_to(b)
+	var s=sqrt(1-c*c)
+	var n1=u*c+normal*s
+	var n2=u*c-normal*s
+	canvas.draw_set_transform_matrix(outer)
+	for color in [Color("172724"),Color("a7aa91")]:
+		var width=3.0 if color==Color("172724") else 1.1
+		canvas.draw_arc(a,ra,n1.angle(),n2.angle()+TAU,32,color,width,true)
+		canvas.draw_arc(b,rb,n2.angle(),n1.angle(),32,color,width,true)
+		for n in [n1,n2]: canvas.draw_line(a+n*ra,b+n*rb,color,width,true)
+	for side in range(2):
+		var n=n1 if side==0 else n2
+		var start=a+n*ra
+		var end=b+n*rb
+		var span=start.distance_to(end)
+		var pitch=0.035*PX
+		var offset=fposmod(p.phase*ra*(-1 if side==0 else 1),pitch)
+		for i in range(ceili(span/pitch)):
+			var distance=i*pitch+offset
+			if distance<span: canvas.draw_circle(start.lerp(end,distance/span),1.1,Color("c1b98e"))

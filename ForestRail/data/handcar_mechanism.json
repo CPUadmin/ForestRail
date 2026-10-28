@@ -1,14 +1,16 @@
 {
-  "version": 1,
+  "version": 2,
   "units": "metres, +X along the unmirrored vehicle, +Y down, origin at rail level",
   "rocker_pivot": [0.0, -1.45],
-  "crank_pivot": [0.6607712082262212, -0.21],
+  "crank_pivot": [0.42, -0.40],
   "rocker_pin_radius": 0.41702905039438987,
-  "crank_radius": 0.103,
-  "rod_length": 1.2637287048668782,
+  "crank_radius": 0.106,
+  "rod_length": 1.0500042031090413,
   "grip_radius": 0.9,
   "assembly_branch": 1,
-  "gear_ratio": 1.0,
-  "gear_ratio_definition": "wheel angle = crank phase * gear_ratio, matching TECH_SPEC_RU section 5.4; same sign for this drive",
-  "calibration": "Rocker pin radius comes from the supplied lever pivot/link pixels at a uniform 1.8 m beam width. This leaves clearance for the cargo through a full stroke. Crank centre matches the right wheel axle of the P2 body."
+  "gear_ratio": 1.75,
+  "gear_ratio_definition": "wheel angle = crank phase * gear_ratio; open chain between separate crank and wheel shafts",
+  "drive_sprocket_radius": 0.14,
+  "wheel_sprocket_radius": 0.08,
+  "calibration": "Rocker pin matches the original lever at 1.8 m width. Separate crankshaft below deck drives the right axle via a visible 1.75:1 chain."
 }

@@ -1,7 +1,6 @@
 extends RefCounted
 
-# Geometry only. P3's temporary kinematic driver does not calculate effort,
-# train inertia or useful work. P4 replaces it with the coupled drive.
+# Geometry only. Forces and the coupled inertia are in handcar_drive.gd.
 static var shared_config: Dictionary = {}
 static var shared_limits: Dictionary = {}
 var config: Dictionary
@@ -92,7 +91,7 @@ func calculate_limits() -> Dictionary:
 	return {"minimum":extrema[0],"maximum":extrema[1],"stroke_m":float(config.grip_radius)*(sin(float(extrema[1].angle))-sin(float(extrema[0].angle)))}
 
 func seek_rocker(target: float) -> void:
-	# Temporary P3 compatibility driver for the old mouse input. Choose the
+	# Initialisation, old-save migration and bench positioning only. Choose the
 	# nearest continuation of the current phase, never a branch from the sign
 	# of the mouse. At a true merged dead point, retain angular continuation.
 	var angle = clampf(target,float(limits.minimum.angle),float(limits.maximum.angle))

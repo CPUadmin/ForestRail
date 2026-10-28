@@ -1,0 +1,18 @@
+{
+  "version":1,
+  "units":"SI: radians, metres, kilograms, newtons, joules, watts",
+  "spring_nm_per_rad":1300.0,
+  "damping_nms_per_rad":24.0,
+  "max_hand_torque_nm":260.0,
+  "max_hand_power_w":220.0,
+  "flywheel_inertia_kg_m2":1.2,
+  "crank_inertia_kg_m2":0.3,
+  "wheel_inertia_kg_m2":0.12,
+  "wheel_count":2,
+  "viscous_loss_nms":1.6,
+  "air_drag_n_per_mps2":1.2,
+  "max_substep_s":0.004166666666666667,
+  "input_delay_s":0.03333333333333333,
+  "nudge_force_n":120.0,
+  "nudge_work_per_gesture_j":20.0
+}

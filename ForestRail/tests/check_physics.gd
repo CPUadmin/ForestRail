@@ -34,13 +34,11 @@ func setup(id: String, seed_value: int = 42):
 func pump_at_fps(fps: int) -> Dictionary:
 	var m = setup("handcar")
 	m.state.brake = 0
-	var rendered_angle = 0.0
 	for frame in range(fps * 30):
 		var t = float(frame + 1) / fps
-		var angle = sin(t * TAU) * deg_to_rad(28)
-		m.pump_motion(angle - rendered_angle)
-		rendered_angle = angle
-		for tick in range(60 / fps): m.physics_step(1.0 / 60)
+		for tick in range(60 / fps):
+			preload("res://tests/handcar_input.gd").pull(m)
+			m.physics_step(1.0 / 60)
 	var distance = float(m.state.s)
 	var before = float(m.state.s)
 	m.reset_input()
@@ -101,7 +99,7 @@ func run() -> void:
 			m.state.brake = 0
 			for frame in range(900):
 				if id == "handcar":
-					m.pump_motion(sin(frame / 60.0 * TAU) * deg_to_rad(28) - m.pump_angle)
+					preload("res://tests/handcar_input.gd").pull(m)
 				else:
 					m.state.engine = true
 					m.state.gear = 1

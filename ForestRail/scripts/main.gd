@@ -53,6 +53,9 @@ var drag_item = ""
 var drag_total = 0.0
 var drag_horizontal = 0.0
 var drag_initial = 0.0
+var pump_grab_offset = Vector2.ZERO
+var pump_target_point = Vector2.ZERO
+var push_cursor = Vector2.ZERO
 var grip_hits: Array = []
 var slot_hits: Array = []
 var cargo_hits: Array = []
@@ -73,6 +76,7 @@ var screenshot_path = ""
 var settings_path = "user://settings.json"
 
 func _ready() -> void:
+	Input.use_accumulated_input=false
 	font = ThemeDB.fallback_font
 	var edge_shader = Shader.new()
 	edge_shader.code = "shader_type canvas_item; void fragment() { vec4 t = texture(TEXTURE, UV); if(t.r > 0.8 && t.g < 0.19 && t.b < 0.2) { COLOR.a = 0.0; } }"
@@ -80,6 +84,10 @@ func _ready() -> void:
 	edge_material.shader = edge_shader
 	material = edge_material
 	var qa_args = OS.get_cmdline_user_args()
+	if "--handcar-drive-bench" in qa_args and not get_tree().root.has_meta("drive_bench_running"):
+		set_process(false);set_physics_process(false);set_process_input(false);set_process_unhandled_input(false)
+		get_tree().root.add_child.call_deferred(load("res://dev/handcar_drive_bench.gd").new())
+		return
 	if "--mechanism-bench" in qa_args:
 		set_process(false)
 		set_physics_process(false)
@@ -91,7 +99,7 @@ func _ready() -> void:
 		for arg in qa_args:
 			if arg.begins_with("--qa-suite="):
 				var suite = arg.trim_prefix("--qa-suite=")
-				if suite not in ["check_model", "check_physics", "check_interaction", "drive_campaign", "check_presentation", "check_handcar_revision", "check_art_v3", "check_instruments", "check_station_service", "check_world_geometry", "check_mechanism", "check_mechanism_bench"]: get_tree().quit(2); return
+				if suite not in ["check_model", "check_physics", "check_interaction", "drive_campaign", "check_presentation", "check_handcar_revision", "check_art_v3", "check_instruments", "check_station_service", "check_world_geometry", "check_mechanism", "check_mechanism_bench", "check_handcar_drive", "check_handcar_input"]: get_tree().quit(2); return
 				get_tree().root.set_meta("qa_running", true)
 				set_process(false)
 				set_physics_process(false)
@@ -440,7 +448,7 @@ func build_depot(size: Vector2) -> void:
 	var stats = model.object_stats(model.vehicle_id())
 	var details = "%d кг  ·  %d мест  ·  тормоз %d Н" % [model.train_mass(), model.capacity(), stats.brake]
 	if model.vehicle_id() == "handcar":
-		details += "\nРычажный привод: %d Вт · %.0f Дж/цикл\nКоэффициент качения: %.4f" % [stats.power, stats.cycle_work, stats.rolling]
+		details += "\nРычажный привод: до %d Вт · маховик и цепь\nКоэффициент качения: %.4f" % [stats.power, stats.rolling]
 	else:
 		details += "\nТяга: %d / %d Н · скорость %.1f / %.1f м/с\n" % [stats.traction[0], stats.traction[1], stats.speeds[0], stats.speeds[1]] + energy_text()
 	positioned_label(details, Rect2(46, 239, left_width - 20, 105), 19)
@@ -626,12 +634,13 @@ func update_hud() -> void:
 				else: notify(model.message), not model.all_loaded())
 			add_button(action_bar, "Вернуться в депо", func(): model.back_to_depot(); screen = "depot"; save_game(); rebuild())
 		elif model.stopped():
-			add_button(action_bar, "Тяга ←", func():
-				if model.set_reverser(-int(state.direction)): save_game(); last_action_key = ""
-				else: notify(model.message), model.drive_direction() < 0)
-			add_button(action_bar, "Тяга →", func():
-				if model.set_reverser(int(state.direction)): save_game(); last_action_key = ""
-				else: notify(model.message), model.drive_direction() > 0)
+			if model.vehicle_id()!="handcar":
+				add_button(action_bar, "Тяга ←", func():
+					if model.set_reverser(-int(state.direction)): save_game(); last_action_key = ""
+					else: notify(model.message), model.drive_direction() < 0)
+				add_button(action_bar, "Тяга →", func():
+					if model.set_reverser(int(state.direction)): save_game(); last_action_key = ""
+					else: notify(model.message), model.drive_direction() > 0)
 			if stop_index >= 0:
 				add_button(action_bar, "Развернуть", func():
 					if model.turn(): save_game(); notify("Состав развёрнут"); last_action_key = ""
@@ -783,7 +792,7 @@ func build_modal(size: Vector2) -> void:
 		add_button(box, "Готово", close_modal)
 	elif modal_kind == "help":
 		add_label(box, "Как играть", 32)
-		add_label(box, "1. В депо выбери рейс и нажми «К погрузке». Перетащи каждый предмет с площадки в свободное место на машине или вагоне. Отправляйся, когда всё погружено.\n\n2. Отпусти тормоз: зажми красную рукоять и потяни вниз. На ручной дрезине качай выделенный правый конец деревянного рычага вверх-вниз. На спуске можно катиться по инерции.\n\n3. Перед станцией плавно затяни тормоз вверх. Остановись в пределах платформы, затяни тормоз до 100% и перетащи нужные грузы на площадку. У каждого предмета указана станция.\n\n4. После последней доставки убери подачу, разверни пустой состав кнопкой на станции и вернись в Лесную. Деньги выдаются в домашнем депо.\n\n5. Моторная дрезина: передача Н, подача 0%, потяни тумблер запуска вверх. Затем выбери 1 и добавь подачу. На ровном участке можно включить 2, сначала снизив подачу ниже 15%. Бензин пополняется в депо.\n\n6. Электролокомотив: вместо бензина аккумулятор. Режим 1 — тяговый, 2 — ходовой. Без подачи он катится по инерции; торможение возвращает четверть доступной энергии. Зарядка бесплатна в депо.\n\n7. В гараже остаются все купленные машины. Вагоны выбираются отдельно, улучшения следуют за их ID. Для финального рейса нужны шесть мест: три обычных вагона или два расширенных.\n\nЗадний ход: остановись, затяни тормоз и выбери стрелку направления. На ручной дрезине можно взять хват и толкнуть его влево или вправо с затянутым тормозом. Состав при этом сохраняет положение и груз.\n\nКолесо мыши — приблизить машину. Esc — пауза. При потере фокуса игра останавливается. Если застрял или кончилась энергия, вызови помощь депо из паузы.", 20)
+		add_label(box, "1. В депо выбери рейс и нажми «К погрузке». Перетащи каждый предмет с площадки в свободное место на машине или вагоне. Отправляйся, когда всё погружено.\n\n2. Отпусти тормоз: зажми красную рукоять и потяни вниз. На ручной дрезине качай выделенный правый конец деревянного рычага вверх-вниз. На спуске можно катиться по инерции.\n\n3. Перед станцией плавно затяни тормоз вверх. Остановись в пределах платформы, затяни тормоз до 100% и перетащи нужные грузы на площадку. У каждого предмета указана станция.\n\n4. После последней доставки убери подачу, разверни пустой состав кнопкой на станции и вернись в Лесную. Деньги выдаются в домашнем депо.\n\n5. Моторная дрезина: передача Н, подача 0%, потяни тумблер запуска вверх. Затем выбери 1 и добавь подачу. На ровном участке можно включить 2, сначала снизив подачу ниже 15%. Бензин пополняется в депо.\n\n6. Электролокомотив: вместо бензина аккумулятор. Режим 1 — тяговый, 2 — ходовой. Без подачи он катится по инерции; торможение возвращает четверть доступной энергии. Зарядка бесплатна в депо.\n\n7. В гараже остаются все купленные машины. Вагоны выбираются отдельно, улучшения следуют за их ID. Для финального рейса нужны шесть мест: три обычных вагона или два расширенных.\n\nЗадний ход: остановись, затяни тормоз и выбери стрелку направления. На ручной дрезине направление задаётся усилием на рычаге с отпущенным тормозом. Обратное усилие сначала замедляет движение. В мёртвой точке потяни край платформы, чтобы подтолкнуть машину. Состав при этом сохраняет положение и груз.\n\nКолесо мыши — приблизить машину. Esc — пауза. При потере фокуса игра останавливается. Если застрял или кончилась энергия, вызови помощь депо из паузы.", 20)
 		if screen != "menu":
 			add_button(box, "Подсказки: " + ("вкл." if model.state.tutorial else "выкл."), func(): model.state.tutorial = not model.state.tutorial; save_game(); rebuild())
 		add_button(box, "Понятно", close_modal)
@@ -827,12 +836,12 @@ func _process(dt: float) -> void:
 	if screen != "menu" and not model.state.is_empty():
 		var target_s = float(model.state.s)
 		if screen == "depot": target_s = 0
-		if drag=="":
+		if drag in ["","pump"]:
 			camera_s = lerpf(camera_s, target_s, 1 - exp(-dt * 6))
 			camera_y = lerpf(camera_y, model.route.sample(camera_s).y, 1 - exp(-dt * 4))
 		var target_x = get_viewport_rect().size.x * (0.31 if screen == "depot" else (0.65 if model.state.direction > 0 else 0.35))
 		if screen == "depot" and not model.state.consist_ids.is_empty(): target_x = get_viewport_rect().size.x * 0.46 - 136
-		if drag=="": camera_x = lerpf(camera_x if camera_x > 0 else target_x, target_x, 1 - exp(-dt * 3))
+		if drag in ["","pump"]: camera_x = lerpf(camera_x if camera_x > 0 else target_x, target_x, 1 - exp(-dt * 3))
 		refresh_seconds += dt
 		if refresh_seconds >= 0.08:
 			refresh_seconds = 0
@@ -894,15 +903,22 @@ func _input(event: InputEvent) -> void:
 			drag_cursor=event.position
 			get_viewport().set_input_as_handled()
 			return
+		if drag=="push":
+			var outer=body_transform(model.vehicle_id(),model.body_s(0))
+			var delta=(outer.affine_inverse()*event.position-outer.affine_inverse()*push_cursor).x/ArtV3.PX*int(model.state.direction)
+			model.push_handcar(delta)
+			push_cursor=event.position
+			get_viewport().set_input_as_handled()
+			return
 		var delta_y = event.relative.y * float(settings.sensitivity)
 		drag_total += delta_y
 		if drag == "pump":
-			drag_horizontal += event.relative.x
-			if model.stopped() and absf(drag_horizontal) >= 38:
-				model.set_reverser(int(signf(drag_horizontal)) * int(model.state.direction))
-				drag_horizontal = 0
 			if float(model.state.brake) > 0.9 and absf(delta_y) > 2: notify("Тормоз затянут. Сначала отпусти красную рукоять вниз")
-			model.pump_motion(delta_y / maxf(45, 64 * zoom_level))
+			var outer=body_transform(model.vehicle_id(),model.body_s(0))
+			# Accumulate local cursor travel. Camera translation never changes
+			# the target; capture offset is retained without snapping the grip.
+			pump_target_point+=outer.affine_inverse().basis_xform(event.relative)*float(settings.sensitivity)/ArtV3.PX
+			model.set_pump_target((pump_target_point-model.handcar.pose().rocker).angle(),model.hand_drive.clock+Engine.get_physics_interpolation_fraction()/60.0)
 		elif drag == "brake":
 			model.state.brake = clampf(drag_initial - drag_total / 130, 0, 1)
 		elif drag == "throttle":
@@ -949,11 +965,25 @@ func _unhandled_input(event: InputEvent) -> void:
 			drag_horizontal = 0
 			drag_initial = float(model.state.get(drag, 0))
 			model.reset_input()
+			if drag=="pump":
+				var outer=body_transform(model.vehicle_id(),model.body_s(0))
+				pump_grab_offset=outer.affine_inverse()*mouse/ArtV3.PX-model.handcar.pose().grip_right
+				pump_target_point=outer.affine_inverse()*mouse/ArtV3.PX-pump_grab_offset
+				model.grab_pump()
 			Input.set_default_cursor_shape(Input.CURSOR_DRAG)
 			return
 		if in_closeup:
 			get_viewport().set_input_as_handled()
 			return
+		if model.can_push_handcar():
+			var outer=body_transform(model.vehicle_id(),model.body_s(0))
+			var local=outer.affine_inverse()*mouse/ArtV3.PX
+			if absf(local.x)>0.85 and absf(local.x)<1.35 and local.y>-0.70 and local.y<0.05:
+				drag="push"
+				push_cursor=mouse
+				model.begin_push()
+				get_viewport().set_input_as_handled()
+				return
 		for hit in cargo_hits:
 			if hit.rect.has_point(mouse):
 				selected_cargo=hit.id
@@ -1358,6 +1388,14 @@ func draw_controls(body_transform: Transform2D, show_labels: bool = true) -> voi
 		draw_line(Vector2(-1.28,art.deck_y(model.vehicle_id())/ArtV3.PX)*ArtV3.PX,Vector2(-1.28,-1.16)*ArtV3.PX,INK,0.04*ArtV3.PX,true)
 		draw_style_box(style(Color("34443c"),Color("918363"),3),Rect2(Vector2(-1.4,-1.80)*ArtV3.PX,Vector2(1.04,0.64)*ArtV3.PX))
 	var hover = get_global_mouse_position()
+	if model.vehicle_id()=="handcar":
+		if model.can_push_handcar():
+			draw_string(font,Vector2(-118,20),"Подтолкни край платформы ↔",HORIZONTAL_ALIGNMENT_LEFT,320,16,PAPER)
+		if drag=="pump":
+			var pose=model.handcar.pose()
+			var target=(pose.rocker+Vector2(cos(model.hand_drive.target_angle),sin(model.hand_drive.target_angle))*float(model.handcar.config.grip_radius))*ArtV3.PX
+			draw_line(pose.grip_right*ArtV3.PX,target,Color("c5a76b"),1.0,true)
+			draw_arc(target,7,0,TAU,24,Color("e1c989"),1.2,true)
 	for id in ids:
 		var geo = lever_geometry(id)
 		var color = {"pump": Color("a16b38"), "brake": RED, "throttle": GREEN, "gear": GOLD, "start": Color("708574")}[id]

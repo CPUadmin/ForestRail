@@ -47,8 +47,7 @@ func run() -> void:
 			else:
 				m.state.brake = 0
 				if m.vehicle_id() == "handcar":
-					var next_angle = sin(timer * TAU) * deg_to_rad(28)
-					m.pump_motion(next_angle - m.pump_angle)
+					preload("res://tests/handcar_input.gd").pull(m,int(m.state.direction))
 				else:
 					if not m.state.engine:
 						m.state.throttle = 0

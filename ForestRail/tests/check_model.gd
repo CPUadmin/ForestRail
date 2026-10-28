@@ -52,7 +52,7 @@ func run() -> void:
 	for frame in range(120): m.physics_step(1.0 / 60)
 	check(absf(m.state.v) < 0.001, "idle lever produces no drive")
 	for frame in range(120):
-		m.pump_motion(0.04 if frame % 60 < 30 else -0.04)
+		preload("res://tests/handcar_input.gd").pull(m)
 		m.physics_step(1.0 / 60)
 	check(m.state.v > 0.25, "real pump motion drives train")
 	var before = float(m.state.v)
@@ -98,7 +98,7 @@ func run() -> void:
 	var final_restore = Model.new()
 	check(final_restore.restore(m.serialize()) and final_restore.state.finale and final_restore.state.chapter == 10, "save and restore after finale")
 	check(m.upgrade("handcar", "handcar_lever"), "upgrade retained old vehicle")
-	check(m.select_vehicle("handcar") and is_equal_approx(m.object_stats("handcar").power, 253.0), "old handcar retains its own upgrades")
+	check(m.select_vehicle("handcar") and float(m.effects("handcar").get("work_multiplier",1))>1 and m.object_stats("handcar").power==220, "handcar retains torque upgrade under the physical power cap")
 	check(m.select_vehicle("locomotive") and m.state.consist_ids.size() == 3, "vehicle consist configuration retained")
 	check(m.upgrade("W01", "wagon_suspension"), "individual wagon upgrade")
 	check(m.object_stats("W01").shock == 0.75 and m.object_stats("W02").shock == 1.0, "W01 upgrade leaves W02 stock")

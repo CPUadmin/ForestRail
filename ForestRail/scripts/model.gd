@@ -3,6 +3,7 @@ extends RefCounted
 const Route = preload("res://scripts/route.gd")
 const StationInteraction = preload("res://scripts/station_interaction.gd")
 const HandcarMechanism = preload("res://scripts/handcar_mechanism.gd")
+const HandcarDrive = preload("res://scripts/handcar_drive.gd")
 const G = 9.81
 const VEHICLE_IDS = ["handcar", "motorcar", "locomotive"]
 var data: Dictionary
@@ -11,11 +12,8 @@ var state: Dictionary = {}
 var message = ""
 var pump_angle = 0.0
 var handcar = HandcarMechanism.new()
-var pump_pending = 0.0
-var pump_stroke = 0.0
-var pump_last_direction = 0
+var hand_drive = HandcarDrive.new()
 var pump_work = 0.0
-var flywheel_energy = 0.0
 var output_power = 0.0
 var acceleration = 0.0
 var shock_time = 0.0
@@ -39,8 +37,8 @@ func new_game(world_seed: int = 42) -> void:
 		"stats": {"distance": 0.0, "deliveries": 0, "earned": 0, "rescues": 0, "seconds": 0.0}, "offer_serial": 0}
 	reset_input()
 	handcar = HandcarMechanism.new()
+	hand_drive = HandcarDrive.new()
 	pump_angle = 0.0
-	flywheel_energy = 0.0
 	stationary_seconds=0.25
 	stationary_station=0
 
@@ -61,9 +59,7 @@ func update_station_dwell(dt: float) -> void:
 		stationary_station=-1
 
 func reset_input() -> void:
-	pump_pending = 0.0
-	pump_stroke = 0.0
-	pump_last_direction = 0
+	hand_drive.release()
 	pump_work = 0.0
 	output_power = 0.0
 
@@ -111,8 +107,7 @@ func object_stats(id: String) -> Dictionary:
 	var brake_base = 0.0 if wagon else {"handcar": 700.0, "motorcar": 1800.0, "locomotive": 6000.0}[id]
 	var result = {"slots": slots, "mass": mass, "rolling": 0.004 * float(ef.get("rolling_multiplier", 1.0)),
 		"brake": brake_base * float(ef.get("brake_multiplier", 1.0)) + float(ef.get("add_brake_n", 0)),
-		"shock": float(ef.get("cargo_shock_multiplier", 1.0)), "power": 220.0 * float(ef.get("power_multiplier", 1.0)),
-		"cycle_work": 160.0 * float(ef.get("work_multiplier", 1.0)),
+		"shock": float(ef.get("cargo_shock_multiplier", 1.0)), "power": 220.0,
 		"tank": float(base.get("fuel_l", 0)) * float(ef.get("fuel_capacity_multiplier", 1.0))}
 	if id == "locomotive":
 		result.tank = 0.6 * float(ef.get("fuel_capacity_multiplier", 1.0))
@@ -209,7 +204,6 @@ func select_vehicle(id: String) -> bool:
 	state.gear = 0
 	state.direction = 1
 	state.reverser = 1
-	flywheel_energy = 0.0
 	reset_input()
 	return true
 
@@ -341,7 +335,6 @@ func accept_mission(mission: Dictionary) -> bool:
 	state.v = 0.0
 	state.direction = 1
 	state.reverser = 1
-	flywheel_energy = 0.0
 	state.brake = 1.0
 	state.throttle = 0.0
 	state.gear = 0
@@ -471,7 +464,6 @@ func turn() -> bool:
 		return fail(problem)
 	state.direction = -int(state.direction)
 	state.reverser = 1
-	flywheel_energy = 0.0
 	reset_input()
 	events.append("gear")
 	return true
@@ -515,7 +507,6 @@ func rescue() -> void:
 	state.engine = false
 	state.direction = 1
 	state.reverser = 1
-	flywheel_energy = 0.0
 	state.stats.rescues += 1
 	reset_input()
 	if not settle():
@@ -531,11 +522,11 @@ func set_gear(value: int) -> bool:
 	return true
 
 func set_reverser(value: int) -> bool:
+	if vehicle_id()=="handcar": return fail("Направление ручной дрезины задаётся усилием на рычаге")
 	if not stopped(): return fail("Для смены направления остановись и затяни тормоз")
 	if float(state.throttle) > 0.01: return fail("Для реверса убавь подачу до нуля")
 	state.reverser = 1 if value >= 0 else -1
 	reset_input()
-	flywheel_energy = 0.0
 	events.append("gear")
 	message = "Тяга направлена вправо →" if drive_direction() > 0 else "← Тяга направлена влево"
 	return true
@@ -555,16 +546,51 @@ func start_engine(value: bool) -> bool:
 	events.append("gear")
 	return true
 
-func pump_motion(delta_radians: float) -> void:
-	pump_pending = clampf(pump_pending + delta_radians, -deg_to_rad(56), deg_to_rad(56))
+func grab_pump() -> void:
+	hand_drive.grab(handcar.pose().angle)
+
+func set_pump_target(angle: float, at_time: float = -1) -> void:
+	hand_drive.set_target(clampf(angle,-0.75,0.75),at_time)
+
+func handcar_potential_at(offset: float) -> float:
+	var result=0.0
+	for i in range(body_ids().size()):
+		result+=body_mass(body_ids()[i])*G*route.sample(body_s(i)+offset).y
+	return result
+
+func can_push_handcar() -> bool:
+	return vehicle_id()=="handcar" and state.phase=="route" and float(state.brake)<0.1 and absf(float(state.v))<0.5 and absf(float(handcar.pose().dangle_dphase))<0.035
+
+func begin_push() -> void:
+	hand_drive.push_used=0.0
+	hand_drive.push_displacement=0.0
+	hand_drive.push_active=can_push_handcar()
+
+func push_handcar(distance_m: float) -> bool:
+	if not hand_drive.push_active or float(state.brake)>=0.1 or absf(float(state.v))>=0.5 or distance_m==0: return false
+	hand_drive.push_displacement+=distance_m
+	var available=float(hand_drive.config.nudge_force_n)*maxf(0,absf(hand_drive.push_displacement)-0.03)
+	var amount=minf(float(hand_drive.config.nudge_work_per_gesture_j),available)-hand_drive.push_used
+	if amount<=0: return false
+	var k=0.21*float(handcar.config.gear_ratio)
+	var effective_mass=hand_drive.inertia(train_mass(),0.21,float(handcar.config.gear_ratio))/(k*k)
+	var old_energy=0.5*effective_mass*float(state.v)*float(state.v)
+	var sign_value=signf(hand_drive.push_displacement)
+	var new_energy=old_energy+amount
+	if float(state.v)*sign_value<0:
+		if amount<old_energy: new_energy=old_energy-amount;sign_value=signf(float(state.v))
+		else: new_energy=amount-old_energy
+	state.v=sign_value*sqrt(2*new_energy/effective_mass)
+	hand_drive.nudge_work+=new_energy-old_energy
+	hand_drive.push_used+=amount
+	return true
 
 func physics_step(dt: float) -> void:
-	if state.is_empty():
+	if state.is_empty() or dt<=0:
 		return
 	update_station_dwell(dt)
 	if state.phase == "depot" or state.phase == "loading":
 		reset_input()
-		flywheel_energy = 0.0
 		return
 	state.stats.seconds += dt
 	var ids = body_ids()
@@ -582,35 +608,12 @@ func physics_step(dt: float) -> void:
 	var stats = object_stats(vehicle_id())
 	var drive = 0.0
 	regen_kw = 0.0
+	var hand_result: Dictionary = {}
 	if vehicle_id() == "handcar":
-		var target = clampf(pump_angle + pump_pending, -deg_to_rad(28), deg_to_rad(28))
-		var amount = clampf(target - pump_angle, -4.0 * dt, 4.0 * dt)
-		if float(state.brake) > 0.9: amount = 0.0
-		pump_pending = target - pump_angle - amount if float(state.brake) <= 0.9 else 0.0
-		var before = pump_angle
-		pump_angle = clampf(pump_angle + amount, -deg_to_rad(28), deg_to_rad(28))
-		# P3 advances a continuous geometric state using the legacy input
-		# target. Effort, inertia and wheel coupling are deliberately P4 work.
-		handcar.seek_rocker(lerpf(float(handcar.limits.minimum.angle),float(handcar.limits.maximum.angle),(pump_angle+deg_to_rad(28))/deg_to_rad(56)))
-		var motion = pump_angle - before
-		if signi(int(signf(motion))) != pump_last_direction and absf(motion) > 0.00001:
-			pump_stroke = 0.0
-			pump_last_direction = int(signf(motion))
-		pump_stroke += absf(motion)
-		var work = 0.0
-		if pump_stroke >= deg_to_rad(56) * 0.03:
-			work = absf(motion) * float(stats.cycle_work) / (deg_to_rad(56) * 2)
-		pump_work = work
-		# Store only work actually performed by the hand. The buffer smooths the
-		# crank's dead spots; it cannot create energy from a held handle.
-		flywheel_energy = minf(80.0, flywheel_energy + work)
-		if float(state.brake) > 0.5: flywheel_energy = 0.0
-		var released_work = minf(flywheel_energy, minf(float(stats.power), maxf(work / dt * 0.85, flywheel_energy / 0.22)) * dt)
-		flywheel_energy = maxf(0, flywheel_energy - released_work)
-		if flywheel_energy < 0.02: flywheel_energy = 0.0
-		output_power = released_work / dt
-		var taper = maxf(0, 1.0 - pow(absf(float(state.v)) / 3.34, 2))
-		drive = float(drive_direction()) * minf(260, output_power / maxf(absf(float(state.v)), 0.65)) * taper
+		hand_result=hand_drive.step(handcar,float(state.v),total,int(state.direction),0.21,dt,grade,rolling,float(state.brake)*max_brake,minf(220.0,float(stats.power)),float(effects(vehicle_id()).get("work_multiplier",1.0)),handcar_potential_at)
+		pump_angle=handcar.pose().angle
+		pump_work=maxf(0,float(hand_result.hand_work))
+		output_power=pump_work/dt
 	else:
 		var fleet = state.fleet_by_id[vehicle_id()]
 		if fleet.fuel <= 0: state.engine = false
@@ -635,21 +638,25 @@ func physics_step(dt: float) -> void:
 		battery.fuel = clampf(float(battery.fuel) + (recovered - used) * dt / 3600000.0, 0.0, float(stats.tank))
 		if battery.fuel <= 0:
 			state.engine = false
-	var external = drive + grade
 	var old_v = float(state.v)
-	var resist = rolling + brake + 1.2 * old_v * old_v
 	var new_v = old_v
-	if absf(old_v) < 0.03 and absf(external) <= rolling + brake:
-		new_v = 0.0
+	var movement=0.0
+	if vehicle_id()=="handcar":
+		new_v=hand_result.velocity
+		movement=hand_result.delta_s
 	else:
-		var movement_sign = signf(old_v) if absf(old_v) >= 0.03 else signf(external)
-		new_v = old_v + (external - movement_sign * resist) / total * dt
-		if signf(new_v) != movement_sign and absf(external) <= rolling + brake:
+		var external = drive + grade
+		var resist = rolling + brake + 1.2 * old_v * old_v
+		if absf(old_v) < 0.03 and absf(external) <= rolling + brake:
 			new_v = 0.0
-	acceleration = (new_v - old_v) / dt
-	state.v = new_v
-	var movement = (old_v + new_v) * 0.5 * dt
-	state.s += movement
+		else:
+			var movement_sign = signf(old_v) if absf(old_v) >= 0.03 else signf(external)
+			new_v = old_v + (external - movement_sign * resist) / total * dt
+			if signf(new_v) != movement_sign and absf(external) <= rolling + brake: new_v = 0.0
+		movement=(old_v+new_v)*0.5*dt
+	acceleration=(new_v-old_v)/dt
+	state.v=new_v
+	state.s+=movement
 	state.stats.distance += absf(movement)
 	rail_distance += absf(movement)
 	# Bound the head so that every trailing body remains on the shared curve.
@@ -696,7 +703,8 @@ func serialize() -> Dictionary:
 	result.route = route.serialize()
 	result.pump_angle = pump_angle
 	result.handcar_phase = handcar.phase
-	result.flywheel_energy = flywheel_energy
+	result.handcar_drive_version = 1
+	result.erase("flywheel_energy")
 	return result
 
 func restore(saved: Dictionary) -> bool:
@@ -707,12 +715,12 @@ func restore(saved: Dictionary) -> bool:
 	state.erase("route")
 	pump_angle = float(state.get("pump_angle", 0))
 	handcar = HandcarMechanism.new()
+	hand_drive = HandcarDrive.new()
 	if state.has("handcar_phase"):
 		handcar.set_phase(float(state.handcar_phase))
 	else:
 		handcar.seek_rocker(lerpf(float(handcar.limits.minimum.angle),float(handcar.limits.maximum.angle),clampf((pump_angle+deg_to_rad(28))/deg_to_rad(56),0,1)))
 	state.reverser = int(state.get("reverser", 1))
-	flywheel_energy = clampf(float(state.get("flywheel_energy", 0)), 0, 80)
 	stationary_seconds=0.0
 	stationary_station=-1
 	# Old loading saves used a fixed locomotive centre at s=0. A long
@@ -777,6 +785,7 @@ func validate_save(saved: Dictionary) -> bool:
 	if saved.has("reverser") and (not numeric(saved.reverser) or int(saved.reverser) not in [-1, 1]): return false
 	if saved.has("flywheel_energy") and (not numeric(saved.flywheel_energy) or saved.flywheel_energy < 0 or saved.flywheel_energy > 80): return false
 	if saved.has("handcar_phase") and not numeric(saved.handcar_phase): return false
+	if saved.has("handcar_drive_version") and (not numeric(saved.handcar_drive_version) or int(saved.handcar_drive_version)!=1 or not saved.has("handcar_phase")): return false
 	for id in saved.consist_ids:
 		if not saved.wagons_by_id.has(id):
 			return false

@@ -135,13 +135,15 @@ func run() -> void:
 	var copy=Model.new()
 	check(copy.restore(saved) and copy.handcar.phase==model.handcar.phase,"phase persists without losing turns")
 	saved.erase("handcar_phase")
+	saved.erase("handcar_drive_version")
 	check(copy.restore(saved) and is_finite(copy.handcar.phase),"legacy save receives geometric phase")
 	saved.handcar_phase=INF
 	check(not copy.restore(saved),"non-finite phase is rejected before restoring state")
-	model.pump_last_direction=-1
 	var before=art.mechanism_pose(model)
-	model.pump_last_direction=1
-	check(art.mechanism_pose(model)==before,"render ignores old mouse direction")
+	model.grab_pump()
+	model.set_pump_target(before.angle+0.1)
+	model.set_pump_target(before.angle-0.1)
+	check(art.mechanism_pose(model)==before,"target input cannot teleport phase")
 	model.state.money=10000
 	model.buy_vehicle("motorcar")
 	model.state.v=3.0

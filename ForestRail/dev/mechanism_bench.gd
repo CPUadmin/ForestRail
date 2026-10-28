@@ -90,7 +90,7 @@ func refresh() -> void:
 	frame_pose=mechanism.pose()
 	if is_instance_valid(values):
 		var error=absf(frame_pose.rocker_pin.distance_to(frame_pose.crank_pin)-float(mechanism.config.rod_length))
-		values.text="Обороты: %.3f\nФаза: %.2f°\nРычаг: %.2f°\nШатун: %.4f м\nОшибка длины: %.4f мм\nХод хвата: %.3f м\nПередаточное отношение: 1:1" % [mechanism.phase/TAU,fposmod(rad_to_deg(mechanism.phase),360),rad_to_deg(frame_pose.angle),float(mechanism.config.rod_length),error*1000,float(mechanism.limits.stroke_m)]
+		values.text="Обороты: %.3f\nФаза: %.2f°\nРычаг: %.2f°\nШатун: %.4f м\nОшибка длины: %.4f мм\nХод хвата: %.3f м\nОтношение колеса: %.2f" % [mechanism.phase/TAU,fposmod(rad_to_deg(mechanism.phase),360),rad_to_deg(frame_pose.angle),float(mechanism.config.rod_length),error*1000,float(mechanism.limits.stroke_m),float(mechanism.config.gear_ratio)]
 		synchronizing=true
 		phase_slider.value=fposmod(rad_to_deg(mechanism.phase),360)
 		synchronizing=false

@@ -35,9 +35,10 @@ func release(position: Vector2) -> void:
 	event.pressed = false
 	game._input(event)
 
-func motion(delta: Vector2) -> void:
+func motion(delta: Vector2, point: Vector2 = Vector2.ZERO) -> void:
 	var event = InputEventMouseMotion.new()
 	event.relative = delta
+	event.position = point
 	event.button_mask = MOUSE_BUTTON_MASK_LEFT
 	game._input(event)
 
@@ -89,9 +90,13 @@ func run() -> void:
 	release(brake_grip + Vector2(0, 140))
 	check(game.model.state.brake == 0, "physical brake drag")
 	press(pump_grip)
+	var last_point=pump_grip
 	for i in range(180):
-		var target_angle = sin(i / 60.0 * TAU) * deg_to_rad(28)
-		motion(Vector2(0, (target_angle - game.model.pump_angle) * 100))
+		var pose=game.model.handcar.pose()
+		var target_angle=pose.angle+signf(pose.dangle_dphase)*0.32
+		var point=game.body_transform("handcar",game.model.body_s(0))*((pose.rocker+Vector2(cos(target_angle),sin(target_angle))*float(game.model.handcar.config.grip_radius))*game.ArtV3.PX)
+		motion(point-last_point,point)
+		last_point=point
 		game._physics_process(1.0 / 60)
 	release(pump_grip)
 	check(game.model.state.v > 0.4, "mouse motion produces work through game controller")
@@ -103,13 +108,15 @@ func run() -> void:
 	game.model.state.v = 0
 	game.model.reset_input()
 	for i in range(600):
-		game.model.pump_motion(0.008 if i % 2 == 0 else -0.008)
+		game.model.grab_pump()
+		game.model.set_pump_target(game.model.handcar.pose().angle)
 		game.model.physics_step(1.0 / 60)
 	check(game.model.state.v == 0, "micro jitter is not useful power")
 	game.drag = "pump"
-	game.model.pump_motion(0.2)
+	game.model.grab_pump()
+	game.model.set_pump_target(game.model.handcar.pose().angle+0.2)
 	game.pause_game()
-	check(game.paused and game.drag == "" and game.model.pump_pending == 0, "pause clears input capture")
+	check(game.paused and game.drag == "" and not game.model.hand_drive.held, "pause clears input capture")
 	var s = float(game.model.state.s)
 	game._physics_process(1)
 	check(game.model.state.s == s, "pause freezes simulation")
