@@ -1,0 +1,9 @@
+[
+  {
+    "scene": "mechanism",
+    "exit": 0,
+    "screenshot": "mechanism_native.png",
+    "passed": true,
+    "log_tail": "Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org\nOpenGL API 3.3.0 Core Profile Context 26.1.1.251223 - Compatibility - Using Device: ATI Technologies Inc. - AMD Radeon 780M Graphics\n\n"
+  }
+]

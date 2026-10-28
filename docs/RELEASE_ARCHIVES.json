@@ -1,0 +1,50 @@
+[
+  {
+    "file": "ForestRail_1.0.0_Source.zip",
+    "version": "1.0.0",
+    "bytes": 13470986,
+    "sha256": "8abfaea214c383c48a5e3f382f5cb4a00a968b2df42490d1f91e19e366dc7d4c"
+  },
+  {
+    "file": "ForestRail_1.0.0_Windows_x64.zip",
+    "version": "1.0.0",
+    "bytes": 44461375,
+    "sha256": "91d4c9c6107feba0908d042333dba0c6da499aa79b073b542ad17fa98e5d5217"
+  },
+  {
+    "file": "ForestRail_1.0.1_Source.zip",
+    "version": "1.0.1",
+    "bytes": 13482896,
+    "sha256": "8fe7adc0b2f033402b87bc25bebd0d8f244b599f9422b9cde3f425befba6f11f"
+  },
+  {
+    "file": "ForestRail_1.0.1_Windows_x64.zip",
+    "version": "1.0.1",
+    "bytes": 44479787,
+    "sha256": "5434cc68697cf519fa671b1fc4b13df2d243724d759ccc267f70ecfc812e78b4"
+  },
+  {
+    "file": "ForestRail_1.0.2_Source.zip",
+    "version": "1.0.2",
+    "bytes": 49843114,
+    "sha256": "f2b8b05e66ef75f1d619e381d0dc362a930a5d3f22004c56ef6a711f9bd72d32"
+  },
+  {
+    "file": "ForestRail_1.0.2_Windows_x64.zip",
+    "version": "1.0.2",
+    "bytes": 70671447,
+    "sha256": "964ce5b6e25bc9c060b7d66806d720d528818685f3fae2ca14d611d7f6473c54"
+  },
+  {
+    "file": "ForestRail_1.1.0_Source.zip",
+    "version": "1.1.0",
+    "bytes": 49852574,
+    "sha256": "51507d0fb3de94ec49474ae42bd3af231fc4d067d68fcbda27affc891126235c"
+  },
+  {
+    "file": "ForestRail_1.1.0_Windows_x64.zip",
+    "version": "1.1.0",
+    "bytes": 70692564,
+    "sha256": "3c2042bc48281905ccb5c0d1f2d657bb7513c5576bcdb2d79816554a585e4ed3"
+  }
+]
