@@ -391,7 +391,10 @@ func build_depot(size: Vector2) -> void:
 	var left_width = size.x * 0.46
 	var panel_rect = Rect2(left_width + 30, 155, size.x - left_width - 70, size.y - 185)
 	var right = panel_at(ui, panel_rect, true)
-	var tabs = HBoxContainer.new()
+	var tabs = GridContainer.new()
+	tabs.columns=2
+	tabs.add_theme_constant_override("h_separation",8)
+	tabs.add_theme_constant_override("v_separation",8)
 	right.add_child(tabs)
 	for name in ["Гараж", "Состав", "Улучшения", "Рейсы"]:
 		add_button(tabs, name, func(): tab = name; rebuild(), tab == name)
@@ -565,26 +568,27 @@ func build_hud(size: Vector2) -> void:
 	mini_button.pressed.connect(toggle_map)
 	ui.add_child(mini_button)
 	var buttons_width = (270 if model.vehicle_id()=="handcar" else 410)*float(settings.text_scale)
-	hud = positioned_label("", Rect2(42, 22, size.x - buttons_width - 110, 42), 22)
+	hud = positioned_label("", Rect2(34, 12, size.x - buttons_width - 90, 42), 20)
 	hud.autowrap_mode=TextServer.AUTOWRAP_OFF
 	hud.text_overrun_behavior=TextServer.OVERRUN_TRIM_ELLIPSIS
 	var pause_row = HBoxContainer.new()
-	pause_row.position = Vector2(size.x - buttons_width - 42, 22)
-	pause_row.size = Vector2(buttons_width, 48)
+	pause_row.position = Vector2(size.x - buttons_width - 34, 10)
+	pause_row.size = Vector2(buttons_width, 46)
 	pause_row.add_theme_constant_override("separation",10)
 	ui.add_child(pause_row)
 	map_button = add_button(pause_row, "Карта [M]", toggle_map)
 	if model.vehicle_id()!="handcar": add_button(pause_row,"Пульт [C]",toggle_control_zoom)
 	add_button(pause_row, "Пауза", pause_game)
-	order_label=positioned_label("",Rect2(42,61,size.x-84,28),16,Color("c7c3a0"))
+	order_label=positioned_label("",Rect2(34,64,size.x-68,28),16,Color("c7c3a0"))
 	order_label.autowrap_mode=TextServer.AUTOWRAP_OFF
 	order_label.text_overrun_behavior=TextServer.OVERRUN_TRIM_ELLIPSIS
-	hint_label = positioned_label("", Rect2(42, 88, size.x - 84, 32), 17)
-	hint_label.autowrap_mode=TextServer.AUTOWRAP_OFF
+	hint_label = positioned_label("", Rect2(34, 96, size.x - 68, 64), 17)
+	hint_label.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	hint_label.max_lines_visible=2
 	hint_label.text_overrun_behavior=TextServer.OVERRUN_TRIM_ELLIPSIS
 	action_bar = HBoxContainer.new()
-	action_bar.position = Vector2(42, 126)
-	action_bar.size = Vector2(size.x - 84, 50)
+	action_bar.position = Vector2(34, 168)
+	action_bar.size = Vector2(size.x - 68, 48)
 	action_bar.add_theme_constant_override("separation", 12)
 	ui.add_child(action_bar)
 	cargo_actions=HBoxContainer.new()
@@ -605,13 +609,13 @@ func update_hud() -> void:
 	var returning = not state.active.is_empty() and state.active.phase == "return"
 	var stop_index = model.station_index()
 	var at_station = model.station_name(model.data.stations[stop_index].id) if stop_index >= 0 else ""
-	hud.text = "%s · %d м · %d монет" % [model.journey_heading(),absf(target_s-float(state.s)),state.money]
+	hud.text = "%s · %d м" % [model.journey_heading(),absf(target_s-float(state.s))]
 	order_label.text=order
 	var hint = ""
 	if state.phase == "loading":
 		if model.selectable_loading():
 			var plan=model.loading_preview()
-			hint="Выбери груз мышью. Подъём до +%.1f%% · %s. Лишнее можно снять до отправления." % [plan.max_grade*100,plan.difficulty]
+			hint="Выбери груз. Подъём через %d м, до +%.1f%% · %s. Лишнее можно снять." % [maxf(0,plan.first_hill_m),plan.max_grade*100,plan.difficulty]
 		else: hint = "Сохранённый заказ: размести весь принятый груз. Его прежние условия сохранены."
 	elif returning and model.stopped() and stop_index > 0:
 		hint = "Груз доставлен. Разверни состав и возвращайся домой за оплатой."
@@ -630,6 +634,8 @@ func update_hud() -> void:
 	if model.vehicle_id() == "locomotive" and model.regen_kw > 0.01:
 		hint = "Рекуперация: +%.1f кВт. Часть энергии торможения возвращается в аккумулятор." % model.regen_kw
 	var interaction=station_state()
+	order_label.visible=state.phase=="loading" or (interaction.visible and model.stopped())
+	hint_label.visible=state.phase=="loading" or (interaction.visible and model.stopped()) or (drag!="" and state.tutorial)
 	hint_label.text = hint if state.phase=="loading" else (interaction.reason if interaction.visible else (hint if state.tutorial else ""))
 	update_cargo_actions(interaction)
 	var key = "%s_%d_%s_%s_%s_%d" % [state.phase, stop_index, str(model.stopped()), str(model.all_loaded()), str(returning), model.drive_direction()]
@@ -661,6 +667,9 @@ func update_hud() -> void:
 			if stop_index == 0:
 				add_button(action_bar, "В депо", func(): model.back_to_depot(); screen = "depot"; save_game(); rebuild())
 			add_button(action_bar, "Сохранить", func(): save_game(); notify("Сохранено"))
+		for child in action_bar.get_children():
+			if child is Button: child.size_flags_horizontal=Control.SIZE_SHRINK_BEGIN
+	action_bar.visible=action_bar.get_child_count()>0 and (state.phase=="loading" or model.stopped())
 
 func energy_text() -> String:
 	if model.vehicle_id() == "handcar": return "Ручной привод · %d Вт" % roundi(model.output_power)
@@ -696,7 +705,7 @@ func toggle_control_zoom() -> void:
 	queue_redraw()
 
 func control_zoom_rect() -> Rect2:
-	return Rect2(36,195,430,320)
+	return Rect2(36,236 if action_bar!=null and action_bar.visible else 90,430,320)
 
 func control_zoom_transform() -> Transform2D:
 	return Transform2D(0,Vector2.ONE*2.2,0,control_zoom_rect().position+Vector2(330,392))
@@ -1151,7 +1160,9 @@ func _draw() -> void:
 			draw_style_box(style(Color(0.08,0.15,0.12,0.88),Color(0.5,0.57,0.39,0.45),8),Rect2(22,12,size.x-44,115))
 			draw_style_box(style(Color(0.08,0.15,0.12,0.88),Color(0.5,0.57,0.39,0.45),8),Rect2(22,151,size.x*0.46-28,195))
 		if screen == "game":
-			draw_style_box(style(Color(0.08,0.15,0.12,0.88),Color(0.5,0.57,0.39,0.45),8),Rect2(22,12,size.x-44,101))
+			draw_style_box(style(Color(0.08,0.15,0.12,0.88),Color(0.5,0.57,0.39,0.45),8),Rect2(22,10,size.x-44,46))
+			if hint_label!=null and hint_label.visible:
+				draw_style_box(style(Color(0.08,0.15,0.12,0.87),Color("526c59"),6),hint_label.get_rect().grow(7))
 			if dock_visible(): draw_loading_dock(size)
 			draw_cargo_feedback()
 			if control_zoom and model.vehicle_id()!="handcar": draw_control_zoom()
@@ -1338,7 +1349,8 @@ func draw_body(id: String, s: float, controls: bool) -> void:
 		var loc = slot_local(id, index)
 		var key = id + ":" + str(index)
 		var item = find_slot_cargo(key)
-		if controls and item.is_empty():
+		var slot_hover=(body_transform*loc).distance_to(get_global_mouse_position())<45
+		if controls and item.is_empty() and (screen=="depot" or model.state.phase=="loading" or drag=="cargo" or slot_hover):
 			draw_style_box(style(Color(0.9, 0.87, 0.65, 0.35), Color("d1bd71"), 5), Rect2(loc - Vector2(32, 39), Vector2(64, 62)))
 		if not item.is_empty():
 			var sway = clampf(-model.acceleration * 0.04, -0.07, 0.07)
@@ -1358,6 +1370,7 @@ func draw_body(id: String, s: float, controls: bool) -> void:
 					var x = height*ratio*0.28*side
 					draw_line(foot+Vector2(x,-height*0.85),foot+Vector2(x,0),Color("806e49"),1.6,true)
 	if id.begins_with("W"): art.draw_wagon_front(self,id,body_transform)
+	if id.begins_with("W") and screen=="depot": draw_string(font,Vector2(-25,art.deck_y(id)+34),id,HORIZONTAL_ALIGNMENT_CENTER,50,15,PAPER)
 	if id == model.vehicle_id() and controls:
 		draw_controls(body_transform)
 

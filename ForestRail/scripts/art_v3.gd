@@ -142,8 +142,6 @@ func draw_vehicle(canvas: Node2D, id: String, distance: float, facing: int, oute
 		canvas.draw_circle(Vector2(0, -radius * 0.72), 1.8, Color("c9af73"))
 		canvas.draw_set_transform_matrix(outer)
 	if id == "handcar": draw_mechanism(canvas, model, outer,p)
-	if id.begins_with("W"):
-		canvas.draw_string(ThemeDB.fallback_font, Vector2(-25, deck_y(id) + 34), id, HORIZONTAL_ALIGNMENT_CENTER, 50, 15, Color("f5ecd6"))
 
 func mechanism_parts(p: Dictionary) -> Array:
 	var parts: Array = []
