@@ -28,7 +28,13 @@ func dial_maximum() -> float:
 	return ceilf(nominal / step) * step
 
 func mini_rect() -> Rect2:
-	return Rect2(244,size.y-174,maxf(240,size.x-590),152)
+	return Rect2(244,size.y-174,maxf(240,size.x-244-status_width()-34),152)
+
+func status_width() -> float:
+	return 312*clampf(float(game.settings.text_scale),1,1.5)
+
+func permanent_panel_height() -> float:
+	return 46+152
 
 func put(text: String, at: Vector2, width: float, font_size: int = 18, color: Color = PAPER, align: int = HORIZONTAL_ALIGNMENT_LEFT) -> void:
 	var font = ThemeDB.fallback_font
@@ -108,7 +114,7 @@ func draw_minimap() -> void:
 	put("Дальний бор · 6",Vector2(r.end.x-r.size.x*0.32-24,r.end.y-16),r.size.x*0.32,13,MUTED,HORIZONTAL_ALIGNMENT_RIGHT)
 
 func draw_status() -> void:
-	var r = Rect2(size.x-334,size.y-174,312,152)
+	var r = Rect2(size.x-status_width()-22,size.y-174,status_width(),152)
 	panel(r)
 	var m = game.model
 	var stats = m.object_stats(m.vehicle_id())
@@ -124,19 +130,20 @@ func draw_status() -> void:
 		title = "АККУМУЛЯТОР" if m.vehicle_id()=="locomotive" else "БЕНЗИН"
 		value = "%.2f / %.2f кВт·ч" % [amount,stats.tank] if m.vehicle_id()=="locomotive" else "%.2f / %.1f л" % [amount,stats.tank]
 		fraction = amount / maxf(0.001,float(stats.tank))
-	put(title,r.position+Vector2(16,24),125,12,MUTED)
-	put(value,r.position+Vector2(164,24),132,14,RED if fraction<=0.15 and m.vehicle_id()!="handcar" else PAPER,HORIZONTAL_ALIGNMENT_RIGHT)
-	bar(Rect2(r.position+Vector2(16,36),Vector2(280,8)),fraction,RED if fraction<=0.15 and m.vehicle_id()!="handcar" else GREEN)
+	put(title,r.position+Vector2(16,24),r.size.x*0.46-16,12,MUTED)
+	put(value,r.position+Vector2(r.size.x*0.48,24),r.size.x*0.52-16,14,RED if fraction<=0.15 and m.vehicle_id()!="handcar" else PAPER,HORIZONTAL_ALIGNMENT_RIGHT)
+	bar(Rect2(r.position+Vector2(16,36),Vector2(r.size.x-32,8)),fraction,RED if fraction<=0.15 and m.vehicle_id()!="handcar" else GREEN)
 	var dry_mass = 0.0
 	for id in m.body_ids(): dry_mass += float(m.object_stats(id).mass)
-	put("Состав  %d кг" % m.train_mass(),r.position+Vector2(16,72),132,16)
-	put("Груз  %d кг" % (m.train_mass()-dry_mass),r.position+Vector2(174,72),122,16)
-	put("Уклон  %+.1f%%" % (tan(m.route.slope(float(m.state.s)))*100),r.position+Vector2(16,101),132,15,MUTED)
-	put("Тормоз  %d%%" % roundi(float(m.state.brake)*100),r.position+Vector2(174,101),122,15,RED if m.state.brake>0.9 else MUTED)
+	var half=r.size.x*0.5-24
+	put("Состав  %d кг" % m.train_mass(),r.position+Vector2(16,72),half,16)
+	put("Груз  %d кг" % (m.train_mass()-dry_mass),r.position+Vector2(r.size.x*0.5+8,72),half,16)
+	put("Уклон  %+.1f%%" % (tan(m.route.slope(float(m.state.s)))*100),r.position+Vector2(16,101),half,15,MUTED)
+	put("Тормоз  %d%%" % roundi(float(m.state.brake)*100),r.position+Vector2(r.size.x*0.5+8,101),half,15,RED if m.state.brake>0.9 else MUTED)
 	var detail = "Макс. скорость  %.0f км/ч" % nominal_speed()
 	if m.vehicle_id()=="locomotive" and m.regen_kw>0.01: detail = "Рекуперация  +%.1f кВт" % m.regen_kw
 	elif m.vehicle_id()!="handcar": detail += "  ·  "+["Н","I","II"][int(m.state.gear)]
-	put(detail,r.position+Vector2(16,132),280,14,GOLD)
+	put(detail,r.position+Vector2(16,132),r.size.x-32,14,GOLD)
 
 func map_point(s: float) -> Vector2:
 	var fraction = clampf(s/float(game.model.route.station_s[-1]),0,1)

@@ -10,6 +10,7 @@ var art
 var strips: Dictionary = {}
 var stations
 var foreground
+var scenery
 
 func _ready() -> void:
 	z_index = -10
@@ -35,6 +36,10 @@ func _ready() -> void:
 		part.z_index = 3 + strips.size() - 3
 		add_child(part)
 		strips[name] = part
+	scenery=PaintLayer.new()
+	scenery.z_index=2
+	scenery.painter=draw_scenery
+	add_child(scenery)
 	stations = PaintLayer.new()
 	stations.visible = false
 	stations.z_index = 8
@@ -71,6 +76,9 @@ func update_view() -> void:
 	var size = game.get_viewport_rect().size
 	var in_menu = game.screen == "menu"
 	var rail_y = size.y * 0.75 - 5 if in_menu else game.rail_baseline()
+	var water=0.0 if in_menu else 1-smoothstep(12,65,absf(game.camera_s-float(game.model.route.station_s[3])))
+	var high=0.0 if in_menu else 1-smoothstep(12,65,absf(game.camera_s-float(game.model.route.station_s[4])))
+	var warm=0.0 if in_menu else 1-smoothstep(15,85,absf(game.camera_s-float(game.model.route.station_s[5])))
 	for name in ["far_hills", "far_forest", "mid_forest"]:
 		var height = size.y * {"far_hills": 0.25, "far_forest": 0.31, "mid_forest": 0.50}[name]
 		var baseline = rail_y - {"far_hills": 105.0, "far_forest": 48.0, "mid_forest": -4.0}[name]
@@ -78,7 +86,10 @@ func update_view() -> void:
 		var width = height * float(meta.region_px[2]) / float(meta.region_px[3])
 		var u = game.camera_s * art.PX * float(meta.parallax_speed) / width
 		var xspan = size.x / width
-		strips[name].mesh = mesh_strip([Vector2(0,baseline-height),Vector2(0,baseline),Vector2(size.x,baseline-height),Vector2(size.x,baseline)], [Vector2(u,0),Vector2(u,1),Vector2(u+xspan,0),Vector2(u+xspan,1)], Color.WHITE if name == "mid_forest" else Color(0.86,0.92,0.86))
+		var tint=Color.WHITE if name=="mid_forest" else Color(0.78,0.87,0.86)
+		tint=tint.lerp(Color(1,0.88,0.72),warm*0.45)
+		if name=="mid_forest": tint.a=1-maxf(water*0.82,high*0.65)
+		strips[name].mesh = mesh_strip([Vector2(0,baseline-height),Vector2(0,baseline),Vector2(size.x,baseline-height),Vector2(size.x,baseline)], [Vector2(u,0),Vector2(u,1),Vector2(u+xspan,0),Vector2(u+xspan,1)], tint)
 	for name in ["soil", "ballast", "grass", "rail"]:
 		var points: Array = []
 		var uv: Array = []
@@ -95,6 +106,8 @@ func update_view() -> void:
 			uv.append(Vector2(s / tile_m, 1))
 		strips[name].mesh = mesh_strip(points, uv, Color(0.88,0.9,0.8) if name=="soil" else Color.WHITE)
 	stations.visible = not in_menu
+	scenery.visible=not in_menu
+	scenery.queue_redraw()
 	foreground.visible = true
 	stations.queue_redraw()
 	foreground.queue_redraw()
@@ -117,11 +130,12 @@ func draw_stations(canvas: Node2D) -> void:
 		var half_width = art.textures[name].get_width()*art.scale_for(name)*sc*0.5
 		if center.x+half_width < -50 or center.x-half_width > size.x+50: continue
 		if game.screen=="game": draw_service_platform(canvas,i)
+		draw_station_details(canvas,i)
 		art.draw_part(canvas, name, center, 0, art.scale_for(name)*sc)
 		var height = art.textures[name].get_height()*art.scale_for(name)
 		var plaque = Rect2(center+Vector2(-150,-height-48)*sc,Vector2(300,42)*sc)
 		canvas.draw_style_box(game.style(game.PAPER, game.GOLD, 5), plaque)
-		canvas.draw_string(ThemeDB.fallback_font, plaque.position+Vector2(10,28)*sc, game.model.data.stations[i].name,HORIZONTAL_ALIGNMENT_CENTER,280*sc,int(20*sc),game.INK)
+		canvas.draw_string(ThemeDB.fallback_font, plaque.position+Vector2(10,28)*sc, game.model.data.stations[i].name,HORIZONTAL_ALIGNMENT_CENTER,280*sc,int(20*sc*float(game.settings.text_scale)),game.INK)
 		if i == 0 and game.model.state.finale:
 			canvas.draw_texture_rect(game.textures.final_flags,Rect2(center+Vector2(-170,-290),Vector2(320,130)),false)
 	# The sleepers stay aligned to the same tangent as the rail strips.
@@ -151,9 +165,62 @@ func draw_service_platform(canvas: Node2D, index: int) -> void:
 	var marker=game.world_point(interaction.stop_s)
 	canvas.draw_line(marker+Vector2(0,8*sc),marker+Vector2(0,26*sc),tint,3,true)
 	canvas.draw_colored_polygon(PackedVector2Array([marker+Vector2(-8,29)*sc,marker+Vector2(8,29)*sc,marker+Vector2(0,19)*sc]),tint)
+	if not game.model.stopped() and game.model.state.phase!="loading": return
 	var label="✓ ПРИЁМ ГРУЗА · "+interaction.station_name if ready else "МЕСТО ОСТАНОВКИ · "+interaction.station_name
 	if ready and interaction.eligible.is_empty() and game.model.state.phase!="loading": label="СТАНЦИЯ · "+interaction.station_name
-	canvas.draw_string(ThemeDB.fallback_font,Vector2(maxf(20,rect.position.x+16),rect.position.y-12*sc),label,HORIZONTAL_ALIGNMENT_LEFT,minf(rect.size.x-30,700),18,tint)
+	canvas.draw_string(ThemeDB.fallback_font,Vector2(rect.position.x+16,rect.position.y-12*sc),label,HORIZONTAL_ALIGNMENT_LEFT,minf(rect.size.x-30,700),18,tint)
+
+func grounded(canvas: Node2D,id: String,s: float,height_m: float,offset: Vector2=Vector2.ZERO,tint: Color=Color.WHITE) -> void:
+	var tex=game.textures[id]
+	var scale=game.view_scale()
+	var height=height_m*art.PX*scale
+	var width=height*float(tex.get_width())/float(tex.get_height())
+	var foot=game.world_point(s)+offset*art.PX*scale
+	canvas.draw_texture_rect(tex,Rect2(foot-Vector2(width*0.5,height),Vector2(width,height)),false,tint)
+
+func draw_scenery(canvas: Node2D) -> void:
+	var scale=game.view_scale()
+	var lake=game.world_point(float(game.model.route.station_s[3]))
+	if lake.x>-3500 and lake.x<game.get_viewport_rect().size.x+3500:
+		var water=PackedVector2Array([lake+Vector2(-1900,-55)*scale,lake+Vector2(-1000,-140)*scale,lake+Vector2(1000,-130)*scale,lake+Vector2(1900,-45)*scale,lake+Vector2(1600,100)*scale,lake+Vector2(-1500,100)*scale])
+		canvas.draw_colored_polygon(water,Color("789b9b"))
+		for i in range(18):
+			var y=-110+i*10.0
+			var center=sin(i*2.71)*740
+			var width=90+fposmod(i*137.1,500)
+			canvas.draw_line(lake+Vector2(center-width,y)*scale,lake+Vector2(center+width,y)*scale,Color(0.79,0.87,0.79,0.24),1.3*scale,true)
+	# Sparse trees have roots on the same sampled terrain as the railway.
+	# Their unequal spacing interrupts the periodic background silhouette.
+	for i in range(floori((game.camera_s-35)/9),ceili((game.camera_s+35)/9)):
+		var s=i*9.0+sin(i*3.71)*2.5
+		var near_station=false
+		for station_s in game.model.route.station_s:
+			if absf(s-float(station_s))<14: near_station=true
+		if near_station: continue
+		var height=2.6+fposmod(sin(i*7.19)*713.2,2.2)
+		grounded(canvas,"birch" if posmod(i,5)==0 else "pine",s,height,Vector2(0,0.06),Color("9fae91"))
+
+func draw_station_details(canvas: Node2D,index: int) -> void:
+	var s=float(game.model.route.station_s[index])
+	if index==0:
+		grounded(canvas,"fuel_pump",s-12,1.2)
+		grounded(canvas,"log_pile",s+16,0.9)
+	elif index==1:
+		for offset in [-15,-12,18,23]: grounded(canvas,"pine",s+offset,3.8+0.05*absf(offset))
+	elif index==2:
+		for offset in [-16,-12,18]: grounded(canvas,"log_pile",s+offset,1.0+0.03*absf(offset))
+		grounded(canvas,"pine",s+25,4.0)
+	elif index==3:
+		for offset in [-23,-17,18,25]: grounded(canvas,"birch",s+offset,3.3+0.02*absf(offset))
+		grounded(canvas,"rocks",s-12,0.8)
+	elif index==4:
+		for offset in [-24,-16,18,27]: grounded(canvas,"rocks",s+offset,1.3+0.035*absf(offset))
+		grounded(canvas,"pine",s+22,4.4,Vector2.ZERO,Color("b4b59b"))
+	else:
+		for offset in [-20,24]:
+			var at=game.world_point(s+offset)
+			art.draw_part(canvas,"stations/station_house",at,0,art.scale_for("stations/station_house")*game.view_scale()*0.65)
+		grounded(canvas,"birch",s-28,4.1)
 
 func draw_foreground(canvas: Node2D) -> void:
 	var size = game.get_viewport_rect().size
@@ -161,6 +228,12 @@ func draw_foreground(canvas: Node2D) -> void:
 	var height = 95 * (1.0 if game.screen == "menu" else game.view_scale())
 	var rail_y = size.y * 0.75 - 5 if game.screen == "menu" else game.rail_baseline()
 	var width = height * tex.get_width() / tex.get_height()
-	var offset = fposmod(game.camera_s * art.PX * 1.12, width)
-	for i in range(-1, ceili(size.x / width)+2):
-		canvas.draw_texture_rect(tex,Rect2(i*width-offset,rail_y+height*0.05,width,height),false,Color(0.73,0.83,0.67))
+	if game.screen=="menu":
+		for i in range(-1,ceili(size.x/width)+2): canvas.draw_texture_rect(tex,Rect2(i*width,rail_y+height*0.05,width,height),false,Color("a3b392"))
+		return
+	var tile_m=width/(art.PX*game.view_scale())
+	for i in range(floori((game.camera_s-35)/tile_m),ceili((game.camera_s+35)/tile_m)):
+		var p=game.world_point(i*tile_m)
+		canvas.draw_texture_rect(tex,Rect2(p+Vector2(0,height*0.05),Vector2(width+1,height)),false,Color("a3b392"))
+	for i in range(floori((game.camera_s-35)/6),ceili((game.camera_s+35)/6)):
+		if posmod(i,3)==0: grounded(canvas,"rocks",i*6.0+sin(i)*1.1,0.35,Vector2(0,0.65),Color("87946e"))

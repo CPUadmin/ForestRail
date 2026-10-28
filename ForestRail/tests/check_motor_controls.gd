@@ -5,13 +5,14 @@ var game
 var checks=0
 var failures: Array=[]
 var out_dir=""
+var context=""
 
 func _ready() -> void:
 	call_deferred("run")
 
 func check(ok: bool,label: String) -> void:
 	checks+=1
-	if not ok: failures.append(label);print("FAIL: ",label)
+	if not ok: failures.append(context+label);print("FAIL: ",context,label)
 
 func fixture(id: String):
 	var m=Model.new()
@@ -103,6 +104,7 @@ func run() -> void:
 	for resolution in [Vector2i(1280,720),Vector2i(1600,900),Vector2i(1920,1080)]:
 		get_tree().root.size=resolution
 		for id in ["motorcar","locomotive"]:
+			context=id+" "+str(resolution)+" "
 			game.model=fixture(id);game.screen="game";game.rebuild()
 			game.camera_s=100;game.camera_y=0;game.camera_x=game.get_viewport_rect().size.x*0.65
 			await frame()
