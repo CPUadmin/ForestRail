@@ -5,6 +5,7 @@ const SaveGame = preload("res://scripts/save_game.gd")
 const Sound = preload("res://scripts/sound.gd")
 const ArtV3 = preload("res://scripts/art_v3.gd")
 const ArtWorld = preload("res://scripts/art_world.gd")
+const Geometry = preload("res://scripts/world_geometry.gd")
 const Instruments = preload("res://scripts/instruments.gd")
 const PAPER = Color("f5ecd6")
 const INK = Color("29383b")
@@ -46,6 +47,7 @@ var camera_s = 0.0
 var camera_y = 0.0
 var camera_x = 0.0
 var zoom_level = 1.0
+var control_zoom = false
 var drag = ""
 var drag_item = ""
 var drag_total = 0.0
@@ -82,7 +84,7 @@ func _ready() -> void:
 		for arg in qa_args:
 			if arg.begins_with("--qa-suite="):
 				var suite = arg.trim_prefix("--qa-suite=")
-				if suite not in ["check_model", "check_physics", "check_interaction", "drive_campaign", "check_presentation", "check_handcar_revision", "check_art_v3", "check_instruments", "check_station_service"]: get_tree().quit(2); return
+				if suite not in ["check_model", "check_physics", "check_interaction", "drive_campaign", "check_presentation", "check_handcar_revision", "check_art_v3", "check_instruments", "check_station_service", "check_world_geometry"]: get_tree().quit(2); return
 				get_tree().root.set_meta("qa_running", true)
 				set_process(false)
 				set_physics_process(false)
@@ -156,6 +158,16 @@ func load_textures() -> void:
 	textures.background = load("res://assets/forest_background.png")
 	for name in ["control_pump", "control_brake", "control_gear", "control_throttle", "control_start", "control_mount", "gauge_face", "gauge_needle"]:
 		textures[name] = load("res://assets/ui/" + name + ".svg")
+	for name in ["sack","log_bundle"]:
+		var source = load("res://assets/art_p2/"+name+".png")
+		var bounds = Geometry.data().cargo[name].region_px
+		var rect = Rect2(bounds[0],bounds[1],bounds[2],bounds[3])
+		var atlas = AtlasTexture.new()
+		atlas.atlas = source
+		atlas.region = rect
+		atlas.filter_clip = true
+		textures[name] = atlas
+		visual_layout[name] = [0,0,rect.size.x,rect.size.y]
 
 func load_settings() -> void:
 	if FileAccess.file_exists(settings_path):
@@ -536,7 +548,7 @@ func build_hud(size: Vector2) -> void:
 	for state in ["normal","hover","pressed","focus"]: mini_button.add_theme_stylebox_override(state,StyleBoxEmpty.new())
 	mini_button.pressed.connect(toggle_map)
 	ui.add_child(mini_button)
-	var buttons_width = 270*float(settings.text_scale)
+	var buttons_width = (270 if model.vehicle_id()=="handcar" else 410)*float(settings.text_scale)
 	hud = positioned_label("", Rect2(42, 22, size.x - buttons_width - 110, 42), 22)
 	hud.autowrap_mode=TextServer.AUTOWRAP_OFF
 	hud.text_overrun_behavior=TextServer.OVERRUN_TRIM_ELLIPSIS
@@ -546,6 +558,7 @@ func build_hud(size: Vector2) -> void:
 	pause_row.add_theme_constant_override("separation",10)
 	ui.add_child(pause_row)
 	map_button = add_button(pause_row, "Карта [M]", toggle_map)
+	if model.vehicle_id()!="handcar": add_button(pause_row,"Пульт [C]",toggle_control_zoom)
 	add_button(pause_row, "Пауза", pause_game)
 	hint_label = positioned_label("", Rect2(42, 67, size.x - 84, 44), 18)
 	hint_label.autowrap_mode=TextServer.AUTOWRAP_OFF
@@ -647,8 +660,39 @@ func toggle_map() -> void:
 	if modal_kind == "map": close_modal()
 	elif modal_kind == "": show_modal("map")
 
+func toggle_control_zoom() -> void:
+	if screen!="game" or paused or model.vehicle_id()=="handcar": return
+	cancel_drag()
+	control_zoom = not control_zoom
+	queue_redraw()
+
+func control_zoom_rect() -> Rect2:
+	return Rect2(36,195,430,320)
+
+func control_zoom_transform() -> Transform2D:
+	return Transform2D(0,Vector2.ONE*2.2,0,control_zoom_rect().position+Vector2(330,392))
+
+func draw_control_zoom() -> void:
+	var rect = control_zoom_rect()
+	draw_set_transform_matrix(Transform2D.IDENTITY)
+	draw_style_box(style(INK,GOLD,8),rect)
+	var outer = control_zoom_transform()
+	draw_set_transform_matrix(outer)
+	draw_controls(outer,false)
+	draw_set_transform_matrix(Transform2D.IDENTITY)
+	draw_rect(Rect2(rect.position,Vector2(rect.size.x,42)),INK)
+	draw_string(font,rect.position+Vector2(16,28),"ПУЛЬТ · крупное управление",HORIZONTAL_ALIGNMENT_LEFT,330,19,PAPER)
+	draw_string(font,rect.position+Vector2(370,28),"C ×",HORIZONTAL_ALIGNMENT_LEFT,50,19,GOLD)
+	for id in ["brake","throttle","gear","start"]:
+		var point = outer*lever_geometry(id).grip
+		grip_hits.append({"id":id,"position":point,"closeup":true})
+		var label = {"brake":"Тормоз %d%%" % (model.state.brake*100),"throttle":"Газ %d%%" % (model.state.throttle*100),"gear":"Передача "+["Н","1","2"][int(model.state.gear)],"start":"Пуск · "+("вкл." if model.state.engine else "выкл.")}[id]
+		draw_string(font,point+Vector2(16,-8),label,HORIZONTAL_ALIGNMENT_LEFT,180,16,PAPER)
+	draw_string(font,rect.position+Vector2(16,303),"Зажми рукоять и потяни вверх или вниз",HORIZONTAL_ALIGNMENT_LEFT,400,17,Color("c7c3a0"))
+
 func show_modal(kind: String) -> void:
 	cancel_drag()
+	control_zoom=false
 	if screen != "menu": paused = true
 	modal_kind = kind
 	rebuild()
@@ -745,7 +789,7 @@ func build_modal(size: Vector2) -> void:
 		add_button(box, "В главное меню", func(): screen = "menu"; close_modal())
 	else:
 		add_label(box, "Лесная колея", 36)
-		add_label(box, "Небольшая игра о работе лесной железной дороги.\nРазработка: Codex совместно с владельцем проекта, 2026.\nГрафика: предоставленный комплект ForestRail, созданный с image_gen. Звуки синтезированы для этого комплекта.\nGodot Engine 4.7.2, лицензия MIT. Полные лицензии движка и его компонентов включены в поставку.\n\nВерсия игры %s · ТЗ 2.1 с электрическим локомотивом." % ProjectSettings.get_setting("application/config/version"), 22)
+		add_label(box, "Небольшая игра о работе лесной железной дороги.\nРазработка: Codex совместно с владельцем проекта, 2026.\nГрафика: предоставленный комплект ForestRail, созданный с image_gen. Звуки синтезированы для этого комплекта.\nGodot Engine 4.7.2, лицензия MIT. Полные лицензии движка и его компонентов включены в поставку.\n\nВерсия игры %s · ТЗ 3.0 · этап P2." % ProjectSettings.get_setting("application/config/version"), 22)
 		add_button(box, "Назад", close_modal)
 
 func save_game() -> bool:
@@ -818,11 +862,20 @@ func _physics_process(dt: float) -> void:
 			save_game()
 
 func _input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and not event.echo and (event.physical_keycode==KEY_C or event.keycode==KEY_C) and screen=="game" and not paused:
+		toggle_control_zoom()
+		get_viewport().set_input_as_handled()
+		return
 	if event is InputEventKey and event.pressed and not event.echo and (event.physical_keycode==KEY_M or event.keycode==KEY_M) and screen=="game":
 		toggle_map()
 		get_viewport().set_input_as_handled()
 		return
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
+		if control_zoom:
+			cancel_drag()
+			control_zoom=false
+			get_viewport().set_input_as_handled()
+			return
 		if modal_kind == "": pause_game()
 		else: close_modal()
 		get_viewport().set_input_as_handled()
@@ -865,13 +918,20 @@ func _unhandled_input(event: InputEvent) -> void:
 				if hit.rect.has_point(mouse): selected_object = hit.id; tab = "Улучшения"; rebuild(); return
 			return
 		var nearest: Dictionary = {}
-		var distance = 31.0
+		var distance = float(Geometry.data().controls.hit_diameter_px)*0.5
+		var in_closeup = control_zoom and control_zoom_rect().has_point(mouse)
+		if in_closeup and mouse.y<control_zoom_rect().position.y+42:
+			control_zoom=false
+			get_viewport().set_input_as_handled()
+			return
 		for hit in grip_hits:
+			if in_closeup!=bool(hit.get("closeup",false)): continue
 			var d = mouse.distance_to(hit.position)
 			if d < distance:
 				distance = d
 				nearest = hit
 		for hit in cargo_hits:
+			if in_closeup: break
 			# Visible cargo wins over the enlarged control hit circle. The actual
 			# wooden grip still wins when the pointer is directly on it.
 			if hit.rect.has_point(mouse) and distance>10:
@@ -883,6 +943,9 @@ func _unhandled_input(event: InputEvent) -> void:
 			drag_initial = float(model.state.get(drag, 0))
 			model.reset_input()
 			Input.set_default_cursor_shape(Input.CURSOR_DRAG)
+			return
+		if in_closeup:
+			get_viewport().set_input_as_handled()
 			return
 		for hit in cargo_hits:
 			if hit.rect.has_point(mouse):
@@ -944,7 +1007,8 @@ func world_platform_rect(index: int = -1) -> Rect2:
 	var half=Model.StationInteraction.SERVICE_LENGTH*0.5
 	var left=world_point(center-half)
 	var right=world_point(center+half)
-	return Rect2(Vector2(left.x,left.y-52.8*view_scale()),Vector2(right.x-left.x,48*view_scale()))
+	var height = float(Geometry.data().reference.platform_height_m)*ArtV3.PX*view_scale()
+	return Rect2(Vector2(left.x,left.y-height),Vector2(right.x-left.x,height))
 
 func update_cargo_actions(interaction: Dictionary) -> void:
 	if not is_instance_valid(cargo_actions): return
@@ -1022,12 +1086,14 @@ func _draw() -> void:
 			draw_style_box(style(Color(0.08,0.15,0.12,0.88),Color(0.5,0.57,0.39,0.45),8),Rect2(22,12,size.x-44,101))
 			if dock_visible(): draw_loading_dock(size)
 			draw_cargo_feedback()
+			if control_zoom and model.vehicle_id()!="handcar": draw_control_zoom()
 			draw_tooltip()
 	if toast_seconds > 0 and modal_kind != "confirm":
 		var width = minf(1100, size.x - 100)
 		var rect = Rect2((size.x - width) / 2, 184 if screen=="game" else size.y - 65, width, 44)
+		if control_zoom: rect=Rect2(480,195,size.x-500,44)
 		draw_style_box(style(INK, GOLD, 8), rect)
-		draw_string(font, rect.position + Vector2(18, 29), toast, HORIZONTAL_ALIGNMENT_LEFT, width - 30, 19, PAPER)
+		draw_string(font, rect.position + Vector2(18, 29), toast, HORIZONTAL_ALIGNMENT_LEFT, rect.size.x - 30, 19, PAPER)
 
 func draw_background(size: Vector2) -> void:
 	if textures.has("background"):
@@ -1146,27 +1212,57 @@ func draw_foreground() -> void:
 func draw_train() -> void:
 	var ids = model.body_ids()
 	var scale_value = view_scale()
+	# Draw every connector from the same transformed mount used by its body.
+	for i in range(1,ids.size()):
+		var front_s = model.body_s(i-1) if screen!="depot" else -model.body_offset(i-1)
+		var rear_s = model.body_s(i) if screen!="depot" else -model.body_offset(i)
+		var a = body_transform(ids[i],rear_s)*Geometry.coupling(ids[i],1)
+		var b = body_transform(ids[i-1],front_s)*Geometry.coupling(ids[i-1],-1)
+		draw_coupler(a,b)
 	for i in range(ids.size() - 1, -1, -1):
-		var s = model.body_s(i) if screen != "depot" else -i * 3.5
+		var s = model.body_s(i) if screen != "depot" else -model.body_offset(i)
 		var p = world_point(s)
-		var angle = -model.route.slope(s)
-		var direction = int(model.state.direction) if screen != "depot" else 1
-		var transform = Transform2D(angle, Vector2(scale_value * direction, scale_value), 0, p)
+		var transform = body_transform(ids[i],s)
 		draw_set_transform_matrix(transform)
 		draw_body(ids[i], s, screen == "game")
 		draw_set_transform_matrix(Transform2D.IDENTITY)
-		body_hits.append({"id": ids[i], "rect": Rect2(p - Vector2(art.body_width(ids[i])*0.5, 220) * scale_value, Vector2(art.body_width(ids[i]), 230) * scale_value)})
+		var local_bounds = art.body_bounds(ids[i])
+		var world_bounds = Rect2(transform*local_bounds.position,Vector2.ZERO)
+		for corner in [local_bounds.end,Vector2(local_bounds.end.x,local_bounds.position.y),Vector2(local_bounds.position.x,local_bounds.end.y)]: world_bounds=world_bounds.expand(transform*corner)
+		body_hits.append({"id":ids[i],"rect":world_bounds.grow(6)})
 		if screen == "depot" and selected_object == ids[i]:
 			draw_line(p + Vector2(-art.body_width(ids[i])*0.46,14)*scale_value,p+Vector2(art.body_width(ids[i])*0.46,14)*scale_value,GOLD,3,true)
-		if i > 0:
-			var front = world_point(model.body_s(i - 1) if screen != "depot" else -(i - 1) * 3.5)
-			draw_line(p + Vector2(art.body_width(ids[i])*0.5*direction*scale_value,-27*scale_value),front-Vector2(art.body_width(ids[i-1])*0.5*direction*scale_value,27*scale_value),INK,5)
 		if screen == "game":
 			add_world_hits(ids[i], i, transform)
+	for pair in [[0,1],[ids.size()-1,-1]]:
+		var id = ids[pair[0]]
+		var s = model.body_s(pair[0]) if screen!="depot" else -model.body_offset(pair[0])
+		var outer = body_transform(id,s)
+		var mount = Geometry.coupling(id,pair[1])
+		draw_coupler(outer*mount,outer*(mount+Vector2(pair[1]*float(Geometry.data().coupler.end_extension_m)*ArtV3.PX,0)))
+
+func body_transform(id: String, s: float) -> Transform2D:
+	var direction = int(model.state.direction) if screen!="depot" else 1
+	var wheels = art.wheel_positions(id)
+	var a = world_point(s+direction*wheels[0].x/ArtV3.PX)
+	var b = world_point(s+direction*wheels[1].x/ArtV3.PX)
+	var x = (b-a).normalized()
+	var y = -x.orthogonal()*direction
+	var mean_x = (wheels[0].x+wheels[1].x)*0.5
+	var sc = view_scale()
+	return Transform2D(x*sc,y*sc,(a+b)*0.5-x*mean_x*sc)
+
+func draw_coupler(a: Vector2, b: Vector2) -> void:
+	var tex = art.textures["vehicles/coupler"]
+	var span = a.distance_to(b)
+	var height = span*float(tex.get_height())/float(tex.get_width())
+	draw_set_transform((a+b)*0.5,(b-a).angle())
+	draw_texture_rect(tex,Rect2(-span*0.5,-height*0.5,span,height),false)
+	draw_set_transform_matrix(Transform2D.IDENTITY)
 
 func draw_body(id: String, s: float, controls: bool) -> void:
 	var body_scale = view_scale()
-	var body_transform = Transform2D(-model.route.slope(s), Vector2(body_scale * (model.state.direction if screen != "depot" else 1), body_scale), 0, world_point(s))
+	var body_transform = body_transform(id,s)
 	ellipse(Vector2(10, 7), Vector2(art.body_width(id)*0.48, 7), Color(0.05, 0.08, 0.05, 0.23))
 	art.draw_vehicle(self,id,s,int(model.state.direction) if screen!="depot" else 1,body_transform,model,controls)
 	var stats = model.object_stats(id)
@@ -1181,7 +1277,7 @@ func draw_body(id: String, s: float, controls: bool) -> void:
 			var sprite_id = str(model.cargo_base(item.type).sprite)
 			var bounds = visual_layout[sprite_id]
 			var ratio = float(bounds[2]-bounds[0])/maxf(1,float(bounds[3]-bounds[1]))
-			var height = minf(46.0 if id=="handcar" else 60.0,66.0/ratio)
+			var height = art.cargo_size(sprite_id,ratio).y
 			var foot=loc+Vector2(-sway*10,19)
 			var local_rect=Rect2(foot-Vector2(height*ratio*0.5,height),Vector2(height*ratio,height))
 			var screen_rect=Rect2(body_transform*local_rect.position,Vector2.ZERO)
@@ -1189,8 +1285,10 @@ func draw_body(id: String, s: float, controls: bool) -> void:
 			cargo_visuals[item.id]=screen_rect.grow(4)
 			if item.id!=drag_item:
 				grounded_sprite(sprite_id,foot,height)
-				draw_line(loc + Vector2(-24, -25), loc + Vector2(24, 14), GOLD, 3)
-				draw_line(loc + Vector2(24, -25), loc + Vector2(-24, 14), GOLD, 3)
+				# Straps follow the load instead of fixed screen-sized crosses.
+				for side in [-1,1]:
+					var x = height*ratio*0.28*side
+					draw_line(foot+Vector2(x,-height*0.85),foot+Vector2(x,0),Color("806e49"),1.6,true)
 	if id.begins_with("W"): art.draw_wagon_front(self,id,body_transform)
 	if id == model.vehicle_id() and controls:
 		draw_controls(body_transform)
@@ -1231,45 +1329,69 @@ func find_slot_cargo(key: String) -> Dictionary:
 
 func slot_local(id: String, index: int) -> Vector2:
 	var count = int(model.object_stats(id).slots)
-	return art.slot_position(id,index,count)
+	var item = find_slot_cargo(id+":"+str(index))
+	var sprite_id = str(model.cargo_base(item.type).sprite) if not item.is_empty() else "sack"
+	var position = art.slot_position(id,index,count,sprite_id)
+	# A wide bundle rests on both columns. Smaller cargo rests on its own
+	# column; removing a lower item settles the remaining stack onto the deck.
+	var levels = [0.0,0.0]
+	for previous in range(index+1):
+		var cargo = find_slot_cargo(id+":"+str(previous))
+		if previous<index and cargo.is_empty(): continue
+		var sprite_id_at = str(model.cargo_base(cargo.type).sprite) if not cargo.is_empty() else sprite_id
+		var wide = sprite_id_at=="log_bundle"
+		var row = maxf(levels[0],levels[1]) if wide else float(levels[previous%2])
+		if previous==index:
+			position.y = art.deck_y(id)-19-row
+			break
+		var bounds = visual_layout[sprite_id_at]
+		var ratio = float(bounds[2]-bounds[0])/float(bounds[3]-bounds[1])
+		var height = art.cargo_size(sprite_id_at,ratio).y
+		if wide: levels=[row+height,row+height]
+		else: levels[previous%2]=row+height
+	return position
 
 func lever_geometry(id: String) -> Dictionary:
 	if id == "pump":
 		var pose = art.mechanism_pose(model)
 		return {"pivot":pose.rocker*ArtV3.PX/128+Vector2(0,art.axis_height("handcar")),"grip":art.hand_grip(model),"angle":pose.angle}
 	if id == "brake":
-		var pivot = Vector2(-130 if model.vehicle_id()=="handcar" else -145, -52)
-		var angle = lerpf(-0.95, 0.12, float(model.state.brake))
-		return {"pivot": pivot, "grip": pivot + Vector2(0, -95).rotated(angle), "angle": angle}
+		var pivot = art.vec(Geometry.body(model.vehicle_id()).control_anchors_m.brake)*ArtV3.PX
+		var angle = lerpf(0.95, 0.12, float(model.state.brake))
+		return {"pivot": pivot, "grip": pivot + Vector2(0,-float(Geometry.data().controls.brake_length_m)*ArtV3.PX).rotated(angle), "angle": angle}
 	if id == "throttle":
-		var pivot = Vector2(80, -52)
+		var pivot = art.vec(Geometry.body(model.vehicle_id()).control_anchors_m.throttle)*ArtV3.PX
 		var angle = lerpf(0.8, -0.25, float(model.state.throttle))
-		return {"pivot": pivot, "grip": pivot + Vector2(0, -76).rotated(angle), "angle": angle}
+		return {"pivot": pivot, "grip": pivot + Vector2(0,-float(Geometry.data().controls.throttle_length_m)*ArtV3.PX).rotated(angle), "angle": angle}
 	if id == "gear":
-		var pivot = Vector2(-35, -48)
+		var pivot = art.vec(Geometry.body(model.vehicle_id()).control_anchors_m.gear)*ArtV3.PX
 		var angle = lerpf(-0.6, 0.45, float(model.state.gear) / 2)
-		return {"pivot": pivot, "grip": pivot + Vector2(0, -83).rotated(angle), "angle": angle}
-	return {"pivot": Vector2(-40, -184), "grip": Vector2(-40, -209 if model.state.engine else -159), "angle": 0.0}
+		return {"pivot": pivot, "grip": pivot + Vector2(0,-float(Geometry.data().controls.gear_length_m)*ArtV3.PX).rotated(angle), "angle": angle}
+	var pivot = art.vec(Geometry.body(model.vehicle_id()).control_anchors_m.start)*ArtV3.PX
+	return {"pivot":pivot,"grip":pivot+Vector2(0,-1 if model.state.engine else 1)*float(Geometry.data().controls.start_length_m)*ArtV3.PX,"angle":0.0}
 
-func draw_controls(body_transform: Transform2D) -> void:
+func draw_controls(body_transform: Transform2D, show_labels: bool = true) -> void:
 	var ids = ["pump", "brake"] if model.vehicle_id() == "handcar" else ["brake", "throttle", "gear", "start"]
 	if model.vehicle_id() != "handcar":
-		draw_line(Vector2(-40,-54),Vector2(-40,-184),INK,7,true)
-		draw_line(Vector2(-41,-54),Vector2(-41,-184),Color("8d917a"),2,true)
+		draw_line(Vector2(-1.28,art.deck_y(model.vehicle_id())/ArtV3.PX)*ArtV3.PX,Vector2(-1.28,-1.16)*ArtV3.PX,INK,0.04*ArtV3.PX,true)
+		draw_style_box(style(Color("34443c"),Color("918363"),3),Rect2(Vector2(-1.4,-1.80)*ArtV3.PX,Vector2(1.04,0.64)*ArtV3.PX))
+	var hover = get_global_mouse_position()
 	for id in ids:
 		var geo = lever_geometry(id)
 		var color = {"pump": Color("a16b38"), "brake": RED, "throttle": GREEN, "gear": GOLD, "start": Color("708574")}[id]
-		var factor = {"pump": 102.0 / 116, "brake": 95.0 / 166, "throttle": 76.0 / 165, "gear": 83.0 / 166, "start": 25.0 / 138}[id]
+		var factor = geo.pivot.distance_to(geo.grip)/float({"pump":116,"brake":166,"throttle":165,"gear":166,"start":138}[id])
 		var angle = float(geo.angle)
 		if id == "start": angle = 0.0 if model.state.engine else PI
 		var pivot = Vector2(128, 128 if id == "pump" else 224)
 		# The base stays fixed; only the independent supplied SVG part rotates.
-		if id != "pump": sprite("control_mount", Rect2(geo.pivot - Vector2(16, 20), Vector2(32, 32)))
+		if id != "pump": sprite("control_mount", Rect2(geo.pivot - Vector2(0.065,0.065)*ArtV3.PX, Vector2.ONE*0.13*ArtV3.PX))
 		draw_set_transform_matrix(body_transform * Transform2D(angle, geo.pivot))
 		if id != "pump":
 			sprite("control_" + id, Rect2(-pivot * factor, Vector2.ONE * 256 * factor))
 		draw_set_transform_matrix(body_transform)
-		draw_arc(geo.grip, 16, 0, TAU, 28, PAPER, 2, true)
+		var highlighted = drag==id or hover.distance_to(body_transform*geo.grip)<24
+		if not highlighted or not show_labels: continue
+		draw_arc(geo.grip, 9, 0, TAU, 28, PAPER, 1.5, true)
 		var label = {"pump": "КАЧАЙ ↕", "brake": "%d%%" % (float(model.state.brake) * 100), "throttle": "%d%%" % (float(model.state.throttle) * 100), "gear": ["Н", "1", "2"][int(model.state.gear)], "start": "ВКЛ" if model.state.engine else "ПУСК"}[id]
 		draw_string(font, geo.grip + Vector2(-25, -25), label, HORIZONTAL_ALIGNMENT_CENTER, 80, 16, PAPER)
 
@@ -1355,7 +1477,7 @@ func draw_cargo_feedback() -> void:
 		grounded_sprite(delivery_ghost.sprite,point,44,Color(1,1,1,alpha))
 
 func draw_tooltip() -> void:
-	if drag != "": return
+	if drag != "" or control_zoom: return
 	var mouse = get_global_mouse_position()
 	var text = ""
 	for hit in grip_hits:

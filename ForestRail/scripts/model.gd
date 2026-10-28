@@ -145,11 +145,13 @@ func body_mass(id: String) -> float:
 	return total
 
 func body_s(index: int) -> float:
-	var offset = 0.0 if index == 0 else (3.8 + (index - 1) * 3.5)
-	return float(state.s) - float(state.direction) * offset
+	return float(state.s) - float(state.direction) * body_offset(index)
+
+func body_offset(index: int) -> float:
+	return preload("res://scripts/world_geometry.gd").offset(body_ids(),index)
 
 func train_length() -> float:
-	return 3.0 + state.consist_ids.size() * 3.5
+	return preload("res://scripts/world_geometry.gd").train_length(body_ids())
 
 func station_index() -> int:
 	for i in range(route.station_s.size()):
@@ -644,7 +646,7 @@ func physics_step(dt: float) -> void:
 	state.stats.distance += absf(movement)
 	rail_distance += absf(movement)
 	# Bound the head so that every trailing body remains on the shared curve.
-	var rear_span = 3.8 + maxf(0, state.consist_ids.size() - 1) * 3.5 if not state.consist_ids.is_empty() else 0.0
+	var rear_span = body_offset(body_ids().size()-1)
 	var lower = -38.0 + (rear_span if state.direction > 0 else 0.0)
 	var upper = route.length_m - 2.0 - (rear_span if state.direction < 0 else 0.0)
 	if state.s < lower or state.s > upper:

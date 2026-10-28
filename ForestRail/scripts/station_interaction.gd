@@ -1,8 +1,6 @@
 extends RefCounted
 
-# P1 uses the existing art_v3 body dimensions. P2 will replace the shared
-# dimension catalogue; these bounds must always match the rendered bodies.
-const BODY_LENGTHS = {"handcar":3.2,"motorcar":3.2,"locomotive":4.0,"wagon":2.8}
+const Geometry = preload("res://scripts/world_geometry.gd")
 const SERVICE_LENGTH = 18.0
 const STOP_SPEED = 0.05
 const BRAKE = 0.95
@@ -13,7 +11,7 @@ static func train_bounds(model) -> Vector2:
 	var hi = -INF
 	var ids = model.body_ids()
 	for i in range(ids.size()):
-		var half = float(BODY_LENGTHS["wagon" if str(ids[i]).begins_with("W") else ids[i]])*0.5
+		var half = Geometry.length(ids[i])*0.5 + float(Geometry.data().coupler.end_extension_m)
 		lo=minf(lo,model.body_s(i)-half)
 		hi=maxf(hi,model.body_s(i)+half)
 	return Vector2(lo,hi)

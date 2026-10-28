@@ -83,8 +83,8 @@ func update_view() -> void:
 		var points: Array = []
 		var uv: Array = []
 		var scale = 1.0 if in_menu else game.view_scale()
-		var top = {"soil": 16.0, "ballast": -4.0, "grass": 43.0, "rail": -6.0}[name] * scale
-		var depth = {"soil": 160.0, "ballast": 31.0, "grass": 22.0, "rail": 9.0}[name] * scale
+		var top = {"soil": 16.0, "ballast": 0.0, "grass": 43.0, "rail": -0.5}[name] * scale
+		var depth = {"soil": 160.0, "ballast": 31.0, "grass": 22.0, "rail": 3.0}[name] * scale
 		var tile_m = {"soil": 2.2, "ballast": 1.8, "grass": 3.2, "rail": 3.0}[name]
 		for i in range(97):
 			var s = game.camera_s - 32 + i * (64.0 / 96)
@@ -110,15 +110,18 @@ func _draw() -> void:
 func draw_stations(canvas: Node2D) -> void:
 	var size = game.get_viewport_rect().size
 	for i in range(game.model.data.stations.size()):
-		var p = game.world_point(game.model.route.station_s[i])
-		if p.x < -700 or p.x > size.x + 700: continue
 		var name = "stations/depot" if i == 0 else ("stations/sawmill_shelter" if i == 2 else "stations/station_house")
-		var center = p + Vector2(370, -48)
+		var spec = art.Geometry.data().buildings[name]
+		var sc = game.view_scale()
+		var center = game.world_point(game.model.route.station_s[i]+float(spec.offset_m))+Vector2(0,-float(spec.foot_height_m)*art.PX*sc)
+		var half_width = art.textures[name].get_width()*art.scale_for(name)*sc*0.5
+		if center.x+half_width < -50 or center.x-half_width > size.x+50: continue
 		if game.screen=="game": draw_service_platform(canvas,i)
-		art.draw_part(canvas, name, center, 0, art.scale_for(name) * 0.72)
-		var plaque = Rect2(clampf(center.x - 150, 20, size.x-325), center.y-205, 300, 42)
+		art.draw_part(canvas, name, center, 0, art.scale_for(name)*sc)
+		var height = art.textures[name].get_height()*art.scale_for(name)
+		var plaque = Rect2(center+Vector2(-150,-height-48)*sc,Vector2(300,42)*sc)
 		canvas.draw_style_box(game.style(game.PAPER, game.GOLD, 5), plaque)
-		canvas.draw_string(ThemeDB.fallback_font, plaque.position+Vector2(10,28), game.model.data.stations[i].name,HORIZONTAL_ALIGNMENT_CENTER,280,20,game.INK)
+		canvas.draw_string(ThemeDB.fallback_font, plaque.position+Vector2(10,28)*sc, game.model.data.stations[i].name,HORIZONTAL_ALIGNMENT_CENTER,280*sc,int(20*sc),game.INK)
 		if i == 0 and game.model.state.finale:
 			canvas.draw_texture_rect(game.textures.final_flags,Rect2(center+Vector2(-170,-290),Vector2(320,130)),false)
 	# The sleepers stay aligned to the same tangent as the rail strips.

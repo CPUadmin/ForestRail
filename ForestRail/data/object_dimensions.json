@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "units": "metres; source coordinates in original PNG pixels",
+  "reference": {"person_height_m":1.75,"door_height_m":2.05,"platform_height_m":0.55},
+  "coupler": {"gap_m":0.30,"end_extension_m":0.15,"height_m":0.32},
+  "bodies": {
+    "handcar":{"length_m":2.4,"wheel_diameter_m":0.42,"file":"handcar_body.png","region_px":[45,188,1945,390],"axles_px":[[479,488],[1553,488]],"deck_y_px":195,"beam_width_m":1.9,"rocker_height_m":1.45,"cargo_columns_m":[-0.99,0.99],"cargo_row_pitch_m":0.75,"log_center_m":0.0,"control_anchors_m":{"brake":[-0.35,-0.59]}},
+    "motorcar":{"length_m":2.8,"wheel_diameter_m":0.42,"file":"petrol_motorcar_body.png","region_px":[33,42,2075,629],"axles_px":[[540,583],[1602,583]],"deck_y_px":289,"cargo_columns_m":[-0.15,0.95],"cargo_row_pitch_m":0.75,"log_center_m":0.45,"control_anchors_m":{"brake":[-1.1,-0.60],"throttle":[-0.65,-1.10],"gear":[-1.10,-1.25],"start":[-0.65,-1.68]}},
+    "locomotive":{"length_m":4.0,"wheel_diameter_m":0.55,"file":"battery_locomotive_body.png","region_px":[81,62,1420,866],"axles_px":[[433,850],[1164,850]],"deck_y_px":680,"cargo_columns_m":[-0.65,0.65],"cargo_row_pitch_m":0.75,"log_center_m":0.0,"control_anchors_m":{"brake":[-1.1,-0.60],"throttle":[-0.65,-1.10],"gear":[-1.10,-1.25],"start":[-0.65,-1.68]}},
+    "wagon":{"length_m":2.8,"wheel_diameter_m":0.42,"file":"freight_wagon_body.png","region_px":[48,190,1998,390],"axles_px":[[505,501],[1596,501]],"deck_y_px":198,"cargo_columns_m":[-0.65,0.65],"cargo_row_pitch_m":0.75,"log_center_m":0.0}
+  },
+  "cargo": {
+    "sack":{"height_m":0.65,"file":"sack.png","region_px":[79,49,874,1418]},"fragile_crate":{"height_m":0.55},"crate":{"height_m":0.55},"log_bundle":{"width_m":1.8,"height_m":0.3355778894,"file":"log_bundle.png","region_px":[46,199,1990,371]}
+  },
+  "controls": {"brake_length_m":0.65,"throttle_length_m":0.28,"gear_length_m":0.28,"start_length_m":0.06,"hit_diameter_px":48},
+  "buildings": {
+    "stations/station_house":{"door_px":[834,355,980,648],"door_height_m":2.05,"offset_m":4.2,"foot_height_m":0.55},
+    "stations/depot":{"door_px":[1478,340,1638,661],"door_height_m":2.05,"offset_m":6.0,"foot_height_m":0.0},
+    "stations/sawmill_shelter":{"height_m":4.0,"clearance_px":[240,290,900,620],"offset_m":5.5,"foot_height_m":0.0}
+  }
+}

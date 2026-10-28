@@ -16,3 +16,5 @@ qa/install_smoke/
 qa/github_publication.json
 qa/v3_p0/
 qa/v3_p1/
+qa/v3_p2/
+qa/qa/

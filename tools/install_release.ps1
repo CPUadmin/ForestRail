@@ -1,7 +1,8 @@
-param([string]$Version = '1.1.0')
+param([string]$Version = '1.1.0', [string]$SourceExecutable = '', [string]$ProfileDirectory = '')
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path $PSScriptRoot -Parent
 $sourceExe = Join-Path $projectRoot 'release/ForestRail/ForestRail.exe'
+if ($SourceExecutable -ne '') { $sourceExe = (Resolve-Path -LiteralPath $SourceExecutable).Path }
 $installDir = Join-Path $env:LOCALAPPDATA "Programs/ForestRail/$Version"
 $installedExe = Join-Path $installDir 'ForestRail.exe'
 $saveDir = Join-Path $env:APPDATA 'ForestRail'
@@ -23,6 +24,10 @@ $shortcutPath = Join-Path ([Environment]::GetFolderPath('Desktop')) 'Лесна�
 $shortcut = $shell.CreateShortcut($shortcutPath)
 $shortcut.TargetPath = $installedExe
 $shortcut.Arguments = ''
+if ($ProfileDirectory -ne '') {
+    New-Item -ItemType Directory -Path $ProfileDirectory -Force | Out-Null
+    $shortcut.Arguments = '-- --profile-dir="' + $ProfileDirectory + '"'
+}
 $shortcut.WorkingDirectory = $installDir
 $shortcut.Description = "Лесная колея $Version"
 $iconSource = Join-Path $projectRoot 'ForestRail/assets/branding/forest_rail_launcher_v1.ico'

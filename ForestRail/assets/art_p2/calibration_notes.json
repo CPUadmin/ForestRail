@@ -1,0 +1,16 @@
+{
+  "generator":"Imagegen built-in, 2026-10-28",
+  "final_outputs":{
+    "handcar_body.png":"exec-b8a47d1b-2482-443d-a6de-d4cf30b137c9.png",
+    "petrol_motorcar_body.png":"exec-91390fa4-408d-4c96-801a-9b2e7a7fad8c.png",
+    "battery_locomotive_body.png":"exec-b9adc183-f8d4-458c-a485-5fed8d4adba1.png",
+    "freight_wagon_body.png":"exec-6c5e5ace-a421-40f3-9d85-0719c724beee.png",
+    "sack.png":"exec-ac8f4f37-3b57-49c5-a539-e1c4a66fe80e.png",
+    "log_bundle.png":"exec-b0179269-e646-4b48-bb95-52912854e2a7.png"
+  },
+  "additional_imagegen_edits":{
+    "handcar_body.png":"Lowered the deck by approximately 65 source pixels while preserving bearing positions, frame connections, width, materials and transparency.",
+    "petrol_motorcar_body.png":"Raised the deck and engine by approximately 70 source pixels while preserving bearing positions, width, materials and transparency."
+  },
+  "integration":"Original generated PNG files copied without pixel changes. Uniform scaling and visible atlas regions are configured in data/object_dimensions.json. Regions exclude nearly transparent padding. Final physical measurements come from the engine report, rather than generation prompts."
+}

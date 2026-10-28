@@ -33,7 +33,7 @@ func run() -> void:
 	for id in ["handcar","motorcar","locomotive","W01"]:
 		var radius = art.PX * (0.55 if id=="locomotive" else 0.42)*0.5
 		for position in art.wheel_positions(id):
-			check(absf(position.y+radius+3)<0.01,"wheel rim meets rail "+id)
+			check(absf(position.y+radius)<0.01,"wheel rim meets rail "+id)
 		for i in range(4 if id.begins_with("W") else 2):
 			var slot = art.slot_position(id,i,4 if id.begins_with("W") else 2)
 			check(absf(slot.x)<art.body_width(id)*0.5,"cargo stays above deck "+id)
