@@ -1,0 +1,130 @@
+{
+  "version": "1.2.0-preview.3",
+  "stage": "P3",
+  "source_commit": "7dac3d7e7e741c568233fb6b68378c671af7689a",
+  "exe_sha256": "8a1e758928476527c1f7b023cbffb027702c9273c728c73a441d91f6b58321f9",
+  "mechanism": {
+    "checks": 426905,
+    "config": {
+      "assembly_branch": 1.0,
+      "calibration": "Rocker pin radius comes from the supplied lever pivot/link pixels at a uniform 1.8 m beam width. This leaves clearance for the cargo through a full stroke. Crank centre matches the right wheel axle of the P2 body.",
+      "crank_pivot": [
+        0.660771208226221,
+        -0.21
+      ],
+      "crank_radius": 0.103,
+      "gear_ratio": 1.0,
+      "gear_ratio_definition": "wheel angle = crank phase * gear_ratio, matching TECH_SPEC_RU section 5.4; same sign for this drive",
+      "grip_radius": 0.9,
+      "rocker_pin_radius": 0.41702905039439,
+      "rocker_pivot": [
+        0.0,
+        -1.45
+      ],
+      "rod_length": 1.26372870486688,
+      "units": "metres, +X along the unmirrored vehicle, +Y down, origin at rail level",
+      "version": 1.0
+    },
+    "failures": [],
+    "max_beam_cargo_overlap_samples": 0,
+    "max_midstroke_return_phase_error_rad": 1.40302609006326e-05,
+    "max_rod_length_error_m": 2.05454341539735e-07,
+    "max_transformed_sprite_pin_error_px": 8.63167442730628e-05,
+    "rocker_limits": {
+      "maximum": {
+        "angle": 0.262756317853928,
+        "phase": 1.34660089015961
+      },
+      "minimum": {
+        "angle": -0.248182013630867,
+        "phase": -1.75960493087769
+      },
+      "stroke_m": 0.454846798546375
+    },
+    "scope": "P3 kinematics only; hand force and train/wheel coupling remain P4",
+    "stroke_m": 0.454846798546375,
+    "turns_each_direction": 100
+  },
+  "bench_gui": {
+    "checks": 14,
+    "failures": [],
+    "frames": 58,
+    "input": "Viewport.push_input, local coordinates",
+    "movie": false
+  },
+  "native_checks": [
+    {
+      "suite": "check_mechanism",
+      "exit_code": 0,
+      "success": true,
+      "seconds": 8.75,
+      "log": "export_check_mechanism.log"
+    },
+    {
+      "suite": "check_mechanism_bench",
+      "exit_code": 0,
+      "success": true,
+      "seconds": 2.922,
+      "log": "export_check_mechanism_bench.log"
+    },
+    {
+      "suite": "check_model",
+      "exit_code": 0,
+      "success": true,
+      "seconds": 0.64,
+      "log": "export_check_model.log"
+    },
+    {
+      "suite": "check_physics",
+      "exit_code": 0,
+      "success": true,
+      "seconds": 2.86,
+      "log": "export_check_physics.log"
+    },
+    {
+      "suite": "check_art_v3",
+      "exit_code": 0,
+      "success": true,
+      "seconds": 0.64,
+      "log": "export_check_art_v3.log"
+    },
+    {
+      "suite": "check_handcar_revision",
+      "exit_code": 0,
+      "success": true,
+      "seconds": 0.375,
+      "log": "export_check_handcar_revision.log"
+    },
+    {
+      "suite": "check_instruments",
+      "exit_code": 0,
+      "success": true,
+      "seconds": 7.797,
+      "log": "export_check_instruments.log"
+    },
+    {
+      "suite": "check_station_service",
+      "exit_code": 0,
+      "success": true,
+      "seconds": 23.829,
+      "log": "export_check_station_service.log"
+    },
+    {
+      "suite": "check_world_geometry",
+      "exit_code": 0,
+      "success": true,
+      "seconds": 10.75,
+      "log": "export_check_world_geometry.log"
+    },
+    {
+      "suite": "drive_campaign",
+      "exit_code": 0,
+      "success": true,
+      "seconds": 63.875,
+      "log": "export_drive_campaign.log"
+    }
+  ],
+  "supplied_original_pngs_preserved": 48,
+  "scope": "Continuous kinematics; force/inertia/train coupling remains P4",
+  "human_novice_trial": "not performed"
+}
