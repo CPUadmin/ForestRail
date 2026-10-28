@@ -1,0 +1,206 @@
+{
+  "version": "1.2.0-preview.1",
+  "specification": "3.0",
+  "stage": "P1",
+  "source_commit": "a7bb2b5579d400878e22c3c43b057ba82028b61f",
+  "native_executable_sha256": "d6ed15d6aecdef31645f8e3d2187f540100e6273b328394d8a8963722c163c06",
+  "station": {
+    "checks": 135,
+    "failures": [],
+    "human_novice_trial": "not performed",
+    "input": "Viewport.push_input in local coordinates; mouse presses/motions/releases routed through GUI",
+    "matrix": [
+      {
+        "delivered": 2,
+        "resolution": "(1280, 720)",
+        "zoom": 0.75
+      },
+      {
+        "delivered": 2,
+        "resolution": "(1280, 720)",
+        "zoom": 1.0
+      },
+      {
+        "delivered": 2,
+        "resolution": "(1280, 720)",
+        "zoom": 1.5
+      },
+      {
+        "delivered": 2,
+        "resolution": "(1600, 900)",
+        "zoom": 0.75
+      },
+      {
+        "delivered": 2,
+        "resolution": "(1600, 900)",
+        "zoom": 1.0
+      },
+      {
+        "delivered": 2,
+        "resolution": "(1600, 900)",
+        "zoom": 1.5
+      },
+      {
+        "delivered": 2,
+        "resolution": "(1920, 1080)",
+        "zoom": 0.75
+      },
+      {
+        "delivered": 2,
+        "resolution": "(1920, 1080)",
+        "zoom": 1.0
+      },
+      {
+        "delivered": 2,
+        "resolution": "(1920, 1080)",
+        "zoom": 1.5
+      }
+    ]
+  },
+  "native_checks": [
+    {
+      "suite": "check_station_service",
+      "exit_code": 0,
+      "success": true,
+      "seconds": 33.094,
+      "log": "export_check_station_service.log"
+    },
+    {
+      "suite": "check_model",
+      "exit_code": 0,
+      "success": true,
+      "seconds": 0.953,
+      "log": "export_check_model.log"
+    },
+    {
+      "suite": "check_physics",
+      "exit_code": 0,
+      "success": true,
+      "seconds": 4.297,
+      "log": "export_check_physics.log"
+    },
+    {
+      "suite": "check_interaction",
+      "exit_code": 0,
+      "success": true,
+      "seconds": 3.219,
+      "log": "export_check_interaction.log"
+    },
+    {
+      "suite": "check_instruments",
+      "exit_code": 0,
+      "success": true,
+      "seconds": 11.484,
+      "log": "export_check_instruments.log"
+    },
+    {
+      "suite": "check_presentation",
+      "exit_code": 0,
+      "success": true,
+      "seconds": 17.859,
+      "log": "export_check_presentation.log"
+    },
+    {
+      "suite": "drive_campaign",
+      "exit_code": 0,
+      "success": true,
+      "seconds": 59.469,
+      "log": "export_drive_campaign.log"
+    }
+  ],
+  "campaign": {
+    "failures": [],
+    "missions": [
+      {
+        "energy_remaining": 0.0,
+        "mission": "M01",
+        "money": 100,
+        "seconds": 226.433333333406
+      },
+      {
+        "energy_remaining": 0.0,
+        "mission": "M02",
+        "money": 240,
+        "seconds": 226.900000000073
+      },
+      {
+        "energy_remaining": 1.75858666666654,
+        "mission": "M03",
+        "money": 171,
+        "seconds": 113.216666666662
+      },
+      {
+        "energy_remaining": 1.53546999999976,
+        "mission": "M04",
+        "money": 331,
+        "seconds": 214.950000000063
+      },
+      {
+        "energy_remaining": 1.27273833333296,
+        "mission": "M05",
+        "money": 511,
+        "seconds": 336.000000000023
+      },
+      {
+        "energy_remaining": 1.2702916666663,
+        "mission": "M06",
+        "money": 771,
+        "seconds": 336.133333333356
+      },
+      {
+        "energy_remaining": 0.479388628821154,
+        "mission": "M07",
+        "money": 411,
+        "seconds": 262.833333333423
+      },
+      {
+        "energy_remaining": 0.434515816939631,
+        "mission": "M08",
+        "money": 658,
+        "seconds": 360.433333333334
+      },
+      {
+        "energy_remaining": 0.399108157641556,
+        "mission": "M09",
+        "money": 978,
+        "seconds": 459.383333333244
+      },
+      {
+        "energy_remaining": 0.360786557274683,
+        "mission": "M10",
+        "money": 1298,
+        "seconds": 479.716666666559
+      },
+      {
+        "energy_remaining": 0.542423168352499,
+        "mission": "F10_0",
+        "money": 1383,
+        "seconds": 94.9166666666626
+      },
+      {
+        "energy_remaining": 0.475697668271308,
+        "mission": "F11_1",
+        "money": 1533,
+        "seconds": 264.450000000088
+      },
+      {
+        "energy_remaining": 0.360079166878313,
+        "mission": "F12_2",
+        "money": 1748,
+        "seconds": 479.966666666559
+      }
+    ],
+    "steps": 231320
+  },
+  "player_save_files_unchanged": true,
+  "human_novice_trial": "not performed",
+  "remaining_stages": [
+    "P2",
+    "P3",
+    "P4",
+    "P5",
+    "P6",
+    "P7",
+    "P8"
+  ]
+}
