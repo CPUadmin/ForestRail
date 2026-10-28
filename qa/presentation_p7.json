@@ -1,0 +1,285 @@
+{
+  "version": "1.2.0-preview.7",
+  "stage": "P7",
+  "source_commit": "8e6672fcb0fa9bf2b9baeaf807f00d00a78d8bc8",
+  "exe_sha256": "202410a54c64dfec5db0db25ec118928c830b575864955de634c6bed060c8082",
+  "layout": {
+    "cases": [
+      {
+        "hud_fraction": 0.22,
+        "text_scale": 1.0,
+        "vehicle": "handcar",
+        "window": "(1280, 720)"
+      },
+      {
+        "hud_fraction": 0.22,
+        "text_scale": 1.0,
+        "vehicle": "motorcar",
+        "window": "(1280, 720)"
+      },
+      {
+        "hud_fraction": 0.22,
+        "text_scale": 1.0,
+        "vehicle": "locomotive",
+        "window": "(1280, 720)"
+      },
+      {
+        "hud_fraction": 0.22,
+        "text_scale": 1.25,
+        "vehicle": "handcar",
+        "window": "(1280, 720)"
+      },
+      {
+        "hud_fraction": 0.22,
+        "text_scale": 1.25,
+        "vehicle": "motorcar",
+        "window": "(1280, 720)"
+      },
+      {
+        "hud_fraction": 0.22,
+        "text_scale": 1.25,
+        "vehicle": "locomotive",
+        "window": "(1280, 720)"
+      },
+      {
+        "hud_fraction": 0.22,
+        "text_scale": 1.5,
+        "vehicle": "handcar",
+        "window": "(1280, 720)"
+      },
+      {
+        "hud_fraction": 0.22,
+        "text_scale": 1.5,
+        "vehicle": "motorcar",
+        "window": "(1280, 720)"
+      },
+      {
+        "hud_fraction": 0.22,
+        "text_scale": 1.5,
+        "vehicle": "locomotive",
+        "window": "(1280, 720)"
+      },
+      {
+        "hud_fraction": 0.22,
+        "text_scale": 1.0,
+        "vehicle": "handcar",
+        "window": "(1600, 900)"
+      },
+      {
+        "hud_fraction": 0.22,
+        "text_scale": 1.0,
+        "vehicle": "motorcar",
+        "window": "(1600, 900)"
+      },
+      {
+        "hud_fraction": 0.22,
+        "text_scale": 1.0,
+        "vehicle": "locomotive",
+        "window": "(1600, 900)"
+      },
+      {
+        "hud_fraction": 0.22,
+        "text_scale": 1.25,
+        "vehicle": "handcar",
+        "window": "(1600, 900)"
+      },
+      {
+        "hud_fraction": 0.22,
+        "text_scale": 1.25,
+        "vehicle": "motorcar",
+        "window": "(1600, 900)"
+      },
+      {
+        "hud_fraction": 0.22,
+        "text_scale": 1.25,
+        "vehicle": "locomotive",
+        "window": "(1600, 900)"
+      },
+      {
+        "hud_fraction": 0.22,
+        "text_scale": 1.5,
+        "vehicle": "handcar",
+        "window": "(1600, 900)"
+      },
+      {
+        "hud_fraction": 0.22,
+        "text_scale": 1.5,
+        "vehicle": "motorcar",
+        "window": "(1600, 900)"
+      },
+      {
+        "hud_fraction": 0.22,
+        "text_scale": 1.5,
+        "vehicle": "locomotive",
+        "window": "(1600, 900)"
+      },
+      {
+        "hud_fraction": 0.22,
+        "text_scale": 1.0,
+        "vehicle": "handcar",
+        "window": "(1920, 1080)"
+      },
+      {
+        "hud_fraction": 0.22,
+        "text_scale": 1.0,
+        "vehicle": "motorcar",
+        "window": "(1920, 1080)"
+      },
+      {
+        "hud_fraction": 0.22,
+        "text_scale": 1.0,
+        "vehicle": "locomotive",
+        "window": "(1920, 1080)"
+      },
+      {
+        "hud_fraction": 0.22,
+        "text_scale": 1.25,
+        "vehicle": "handcar",
+        "window": "(1920, 1080)"
+      },
+      {
+        "hud_fraction": 0.22,
+        "text_scale": 1.25,
+        "vehicle": "motorcar",
+        "window": "(1920, 1080)"
+      },
+      {
+        "hud_fraction": 0.22,
+        "text_scale": 1.25,
+        "vehicle": "locomotive",
+        "window": "(1920, 1080)"
+      },
+      {
+        "hud_fraction": 0.22,
+        "text_scale": 1.5,
+        "vehicle": "handcar",
+        "window": "(1920, 1080)"
+      },
+      {
+        "hud_fraction": 0.22,
+        "text_scale": 1.5,
+        "vehicle": "motorcar",
+        "window": "(1920, 1080)"
+      },
+      {
+        "hud_fraction": 0.22,
+        "text_scale": 1.5,
+        "vehicle": "locomotive",
+        "window": "(1920, 1080)"
+      }
+    ],
+    "checks": 495,
+    "failures": [],
+    "input": "Viewport.push_input; initial world states are fixtures; screenshot inspection required"
+  },
+  "native_checks": [
+    {
+      "suite": "check_layout_p7",
+      "exit_code": 0,
+      "success": true,
+      "seconds": 45.968,
+      "log": "export_check_layout_p7.log"
+    },
+    {
+      "suite": "check_loading_selection",
+      "exit_code": 0,
+      "success": true,
+      "seconds": 8.969,
+      "log": "export_check_loading_selection.log"
+    },
+    {
+      "suite": "check_motor_controls",
+      "exit_code": 0,
+      "success": true,
+      "seconds": 11.531,
+      "log": "export_check_motor_controls.log"
+    },
+    {
+      "suite": "check_station_service",
+      "exit_code": 0,
+      "success": true,
+      "seconds": 35.641,
+      "log": "export_check_station_service.log"
+    },
+    {
+      "suite": "check_world_geometry",
+      "exit_code": 0,
+      "success": true,
+      "seconds": 18.234,
+      "log": "export_check_world_geometry.log"
+    },
+    {
+      "suite": "check_instruments",
+      "exit_code": 0,
+      "success": true,
+      "seconds": 12.391,
+      "log": "export_check_instruments.log"
+    },
+    {
+      "suite": "check_model",
+      "exit_code": 0,
+      "success": true,
+      "seconds": 1.343,
+      "log": "export_check_model.log"
+    },
+    {
+      "suite": "check_physics",
+      "exit_code": 0,
+      "success": true,
+      "seconds": 13.579,
+      "log": "export_check_physics.log"
+    },
+    {
+      "suite": "check_art_v3",
+      "exit_code": 0,
+      "success": true,
+      "seconds": 1.265,
+      "log": "export_check_art_v3.log"
+    },
+    {
+      "suite": "check_handcar_revision",
+      "exit_code": 0,
+      "success": true,
+      "seconds": 1.25,
+      "log": "export_check_handcar_revision.log"
+    },
+    {
+      "suite": "check_handcar_drive",
+      "exit_code": 0,
+      "success": true,
+      "seconds": 16.11,
+      "log": "export_check_handcar_drive.log"
+    },
+    {
+      "suite": "check_handcar_input",
+      "exit_code": 0,
+      "success": true,
+      "seconds": 15.187,
+      "log": "export_check_handcar_input.log"
+    },
+    {
+      "suite": "check_mechanism",
+      "exit_code": 0,
+      "success": true,
+      "seconds": 14.422,
+      "log": "export_check_mechanism.log"
+    },
+    {
+      "suite": "check_mechanism_bench",
+      "exit_code": 0,
+      "success": true,
+      "seconds": 4.297,
+      "log": "export_check_mechanism_bench.log"
+    },
+    {
+      "suite": "drive_campaign",
+      "exit_code": 0,
+      "success": true,
+      "seconds": 116.234,
+      "log": "export_drive_campaign.log"
+    }
+  ],
+  "original_pngs_preserved": 48,
+  "human_trial": "not performed",
+  "remaining": "P8 compatibility, 20-minute soak, human first-trip acceptance"
+}
