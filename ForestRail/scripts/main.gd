@@ -80,11 +80,18 @@ func _ready() -> void:
 	edge_material.shader = edge_shader
 	material = edge_material
 	var qa_args = OS.get_cmdline_user_args()
+	if "--mechanism-bench" in qa_args:
+		set_process(false)
+		set_physics_process(false)
+		set_process_input(false)
+		set_process_unhandled_input(false)
+		get_tree().root.add_child.call_deferred(load("res://dev/mechanism_bench.gd").new())
+		return
 	if not get_tree().root.has_meta("qa_running"):
 		for arg in qa_args:
 			if arg.begins_with("--qa-suite="):
 				var suite = arg.trim_prefix("--qa-suite=")
-				if suite not in ["check_model", "check_physics", "check_interaction", "drive_campaign", "check_presentation", "check_handcar_revision", "check_art_v3", "check_instruments", "check_station_service", "check_world_geometry"]: get_tree().quit(2); return
+				if suite not in ["check_model", "check_physics", "check_interaction", "drive_campaign", "check_presentation", "check_handcar_revision", "check_art_v3", "check_instruments", "check_station_service", "check_world_geometry", "check_mechanism", "check_mechanism_bench"]: get_tree().quit(2); return
 				get_tree().root.set_meta("qa_running", true)
 				set_process(false)
 				set_physics_process(false)
@@ -789,7 +796,7 @@ func build_modal(size: Vector2) -> void:
 		add_button(box, "В главное меню", func(): screen = "menu"; close_modal())
 	else:
 		add_label(box, "Лесная колея", 36)
-		add_label(box, "Небольшая игра о работе лесной железной дороги.\nРазработка: Codex совместно с владельцем проекта, 2026.\nГрафика: предоставленный комплект ForestRail, созданный с image_gen. Звуки синтезированы для этого комплекта.\nGodot Engine 4.7.2, лицензия MIT. Полные лицензии движка и его компонентов включены в поставку.\n\nВерсия игры %s · ТЗ 3.0 · этап P2." % ProjectSettings.get_setting("application/config/version"), 22)
+		add_label(box, "Небольшая игра о работе лесной железной дороги.\nРазработка: Codex совместно с владельцем проекта, 2026.\nГрафика: предоставленный комплект ForestRail, созданный с image_gen. Звуки синтезированы для этого комплекта.\nGodot Engine 4.7.2, лицензия MIT. Полные лицензии движка и его компонентов включены в поставку.\n\nВерсия игры %s · ТЗ 3.0 · этап P3." % ProjectSettings.get_setting("application/config/version"), 22)
 		add_button(box, "Назад", close_modal)
 
 func save_game() -> bool:
@@ -1297,31 +1304,6 @@ func wheel_rotation(distance: float, facing: int) -> float:
 	# Positive rotation is clockwise in Godot. Mirrored bodies invert the local angle.
 	return distance * 64.0 / 28.0 * facing
 
-func draw_pump_linkage() -> void:
-	var pivot = Vector2(0, -177)
-	var bearing = Vector2(40, -48)
-	var normalized = clampf(sin(model.pump_angle) / sin(deg_to_rad(28)), -1, 1)
-	var phase = asin(normalized)
-	if model.pump_last_direction * model.drive_direction() < 0: phase = PI - phase
-	var attachment = pivot + Vector2(42, 0).rotated(model.pump_angle)
-	var crank_pin = bearing + Vector2(cos(phase), sin(phase)) * 20
-	draw_circle(bearing, 25, Color("242e2b"))
-	for i in range(14):
-		var a = phase + i * TAU / 14
-		var radial = Vector2(cos(a), sin(a))
-		var tangent = radial.orthogonal()
-		draw_colored_polygon(PackedVector2Array([bearing + radial * 22 - tangent * 3, bearing + radial * 29 - tangent * 2, bearing + radial * 29 + tangent * 2, bearing + radial * 22 + tangent * 3]), Color("8e805c"))
-	draw_arc(bearing, 23, 0, TAU, 32, Color("b5a275"), 3, true)
-	for i in range(8):
-		var a = phase + i * TAU / 8
-		draw_line(bearing + Vector2(cos(a), sin(a)) * 8, bearing + Vector2(cos(a), sin(a)) * 24, Color("736d54"), 4, true)
-	draw_line(attachment + Vector2(2, 1), crank_pin + Vector2(2, 1), Color("26332f"), 9, true)
-	draw_line(attachment, crank_pin, Color("b4a27a"), 6, true)
-	draw_line(attachment + Vector2(-1, 0), crank_pin + Vector2(-1, 0), Color("e0cba0"), 2, true)
-	for pin in [attachment, crank_pin, bearing]:
-		draw_circle(pin, 6, Color("34443e"))
-		draw_circle(pin, 3, GOLD)
-
 func find_slot_cargo(key: String) -> Dictionary:
 	for item in model.state.cargo:
 		if item.slot == key and not item.delivered: return item
@@ -1354,7 +1336,7 @@ func slot_local(id: String, index: int) -> Vector2:
 func lever_geometry(id: String) -> Dictionary:
 	if id == "pump":
 		var pose = art.mechanism_pose(model)
-		return {"pivot":pose.rocker*ArtV3.PX/128+Vector2(0,art.axis_height("handcar")),"grip":art.hand_grip(model),"angle":pose.angle}
+		return {"pivot":pose.rocker*ArtV3.PX,"grip":pose.grip_right*ArtV3.PX,"angle":pose.angle}
 	if id == "brake":
 		var pivot = art.vec(Geometry.body(model.vehicle_id()).control_anchors_m.brake)*ArtV3.PX
 		var angle = lerpf(0.95, 0.12, float(model.state.brake))
@@ -1498,9 +1480,6 @@ func draw_menu_train(size: Vector2) -> void:
 	var p = Vector2(size.x*0.74,size.y*0.75)
 	draw_line(Vector2(size.x*0.48,p.y-5),Vector2(size.x,p.y-5),INK,7,true)
 	if model.state.is_empty(): model.new_game(42)
-	var previous = model.pump_angle
-	model.pump_angle = sin(time*1.5)*deg_to_rad(26)
 	var outer = Transform2D(0,Vector2(1.7,1.7),0,p)
-	art.draw_vehicle(self,"handcar",0,1,outer,model,false)
-	model.pump_angle = previous
+	art.draw_vehicle(self,"handcar",0,1,outer,model,false,art.forward_pose(time*1.5))
 	draw_set_transform_matrix(Transform2D.IDENTITY)

@@ -146,6 +146,7 @@ func run() -> void:
 	await arrive(1)
 	if not movie:
 		game.model.pump_angle=deg_to_rad(28)
+		game.model.handcar.seek_rocker(game.model.handcar.limits.maximum.angle)
 		await frame()
 		for id in ["M01_0","M01_1"]:
 			var r=source_rect(id)

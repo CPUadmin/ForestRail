@@ -25,11 +25,8 @@ func run() -> void:
 		check(absf(pose.rocker.distance_to(pose.rocker_pin) - float(art.rig.rocker_pin_radius)) < 0.001, "rocker pin rigid")
 		check(absf(pose.crank.distance_to(pose.crank_pin) - float(art.rig.crank_radius)) < 0.001, "crank pin rigid")
 	check(error < 0.001, "connecting rod keeps length for full rotation")
-	for direction in [-1,1]:
-		for motion in [-1,1]:
-			for i in range(281):
-				var pose = art.pose(deg_to_rad(-28 + i*0.2),motion,direction)
-				check(absf(pose.rocker_pin.distance_to(pose.crank_pin)-length)<0.001,"mouse-driven linkage remains joined")
+	# The old inverse branch test is replaced by check_mechanism's continuous
+	# phase, reversal and transformed sprite-pin checks.
 	for id in ["handcar","motorcar","locomotive","W01"]:
 		var radius = art.PX * (0.55 if id=="locomotive" else 0.42)*0.5
 		for position in art.wheel_positions(id):

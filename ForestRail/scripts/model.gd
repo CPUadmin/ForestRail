@@ -2,6 +2,7 @@ extends RefCounted
 
 const Route = preload("res://scripts/route.gd")
 const StationInteraction = preload("res://scripts/station_interaction.gd")
+const HandcarMechanism = preload("res://scripts/handcar_mechanism.gd")
 const G = 9.81
 const VEHICLE_IDS = ["handcar", "motorcar", "locomotive"]
 var data: Dictionary
@@ -9,6 +10,7 @@ var route = Route.new()
 var state: Dictionary = {}
 var message = ""
 var pump_angle = 0.0
+var handcar = HandcarMechanism.new()
 var pump_pending = 0.0
 var pump_stroke = 0.0
 var pump_last_direction = 0
@@ -36,6 +38,8 @@ func new_game(world_seed: int = 42) -> void:
 		"visited_stations": ["A"], "tutorial": true,
 		"stats": {"distance": 0.0, "deliveries": 0, "earned": 0, "rescues": 0, "seconds": 0.0}, "offer_serial": 0}
 	reset_input()
+	handcar = HandcarMechanism.new()
+	pump_angle = 0.0
 	flywheel_energy = 0.0
 	stationary_seconds=0.25
 	stationary_station=0
@@ -585,6 +589,9 @@ func physics_step(dt: float) -> void:
 		pump_pending = target - pump_angle - amount if float(state.brake) <= 0.9 else 0.0
 		var before = pump_angle
 		pump_angle = clampf(pump_angle + amount, -deg_to_rad(28), deg_to_rad(28))
+		# P3 advances a continuous geometric state using the legacy input
+		# target. Effort, inertia and wheel coupling are deliberately P4 work.
+		handcar.seek_rocker(lerpf(float(handcar.limits.minimum.angle),float(handcar.limits.maximum.angle),(pump_angle+deg_to_rad(28))/deg_to_rad(56)))
 		var motion = pump_angle - before
 		if signi(int(signf(motion))) != pump_last_direction and absf(motion) > 0.00001:
 			pump_stroke = 0.0
@@ -688,6 +695,7 @@ func serialize() -> Dictionary:
 	var result = state.duplicate(true)
 	result.route = route.serialize()
 	result.pump_angle = pump_angle
+	result.handcar_phase = handcar.phase
 	result.flywheel_energy = flywheel_energy
 	return result
 
@@ -698,6 +706,11 @@ func restore(saved: Dictionary) -> bool:
 	route.restore(state.route, data.stations)
 	state.erase("route")
 	pump_angle = float(state.get("pump_angle", 0))
+	handcar = HandcarMechanism.new()
+	if state.has("handcar_phase"):
+		handcar.set_phase(float(state.handcar_phase))
+	else:
+		handcar.seek_rocker(lerpf(float(handcar.limits.minimum.angle),float(handcar.limits.maximum.angle),clampf((pump_angle+deg_to_rad(28))/deg_to_rad(56),0,1)))
 	state.reverser = int(state.get("reverser", 1))
 	flywheel_energy = clampf(float(state.get("flywheel_energy", 0)), 0, 80)
 	stationary_seconds=0.0
@@ -763,6 +776,7 @@ func validate_save(saved: Dictionary) -> bool:
 		return false
 	if saved.has("reverser") and (not numeric(saved.reverser) or int(saved.reverser) not in [-1, 1]): return false
 	if saved.has("flywheel_energy") and (not numeric(saved.flywheel_energy) or saved.flywheel_energy < 0 or saved.flywheel_energy > 80): return false
+	if saved.has("handcar_phase") and not numeric(saved.handcar_phase): return false
 	for id in saved.consist_ids:
 		if not saved.wagons_by_id.has(id):
 			return false

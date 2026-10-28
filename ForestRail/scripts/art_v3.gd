@@ -3,17 +3,18 @@ extends RefCounted
 const ROOT = "res://assets/art_v3/"
 const BODY = {"handcar": "vehicles/handcar_body", "motorcar": "vehicles/petrol_motorcar_body", "locomotive": "vehicles/battery_locomotive_body"}
 const Geometry = preload("res://scripts/world_geometry.gd")
+const Mechanism = preload("res://scripts/handcar_mechanism.gd")
 const PX = Geometry.PX
 var manifest: Dictionary
 var assets: Dictionary
 var textures: Dictionary = {}
 var rig: Dictionary
-var last_motion = 1
+var geometry = Mechanism.new()
 
 func _init() -> void:
 	manifest = JSON.parse_string(FileAccess.get_file_as_string(ROOT + "manifest.json"))
 	assets = manifest.assets
-	rig = JSON.parse_string(FileAccess.get_file_as_string(ROOT + "rig/mechanism.json"))
+	rig = geometry.config
 	for id in assets:
 		textures[id] = load(ROOT + assets[id].resource)
 	# Replacement bodies are calibrated uniformly by deck length. The origin
@@ -34,22 +35,7 @@ func _init() -> void:
 		atlas.region = Rect2(meta.region_px[0],meta.region_px[1],meta.region_px[2],meta.region_px[3])
 		atlas.filter_clip = true
 		textures[id] = atlas
-	# Fit the existing mechanism to the new deck without changing its old
-	# input model. Continuous phase and force coupling are P3/P4 work.
-	rig.rocker_pivot = [0,-(float(Geometry.body("handcar").rocker_height_m)-0.21)*128.0]
-	rig.crank_pivot = [wheel_positions("handcar")[1].x*128.0/PX,0]
-	rig.rocker_pin_radius = 0.46*128.0
-	rig.crank_radius = 14.0
-	rig.rod_length = (vec(rig.crank_pivot)-vec(rig.rocker_pivot)-Vector2(float(rig.rocker_pin_radius),0)).length()
-	rig.support_scale = (float(Geometry.body("handcar").rocker_height_m)+deck_y("handcar")/PX)*128.0/916.5
-	assets["mechanism/lever"].scale_at_128_px_per_m = 1.9*128.0/float(assets["mechanism/lever"].region_px[2])
-	var minimum = INF
-	var maximum = -INF
-	for i in range(4096):
-		var angle = float(forward_pose(i*TAU/4096).angle)
-		minimum = minf(minimum,angle)
-		maximum = maxf(maximum,angle)
-	rig.validation.rocker_degrees = [rad_to_deg(minimum),rad_to_deg(maximum)]
+	assets["mechanism/lever"].scale_at_128_px_per_m = float(Geometry.body("handcar").beam_width_m)*128.0/float(assets["mechanism/lever"].region_px[2])
 	# Preserve the supplied station art and calibrate by its door, not by
 	# arbitrary overall image width.
 	for id in Geometry.data().buildings:
@@ -96,6 +82,7 @@ func deck_y(id: String) -> float:
 func slot_position(id: String, index: int, count: int, sprite_id: String = "sack") -> Vector2:
 	var spec = Geometry.body(id)
 	var x = float(spec.cargo_columns_m[index%2])
+	if spec.has("cargo_crate_columns_m") and sprite_id in ["fragile_crate","crate"]: x=float(spec.cargo_crate_columns_m[index%2])
 	var row = floori(index/2.0) if count>2 else 0
 	var height = float(spec.cargo_row_pitch_m)*row
 	if sprite_id=="log_bundle":
@@ -122,76 +109,52 @@ func draw_part(canvas: Node2D, id: String, position: Vector2, angle: float, scal
 	canvas.draw_set_transform_matrix(outer)
 
 func forward_pose(phase: float) -> Dictionary:
-	var s = vec(rig.rocker_pivot)
-	var c = vec(rig.crank_pivot)
-	var b = c + Vector2(cos(phase), sin(phase)) * float(rig.crank_radius)
-	var delta = b - s
-	var d = delta.length()
-	var u = delta / d
-	var radius = float(rig.rocker_pin_radius)
-	var length = float(rig.rod_length)
-	var a = (radius * radius - length * length + d * d) / (2 * d)
-	var h = sqrt(maxf(0, radius * radius - a * a))
-	var rocker_pin = s + u * a + Vector2(u.y, -u.x) * h
-	return {"rocker": s, "rocker_pin": rocker_pin, "crank": c, "crank_pin": b, "angle": (rocker_pin - s).angle(), "phase": phase}
-
-func pose(control_angle: float, motion: int, direction: int) -> Dictionary:
-	if motion != 0: last_motion = motion
-	var limits = rig.validation.rocker_degrees
-	var angle = deg_to_rad(lerpf(float(limits[0]), float(limits[1]), clampf((control_angle + deg_to_rad(28)) / deg_to_rad(56), 0.00001, 0.99999)))
-	var s = vec(rig.rocker_pivot)
-	var c = vec(rig.crank_pivot)
-	var a_point = s + Vector2(cos(angle), sin(angle)) * float(rig.rocker_pin_radius)
-	var delta = a_point - c
-	var d = delta.length()
-	var u = delta / d
-	var r = float(rig.crank_radius)
-	var length = float(rig.rod_length)
-	var along = (r * r - length * length + d * d) / (2 * d)
-	var h = sqrt(maxf(0, r * r - along * along))
-	var base = c + u * along
-	var perpendicular = u.orthogonal()
-	var chosen = base + perpendicular * h
-	for b in [base + perpendicular * h, base - perpendicular * h]:
-		var phase = (b - c).angle()
-		var slope = float(forward_pose(phase + 0.0001).angle) - float(forward_pose(phase).angle)
-		if signf(slope) == signf(float(last_motion * direction)): chosen = b; break
-	return {"rocker": s, "rocker_pin": a_point, "crank": c, "crank_pin": chosen, "angle": angle, "phase": (chosen - c).angle()}
+	return geometry.solve(phase)
 
 func mechanism_pose(model) -> Dictionary:
-	return pose(model.pump_angle, model.pump_last_direction, model.drive_direction())
+	return model.handcar.pose()
 
 func hand_grip(model) -> Vector2:
 	var p = mechanism_pose(model)
-	var at128 = vec(rig.rocker_pivot) + Vector2(0.95*128, 0).rotated(float(p.angle))
-	return at128 * PX / 128 + Vector2(0, axis_height("handcar"))
+	return p.grip_right*PX
 
-func draw_vehicle(canvas: Node2D, id: String, distance: float, facing: int, outer: Transform2D, model, active: bool) -> void:
+func draw_vehicle(canvas: Node2D, id: String, distance: float, facing: int, outer: Transform2D, model, active: bool, pose_override: Dictionary = {}) -> void:
 	draw_part(canvas, body_key(id), Vector2(0, axis_height(id)), 0, scale_for(body_key(id)), outer)
+	var p = mechanism_pose(model) if id=="handcar" and pose_override.is_empty() else pose_override
 	var wheel_id = "vehicles/wheel_large" if id == "locomotive" else "vehicles/wheel_small"
 	var radius = PX * (0.55 if id == "locomotive" else 0.42) * 0.5
 	for position in wheel_positions(id):
-		draw_part(canvas, wheel_id, position, distance * PX / radius * facing, scale_for(wheel_id), outer)
-		canvas.draw_set_transform_matrix(outer * Transform2D(distance * PX / radius * facing, position))
+		var wheel_angle = fposmod(p.wheel_angle,TAU) if not pose_override.is_empty() and id=="handcar" else fposmod(distance*PX/radius*facing,TAU)
+		draw_part(canvas, wheel_id, position, wheel_angle, scale_for(wheel_id), outer)
+		canvas.draw_set_transform_matrix(outer * Transform2D(wheel_angle, position))
 		canvas.draw_circle(Vector2(0, -radius * 0.72), 1.8, Color("c9af73"))
 		canvas.draw_set_transform_matrix(outer)
-	if id == "handcar": draw_mechanism(canvas, model, outer)
+	if id == "handcar": draw_mechanism(canvas, model, outer,p)
 	if id.begins_with("W"):
 		canvas.draw_string(ThemeDB.fallback_font, Vector2(-25, deck_y(id) + 34), id, HORIZONTAL_ALIGNMENT_CENTER, 50, 15, Color("f5ecd6"))
 
-func draw_mechanism(canvas: Node2D, model, outer: Transform2D) -> void:
-	var p = mechanism_pose(model)
-	var factor = PX / 128.0
-	var offset = Vector2(0, axis_height("handcar"))
-	draw_part(canvas, "mechanism/support", p.rocker * factor + offset, 0, float(rig.support_scale) * factor, outer)
-	draw_part(canvas, "mechanism/gear", p.crank * factor + offset, p.phase, scale_for("mechanism/gear"), outer)
+func mechanism_parts(p: Dictionary) -> Array:
+	var parts: Array = []
+	var support = assets["mechanism/support"]
+	var foot_y = float(support.region_px[1])+float(support.region_px[3])-1
+	var support_scale = (deck_y("handcar")-p.rocker.y*PX)/(foot_y-pivot("mechanism/support").y)
+	parts.append({"id":"mechanism/support","position":p.rocker*PX,"angle":0.0,"scale":support_scale})
+	var crank_angle=fposmod(p.phase,TAU)
+	parts.append({"id":"mechanism/gear","position":p.crank*PX,"angle":crank_angle,"scale":scale_for("mechanism/gear")})
 	var crank_source = assets["mechanism/crank"].pins_px
 	var crank_vector = vec(crank_source.end) - vec(crank_source.start)
-	var crank_scale = float(rig.crank_radius) / crank_vector.length() * factor
-	draw_part(canvas, "mechanism/crank", p.crank * factor + offset, p.phase - crank_vector.angle(), crank_scale, outer)
+	var crank_scale = float(rig.crank_radius)*PX/crank_vector.length()
+	parts.append({"id":"mechanism/crank","position":p.crank*PX,"angle":crank_angle-crank_vector.angle(),"scale":crank_scale})
 	var rod_source = assets["mechanism/connecting_rod"].pins_px
 	var rod_vector = vec(rod_source.end) - vec(rod_source.start)
-	var rod_scale = float(rig.rod_length) / rod_vector.length() * factor
-	draw_part(canvas, "mechanism/connecting_rod", p.rocker_pin * factor + offset, (p.crank_pin - p.rocker_pin).angle() - rod_vector.angle(), rod_scale, outer)
-	draw_part(canvas, "mechanism/axle_end", p.crank * factor + offset, 0, scale_for("mechanism/axle_end"), outer)
-	draw_part(canvas, "mechanism/lever", p.rocker * factor + offset, p.angle - float(rig.lever_source_angle), scale_for("mechanism/lever"), outer)
+	var rod_scale = float(rig.rod_length)*PX/rod_vector.length()
+	parts.append({"id":"mechanism/connecting_rod","position":p.rocker_pin*PX,"angle":(p.crank_pin-p.rocker_pin).angle()-rod_vector.angle(),"scale":rod_scale})
+	parts.append({"id":"mechanism/axle_end","position":p.crank*PX,"angle":0.0,"scale":scale_for("mechanism/axle_end")})
+	var lever_vector = vec(assets["mechanism/lever"].pins_px.link)-vec(assets["mechanism/lever"].pins_px.pivot)
+	parts.append({"id":"mechanism/lever","position":p.rocker*PX,"angle":p.angle-lever_vector.angle(),"scale":float(rig.rocker_pin_radius)*PX/lever_vector.length()})
+	return parts
+
+func draw_mechanism(canvas: Node2D, model, outer: Transform2D, p: Dictionary = {}) -> void:
+	if p.is_empty(): p=mechanism_pose(model)
+	for part in mechanism_parts(p):
+		draw_part(canvas,part.id,part.position,part.angle,part.scale,outer)

@@ -1,0 +1,742 @@
+{
+  "source_chat": "01a17dc9-4ff2-7713-96f0-63fb09f7891f",
+  "original_pngs": [
+    {
+      "original": "exec-037ddc18-5ba6-45aa-9047-bdf26dc3c572.png",
+      "sha256": "1c7b32e07c6167d265186147340d91532a82433523f43a4cfd9989dc07928c69",
+      "project_copies": [
+        "ForestRail/assets/art_v3/vehicles/coupler.png"
+      ]
+    },
+    {
+      "original": "exec-09b554eb-58a4-43a0-b185-b2cfc93a9cfb.png",
+      "sha256": "12ca6a39d529600b19ae6fda9588815d810dda8c440420f264fc4f37eecd24ca",
+      "project_copies": [
+        "ForestRail/assets/art_v3/mechanism/support.png"
+      ]
+    },
+    {
+      "original": "exec-0a94f607-a36c-4e68-bee4-8afaa682c3d9.png",
+      "sha256": "d814ba1680cabbf7a84cd61eef54ec293e11c29f5ae385658fd3618b4f3a7aca",
+      "project_copies": [
+        "outputs/ForestRail_Visuals_v1/12_wagon_upgrades.png",
+        "outputs/ForestRail_DevSpec_v3/images/12_wagon_upgrades.png"
+      ]
+    },
+    {
+      "original": "exec-0aed8f9e-1c55-47f5-b7bf-dd373a6ecaeb.png",
+      "sha256": "2e8605ead42758fb16c0eb37b7376e7ee06614f792b3c159b91575391e2cc627",
+      "project_copies": [
+        "ForestRail/assets/art_v3/mechanism/gear.png"
+      ]
+    },
+    {
+      "original": "exec-0d80d6f3-31ea-4fc7-9a60-509537a3ad78.png",
+      "sha256": "d8486cad5ab62dd01e41a8a2884700d5c23dc582ac328be4738542ccc7037b44",
+      "project_copies": [
+        "outputs/ForestRail_Visuals_v1/13_vehicle_lineup.png",
+        "outputs/ForestRail_DevSpec_v3/images/13_vehicle_lineup.png"
+      ]
+    },
+    {
+      "original": "exec-0fa59c63-3234-4247-8d0b-4baa3e7c5a44.png",
+      "sha256": "e59f6140ad34ba6e7d99b7a9b7c8d8bd7f63fac4ffb00c933af381ea4b64caa0",
+      "project_copies": [
+        "outputs/ForestRail_Visuals_v1/06_quiet_backwater.png",
+        "outputs/ForestRail_DevSpec_v3/images/06_quiet_backwater.png"
+      ]
+    },
+    {
+      "original": "exec-102e4c86-9341-4925-9838-3e504786ba90.png",
+      "sha256": "c6ffe0d36d5d00f0c3feb4301b70fa4182ed3697a32e9d216ffae1e5d2d55d0f",
+      "project_copies": [
+        "ForestRail/assets/control_parts_clean.png"
+      ]
+    },
+    {
+      "original": "exec-1942fb27-d577-423b-8df1-2b8233c42e7a.png",
+      "sha256": "23b2205a2ce127b1b133eab36269702e9dd1d4d50ec3b4d4dbdee714855da9c2",
+      "project_copies": [
+        "ForestRail/assets/track_cargo.png"
+      ]
+    },
+    {
+      "original": "exec-1969d3be-e0dc-4e5c-a2b4-84f14baddd8a.png",
+      "sha256": "6502db0017b3d1476d668d58ae9476654835b75bb7530ec9ae8d93e9985009f5",
+      "project_copies": [
+        "ForestRail/assets/art_v3/vehicles/petrol_motorcar_body.png"
+      ]
+    },
+    {
+      "original": "exec-217b3246-f052-4b61-bed4-d03cd8b2fe2d.png",
+      "sha256": "0b687f6504333e3149b77553314e2f2e19105380989ae93c00574ccabd6480a4",
+      "project_copies": [
+        "ForestRail/assets/art_v3/mechanism/axle_end.png"
+      ]
+    },
+    {
+      "original": "exec-24f86584-df33-4e21-8bfd-986a8d9972f6.png",
+      "sha256": "1605ded7535f557258be97e6bdeb56d1c8b6e6719247a31a13bd100f0fabec6f",
+      "project_copies": [
+        "ForestRail/assets/art_v3/parallax/sky.png"
+      ]
+    },
+    {
+      "original": "exec-2a30b110-2360-44e8-b026-64b608e06633.png",
+      "sha256": "f7dc4e10fb20152475bd9c5dc51fd7700732d4164ef834cc93695a0199f09918",
+      "project_copies": [
+        "ForestRail/assets/art_v3/vehicles/wheel_large.png"
+      ]
+    },
+    {
+      "original": "exec-2c1904f4-eef0-4b8d-99f3-5f33f22ea317.png",
+      "sha256": "fa8d33461fa8320b95aacc412cfdf9aee7f5ffa66bc4881ef466202395b4c48c",
+      "project_copies": [
+        "ForestRail/assets/control_parts.png"
+      ]
+    },
+    {
+      "original": "exec-30cf9ede-98f7-496c-9a6d-934dbcf2e514.png",
+      "sha256": "6b03c6a7f84525039639120a97351084920dbf9bc0cd8c56dd5a9f4bd624dd60",
+      "project_copies": [
+        "ForestRail/assets/art_v3/stations/station_house.png"
+      ]
+    },
+    {
+      "original": "exec-3583e5d0-7f60-4440-a6b2-90487858b0a5.png",
+      "sha256": "c1def2bcbf7a56a6dd1129664413febb22e61814aaf82802731e67285a126059",
+      "project_copies": [
+        "ForestRail/assets/art_v3/mechanism/axle.png"
+      ]
+    },
+    {
+      "original": "exec-40240c07-4e1a-4b74-bdb8-67220686f3ea.png",
+      "sha256": "4c7df45187c9f3682fadd9d1df070b6b491c9090c0e36641b9bd172f6beebcd4",
+      "project_copies": [
+        "ForestRail/assets/art_v3/mechanism/lever.png"
+      ]
+    },
+    {
+      "original": "exec-40dce6bb-02ae-43aa-8faf-caaa1f2ce035.png",
+      "sha256": "f9e4214570ace411ea8ea1771a9fd3299fe63e678dd7e3d6838a01ff92dff04b",
+      "project_copies": [
+        "ForestRail/assets/art_v3/vehicles/handcar_body.png"
+      ]
+    },
+    {
+      "original": "exec-44f93fc1-d1f7-4c03-92ff-d10df5f933f0.png",
+      "sha256": "67f035f75e408fa9c812622757d8adfb32c78f8207d621c254199865674fb275",
+      "project_copies": [
+        "ForestRail/assets/art_v3/vehicles/wheel_small.png"
+      ]
+    },
+    {
+      "original": "exec-4a4f3220-cbc4-4ca4-b141-52c485c3ba63.png",
+      "sha256": "87ceeb904f27e4012faf74d73dd7db586ca6f4c6715da8f41ca179323d579605",
+      "project_copies": [
+        "ForestRail/assets/art_v3/terrain/grass.png"
+      ]
+    },
+    {
+      "original": "exec-4ab11aaa-f45d-4696-8c2c-6ca01a7fcc77.png",
+      "sha256": "35a3a37906d0fe7f78378fb8609af7c538079bcf73686fbb7f3a85c620579773",
+      "project_copies": [
+        "ForestRail/assets/art_v3/vehicles/freight_wagon_body.png"
+      ]
+    },
+    {
+      "original": "exec-529fd7d9-5297-4f6a-98d2-0a0ebe1a0694.png",
+      "sha256": "fc0f494952dc3c732150ab5f4e5fd0edba41057a381ff78109aa9985a6b7f6cf",
+      "project_copies": [
+        "ForestRail/assets/art_v3/mechanism/connecting_rod.png"
+      ]
+    },
+    {
+      "original": "exec-572e0e3d-c914-46df-a65a-e6cbb244780a.png",
+      "sha256": "f2da2c798c67bf9dfbd710c526c29bdd6fa5a8cffdcc8fa45da0d6b1aa572598",
+      "project_copies": [
+        "ForestRail/assets/art_v3/terrain/ballast.png"
+      ]
+    },
+    {
+      "original": "exec-5d0cc84f-8ddb-4d8d-a32b-dd38ca2d1273.png",
+      "sha256": "621e20ef4b6f02321d091e20e5d2805ddeb62a60791b440c4f549cc8f0e1aeaa",
+      "project_copies": [
+        "outputs/ForestRail_Visuals_v1/04_pine_junction.png",
+        "outputs/ForestRail_DevSpec_v3/images/04_pine_junction.png"
+      ]
+    },
+    {
+      "original": "exec-5ebc4bb4-bebe-4e18-9f47-a23608a8fa8e.png",
+      "sha256": "f8be20b43ca27cc969ccb7fb5311ce7715de84407425351ca2dfc8d8b6434905",
+      "project_copies": [
+        "outputs/ForestRail_Visuals_v1/09_forest_route.png",
+        "outputs/ForestRail_DevSpec_v3/images/09_forest_route.png"
+      ]
+    },
+    {
+      "original": "exec-63fd116b-f76c-4983-86ac-3f4b8078f5d7.png",
+      "sha256": "00fbe3de150cd6789baefd19bcd77c5e7114cfd557b7ea998fbcc0f2ae912411",
+      "project_copies": [
+        "ForestRail/assets/art_v3/stations/sawmill_shelter.png"
+      ]
+    },
+    {
+      "original": "exec-6a95a3f4-7108-4504-a24c-9146b2df8591.png",
+      "sha256": "272a5a21b385520ea69e544e0f42287f555a75ba887fc49dbe7835e86e0d41c2",
+      "project_copies": [
+        "outputs/ForestRail_Visuals_v1/03_loading.png",
+        "outputs/ForestRail_DevSpec_v3/images/03_loading.png"
+      ]
+    },
+    {
+      "original": "exec-7017fda2-6971-4f89-a2af-769954894190.png",
+      "sha256": "ce0f3cee3b2acc41d9e31b3aff3c3fd9550150c8989f322141bcc87451c31655",
+      "project_copies": [
+        "outputs/ForestRail_Visuals_v1/07_upper_forest.png",
+        "outputs/ForestRail_DevSpec_v3/images/07_upper_forest.png"
+      ]
+    },
+    {
+      "original": "exec-78691e38-ce36-4360-a36c-1b2fa8e3e111.png",
+      "sha256": "e4da0313b4b93c815c426d9c5722f2d9425fc05d8a00404ecd1799da2b291e3d",
+      "project_copies": [
+        "outputs/ForestRail_Visuals_v1/02_depot.png",
+        "outputs/ForestRail_DevSpec_v3/images/02_depot.png"
+      ]
+    },
+    {
+      "original": "exec-8297b22f-ccef-4c90-8966-c45ab6996efe.png",
+      "sha256": "e38ae3ad1163fc82faf8094f36d99f2a44b2e1d18c8064fcf0773ba7224846f2",
+      "project_copies": [
+        "ForestRail/assets/art_v3/parallax/far_hills.png"
+      ]
+    },
+    {
+      "original": "exec-831ceecf-ecd0-4df9-b0c9-beb863111261.png",
+      "sha256": "6b383d9f396775a4154b7038afbb0d1e41fca980df0763213068ca475461621a",
+      "project_copies": [
+        "outputs/ForestRail_Visuals_v1/10_night_stop.png",
+        "outputs/ForestRail_DevSpec_v3/images/10_night_stop.png"
+      ]
+    },
+    {
+      "original": "exec-8a0ca997-986e-4939-a07a-b35b753ebd65.png",
+      "sha256": "988fe967f5fa171f3665cdd2b5766d506c5a3d7ec22960a4d9f63c7e64c83395",
+      "project_copies": [
+        "ForestRail/assets/art_v3/mechanism/crank.png"
+      ]
+    },
+    {
+      "original": "exec-ab4e9d95-3af4-42b3-b534-31e40c8756f1.png",
+      "sha256": "d8e22fe0279ba817c8d3f71139a9b29040b792a10aa6d3035fd45a414c866559",
+      "project_copies": [
+        "ForestRail/assets/art_v3/vehicles/battery_locomotive_body.png"
+      ]
+    },
+    {
+      "original": "exec-adc287fa-eeb3-42f0-b64b-41a001f956de.png",
+      "sha256": "4566e318fcd96c5214c9ffa66e319df55c6719b39dda01fcc2291e489e13978c",
+      "project_copies": [
+        "ForestRail/assets/art_v3/parallax/mid_forest.png"
+      ]
+    },
+    {
+      "original": "exec-adf67c40-1a43-4bf3-9e32-f7b39d8537a8.png",
+      "sha256": "7c7c57c37879b3284fe4ac3d9ce4de7b37f8aca648023f3372e8644ea0aa8341",
+      "project_copies": [
+        "outputs/ForestRail_Visuals_v1/01_main_menu.png",
+        "outputs/ForestRail_DevSpec_v3/images/01_main_menu.png"
+      ]
+    },
+    {
+      "original": "exec-b18e029d-eea5-411f-a9e9-7ae44184e320.png",
+      "sha256": "4ca8a9f00f44f586b2ed083aa28b8246849179be8b1f8fb62ea0df556a8067af",
+      "project_copies": [
+        "outputs/ForestRail_Visuals_v1/11_route_map.png",
+        "outputs/ForestRail_DevSpec_v3/images/11_route_map.png"
+      ]
+    },
+    {
+      "original": "exec-b6438687-4bf2-47b8-a579-e43bb8e83e03.png",
+      "sha256": "0dbabe434c8ad597c1860bb1417366a285e66832dbc48ea7a334e6864dd2fb98",
+      "project_copies": [
+        "ForestRail/assets/art_v3/stations/platform.png"
+      ]
+    },
+    {
+      "original": "exec-bb5a3c67-37a6-4987-ac94-6f24ba7fd6a0.png",
+      "sha256": "be49f3b7a341fd71c8d2e0428ca9e2b81a28f921fb275890aefd00e3ed0e4dd4",
+      "project_copies": [
+        "ForestRail/assets/art_v3/stations/depot.png"
+      ]
+    },
+    {
+      "original": "exec-bc08e05b-f45e-4808-9fc8-e5890caa30df.png",
+      "sha256": "d2f6be8b7fe37d320a55729b3cdf287ed58dcb4734acfdec980158b43a86f68c",
+      "project_copies": [
+        "ForestRail/assets/art_v3/parallax/foreground.png"
+      ]
+    },
+    {
+      "original": "exec-be9ad873-370c-4748-ad40-69f888aaa3e2.png",
+      "sha256": "a7ead23de1b2e48e15855d441490fb1256e0cab6e1a76a7925972cf8dde4513a",
+      "project_copies": [
+        "ForestRail/assets/art_v3/terrain/rail.png"
+      ]
+    },
+    {
+      "original": "exec-bf867757-76a2-4024-b939-f119204a97f1.png",
+      "sha256": "4dfcb300b126585418c35444b5df2b66cb36988977e73720ba6989a30388e3b5",
+      "project_copies": [
+        "outputs/ForestRail_Visuals_v1/05_sawmill.png",
+        "outputs/ForestRail_DevSpec_v3/images/05_sawmill.png"
+      ]
+    },
+    {
+      "original": "exec-d1492989-0ffd-4b4a-8141-94c6c80c6bad.png",
+      "sha256": "6ef6d22ebde1b54bf7a2e05588341b1f046e089b562eb0eb5c54db0f0fe92a9e",
+      "project_copies": [
+        "ForestRail/assets/vehicles.png"
+      ]
+    },
+    {
+      "original": "exec-d30e3958-e6e7-4fb4-88db-9d38ec560be4.png",
+      "sha256": "740296a7d419c3efbb77b94f98e0fefda5151fa22da45a8ec92f84e9a4341151",
+      "project_copies": [
+        "ForestRail/assets/art_v3/parallax/far_forest.png"
+      ]
+    },
+    {
+      "original": "exec-d76c1b9d-e6e4-467b-89cb-b57f6e5e4e9a.png",
+      "sha256": "17940a4816a3e4b6161a7120dd1d0d776b619eeb26d5265c8d6fdaba7951b595",
+      "project_copies": [
+        "ForestRail/assets/art_v3/terrain/sleeper.png"
+      ]
+    },
+    {
+      "original": "exec-d927ba56-3cd3-4448-acb7-e8b193887267.png",
+      "sha256": "10bf711d54cb20bf71c9e0057215944a83e522531a84351a34c727ac8f6890a6",
+      "project_copies": [
+        "ForestRail/assets/art_v3/terrain/soil.png"
+      ]
+    },
+    {
+      "original": "exec-daea03f0-6b7e-4ced-a9b6-0ce751c151d0.png",
+      "sha256": "b3276f070dc830abcae57de99364d0bba479d66fb31636461ef2a6a8e7bd23de",
+      "project_copies": [
+        "ForestRail/assets/forest_background.png"
+      ]
+    },
+    {
+      "original": "exec-dd5cf566-a640-4b0f-855f-ef1d16c22fd5.png",
+      "sha256": "7e183389f7ca9dd797442f2c1b8dd9ee0ecb1023d9d21f0ee375b12520b549ae",
+      "project_copies": [
+        "outputs/ForestRail_Visuals_v1/08_far_forest.png",
+        "outputs/ForestRail_DevSpec_v3/images/08_far_forest.png"
+      ]
+    },
+    {
+      "original": "exec-f6cdb9e5-4c5e-46ae-b13e-16867726cbb1.png",
+      "sha256": "ec95fd02032a95f5969bfba5633ffa802f6510274e5323c7be53f855afe3c54f",
+      "project_copies": [
+        "ForestRail/assets/forest.png"
+      ]
+    },
+    {
+      "original": "exec-fbd056ec-f368-4bf8-a8b2-e71a9b1282af.png",
+      "sha256": "b52266b9467366e535977f7897f270d502534b2cb8110f584dd5123120ca1e78",
+      "project_copies": [
+        "ForestRail/assets/station_details.png"
+      ]
+    }
+  ],
+  "originals_without_exact_copy": [],
+  "art_v3": [
+    {
+      "id": "mechanism/axle",
+      "file": "ForestRail/assets/art_v3/mechanism/axle.png",
+      "matches": true
+    },
+    {
+      "id": "mechanism/axle_end",
+      "file": "ForestRail/assets/art_v3/mechanism/axle_end.png",
+      "matches": true
+    },
+    {
+      "id": "mechanism/connecting_rod",
+      "file": "ForestRail/assets/art_v3/mechanism/connecting_rod.png",
+      "matches": true
+    },
+    {
+      "id": "mechanism/crank",
+      "file": "ForestRail/assets/art_v3/mechanism/crank.png",
+      "matches": true
+    },
+    {
+      "id": "mechanism/gear",
+      "file": "ForestRail/assets/art_v3/mechanism/gear.png",
+      "matches": true
+    },
+    {
+      "id": "mechanism/lever",
+      "file": "ForestRail/assets/art_v3/mechanism/lever.png",
+      "matches": true
+    },
+    {
+      "id": "mechanism/support",
+      "file": "ForestRail/assets/art_v3/mechanism/support.png",
+      "matches": true
+    },
+    {
+      "id": "parallax/far_forest",
+      "file": "ForestRail/assets/art_v3/parallax/far_forest.png",
+      "matches": true
+    },
+    {
+      "id": "parallax/far_hills",
+      "file": "ForestRail/assets/art_v3/parallax/far_hills.png",
+      "matches": true
+    },
+    {
+      "id": "parallax/foreground",
+      "file": "ForestRail/assets/art_v3/parallax/foreground.png",
+      "matches": true
+    },
+    {
+      "id": "parallax/mid_forest",
+      "file": "ForestRail/assets/art_v3/parallax/mid_forest.png",
+      "matches": true
+    },
+    {
+      "id": "parallax/sky",
+      "file": "ForestRail/assets/art_v3/parallax/sky.png",
+      "matches": true
+    },
+    {
+      "id": "stations/depot",
+      "file": "ForestRail/assets/art_v3/stations/depot.png",
+      "matches": true
+    },
+    {
+      "id": "stations/platform",
+      "file": "ForestRail/assets/art_v3/stations/platform.png",
+      "matches": true
+    },
+    {
+      "id": "stations/sawmill_shelter",
+      "file": "ForestRail/assets/art_v3/stations/sawmill_shelter.png",
+      "matches": true
+    },
+    {
+      "id": "stations/station_house",
+      "file": "ForestRail/assets/art_v3/stations/station_house.png",
+      "matches": true
+    },
+    {
+      "id": "terrain/ballast",
+      "file": "ForestRail/assets/art_v3/terrain/ballast.png",
+      "matches": true
+    },
+    {
+      "id": "terrain/grass",
+      "file": "ForestRail/assets/art_v3/terrain/grass.png",
+      "matches": true
+    },
+    {
+      "id": "terrain/rail",
+      "file": "ForestRail/assets/art_v3/terrain/rail.png",
+      "matches": true
+    },
+    {
+      "id": "terrain/sleeper",
+      "file": "ForestRail/assets/art_v3/terrain/sleeper.png",
+      "matches": true
+    },
+    {
+      "id": "terrain/soil",
+      "file": "ForestRail/assets/art_v3/terrain/soil.png",
+      "matches": true
+    },
+    {
+      "id": "vehicles/battery_locomotive_body",
+      "file": "ForestRail/assets/art_v3/vehicles/battery_locomotive_body.png",
+      "matches": true
+    },
+    {
+      "id": "vehicles/coupler",
+      "file": "ForestRail/assets/art_v3/vehicles/coupler.png",
+      "matches": true
+    },
+    {
+      "id": "vehicles/freight_wagon_body",
+      "file": "ForestRail/assets/art_v3/vehicles/freight_wagon_body.png",
+      "matches": true
+    },
+    {
+      "id": "vehicles/handcar_body",
+      "file": "ForestRail/assets/art_v3/vehicles/handcar_body.png",
+      "matches": true
+    },
+    {
+      "id": "vehicles/petrol_motorcar_body",
+      "file": "ForestRail/assets/art_v3/vehicles/petrol_motorcar_body.png",
+      "matches": true
+    },
+    {
+      "id": "vehicles/wheel_large",
+      "file": "ForestRail/assets/art_v3/vehicles/wheel_large.png",
+      "matches": true
+    },
+    {
+      "id": "vehicles/wheel_small",
+      "file": "ForestRail/assets/art_v3/vehicles/wheel_small.png",
+      "matches": true
+    }
+  ],
+  "visual_references": [
+    {
+      "file": "01_main_menu.png",
+      "matches": true
+    },
+    {
+      "file": "02_depot.png",
+      "matches": true
+    },
+    {
+      "file": "03_loading.png",
+      "matches": true
+    },
+    {
+      "file": "04_pine_junction.png",
+      "matches": true
+    },
+    {
+      "file": "05_sawmill.png",
+      "matches": true
+    },
+    {
+      "file": "06_quiet_backwater.png",
+      "matches": true
+    },
+    {
+      "file": "07_upper_forest.png",
+      "matches": true
+    },
+    {
+      "file": "08_far_forest.png",
+      "matches": true
+    },
+    {
+      "file": "09_forest_route.png",
+      "matches": true
+    },
+    {
+      "file": "10_night_stop.png",
+      "matches": true
+    },
+    {
+      "file": "11_route_map.png",
+      "matches": true
+    },
+    {
+      "file": "12_wagon_upgrades.png",
+      "matches": true
+    },
+    {
+      "file": "13_vehicle_lineup.png",
+      "matches": true
+    }
+  ],
+  "legacy_files": [
+    {
+      "file": "assets/audio/brake.wav",
+      "exists": true
+    },
+    {
+      "file": "assets/audio/cargo.wav",
+      "exists": true
+    },
+    {
+      "file": "assets/audio/coins.wav",
+      "exists": true
+    },
+    {
+      "file": "assets/audio/engine_loop.wav",
+      "exists": true
+    },
+    {
+      "file": "assets/audio/finale.wav",
+      "exists": true
+    },
+    {
+      "file": "assets/audio/forest_loop.wav",
+      "exists": true
+    },
+    {
+      "file": "assets/audio/gear.wav",
+      "exists": true
+    },
+    {
+      "file": "assets/audio/music_loop.wav",
+      "exists": true
+    },
+    {
+      "file": "assets/audio/pump.wav",
+      "exists": true
+    },
+    {
+      "file": "assets/audio/rail_clack.wav",
+      "exists": true
+    },
+    {
+      "file": "assets/audio/ui_click.wav",
+      "exists": true
+    },
+    {
+      "file": "assets/control_parts.png",
+      "exists": true
+    },
+    {
+      "file": "assets/control_parts_clean.png",
+      "exists": true
+    },
+    {
+      "file": "assets/forest.png",
+      "exists": true
+    },
+    {
+      "file": "assets/forest_background.png",
+      "exists": true
+    },
+    {
+      "file": "assets/station_details.png",
+      "exists": true
+    },
+    {
+      "file": "assets/track_cargo.png",
+      "exists": true
+    },
+    {
+      "file": "assets/ui/brake.svg",
+      "exists": true
+    },
+    {
+      "file": "assets/ui/button.svg",
+      "exists": true
+    },
+    {
+      "file": "assets/ui/cargo.svg",
+      "exists": true
+    },
+    {
+      "file": "assets/ui/cargo_slot.svg",
+      "exists": true
+    },
+    {
+      "file": "assets/ui/check.svg",
+      "exists": true
+    },
+    {
+      "file": "assets/ui/close.svg",
+      "exists": true
+    },
+    {
+      "file": "assets/ui/coins.svg",
+      "exists": true
+    },
+    {
+      "file": "assets/ui/control_brake.svg",
+      "exists": true
+    },
+    {
+      "file": "assets/ui/control_gear.svg",
+      "exists": true
+    },
+    {
+      "file": "assets/ui/control_mount.svg",
+      "exists": true
+    },
+    {
+      "file": "assets/ui/control_pump.svg",
+      "exists": true
+    },
+    {
+      "file": "assets/ui/control_start.svg",
+      "exists": true
+    },
+    {
+      "file": "assets/ui/control_throttle.svg",
+      "exists": true
+    },
+    {
+      "file": "assets/ui/fuel.svg",
+      "exists": true
+    },
+    {
+      "file": "assets/ui/gauge_face.svg",
+      "exists": true
+    },
+    {
+      "file": "assets/ui/gauge_needle.svg",
+      "exists": true
+    },
+    {
+      "file": "assets/ui/gear.svg",
+      "exists": true
+    },
+    {
+      "file": "assets/ui/help.svg",
+      "exists": true
+    },
+    {
+      "file": "assets/ui/map.svg",
+      "exists": true
+    },
+    {
+      "file": "assets/ui/panel.svg",
+      "exists": true
+    },
+    {
+      "file": "assets/ui/pause.svg",
+      "exists": true
+    },
+    {
+      "file": "assets/ui/play.svg",
+      "exists": true
+    },
+    {
+      "file": "assets/ui/save.svg",
+      "exists": true
+    },
+    {
+      "file": "assets/ui/settings.svg",
+      "exists": true
+    },
+    {
+      "file": "assets/ui/station.svg",
+      "exists": true
+    },
+    {
+      "file": "assets/ui/train.svg",
+      "exists": true
+    },
+    {
+      "file": "assets/ui/turn.svg",
+      "exists": true
+    },
+    {
+      "file": "assets/ui/upgrade.svg",
+      "exists": true
+    },
+    {
+      "file": "assets/ui/volume.svg",
+      "exists": true
+    },
+    {
+      "file": "assets/vehicles.png",
+      "exists": true
+    }
+  ],
+  "scope": "File preservation and checksum validation. Runtime use is documented separately; reference illustrations are not finished game screens."
+}
