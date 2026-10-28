@@ -22,8 +22,17 @@ $shell = New-Object -ComObject WScript.Shell
 $shortcutPath = Join-Path ([Environment]::GetFolderPath('Desktop')) 'Лесная колея.lnk'
 $shortcut = $shell.CreateShortcut($shortcutPath)
 $shortcut.TargetPath = $installedExe
+$shortcut.Arguments = ''
 $shortcut.WorkingDirectory = $installDir
 $shortcut.Description = "Лесная колея $Version"
+$iconSource = Join-Path $projectRoot 'ForestRail/assets/branding/forest_rail_launcher_v1.ico'
+if (Test-Path -LiteralPath $iconSource) {
+    $brandingDir = Join-Path $env:LOCALAPPDATA 'Programs/ForestRail/Branding'
+    New-Item -ItemType Directory -Path $brandingDir -Force | Out-Null
+    $iconPath = Join-Path $brandingDir 'ForestRail-v1.ico'
+    Copy-Item -LiteralPath $iconSource -Destination $iconPath
+    $shortcut.IconLocation = $iconPath + ',0'
+}
 $shortcut.Save()
 $smokeDir = Join-Path $projectRoot 'qa/install_smoke'
 New-Item -ItemType Directory -Path $smokeDir -Force | Out-Null

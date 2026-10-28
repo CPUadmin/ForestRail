@@ -1,0 +1,19 @@
+{
+  "asset": "forest_rail_launcher_v1",
+  "generator": "built-in Imagegen",
+  "intent": "Windows desktop launcher icon",
+  "transparent_background": true,
+  "prompt": "Use case: stylized-concept. Create one polished Windows desktop launcher icon for the cozy railway game 'Лесная колея'. No text, no lettering. A small wooden manually pumped railway handcar is the single unmistakable subject, shown in a slightly three-quarter side view: warm honey oak flat deck, two clearly visible dark steel flanged spoked wheels, triangular upright support, and a prominent horizontal rocking pump lever with two wooden grips. A short pair of silver railway rails underneath leads subtly into a dark pine forest suggested by only two or three large tree silhouettes. Compose as a bold, large centered emblem on a deep pine-green rounded square with a restrained aged-brass rim, matching painterly warm wood and forest-green steel game art. Warm upper-left sunlight, strong readable silhouette and depth, generous clean separation of the lever, wheels and rails. Optimize for a 32px app icon: chunky simplified forms, very few tiny details, clear high contrast. Square 1024x1024 artwork, icon occupies about 88 percent of canvas, actual transparent pixels outside the rounded square, no extra objects, no steam locomotive, no smoke, no human, no watermark, no mockup, no desktop screenshot.",
+  "source_png": "forest_rail_launcher_v1.png",
+  "windows_ico": "forest_rail_launcher_v1.ico",
+  "ico_sizes": [
+    16,
+    24,
+    32,
+    48,
+    64,
+    128,
+    256
+  ],
+  "processing": "Original generated PNG preserved unchanged. Format conversion and Windows icon size variants only."
+}
