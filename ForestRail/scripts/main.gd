@@ -941,7 +941,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			if in_closeup: break
 			# Visible cargo wins over the enlarged control hit circle. The actual
 			# wooden grip still wins when the pointer is directly on it.
-			if hit.rect.has_point(mouse) and distance>10:
+			if hit.rect.has_point(mouse) and distance>6:
 				nearest = {}
 		if not nearest.is_empty():
 			drag = nearest.id
