@@ -1,0 +1,221 @@
+{
+  "version": "1.2.0-preview.4",
+  "stage": "P4",
+  "source_commit": "72ce30bc124b7ccf48f5ebeff28011cea8d431ec",
+  "exe_sha256": "22f989f4ae29880cc05a72210a0736caf47aec6134269ebbffd6d45b6372b553",
+  "drive": {
+    "cases": [
+      {
+        "balance_j": -0.000174233985489991,
+        "direction": -1,
+        "loaded": false,
+        "peak_w": 220.0,
+        "phase": -156.70595207783,
+        "speed_after_coast": -2.37994379651193,
+        "work_j": 3387.22852468122
+      },
+      {
+        "balance_j": -1.12747075036168e-05,
+        "direction": 1,
+        "loaded": false,
+        "peak_w": 220.0,
+        "phase": 155.841235335968,
+        "speed_after_coast": 2.37883547331806,
+        "work_j": 3369.22003275122
+      },
+      {
+        "balance_j": -9.82549286163703e-05,
+        "direction": -1,
+        "loaded": true,
+        "peak_w": 220.0,
+        "phase": -141.451330287801,
+        "speed_after_coast": -2.39590778609683,
+        "work_j": 3262.4911256912
+      },
+      {
+        "balance_j": -9.61339785590098e-05,
+        "direction": 1,
+        "loaded": true,
+        "peak_w": 220.0,
+        "phase": 140.826736703506,
+        "speed_after_coast": 2.39970744116727,
+        "work_j": 3251.32595266558
+      }
+    ],
+    "checks": 10493,
+    "failures": [],
+    "fps_replay": [
+      {
+        "distance": 43.7134849200969,
+        "energy": 1167.07164195222,
+        "event_hz": 120,
+        "fps": 30,
+        "hand_work": 3208.65318497529,
+        "speed": 2.95920807955743
+      },
+      {
+        "distance": 43.7134849200969,
+        "energy": 1167.07164195222,
+        "event_hz": 120,
+        "fps": 60,
+        "hand_work": 3208.65318497529,
+        "speed": 2.95920807955743
+      },
+      {
+        "distance": 43.7134849200969,
+        "energy": 1167.07164195222,
+        "event_hz": 120,
+        "fps": 120,
+        "hand_work": 3208.65318497529,
+        "speed": 2.95920807955743
+      },
+      {
+        "distance": 43.7134849200969,
+        "energy": 1167.07164195222,
+        "event_hz": 120,
+        "fps": 144,
+        "hand_work": 3208.65318497529,
+        "speed": 2.95920807955743
+      },
+      {
+        "distance": 43.6971082849341,
+        "energy": 1178.15885044266,
+        "event_hz": 30,
+        "fps": 60,
+        "hand_work": 3218.1332503767,
+        "speed": 2.97323112720016
+      },
+      {
+        "distance": 43.7134849200969,
+        "energy": 1167.07164195222,
+        "event_hz": 240,
+        "fps": 60,
+        "hand_work": 3208.65318497529,
+        "speed": 2.95920807955743
+      },
+      {
+        "distance": 43.7134849200969,
+        "energy": 1167.07164195222,
+        "event_hz": 1000,
+        "fps": 60,
+        "hand_work": 3208.6531849753,
+        "speed": 2.95920807955743
+      }
+    ],
+    "push_work_by_event_hz": [
+      20.0,
+      20.0
+    ]
+  },
+  "gui": {
+    "checks": 53,
+    "clips": [
+      {
+        "flywheel_j": 27.7076271594432,
+        "loaded": false,
+        "mass_kg": 180.0,
+        "seconds": 16.0,
+        "speed_mps": 2.99077918946964
+      },
+      {
+        "flywheel_j": 23.2797351950323,
+        "loaded": true,
+        "mass_kg": 340.0,
+        "seconds": 16.0,
+        "speed_mps": 2.56470922255774
+      }
+    ],
+    "failures": [],
+    "input": "Viewport.push_input, real mouse event dispatcher; no phase/s/v writes during recorded driving",
+    "movie": true
+  },
+  "native_checks": [
+    {
+      "suite": "check_model",
+      "exit_code": 0,
+      "success": true,
+      "seconds": 0.938,
+      "log": "export_check_model.log"
+    },
+    {
+      "suite": "check_physics",
+      "exit_code": 0,
+      "success": true,
+      "seconds": 11.968,
+      "log": "export_check_physics.log"
+    },
+    {
+      "suite": "check_handcar_drive",
+      "exit_code": 0,
+      "success": true,
+      "seconds": 14.875,
+      "log": "export_check_handcar_drive.log"
+    },
+    {
+      "suite": "check_handcar_input",
+      "exit_code": 0,
+      "success": true,
+      "seconds": 12.422,
+      "log": "export_check_handcar_input.log"
+    },
+    {
+      "suite": "check_handcar_revision",
+      "exit_code": 0,
+      "success": true,
+      "seconds": 0.844,
+      "log": "export_check_handcar_revision.log"
+    },
+    {
+      "suite": "check_mechanism",
+      "exit_code": 0,
+      "success": true,
+      "seconds": 12.547,
+      "log": "export_check_mechanism.log"
+    },
+    {
+      "suite": "check_mechanism_bench",
+      "exit_code": 0,
+      "success": true,
+      "seconds": 3.109,
+      "log": "export_check_mechanism_bench.log"
+    },
+    {
+      "suite": "check_station_service",
+      "exit_code": 0,
+      "success": true,
+      "seconds": 25.219,
+      "log": "export_check_station_service.log"
+    },
+    {
+      "suite": "check_world_geometry",
+      "exit_code": 0,
+      "success": true,
+      "seconds": 12.484,
+      "log": "export_check_world_geometry.log"
+    },
+    {
+      "suite": "check_art_v3",
+      "exit_code": 0,
+      "success": true,
+      "seconds": 0.86,
+      "log": "export_check_art_v3.log"
+    },
+    {
+      "suite": "check_instruments",
+      "exit_code": 0,
+      "success": true,
+      "seconds": 8.359,
+      "log": "export_check_instruments.log"
+    },
+    {
+      "suite": "drive_campaign",
+      "exit_code": 0,
+      "success": true,
+      "seconds": 112.328,
+      "log": "export_drive_campaign.log"
+    }
+  ],
+  "original_pngs_preserved": 48,
+  "human_novice_trial": "not performed",
+  "remaining": "P5-P8, human first-trip acceptance"
+}
