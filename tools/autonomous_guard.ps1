@@ -64,6 +64,8 @@ if (Test-Path -LiteralPath $previous) {
     if ($old.pid -ne $PID -and (Get-Process -Id $old.pid -ErrorAction SilentlyContinue)) { throw 'Guard already running' }
 }
 $lastCheckpoint=[DateTimeOffset]::UtcNow
+$lastQuota=[DateTimeOffset]::MinValue
+$quotaProcess=$null
 try {
     if ([ForestRailRunGuard]::SetThreadExecutionState([uint32]2147483649) -eq 0) { throw 'Cannot hold system awake' }
     while ($true) {
@@ -82,6 +84,12 @@ try {
             & (Join-Path $PSScriptRoot 'autonomous_checkpoint.ps1') -Root $Root -Reason $state.stop_reason
             break
         }
+        if (([DateTimeOffset]::UtcNow-$lastQuota).TotalSeconds -ge 60 -and (-not $quotaProcess -or $quotaProcess.HasExited)) {
+            # A fresh read-only protocol connection avoids idle server expiry.
+            $python=Join-Path $env:USERPROFILE '.cache/codex-runtimes/codex-primary-runtime/dependencies/python/python.exe'
+            $quotaProcess=Start-Process -FilePath $python -ArgumentList @(('"'+(Join-Path $PSScriptRoot 'autonomous_quota.py')+'"'),'--once') -WorkingDirectory $Root -WindowStyle Hidden -RedirectStandardOutput (Join-Path $runtime 'quota_stdout.log') -RedirectStandardError (Join-Path $runtime 'quota_stderr.log') -PassThru
+            $lastQuota=[DateTimeOffset]::UtcNow
+        }
         if (([DateTimeOffset]::UtcNow-$lastCheckpoint).TotalMinutes -ge 10) {
             & (Join-Path $PSScriptRoot 'autonomous_checkpoint.ps1') -Root $Root -Reason 'periodic'
             $lastCheckpoint=[DateTimeOffset]::UtcNow
@@ -96,6 +104,7 @@ try {
     & (Join-Path $PSScriptRoot 'autonomous_checkpoint.ps1') -Root $Root -Reason 'guard-error'
     throw
 } finally {
+    if ($quotaProcess -and -not $quotaProcess.HasExited) { Stop-Process -Id $quotaProcess.Id -ErrorAction SilentlyContinue }
     [void][ForestRailRunGuard]::SetThreadExecutionState([uint32]2147483648)
     if ($state) { $state.awake_request=$false;$state.released_at_utc=[DateTimeOffset]::UtcNow.ToString('o');Write-State 'guard_state.json' $state }
 }
