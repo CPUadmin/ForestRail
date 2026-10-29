@@ -1,0 +1,76 @@
+{
+  "version": "1.2.0-preview.8",
+  "stage": "P8 automated part",
+  "source_commit": "1d300600df6a4d085329a2ea41303df34cfc8099",
+  "delivery_exe_sha256": "4af50d44588e28424236acc2f1959678dfbff2e5fbcf2083251ac804f7f228a6",
+  "soak_exe_sha256": "546e6bcd08e5ed239c0047ec024829254728cf287bded83b3768c79ed77538d8",
+  "soak": {
+    "checks": 98,
+    "complete": true,
+    "completed_trips": 3,
+    "distance_m": 3427.68857520422,
+    "elapsed_wall_s": 1200.096,
+    "failures": [],
+    "human_trial": false,
+    "input": "Viewport.push_input only; normal game physics; no position, phase or speed assignments",
+    "memory_static_bytes": 0,
+    "reason": "finished",
+    "regrabs": 49,
+    "station_visits": 4,
+    "target_s": 1200.0
+  },
+  "save_compatibility": {
+    "checks": 25,
+    "failures": [],
+    "legacy_chapter": 3.0,
+    "legacy_fleet": [
+      "handcar",
+      "motorcar"
+    ],
+    "legacy_money": 58.0,
+    "scope": "native model/storage checks on a copy; no user files modified"
+  },
+  "native_checks": [
+    {
+      "suite": "check_model",
+      "exit_code": 0,
+      "success": true,
+      "seconds": 1.328,
+      "log": "export_check_model.log"
+    },
+    {
+      "suite": "check_physics",
+      "exit_code": 0,
+      "success": true,
+      "seconds": 14.297,
+      "log": "export_check_physics.log"
+    },
+    {
+      "suite": "drive_campaign",
+      "exit_code": 0,
+      "success": true,
+      "seconds": 116.078,
+      "log": "export_drive_campaign.log"
+    },
+    {
+      "suite": "check_interaction",
+      "exit_code": 0,
+      "success": true,
+      "seconds": 4.657,
+      "log": "export_check_interaction.log"
+    }
+  ],
+  "prior_p7_evidence": "qa/presentation_p7.json",
+  "human_novice_trial": "not performed",
+  "full_TZ_accepted": false,
+  "candidate_difference": "version number, credits stage label and QA registrations; player model/UI unchanged from P7",
+  "memory_sampling": {
+    "samples": 28,
+    "first_utc": "2026-10-28T23:55:57.0451942+00:00",
+    "last_utc": "2026-10-29T00:09:27.7361617+00:00",
+    "first_private_bytes": 652013568,
+    "last_private_bytes": 653701120,
+    "peak_private_bytes": 653733888,
+    "scope": "Windows process sampling during continuous session; not a proof against all leaks"
+  }
+}
