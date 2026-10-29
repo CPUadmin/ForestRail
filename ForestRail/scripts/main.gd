@@ -54,6 +54,11 @@ var drag_item = ""
 var drag_total = 0.0
 var drag_horizontal = 0.0
 var drag_initial = 0.0
+var drag_closeup = false
+var lever_target_point = Vector2.ZERO
+var lever_pending_gear = 0
+var lever_travel = 0.0
+var lever_click_origin = Vector2.ZERO
 var pump_grab_offset = Vector2.ZERO
 var pump_target_point = Vector2.ZERO
 var push_cursor = Vector2.ZERO
@@ -627,15 +632,15 @@ func update_hud() -> void:
 	elif stop_index >= 0 and model.stopped():
 		hint = "Станция «%s». Перетащи груз для этой станции на площадку внизу." % at_station
 	elif model.vehicle_id() == "handcar":
-		hint = "Зажми деревянный хват и качай вверх-вниз. Ровные полные ходы разгоняют лучше. Красный рычаг — тормоз."
+		hint = "Зажми деревянный хват и веди его по дуге рычага. Ровные полные ходы разгоняют лучше. Красный рычаг — тормоз."
 	elif not state.engine:
-		hint = "Запуск: подача 0%, передача Н. Потяни тумблер вверх, затем выбери режим и подай тягу."
+		hint = "Запуск: подача 0%, передача Н. Щёлкни тумблер, затем выбери режим и подай тягу."
 	else:
 		hint = "Подача — зелёный рычаг, тормоз — красный. Передача меняется при подаче ниже 15%."
 	if float(state.brake) > 0.95 and not model.stopped():
 		hint = "Торможение."
 	if model.stopped() and state.phase == "route" and not returning and stop_index == 0:
-		hint = "Отпусти красный тормозной рычаг вниз, затем начинай движение."
+		hint = "Переведи красную рукоять к 0%, затем начинай движение."
 	if model.vehicle_id() == "locomotive" and model.regen_kw > 0.01:
 		hint = "Рекуперация: +%.1f кВт. Часть энергии торможения возвращается в аккумулятор." % model.regen_kw
 	var interaction=station_state()
@@ -727,13 +732,13 @@ func draw_control_zoom() -> void:
 	var ids=["brake","throttle","gear","start"]
 	for i in range(ids.size()):
 		var id=ids[i]
-		var pivot=rect.position+Vector2(65+100*i,225)
-		var value=float(model.state.get(id,0))
-		var angle=lerpf(0.55,-0.55,value)
-		if id=="gear": angle=lerpf(-0.55,0.55,float(model.state.gear)/2)
-		if id=="start": angle=0.0 if model.state.engine else PI
-		var length=90.0 if id!="start" else 42.0
-		var point=pivot+Vector2(0,-length).rotated(angle)
+		var geo=control_geometry(id,true)
+		var pivot=geo.pivot
+		var angle=geo.angle
+		var length=pivot.distance_to(geo.grip)
+		var point=geo.grip
+		if id!="start":
+			draw_arc(pivot,length,-PI/2-0.55,-PI/2+0.55,32,Color("66796b"),2,true)
 		var source_length=float({"brake":166,"throttle":165,"gear":166,"start":138}[id])
 		var factor=length/source_length
 		sprite("control_mount",Rect2(pivot-Vector2(8,8),Vector2(16,16)))
@@ -742,15 +747,21 @@ func draw_control_zoom() -> void:
 		draw_set_transform_matrix(Transform2D.IDENTITY)
 		grip_hits.append({"id":id,"position":point,"closeup":true})
 		var title={"brake":"Тормоз","throttle":"Тяга" if model.vehicle_id()=="locomotive" else "Газ","gear":"Передача","start":"Пуск"}[id]
-		var label={"brake":"%d%%" % (model.state.brake*100),"throttle":"%d%%" % (model.state.throttle*100),"gear":["Н","1","2"][int(model.state.gear)],"start":"Вкл." if model.state.engine else "Выкл."}[id]
+		var shown_gear=lever_pending_gear if drag=="gear" else int(model.state.gear)
+		var label={"brake":"%d%%" % (model.state.brake*100),"throttle":"%d%%" % (model.state.throttle*100),"gear":["Н","1","2"][shown_gear],"start":"Вкл." if model.state.engine else "Выкл."}[id]
 		draw_string(font,rect.position+Vector2(15+100*i,78),title,HORIZONTAL_ALIGNMENT_CENTER,100,16,PAPER)
 		draw_string(font,rect.position+Vector2(15+100*i,253),label,HORIZONTAL_ALIGNMENT_CENTER,100,16,GOLD)
 		if id=="gear":
 			for detent in range(3):
 				var mark=pivot+Vector2(0,-length).rotated(lerpf(-0.55,0.55,detent/2.0))
-				draw_circle(mark,3,GOLD if detent==int(model.state.gear) else Color("66796b"))
+				draw_circle(mark,3,GOLD if detent==shown_gear else Color("66796b"))
+				draw_string(font,mark+Vector2(-5,-12),["Н","1","2"][detent],HORIZONTAL_ALIGNMENT_LEFT,20,13,PAPER)
+		elif id!="start":
+			for endpoint in range(2):
+				var mark=pivot+Vector2(0,-length).rotated(lerpf(-0.55,0.55,float(endpoint)))
+				draw_string(font,mark+Vector2(-17,-12),["0","100"][endpoint],HORIZONTAL_ALIGNMENT_CENTER,34,13,PAPER)
 		if drag==id or point.distance_to(get_global_mouse_position())<24: draw_arc(point,10,0,TAU,28,PAPER,1.5,true)
-	var feedback=toast if toast_seconds>0 else "Зажми рукоять и потяни вверх или вниз"
+	var feedback=toast if toast_seconds>0 else "Веди рукоять по дуге. Пуск — щелчком."
 	draw_multiline_string(font,rect.position+Vector2(16,285),feedback,HORIZONTAL_ALIGNMENT_LEFT,400,15,2,GOLD if toast_seconds>0 else Color("c7c3a0"))
 
 func show_modal(kind: String) -> void:
@@ -821,7 +832,7 @@ func build_modal(size: Vector2) -> void:
 	elif modal_kind == "settings":
 		add_label(box, "Настройки", 32)
 		for key in ["master", "mechanisms", "forest", "music", "sensitivity"]:
-			var names = {"master": "Общая громкость", "mechanisms": "Механизмы", "forest": "Лес", "music": "Музыка", "sensitivity": "Чувствительность рычага"}
+			var names = {"master": "Общая громкость", "mechanisms": "Механизмы", "forest": "Лес", "music": "Музыка", "sensitivity": "Чувствительность ручной дрезины"}
 			add_label(box, names[key], 21)
 			var slider = HSlider.new()
 			slider.min_value = 0.5 if key == "sensitivity" else 0
@@ -839,7 +850,7 @@ func build_modal(size: Vector2) -> void:
 		add_button(box, "Готово", close_modal)
 	elif modal_kind == "help":
 		add_label(box, "Как играть", 32)
-		add_label(box, "1. В депо выбери рейс и нажми «К погрузке». Перетащи каждый предмет с площадки в свободное место на машине или вагоне. Отправляйся, когда всё погружено.\n\n2. Отпусти тормоз: зажми красную рукоять и потяни вниз. На ручной дрезине качай выделенный правый конец деревянного рычага вверх-вниз. На спуске можно катиться по инерции.\n\n3. Перед станцией плавно затяни тормоз вверх. Остановись в пределах платформы, затяни тормоз до 100% и перетащи нужные грузы на площадку. У каждого предмета указана станция.\n\n4. После последней доставки убери подачу, разверни пустой состав кнопкой на станции и вернись в Лесную. Деньги выдаются в домашнем депо.\n\n5. Моторная дрезина: передача Н, подача 0%, потяни тумблер запуска вверх. Затем выбери 1 и добавь подачу. На ровном участке можно включить 2, сначала снизив подачу ниже 15%. Бензин пополняется в депо.\n\n6. Электролокомотив: вместо бензина аккумулятор. Режим 1 — тяговый, 2 — ходовой. Без подачи он катится по инерции; торможение возвращает четверть доступной энергии. Зарядка бесплатна в депо.\n\n7. В гараже остаются все купленные машины. Вагоны выбираются отдельно, улучшения следуют за их ID. Для финального рейса нужны шесть мест: три обычных вагона или два расширенных.\n\nЗадний ход: остановись, затяни тормоз и выбери стрелку направления. На ручной дрезине направление задаётся усилием на рычаге с отпущенным тормозом. Обратное усилие сначала замедляет движение. В мёртвой точке потяни край платформы, чтобы подтолкнуть машину. Состав при этом сохраняет положение и груз.\n\nКолесо мыши — приблизить машину. Esc — пауза. При потере фокуса игра останавливается. Если застрял или кончилась энергия, вызови помощь депо из паузы.", 20)
+		add_label(box, "1. В депо выбери рейс и нажми «К погрузке». Перетащи каждый предмет с площадки в свободное место на машине или вагоне. Отправляйся, когда всё погружено.\n\n2. Отпусти тормоз: веди красную рукоять по дуге к 0%. На ручной дрезине веди выделенный правый конец деревянного рычага по его дуге. На спуске можно катиться по инерции.\n\n3. Перед станцией плавно переведи тормоз к 100%. Остановись в пределах платформы, затяни тормоз до 100% и перетащи нужные грузы на площадку. У каждого предмета указана станция.\n\n4. После последней доставки убери подачу, разверни пустой состав кнопкой на станции и вернись в Лесную. Деньги выдаются в домашнем депо.\n\n5. Моторная дрезина: передача Н, подача 0%, щёлкни тумблер запуска. Затем выбери 1 и добавь подачу. На ровном участке можно включить 2, сначала снизив подачу ниже 15%. Бензин пополняется в депо.\n\n6. Электролокомотив: вместо бензина аккумулятор. Режим 1 — тяговый, 2 — ходовой. Без подачи он катится по инерции; торможение возвращает четверть доступной энергии. Зарядка бесплатна в депо.\n\n7. В гараже остаются все купленные машины. Вагоны выбираются отдельно, улучшения следуют за их ID. Для финального рейса нужны шесть мест: три обычных вагона или два расширенных.\n\nЗадний ход: остановись, затяни тормоз и выбери стрелку направления. На ручной дрезине направление задаётся усилием на рычаге с отпущенным тормозом. Обратное усилие сначала замедляет движение. В мёртвой точке потяни край платформы, чтобы подтолкнуть машину. Состав при этом сохраняет положение и груз.\n\nКолесо мыши — приблизить машину. Esc — пауза. При потере фокуса игра останавливается. Если застрял или кончилась энергия, вызови помощь депо из паузы.", 20)
 		if screen != "menu":
 			add_button(box, "Подсказки: " + ("вкл." if model.state.tutorial else "выкл."), func(): model.state.tutorial = not model.state.tutorial; save_game(); rebuild())
 		add_button(box, "Понятно", close_modal)
@@ -960,16 +971,27 @@ func _input(event: InputEvent) -> void:
 		var delta_y = event.relative.y * float(settings.sensitivity)
 		drag_total += delta_y
 		if drag == "pump":
-			if float(model.state.brake) > 0.9 and absf(delta_y) > 2: notify("Тормоз затянут. Сначала отпусти красную рукоять вниз")
+			if float(model.state.brake) > 0.9 and absf(delta_y) > 2: notify("Тормоз затянут. Переведи красную рукоять к 0%")
 			var outer=body_transform(model.vehicle_id(),model.body_s(0))
 			# Accumulate local cursor travel. Camera translation never changes
 			# the target; capture offset is retained without snapping the grip.
 			pump_target_point+=outer.affine_inverse().basis_xform(event.relative)*float(settings.sensitivity)/ArtV3.PX
 			model.set_pump_target((pump_target_point-model.handcar.pose().rocker).angle(),model.hand_drive.clock+Engine.get_physics_interpolation_fraction()/60.0)
-		elif drag == "brake":
-			model.state.brake = clampf(drag_initial - drag_total / 130, 0, 1)
-		elif drag == "throttle":
-			model.state.throttle = clampf(drag_initial - drag_total / 130, 0, 1)
+		elif drag in ["brake","throttle","gear","start"]:
+			lever_travel+=event.relative.length()
+			if drag!="start":
+				var outer=Transform2D.IDENTITY if drag_closeup else body_transform(model.vehicle_id(),model.body_s(0))
+				# Relative local travel excludes camera motion and preserves the grab offset.
+				# Motor controls follow the visible arc one-to-one, independent of pump sensitivity.
+				lever_target_point+=outer.affine_inverse().basis_xform(event.relative)
+				var geo=control_geometry(drag,drag_closeup)
+				var arm=lever_target_point-geo.pivot
+				var angle=clampf(atan2(arm.x,-arm.y),-0.55,0.55)
+				var value=clampf((angle+0.55)/1.1,0,1)
+				if value<0.001: value=0.0
+				elif value>0.999: value=1.0
+				if drag=="gear": lever_pending_gear=roundi(value*2)
+				else: model.state[drag]=value
 		get_viewport().set_input_as_handled()
 	elif event is InputEventMouseButton and not event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		finish_drag(event.position)
@@ -1011,6 +1033,12 @@ func _unhandled_input(event: InputEvent) -> void:
 			drag_total = 0
 			drag_horizontal = 0
 			drag_initial = float(model.state.get(drag, 0))
+			drag_closeup=bool(nearest.get("closeup",false))
+			lever_travel=0
+			lever_click_origin=mouse
+			lever_pending_gear=int(model.state.gear)
+			if drag in ["brake","throttle","gear","start"]:
+				lever_target_point=control_geometry(drag,drag_closeup).grip
 			model.reset_input()
 			if drag=="pump":
 				var outer=body_transform(model.vehicle_id(),model.body_s(0))
@@ -1060,11 +1088,10 @@ func finish_drag(mouse: Vector2) -> void:
 		if target != "invalid":
 			transfer_cargo(drag_item,target,mouse)
 		else: notify("Перенеси груз в выделенную зону разгрузки или свободное место")
-	elif drag == "gear" and absf(drag_total) >= 12:
-		var value = clampi(int(model.state.gear) + (1 if drag_total < 0 else -1), 0, 2)
-		if not model.set_gear(value): notify(model.message)
-	elif drag == "start" and absf(drag_total) >= 12:
-		if not model.start_engine(drag_total < 0): notify(model.message)
+	elif drag == "gear" and lever_pending_gear!=int(model.state.gear):
+		if not model.set_gear(lever_pending_gear): notify(model.message)
+	elif drag == "start" and lever_travel<8 and mouse.distance_to(lever_click_origin)<8:
+		if not model.start_engine(not model.state.engine): notify(model.message)
 	cancel_drag()
 
 func world_point(s: float) -> Vector2:
@@ -1418,20 +1445,19 @@ func lever_geometry(id: String) -> Dictionary:
 	if id == "pump":
 		var pose = art.mechanism_pose(model)
 		return {"pivot":pose.rocker*ArtV3.PX,"grip":pose.grip_right*ArtV3.PX,"angle":pose.angle}
-	if id == "brake":
-		var pivot = art.vec(Geometry.body(model.vehicle_id()).control_anchors_m.brake)*ArtV3.PX
-		var angle = lerpf(0.95, 0.12, float(model.state.brake))
-		return {"pivot": pivot, "grip": pivot + Vector2(0,-float(Geometry.data().controls.brake_length_m)*ArtV3.PX).rotated(angle), "angle": angle}
-	if id == "throttle":
-		var pivot = art.vec(Geometry.body(model.vehicle_id()).control_anchors_m.throttle)*ArtV3.PX
-		var angle = lerpf(0.8, -0.25, float(model.state.throttle))
-		return {"pivot": pivot, "grip": pivot + Vector2(0,-float(Geometry.data().controls.throttle_length_m)*ArtV3.PX).rotated(angle), "angle": angle}
-	if id == "gear":
-		var pivot = art.vec(Geometry.body(model.vehicle_id()).control_anchors_m.gear)*ArtV3.PX
-		var angle = lerpf(-0.6, 0.45, float(model.state.gear) / 2)
-		return {"pivot": pivot, "grip": pivot + Vector2(0,-float(Geometry.data().controls.gear_length_m)*ArtV3.PX).rotated(angle), "angle": angle}
-	var pivot = art.vec(Geometry.body(model.vehicle_id()).control_anchors_m.start)*ArtV3.PX
-	return {"pivot":pivot,"grip":pivot+Vector2(0,-1 if model.state.engine else 1)*float(Geometry.data().controls.start_length_m)*ArtV3.PX,"angle":0.0}
+	return control_geometry(id)
+
+func control_geometry(id: String, closeup: bool = false) -> Dictionary:
+	var pivot=art.vec(Geometry.body(model.vehicle_id()).control_anchors_m[id])*ArtV3.PX
+	var length=float(Geometry.data().controls[id+"_length_m"])*ArtV3.PX
+	if closeup:
+		pivot=control_zoom_rect().position+Vector2(65+100*["brake","throttle","gear","start"].find(id),225)
+		length=42.0 if id=="start" else 78.0
+	var value=float(model.state.get(id,0))
+	if id=="gear": value=float(lever_pending_gear if drag=="gear" else model.state.gear)/2
+	var angle=lerpf(-0.55,0.55,value)
+	if id=="start": angle=0.0 if model.state.engine else PI
+	return {"pivot":pivot,"grip":pivot+Vector2(0,-length).rotated(angle),"angle":angle}
 
 func draw_controls(body_transform: Transform2D, show_labels: bool = true) -> void:
 	var ids = ["pump", "brake"] if model.vehicle_id() == "handcar" else ["brake", "throttle", "gear", "start"]
@@ -1452,6 +1478,8 @@ func draw_controls(body_transform: Transform2D, show_labels: bool = true) -> voi
 		var color = {"pump": Color("a16b38"), "brake": RED, "throttle": GREEN, "gear": GOLD, "start": Color("708574")}[id]
 		var factor = geo.pivot.distance_to(geo.grip)/float({"pump":116,"brake":166,"throttle":165,"gear":166,"start":138}[id])
 		var angle = float(geo.angle)
+		if id not in ["pump","start"]:
+			draw_arc(geo.pivot,geo.pivot.distance_to(geo.grip),-PI/2-0.55,-PI/2+0.55,24,Color("918363"),1.0,true)
 		if id == "start": angle = 0.0 if model.state.engine else PI
 		var pivot = Vector2(128, 128 if id == "pump" else 224)
 		# The base stays fixed; only the independent supplied SVG part rotates.
@@ -1463,6 +1491,10 @@ func draw_controls(body_transform: Transform2D, show_labels: bool = true) -> voi
 		var highlighted = drag==id or hover.distance_to(body_transform*geo.grip)<24
 		if not highlighted or not show_labels: continue
 		draw_arc(geo.grip, 9, 0, TAU, 28, PAPER, 1.5, true)
+		if id in ["brake","throttle"]:
+			for endpoint in range(2):
+				var mark=geo.pivot+Vector2(0,-geo.pivot.distance_to(geo.grip)).rotated(lerpf(-0.55,0.55,float(endpoint)))
+				draw_string(font,mark+Vector2(-8,-12),["0","100"][endpoint],HORIZONTAL_ALIGNMENT_LEFT,30,12,PAPER)
 		var label = {"pump": "КАЧАЙ ↕", "brake": "%d%%" % (float(model.state.brake) * 100), "throttle": "%d%%" % (float(model.state.throttle) * 100), "gear": ["Н", "1", "2"][int(model.state.gear)], "start": "ВКЛ" if model.state.engine else "ПУСК"}[id]
 		draw_string(font, geo.grip + Vector2(-25, -25), label, HORIZONTAL_ALIGNMENT_CENTER, 80, 16, PAPER)
 
@@ -1556,7 +1588,7 @@ func draw_tooltip() -> void:
 	var text = ""
 	for hit in grip_hits:
 		if hit.position.distance_to(mouse) < 31:
-			text = {"pump": "Зажми и качай вверх-вниз", "brake": "Тормоз: вверх — затянуть, вниз — отпустить", "throttle": "Подача: вверх — больше, вниз — меньше", "gear": "Н / 1 / 2: потяни вверх или вниз", "start": "Тумблер: вверх — запуск, вниз — выключить"}[hit.id]
+			text = {"pump": "Зажми хват и веди его по дуге рычага", "brake": "Тормоз: веди рукоять по дуге от 0 до 100%", "throttle": "Подача: веди рукоять по дуге от 0 до 100%", "gear": "Перетащи рукоять к Н, 1 или 2", "start": "Щёлкни тумблер, чтобы включить или выключить"}[hit.id]
 	for hit in cargo_hits:
 		if hit.rect.has_point(mouse):
 			for item in model.state.cargo:

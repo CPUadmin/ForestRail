@@ -1,0 +1,36 @@
+{
+  "version": "1.2.0-preview.9",
+  "native_checks": {
+    "check_motor_controls": {
+      "conditions": 472,
+      "success": true,
+      "stderr": ""
+    },
+    "check_interaction": {
+      "conditions": 23,
+      "success": true,
+      "stderr": ""
+    },
+    "check_handcar_input": {
+      "conditions": 53,
+      "success": true,
+      "stderr": "WARNING: 2 ObjectDB instances were leaked at exit (run with `--verbose` for details).\n   at: cleanup (core/object/object.cpp:2536)"
+    },
+    "check_layout_p7": {
+      "conditions": 495,
+      "success": true,
+      "stderr": ""
+    }
+  },
+  "exe_sha256": "1a28ab44adbc48149a69a22d6f9eb7659fbc41d6f8efb9f6bf7699eac6c9dedd",
+  "profile": {
+    "unchanged": true,
+    "profile": "C:\\Users\\Lenovo\\AppData\\Local\\Programs\\ForestRail\\Profiles\\P8",
+    "hashes": {
+      "save_v2.json": "EE37AC5112826FA96B0DCAF6A6216C707631F29E540FF2A1404AA986F3AEC1BB",
+      "save_v2.backup.json": "B95FFE2187BCA87DF0839765E7783113FFDB9F072656E8A1ED7DAE76F3ED2CBF"
+    }
+  },
+  "twenty_minute_soak_repeated": false,
+  "human_trial": false
+}

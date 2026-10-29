@@ -36,18 +36,23 @@ func mouse(point: Vector2,pressed: bool) -> void:
 	get_tree().root.push_input(e,true)
 	await frame()
 
-func pull(id: String,dy: float) -> void:
+func pull(id: String,value: float) -> void:
 	var point=Vector2.ZERO
 	for hit in game.grip_hits:
 		if hit.id==id and hit.get("closeup",false): point=hit.position
 	check(point!=Vector2.ZERO,"visible closeup grip "+id)
 	await mouse(point,true)
 	check(game.drag==id,"real mouse captures "+id)
-	var e=InputEventMouseMotion.new()
-	e.position=point+Vector2(0,dy);e.relative=Vector2(0,dy);e.button_mask=MOUSE_BUTTON_MASK_LEFT
-	get_tree().root.push_input(e,true)
-	await frame()
-	await mouse(e.position,false)
+	var target=point
+	if id!="start":
+		var geo=game.control_geometry(id,true)
+		target=geo.pivot+Vector2(0,-geo.pivot.distance_to(geo.grip)).rotated(lerpf(-0.55,0.55,value))
+		var e=InputEventMouseMotion.new()
+		e.position=target;e.relative=target-point;e.button_mask=MOUSE_BUTTON_MASK_LEFT
+		get_tree().root.push_input(e,true)
+		await frame()
+		check(game.control_geometry(id,true).grip.distance_to(target)<0.01,"grip follows mouse arc "+id)
+	await mouse(target,false)
 	check(game.drag=="","release clears capture "+id)
 
 func energy_checks() -> void:
@@ -92,6 +97,36 @@ func energy_checks() -> void:
 	m.state.active.title="Дальний бор → Дальний бор"
 	check(not m.journey_heading().contains("Дальний бор → Дальний бор"),"heading independent from order title")
 
+func world_controls() -> void:
+	for id in ["handcar","motorcar","locomotive"]:
+		for facing in [-1,1]:
+			for zoom in [0.75,1.0,1.5]:
+				context="world "+id+" facing="+str(facing)+" zoom="+str(zoom)+" "
+				game.model=fixture(id);game.model.state.direction=facing
+				game.control_zoom=false;game.zoom_level=zoom;game.rebuild()
+				game.camera_s=100;game.camera_x=1040
+				await frame()
+				var point=Vector2.ZERO
+				for hit in game.grip_hits:
+					if hit.id=="brake": point=hit.position
+				await mouse(point+Vector2(3,1),true)
+				check(game.drag=="brake","world grip captures with offset")
+				var before=game.model.state.brake
+				game.camera_x+=30
+				var e=InputEventMouseMotion.new()
+				e.position=point;e.relative=Vector2.ZERO;e.button_mask=MOUSE_BUTTON_MASK_LEFT
+				get_tree().root.push_input(e,true)
+				check(absf(game.model.state.brake-before)<0.00001,"camera movement cannot apply brake")
+				var geo=game.lever_geometry("brake")
+				var desired=geo.pivot+Vector2(0,-geo.pivot.distance_to(geo.grip)).rotated(lerpf(-0.55,0.55,0.7))
+				var delta=game.body_transform(id,game.model.body_s(0)).basis_xform(desired-game.lever_target_point)
+				e=InputEventMouseMotion.new();e.position=point+delta;e.relative=delta;e.button_mask=MOUSE_BUTTON_MASK_LEFT
+				get_tree().root.push_input(e,true)
+				await frame()
+				check(absf(game.model.state.brake-0.7)<0.00001,"arc follows local mouse travel under facing and zoom")
+				await mouse(point+delta,false)
+				check(absf(game.model.state.brake-0.7)<0.00001 and game.drag=="","world setting persists on release")
+
 func run() -> void:
 	out_dir=ProjectSettings.globalize_path("res://../qa/v3_p5")
 	for arg in OS.get_cmdline_user_args():
@@ -116,31 +151,42 @@ func run() -> void:
 					await mouse(point,true);await mouse(point,false)
 			check(game.control_zoom,"pult opens with mouse "+id+str(resolution))
 			check(Rect2(Vector2.ZERO,Vector2(resolution)).encloses(game.control_zoom_rect()),"pult fits window")
-			await pull("throttle",-65)
+			await pull("throttle",0.5)
 			check(game.model.state.throttle>0.4,"throttle persists after release")
-			await pull("start",-30)
+			await pull("start",1)
 			check(not game.model.state.engine and game.toast.contains("0%"),"nonzero throttle startup rejected with reason")
-			await pull("throttle",130)
-			await pull("gear",-30)
-			await pull("start",-30)
+			await pull("throttle",0)
+			await pull("gear",0.5)
+			await pull("start",1)
 			check(not game.model.state.engine and game.toast.contains("нейтраль"),"startup in gear rejected with reason")
-			await pull("gear",30)
-			await pull("start",-30)
+			await pull("gear",0)
+			await pull("start",1)
 			check(game.model.state.engine,"mouse starts at neutral and zero throttle")
-			await pull("gear",-30)
+			await pull("start",0)
+			check(not game.model.state.engine,"second click turns engine off")
+			await pull("start",1)
+			var switch_point=game.control_geometry("start",true).grip
+			await mouse(switch_point,true)
+			var slip=InputEventMouseMotion.new()
+			slip.position=switch_point+Vector2(25,0);slip.relative=Vector2(25,0);slip.button_mask=MOUSE_BUTTON_MASK_LEFT
+			get_tree().root.push_input(slip,true)
+			await mouse(slip.position,false)
+			check(game.model.state.engine,"dragging away cancels switch click")
+			await pull("gear",0.5)
 			check(game.model.state.gear==1,"gear has fixed detent")
 			game.model.state.v=2
-			await pull("gear",-30)
+			await pull("gear",1)
 			check(game.model.state.gear==2 and game.model.state.v==2,"upshift while moving with zero throttle")
-			await pull("throttle",-80)
-			await pull("gear",30)
+			await pull("throttle",0.8)
+			await pull("gear",0.5)
 			check(game.model.state.gear==2 and game.toast.contains("15%"),"loaded shift rejected with nearby feedback")
-			await pull("brake",-80)
+			await pull("brake",0.8)
 			var value=game.model.state.brake
 			await frame()
 			check(value>0.5 and game.model.state.brake==value,"brake stays after release without simultaneous holds")
 			get_tree().root.get_texture().get_image().save_png(out_dir.path_join(id+"_"+str(resolution.x)+".png"))
 			game.control_zoom=false
+	await world_controls()
 	var result={"checks":checks,"failures":failures,"input":"actual Viewport.push_input; fixtures set only initial state and gear test speed"}
 	var file=FileAccess.open(out_dir.path_join("motor_results.json"),FileAccess.WRITE)
 	file.store_string(JSON.stringify(result,"\t"));file.close()

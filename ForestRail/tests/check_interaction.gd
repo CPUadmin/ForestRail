@@ -86,8 +86,10 @@ func run() -> void:
 		if grip.id == "brake": brake_grip = grip.position
 		if grip.id == "pump": pump_grip = grip.position
 	press(brake_grip)
-	motion(Vector2(0, 140))
-	release(brake_grip + Vector2(0, 140))
+	var geo=game.lever_geometry("brake")
+	var released=game.body_transform("handcar",game.model.body_s(0))*(geo.pivot+Vector2(0,-geo.pivot.distance_to(geo.grip)).rotated(-0.55))
+	motion(released-brake_grip,released)
+	release(released)
 	check(game.model.state.brake == 0, "physical brake drag")
 	press(pump_grip)
 	var last_point=pump_grip

@@ -46,7 +46,9 @@ func brake(value: float) -> void:
 	for hit in game.grip_hits:
 		if hit.id=="brake" and not hit.get("closeup",false): point=hit.position
 	cursor=point;await button(point,true)
-	var delta=Vector2(0,(float(game.model.state.brake)-value)*130)
+	var geo=game.lever_geometry("brake")
+	var target=game.body_transform(game.model.vehicle_id(),game.model.body_s(0))*(geo.pivot+Vector2(0,-geo.pivot.distance_to(geo.grip)).rotated(lerpf(-0.55,0.55,value)))
+	var delta=target-point
 	await move(delta);await button(cursor,false)
 	check(absf(float(game.model.state.brake)-value)<0.01,"soak brake changes through mouse")
 
