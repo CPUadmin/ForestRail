@@ -24,6 +24,7 @@ report={'version':'1.2.0-preview.8','stage':'P8 automated part',
         'soak':soak,'save_compatibility':storage,'native_checks':native,
         'prior_p7_evidence':'qa/presentation_p7.json','human_novice_trial':'not performed','full_TZ_accepted':False,
         'candidate_difference':'version number, credits stage label and QA registrations; player model/UI unchanged from P7'}
+if (folder/'memory_summary.json').exists(): report['memory_sampling']=json.loads((folder/'memory_summary.json').read_text(encoding='utf-8'))
 report_path=root/'qa/acceptance_p8.json'
 report_path.write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding='utf-8')
 play=folder/'Play_P8.cmd'
