@@ -1,0 +1,69 @@
+{
+  "audit_date_moscow": "2026-10-30",
+  "source_commit": "f6351f4a6c9128b9ff16a3d134e81345069ae812",
+  "version": "1.2.0-preview.9",
+  "new_spec": "3.1",
+  "basis_chat": "01a17dc9-4ff2-7713-96f0-63fb09f7891f",
+  "spec_file_sha256": {
+    "UPDATE_v3_1_RU.md": "6c5e62b260e6ee32bb07eaecec3fec4f8c330155cef80c3ec217d139d290987f",
+    "VEHICLE_CLASSES_v3_1_RU.md": "7612ec9e9da78e878e2d655510f690fd705a8845c4023d8eaa6d04ed2052b17e",
+    "VEHICLE_APPEARANCE_v3_1_RU.md": "67e5cfea29e4018325fd4637a1220e17da065b04a06e075d4f84a266bedecace",
+    "SIDE_VIEW_MAP_v3_1_RU.md": "678da2c7a2c82db09460e66021c57647e857220131d91efad9682234c8aa3860",
+    "AI_IMPLEMENTATION_STAGES_v3.md": "24815546e49ee90c9df8dfbf1d84c11354420ba7f08ab5e09f09695bbaad42a5"
+  },
+  "fresh_source_model_probe": {
+    "electric": [
+      {
+        "acceleration_mps2": 1.96076,
+        "fraction": 1.0,
+        "speed_mps": 0.0326793333333333
+      },
+      {
+        "acceleration_mps2": 1.96076,
+        "fraction": 0.75,
+        "speed_mps": 0.0326793333333333
+      },
+      {
+        "acceleration_mps2": 1.96076,
+        "fraction": 0.5,
+        "speed_mps": 0.0326793333333333
+      },
+      {
+        "acceleration_mps2": 1.96076,
+        "fraction": 0.25,
+        "speed_mps": 0.0326793333333333
+      },
+      {
+        "acceleration_mps2": 1.96076,
+        "fraction": 0.15,
+        "speed_mps": 0.0326793333333333
+      },
+      {
+        "acceleration_mps2": 0.0,
+        "fraction": 0.0,
+        "speed_mps": 0.0
+      }
+    ],
+    "manual_dead_point_push_available": true,
+    "manual_dead_point_speed_after_2s": 0.0,
+    "petrol_requested_gear_4_actual": 2,
+    "scope": "read-only model probes, synthetic flat fixtures, no career save writes",
+    "slots": {
+      "handcar": 2,
+      "locomotive": 0,
+      "motorcar": 2
+    },
+    "vehicles": [
+      "handcar",
+      "motorcar",
+      "locomotive"
+    ]
+  },
+  "asset_originals_checked": 48,
+  "asset_missing_matching_copies": [],
+  "installed_exe_sha256": "1a28ab44adbc48149a69a22d6f9eb7659fbc41d6f8efb9f6bf7699eac6c9dedd",
+  "installed_external_script_probe": "No report produced; terminated only own headless probe. Fresh probe results refer to source model, not installed runtime. Installed EXE SHA256 matches the previously tested delivery.",
+  "fresh_full_gui_run": false,
+  "human_trial": false,
+  "scope": "audit only; no game, career save or foreign spec changes"
+}
