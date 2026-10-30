@@ -1,0 +1,49 @@
+{
+  "version": "1.2.0-preview.10",
+  "speed": {
+    "cases": [
+      {
+        "cadence_at_30_hz": 1.00248767379627,
+        "loaded": false,
+        "mass_kg": 180.0,
+        "seconds": [
+          10,
+          30,
+          60,
+          120
+        ],
+        "speeds_kmh": [
+          5.07805717822213,
+          14.1535308796324,
+          24.4216966774291,
+          33.051340597659
+        ]
+      },
+      {
+        "cadence_at_30_hz": 1.00248767379627,
+        "loaded": true,
+        "mass_kg": 250.0,
+        "seconds": [
+          10,
+          30,
+          60,
+          120
+        ],
+        "speeds_kmh": [
+          3.61859096484842,
+          9.40726938755654,
+          17.7202258726486,
+          27.2716628363438
+        ]
+      }
+    ],
+    "controller": "phase-following target, 60 Hz, flat road; not a human trial",
+    "success": true
+  },
+  "native_input_checks": 95,
+  "native_interaction_checks": 23,
+  "source_energy_checks": 10493,
+  "source_campaign": "13/13",
+  "human_trial": false,
+  "exe_sha256": "6347f20698b512e2d9e917502970a4a937e478be5b588eca478df470fad11cbf"
+}

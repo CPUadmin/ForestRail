@@ -40,9 +40,11 @@ func move(delta: Vector2) -> void:
 	get_tree().root.push_input(event,true)
 	await frame(1)
 
+var grip_side=1.0
+
 func point_for_pump() -> Vector2:
 	for hit in game.grip_hits:
-		if hit.id=="pump": return hit.position
+		if hit.id=="pump" and float(hit.get("side",1.0))==grip_side: return hit.position
 	return Vector2.ZERO
 
 func grab(offset: Vector2 = Vector2.ZERO) -> void:
@@ -53,7 +55,7 @@ func grab(offset: Vector2 = Vector2.ZERO) -> void:
 
 func target(angle: float) -> void:
 	var pose=game.model.handcar.pose()
-	var desired=pose.rocker+Vector2(cos(angle),sin(angle))*float(game.model.handcar.config.grip_radius)
+	var desired=pose.rocker+Vector2(cos(angle),sin(angle))*float(game.model.handcar.config.grip_radius)*grip_side
 	var local_delta=desired-game.pump_target_point
 	var delta=game.body_transform("handcar",game.model.body_s(0)).basis_xform(local_delta*game.ArtV3.PX)
 	await move(delta)
@@ -76,24 +78,27 @@ func run() -> void:
 	await frame()
 	for facing in [-1,1]:
 		for zoom in [0.75,1.0,1.5]:
-			bench.reset_fixture(true)
-			game.model.state.direction=facing
-			game.zoom_level=zoom
-			await grab(Vector2(8,2))
-			var before=game.model.handcar.phase
-			var initial_target=game.model.hand_drive.target_angle
-			check(absf(initial_target-game.model.handcar.pose().angle)<1e-7,"capture offset has no target snap")
-			game.camera_s+=3;game.camera_x+=40
-			await move(Vector2.ZERO)
-			check(absf(game.model.hand_drive.target_angle-initial_target)<1e-5,"camera motion and zero event leave hand force unchanged")
-			await target(initial_target+0.28)
-			check(absf(game.model.hand_drive.target_angle-initial_target-0.28)<0.0001,"local target invariant under zoom/facing")
-			check(game.model.handcar.phase==before,"mouse target does not teleport phase")
-			for i in range(45): game._physics_process(1.0/60)
-			check(game.model.state.v*facing>0.05,"mouse effort moves coupled drive")
-			await button(cursor,false)
-			check(not game.model.hand_drive.held,"release removes hand force")
+			for grip_side_value in [-1.0,1.0]:
+				grip_side=grip_side_value
+				bench.reset_fixture(true)
+				game.model.state.direction=facing
+				game.zoom_level=zoom
+				await grab(Vector2(8,2))
+				var before=game.model.handcar.phase
+				var initial_target=game.model.hand_drive.target_angle
+				check(absf(initial_target-game.model.handcar.pose().angle)<1e-7,"capture offset has no target snap")
+				game.camera_s+=3;game.camera_x+=40
+				await move(Vector2.ZERO)
+				check(absf(game.model.hand_drive.target_angle-initial_target)<1e-5,"camera motion and zero event leave hand force unchanged")
+				await target(initial_target+0.28)
+				check(absf(game.model.hand_drive.target_angle-initial_target-0.28)<0.0001,"local target invariant under zoom/facing")
+				check(game.model.handcar.phase==before,"mouse target does not teleport phase")
+				for i in range(45): game._physics_process(1.0/60)
+				check(game.model.state.v*facing>0.05,"mouse effort moves coupled drive")
+				await button(cursor,false)
+				check(not game.model.hand_drive.held,"release removes hand force")
 	# Record empty and loaded driving with real GUI events, then release for coast.
+	grip_side=1.0
 	for loaded in [false,true]:
 		bench.reset_fixture(loaded)
 		await grab()

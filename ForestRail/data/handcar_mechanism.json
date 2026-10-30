@@ -8,9 +8,9 @@
   "rod_length": 1.0500042031090413,
   "grip_radius": 0.9,
   "assembly_branch": 1,
-  "gear_ratio": 1.75,
+  "gear_ratio": 6.3,
   "gear_ratio_definition": "wheel angle = crank phase * gear_ratio; open chain between separate crank and wheel shafts",
   "drive_sprocket_radius": 0.14,
-  "wheel_sprocket_radius": 0.08,
-  "calibration": "Rocker pin matches the original lever at 1.8 m width. Separate crankshaft below deck drives the right axle via a visible 1.75:1 chain."
+  "wheel_sprocket_radius": 0.022222222222222223,
+  "calibration": "Existing rocker geometry retained. Fixed 6.3:1 speed transmission; about one crank cycle per second at 30 km/h."
 }

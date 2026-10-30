@@ -18,7 +18,7 @@ func _process(_delta: float) -> void:
 	queue_redraw()
 
 func nominal_speed() -> float:
-	if game.model.vehicle_id() == "handcar": return 3.34 * 3.6
+	if game.model.vehicle_id() == "handcar": return 30.0
 	var speeds = game.model.object_stats(game.model.vehicle_id()).speeds
 	return maxf(float(speeds[0]),float(speeds[1])) * 3.6
 

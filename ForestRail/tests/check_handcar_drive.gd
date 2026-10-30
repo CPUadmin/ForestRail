@@ -145,7 +145,11 @@ func run() -> void:
 	var saw_negative=false
 	for i in range(90): InputDriver.pull(reverse,-1);reverse.physics_step(1.0/60);saw_negative=saw_negative or reverse.hand_drive.last.hand_work<0
 	check(saw_negative and reverse.state.v<initial_v,"opposing effort brakes instead of adding forward drive")
-	for i in range(360): InputDriver.pull(reverse,-1);reverse.physics_step(1.0/60)
+	# The taller fixed speed transmission trades wheel torque for cadence.
+	# Allow a bounded 30 s reversal rather than the old low-geared 6 s.
+	for i in range(1800):
+		InputDriver.pull(reverse,-1);reverse.physics_step(1.0/60)
+		if reverse.state.v< -0.1: break
 	check(reverse.state.v< -0.1,"sustained reverse effort reverses after slowing")
 	# Heights and friction independently account for downhill/uphill energy.
 	for slope in [-0.04,0.04]:

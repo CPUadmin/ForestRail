@@ -84,7 +84,7 @@ func run() -> void:
 	var pump_grip = Vector2.ZERO
 	for grip in game.grip_hits:
 		if grip.id == "brake": brake_grip = grip.position
-		if grip.id == "pump": pump_grip = grip.position
+		if grip.id == "pump" and float(grip.get("side",1.0))>0: pump_grip = grip.position
 	press(brake_grip)
 	var geo=game.lever_geometry("brake")
 	var released=game.body_transform("handcar",game.model.body_s(0))*(geo.pivot+Vector2(0,-geo.pivot.distance_to(geo.grip)).rotated(-0.55))

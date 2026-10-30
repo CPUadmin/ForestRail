@@ -61,6 +61,7 @@ var lever_travel = 0.0
 var lever_click_origin = Vector2.ZERO
 var pump_grab_offset = Vector2.ZERO
 var pump_target_point = Vector2.ZERO
+var pump_grip_side = 1.0
 var push_cursor = Vector2.ZERO
 var grip_hits: Array = []
 var slot_hits: Array = []
@@ -850,7 +851,7 @@ func build_modal(size: Vector2) -> void:
 		add_button(box, "Готово", close_modal)
 	elif modal_kind == "help":
 		add_label(box, "Как играть", 32)
-		add_label(box, "1. В депо выбери рейс и нажми «К погрузке». Перетащи каждый предмет с площадки в свободное место на машине или вагоне. Отправляйся, когда всё погружено.\n\n2. Отпусти тормоз: веди красную рукоять по дуге к 0%. На ручной дрезине веди выделенный правый конец деревянного рычага по его дуге. На спуске можно катиться по инерции.\n\n3. Перед станцией плавно переведи тормоз к 100%. Остановись в пределах платформы, затяни тормоз до 100% и перетащи нужные грузы на площадку. У каждого предмета указана станция.\n\n4. После последней доставки убери подачу, разверни пустой состав кнопкой на станции и вернись в Лесную. Деньги выдаются в домашнем депо.\n\n5. Моторная дрезина: передача Н, подача 0%, щёлкни тумблер запуска. Затем выбери 1 и добавь подачу. На ровном участке можно включить 2, сначала снизив подачу ниже 15%. Бензин пополняется в депо.\n\n6. Электролокомотив: вместо бензина аккумулятор. Режим 1 — тяговый, 2 — ходовой. Без подачи он катится по инерции; торможение возвращает четверть доступной энергии. Зарядка бесплатна в депо.\n\n7. В гараже остаются все купленные машины. Вагоны выбираются отдельно, улучшения следуют за их ID. Для финального рейса нужны шесть мест: три обычных вагона или два расширенных.\n\nЗадний ход: остановись, затяни тормоз и выбери стрелку направления. На ручной дрезине направление задаётся усилием на рычаге с отпущенным тормозом. Обратное усилие сначала замедляет движение. В мёртвой точке потяни край платформы, чтобы подтолкнуть машину. Состав при этом сохраняет положение и груз.\n\nКолесо мыши — приблизить машину. Esc — пауза. При потере фокуса игра останавливается. Если застрял или кончилась энергия, вызови помощь депо из паузы.", 20)
+		add_label(box, "1. В депо выбери рейс и нажми «К погрузке». Перетащи каждый предмет с площадки в свободное место на машине или вагоне. Отправляйся, когда всё погружено.\n\n2. Отпусти тормоз: веди красную рукоять по дуге к 0%. На ручной дрезине веди любой конец деревянного рычага по его дуге. На спуске можно катиться по инерции.\n\n3. Перед станцией плавно переведи тормоз к 100%. Остановись в пределах платформы, затяни тормоз до 100% и перетащи нужные грузы на площадку. У каждого предмета указана станция.\n\n4. После последней доставки убери подачу, разверни пустой состав кнопкой на станции и вернись в Лесную. Деньги выдаются в домашнем депо.\n\n5. Моторная дрезина: передача Н, подача 0%, щёлкни тумблер запуска. Затем выбери 1 и добавь подачу. На ровном участке можно включить 2, сначала снизив подачу ниже 15%. Бензин пополняется в депо.\n\n6. Электролокомотив: вместо бензина аккумулятор. Режим 1 — тяговый, 2 — ходовой. Без подачи он катится по инерции; торможение возвращает четверть доступной энергии. Зарядка бесплатна в депо.\n\n7. В гараже остаются все купленные машины. Вагоны выбираются отдельно, улучшения следуют за их ID. Для финального рейса нужны шесть мест: три обычных вагона или два расширенных.\n\nЗадний ход: остановись, затяни тормоз и выбери стрелку направления. На ручной дрезине направление задаётся усилием на рычаге с отпущенным тормозом. Обратное усилие сначала замедляет движение. В мёртвой точке потяни край платформы, чтобы подтолкнуть машину. Состав при этом сохраняет положение и груз.\n\nКолесо мыши — приблизить машину. Esc — пауза. При потере фокуса игра останавливается. Если застрял или кончилась энергия, вызови помощь депо из паузы.", 20)
 		if screen != "menu":
 			add_button(box, "Подсказки: " + ("вкл." if model.state.tutorial else "выкл."), func(): model.state.tutorial = not model.state.tutorial; save_game(); rebuild())
 		add_button(box, "Понятно", close_modal)
@@ -976,7 +977,7 @@ func _input(event: InputEvent) -> void:
 			# Accumulate local cursor travel. Camera translation never changes
 			# the target; capture offset is retained without snapping the grip.
 			pump_target_point+=outer.affine_inverse().basis_xform(event.relative)*float(settings.sensitivity)/ArtV3.PX
-			model.set_pump_target((pump_target_point-model.handcar.pose().rocker).angle(),model.hand_drive.clock+Engine.get_physics_interpolation_fraction()/60.0)
+			model.set_pump_target(((pump_target_point-model.handcar.pose().rocker)*pump_grip_side).angle(),model.hand_drive.clock+Engine.get_physics_interpolation_fraction()/60.0)
 		elif drag in ["brake","throttle","gear","start"]:
 			lever_travel+=event.relative.length()
 			if drag!="start":
@@ -1042,7 +1043,10 @@ func _unhandled_input(event: InputEvent) -> void:
 			model.reset_input()
 			if drag=="pump":
 				var outer=body_transform(model.vehicle_id(),model.body_s(0))
-				pump_grab_offset=outer.affine_inverse()*mouse/ArtV3.PX-model.handcar.pose().grip_right
+				pump_grip_side=float(nearest.get("side",1.0))
+				var pose=model.handcar.pose()
+				var grip=pose.rocker+(pose.grip_right-pose.rocker)*pump_grip_side
+				pump_grab_offset=outer.affine_inverse()*mouse/ArtV3.PX-grip
 				pump_target_point=outer.affine_inverse()*mouse/ArtV3.PX-pump_grab_offset
 				model.grab_pump()
 			Input.set_default_cursor_shape(Input.CURSOR_DRAG)
@@ -1466,12 +1470,16 @@ func draw_controls(body_transform: Transform2D, show_labels: bool = true) -> voi
 		draw_style_box(style(Color("34443c"),Color("918363"),3),Rect2(Vector2(-1.4,-1.80)*ArtV3.PX,Vector2(1.04,0.64)*ArtV3.PX))
 	var hover = get_global_mouse_position()
 	if model.vehicle_id()=="handcar":
+		var left_grip=model.handcar.pose().grip_left*ArtV3.PX
+		if drag=="pump" and pump_grip_side<0 or hover.distance_to(body_transform*left_grip)<24:
+			draw_arc(left_grip,9,0,TAU,28,PAPER,1.5,true)
 		if model.can_push_handcar():
 			draw_string(font,Vector2(-118,20),"Подтолкни край платформы ↔",HORIZONTAL_ALIGNMENT_LEFT,320,16,PAPER)
 		if drag=="pump":
 			var pose=model.handcar.pose()
-			var target=(pose.rocker+Vector2(cos(model.hand_drive.target_angle),sin(model.hand_drive.target_angle))*float(model.handcar.config.grip_radius))*ArtV3.PX
-			draw_line(pose.grip_right*ArtV3.PX,target,Color("c5a76b"),1.0,true)
+			var target=(pose.rocker+Vector2(cos(model.hand_drive.target_angle),sin(model.hand_drive.target_angle))*float(model.handcar.config.grip_radius)*pump_grip_side)*ArtV3.PX
+			var grip=pose.rocker+(pose.grip_right-pose.rocker)*pump_grip_side
+			draw_line(grip*ArtV3.PX,target,Color("c5a76b"),1.0,true)
 			draw_arc(target,7,0,TAU,24,Color("e1c989"),1.2,true)
 	for id in ids:
 		var geo = lever_geometry(id)
@@ -1503,6 +1511,8 @@ func add_world_hits(id: String, index: int, transform: Transform2D) -> void:
 		var ids = ["pump", "brake"] if model.vehicle_id() == "handcar" else ["brake", "throttle", "gear", "start"]
 		for control_id in ids:
 			grip_hits.append({"id": control_id, "position": transform * lever_geometry(control_id).grip})
+		if id=="handcar":
+			grip_hits.append({"id":"pump","side":-1.0,"position":transform*(model.handcar.pose().grip_left*ArtV3.PX)})
 	for slot in model.slots():
 		if slot.owner != id: continue
 		var p = transform * slot_local(id, int(slot.index))
