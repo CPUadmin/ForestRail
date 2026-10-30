@@ -191,6 +191,7 @@ func run() -> void:
 	check(storage.write(fresh) and storage.write(fresh), "new career saves twice")
 	check(int(storage.read_valid(SaveGame.PREVIOUS_CAREER).money) == career_money, "previous career survives the new career's saves")
 	buffer_checks()
+	charge_traction_checks()
 	worst_economy()
 	var report = {"checks": checks, "failures": failures, "engine": Engine.get_version_info().string}
 	var out = FileAccess.open("user://qa_model/results.json", FileAccess.WRITE)
@@ -217,6 +218,33 @@ func buffer_checks() -> void:
 		check(m.state.v == 0, "buffer stop halts the train at %.1f m/s" % speed)
 		var health = float(m.state.cargo[0].health)
 		check(health == 1.0 if speed < Model.BUFFER_SAFE_SPEED else health < 1.0, "buffer impact at %.1f m/s damages only fast fragile cargo" % speed)
+
+func charge_traction_checks() -> void:
+	var m = Model.new()
+	m.new_game(42)
+	m.state.money = 5000
+	m.buy_vehicle("motorcar")
+	m.buy_vehicle("locomotive")
+	var tank = float(m.object_stats("locomotive").tank)
+	for point in [[1.0, 1.0], [0.75, 1.0], [0.5, 0.7], [0.25, 0.3], [0.15, 0.15], [0.0, 0.0], [0.6, 0.82], [0.2, 0.225]]:
+		m.state.fleet_by_id.locomotive.fuel = tank * point[0]
+		check(absf(m.charge_traction_factor() - point[1]) < 0.0001, "electric traction %.0f%% charge gives %.1f%% effort" % [point[0] * 100, point[1] * 100])
+	m.state.fleet_by_id.motorcar.fuel = 0.1
+	check(m.vehicle_id() == "locomotive", "locomotive selected for traction scenario")
+	# The same start on the flat at full and at a quarter charge.
+	var speeds: Array = []
+	for charge in [1.0, 0.25]:
+		m.state.fleet_by_id.locomotive.fuel = tank * charge
+		m.state.phase = "route"
+		m.state.s = 120.0
+		m.state.v = 0.0
+		m.state.brake = 0.0
+		m.state.engine = true
+		m.state.gear = 1
+		m.state.throttle = 1.0
+		for i in range(60): m.physics_step(1.0 / 60)
+		speeds.append(float(m.state.v))
+	check(speeds[1] > 0 and speeds[1] < speeds[0] * 0.6, "quarter charge pulls clearly weaker than full charge")
 
 func worst_economy() -> void:
 	var m = Model.new()

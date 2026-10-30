@@ -442,9 +442,23 @@ func selected_reward() -> int:
 	if value==0: return 0
 	return maxi(1,roundi(float(state.active.offer_reward)*value/maxf(1,float(state.active.offer_value))))
 
+# Share of the maximum tractive effort the battery can still deliver (TZ 3.1,
+# N6). It scales force, never the current speed; other machines return 1.
+func charge_traction_factor() -> float:
+	var curve=vehicle_base().get("charge_traction_curve",[])
+	if curve.is_empty(): return 1.0
+	var tank=float(object_stats(vehicle_id()).tank)
+	var charge=clampf(float(state.fleet_by_id[vehicle_id()].fuel)/maxf(0.000001,tank),0,1)
+	for i in range(1,curve.size()):
+		if charge<=float(curve[i][0]):
+			var a=curve[i-1]
+			var b=curve[i]
+			return lerpf(float(a[1]),float(b[1]),(charge-float(a[0]))/maxf(0.000001,float(b[0])-float(a[0])))
+	return float(curve[-1][1])
+
 func loading_preview() -> Dictionary:
 	var loaded=0
-	var signature=vehicle_id()+str(state.consist_ids)+str(route.seed_value)
+	var signature=vehicle_id()+str(state.consist_ids)+str(route.seed_value)+str(snappedf(charge_traction_factor(),0.01))
 	for item in state.cargo:
 		signature+=str(item.id)+str(item.slot)
 		if item.slot!="" and not item.delivered: loaded+=1
@@ -471,7 +485,7 @@ func loading_preview() -> Dictionary:
 	var available=220.0/1.4
 	if vehicle_id()!="handcar":
 		var stats=object_stats(vehicle_id())
-		available=minf(float(stats.traction[0])*maxf(0,1-pow(1.4/float(stats.speeds[0]),2)),0.35*float(stats.mass)*G)
+		available=minf(float(stats.traction[0])*maxf(0,1-pow(1.4/float(stats.speeds[0]),2))*charge_traction_factor(),0.35*float(stats.mass)*G)
 	var ratio=required/maxf(1,available)
 	var difficulty="Потребуется меньшая загрузка" if ratio>1 else ("Тяжёлый подъём" if ratio>0.7 else "Легко")
 	loading_cache={"signature":signature,"loaded":loaded,"offered":int(state.active.get("offered_count",state.cargo.size())),"capacity":capacity(),"mass_kg":train_mass(),"reward":selected_reward(),"max_grade":steepest,"first_hill_m":first_hill,"required_force_n":required,"available_force_n":available,"difficulty":difficulty,"assessment_speed_mps":1.4}
@@ -702,7 +716,7 @@ func physics_step(dt: float) -> void:
 				state.engine = false
 			if int(state.gear) > 0:
 				var gear = int(state.gear) - 1
-				var traction = float(stats.traction[gear]) * maxf(0, 1 - pow(absf(float(state.v)) / float(stats.speeds[gear]), 2))
+				var traction = float(stats.traction[gear]) * maxf(0, 1 - pow(absf(float(state.v)) / float(stats.speeds[gear]), 2)) * charge_traction_factor()
 				var adhesion = 0.35 * float(stats.mass) * G * cos(route.slope(float(state.s)))
 				drive = float(drive_direction()) * float(state.throttle) * minf(traction, adhesion)
 	var brake = float(state.brake) * max_brake

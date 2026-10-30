@@ -72,6 +72,8 @@ var cargo_hits: Array = []
 var body_hits: Array = []
 var toast = ""
 var toast_seconds = 0.0
+var charge_strip_rect = Rect2()
+var charge_band = 0
 var autosave = 0.0
 var refresh_seconds = 0.0
 var last_action_key = ""
@@ -640,6 +642,7 @@ func draw_zone_label() -> void:
 func update_hud() -> void:
 	if screen != "game" or hud == null:
 		return
+	update_charge_warning()
 	var state = model.state
 	var destination = model.next_destination()
 	var target_s = float(model.route.station_s[station_number(destination)])
@@ -1416,6 +1419,7 @@ func draw_body(id: String, s: float, controls: bool) -> void:
 	var body_transform = body_transform(id,s)
 	ellipse(Vector2(10, 7), Vector2(art.body_width(id)*0.48, 7), Color(0.05, 0.08, 0.05, 0.23))
 	art.draw_vehicle(self,id,s,int(model.state.direction) if screen!="depot" else 1,body_transform,model,controls)
+	if id=="locomotive" and screen=="game": draw_charge_strip(body_transform)
 	var stats = model.object_stats(id)
 	for index in range(int(stats.slots)):
 		var loc = slot_local(id, index)
@@ -1626,6 +1630,48 @@ func draw_cargo_feedback() -> void:
 		var point=Vector2(delivery_ghost.from).lerp(delivery_ghost.to,smoothstep(0,0.3,float(delivery_ghost.time)))
 		grounded_sprite(delivery_ghost.sprite,point,44,Color(1,1,1,alpha))
 
+# Short battery strip on the locomotive body (TZ 3.1, N6): readable at any
+# zoom, colour only, exact numbers on hover.
+func draw_charge_strip(body_transform: Transform2D) -> void:
+	var fraction=charge_fraction()
+	var bounds=art.body_bounds("locomotive")
+	var anchor=body_transform*Vector2(bounds.position.x+bounds.size.x*0.68,art.deck_y("locomotive")-10)
+	var rect=Rect2(anchor-Vector2(36,5),Vector2(72,10))
+	draw_set_transform_matrix(Transform2D.IDENTITY)
+	draw_style_box(style(Color(INK,0.9),Color(0.96,0.93,0.84,0.55),4),rect.grow(2))
+	if fraction>0: draw_style_box(style(charge_color(fraction),Color.TRANSPARENT,3),Rect2(rect.position,Vector2(rect.size.x*fraction,rect.size.y)))
+	draw_set_transform_matrix(body_transform)
+	charge_strip_rect=rect.grow(10)
+
+func charge_fraction() -> float:
+	return clampf(float(model.state.fleet_by_id.locomotive.fuel)/maxf(0.000001,float(model.object_stats("locomotive").tank)),0,1)
+
+func charge_color(fraction: float) -> Color:
+	var green=Color("7fab85")
+	var amber=Color("e2a33c")
+	var red=Color("d9533c")
+	if fraction>=0.5: return green
+	if fraction>=0.25: return green.lerp(amber,(0.5-fraction)/0.25)
+	if fraction>=0.15: return amber
+	return red
+
+# Warn once per threshold crossed downward; regeneration must lift the charge
+# 2% above a threshold before it re-arms, so braking does not cause flicker.
+func update_charge_warning() -> void:
+	if model.vehicle_id()!="locomotive":
+		charge_band=0
+		return
+	var fraction=charge_fraction()
+	var thresholds=[0.5,0.25,0.15]
+	var band=0
+	for i in range(thresholds.size()):
+		if fraction<thresholds[i]: band=i+1
+	if band>charge_band:
+		notify(["Заряд ниже 50%: тяга слабеет","Заряд 25%: тяги мало для подъёмов","Заряд 15%: тяга почти исчерпана. Зарядка в депо"][band-1])
+		charge_band=band
+	elif band<charge_band and fraction>thresholds[charge_band-1]+0.02:
+		charge_band=band
+
 func draw_tooltip() -> void:
 	if drag != "" or control_zoom: return
 	var mouse = get_global_mouse_position()
@@ -1633,6 +1679,8 @@ func draw_tooltip() -> void:
 	for hit in grip_hits:
 		if hit.position.distance_to(mouse) < 31:
 			text = {"pump": "Зажми хват и веди его по дуге рычага", "brake": "Тормоз: веди рукоять по дуге от 0 до 100%", "throttle": "Подача: веди рукоять по дуге от 0 до 100%", "gear": "Перетащи рукоять к Н, 1 или 2", "start": "Щёлкни тумблер, чтобы включить или выключить"}[hit.id]
+	if text=="" and screen=="game" and model.vehicle_id()=="locomotive" and charge_strip_rect.has_point(mouse):
+		text="Заряд %d%% · доступная тяга %d%%" % [roundi(charge_fraction()*100),roundi(model.charge_traction_factor()*100)]
 	for hit in cargo_hits:
 		if hit.rect.has_point(mouse):
 			for item in model.state.cargo:
