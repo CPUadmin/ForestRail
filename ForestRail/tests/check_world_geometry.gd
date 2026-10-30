@@ -103,6 +103,14 @@ func key(value: int) -> void:
 	get_tree().root.push_input(event,true)
 	await frame()
 
+func arc_drag(id: String, value: float) -> void:
+	var point=grip(id,true)
+	var geo=game.control_geometry(id,true)
+	var target=geo.pivot+Vector2(0,-geo.pivot.distance_to(geo.grip)).rotated(lerpf(-0.55,0.55,value))
+	await button(point,true)
+	await motion(target,target-point)
+	await button(target,false)
+
 func grip(id: String, closeup: bool = false) -> Vector2:
 	for hit in game.grip_hits:
 		if hit.id==id and bool(hit.get("closeup",false))==closeup: return hit.position
@@ -240,20 +248,13 @@ func run() -> void:
 	await motion(point+Vector2(0,-30),Vector2(0,-30))
 	await button(point+Vector2(0,-30),false)
 	check(game.model.state.engine,"closeup starts engine through mouse")
-	point=grip("gear",true)
-	await button(point,true)
-	await motion(point+Vector2(0,-30),Vector2(0,-30))
-	await button(point+Vector2(0,-30),false)
+	# Since preview.9 the levers follow their visible arc (LEVER_CONTROLS_RU.md),
+	# so the drags go along the arc instead of straight up or down.
+	await arc_drag("gear",0.5)
 	check(game.model.state.gear==1,"closeup selects first gear")
-	point=grip("throttle",true)
-	await button(point,true)
-	await motion(point+Vector2(0,-65),Vector2(0,-65))
-	await button(point+Vector2(0,-65),false)
+	await arc_drag("throttle",0.5)
 	check(absf(game.model.state.throttle-0.5)<0.001,"closeup throttle follows drag")
-	point=grip("brake",true)
-	await button(point,true)
-	await motion(point+Vector2(0,130),Vector2(0,130))
-	await button(point+Vector2(0,130),false)
+	await arc_drag("brake",0.0)
 	check(game.model.state.brake==0,"closeup releases brake")
 	await key(KEY_ESCAPE)
 	check(not game.control_zoom and not game.paused,"Escape closes closeup")

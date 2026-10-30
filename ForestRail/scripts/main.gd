@@ -621,6 +621,22 @@ func build_hud(size: Vector2) -> void:
 	last_action_key = ""
 	update_hud()
 
+# Lowest edge of the visible top HUD; world signs are kept below it.
+func hud_top_clearance() -> float:
+	var bottom=56.0
+	for label in [order_label,hint_label]:
+		if label!=null and label.visible: bottom=maxf(bottom,label.get_rect().end.y+7)
+	if action_bar!=null and action_bar.visible: bottom=maxf(bottom,action_bar.position.y+action_bar.size.y)
+	return bottom+8
+
+func draw_zone_label() -> void:
+	var info=art_world.zone_label() if art_world!=null else {}
+	if info.is_empty(): return
+	var width=minf(font.get_string_size(info.text,HORIZONTAL_ALIGNMENT_LEFT,-1,16).x+28,maxf(120,info.width))
+	var box=Rect2(info.anchor+Vector2(-12,-24),Vector2(width,32))
+	draw_style_box(style(Color(INK,0.86),info.color,10),box)
+	draw_string(font,box.position+Vector2(14,22),info.text,HORIZONTAL_ALIGNMENT_LEFT,width-20,16,info.color)
+
 func update_hud() -> void:
 	if screen != "game" or hud == null:
 		return
@@ -1211,8 +1227,14 @@ func _draw() -> void:
 			draw_style_box(style(Color(0.08,0.15,0.12,0.88),Color(0.5,0.57,0.39,0.45),8),Rect2(22,151,size.x*0.46-28,195))
 		if screen == "game":
 			draw_style_box(style(Color(0.08,0.15,0.12,0.88),Color(0.5,0.57,0.39,0.45),8),Rect2(22,10,size.x-44,46))
-			if hint_label!=null and hint_label.visible:
-				draw_style_box(style(Color(0.08,0.15,0.12,0.87),Color("526c59"),6),hint_label.get_rect().grow(7))
+			draw_zone_label()
+			# The order title and the hint share one backing; alone on the sky the
+			# title was unreadable and the hint panel clipped it.
+			var info=Rect2()
+			for label in [order_label,hint_label]:
+				if label!=null and label.visible: info=label.get_rect() if info.size==Vector2.ZERO else info.merge(label.get_rect())
+			if info.size!=Vector2.ZERO:
+				draw_style_box(style(Color(0.08,0.15,0.12,0.87),Color("526c59"),6),info.grow(7))
 			if dock_visible(): draw_loading_dock(size)
 			draw_cargo_feedback()
 			if control_zoom and model.vehicle_id()!="handcar": draw_control_zoom()

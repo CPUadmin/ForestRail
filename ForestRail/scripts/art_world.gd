@@ -148,6 +148,7 @@ func draw_stations(canvas: Node2D) -> void:
 		art.draw_part(canvas, name, center, 0, art.scale_for(name)*sc)
 		var height = art.textures[name].get_height()*art.scale_for(name)
 		var plaque = Rect2(center+Vector2(-150,-height-48)*sc,Vector2(300,42)*sc)
+		if game.screen=="game": plaque.position.y=maxf(plaque.position.y,game.hud_top_clearance())
 		canvas.draw_style_box(game.style(game.PAPER, game.GOLD, 5), plaque)
 		canvas.draw_string(ThemeDB.fallback_font, plaque.position+Vector2(10,28)*sc, game.model.data.stations[i].name,HORIZONTAL_ALIGNMENT_CENTER,280*sc,int(20*sc*float(game.settings.text_scale)),game.INK)
 		if i == 0 and game.model.state.finale:
@@ -179,10 +180,19 @@ func draw_service_platform(canvas: Node2D, index: int) -> void:
 	var marker=game.world_point(interaction.stop_s)
 	canvas.draw_line(marker+Vector2(0,8*sc),marker+Vector2(0,26*sc),tint,3,true)
 	canvas.draw_colored_polygon(PackedVector2Array([marker+Vector2(-8,29)*sc,marker+Vector2(8,29)*sc,marker+Vector2(0,19)*sc]),tint)
-	if not game.model.stopped() and game.model.state.phase!="loading": return
+
+# Caption of the service zone. main draws it above trees and props, which
+# otherwise cover it; this only decides its content and anchor.
+func zone_label() -> Dictionary:
+	if game.screen!="game": return {}
+	var interaction=game.station_state()
+	if not interaction.visible: return {}
+	if not game.model.stopped() and game.model.state.phase!="loading": return {}
+	var rect=game.world_platform_rect(int(interaction.station_index))
+	var ready=interaction.can_transfer
 	var label="✓ ПРИЁМ ГРУЗА · "+interaction.station_name if ready else "МЕСТО ОСТАНОВКИ · "+interaction.station_name
 	if ready and interaction.eligible.is_empty() and game.model.state.phase!="loading": label="СТАНЦИЯ · "+interaction.station_name
-	canvas.draw_string(ThemeDB.fallback_font,Vector2(rect.position.x+16,rect.position.y-12*sc),label,HORIZONTAL_ALIGNMENT_LEFT,minf(rect.size.x-30,700),18,tint)
+	return {"text":label,"anchor":Vector2(rect.position.x+16,rect.position.y-12*game.view_scale()),"color":game.GOLD if ready else Color("bdad7d"),"width":minf(rect.size.x-30,700)}
 
 func grounded(canvas: Node2D,id: String,s: float,height_m: float,offset: Vector2=Vector2.ZERO,tint: Color=Color.WHITE) -> void:
 	var tex=game.textures[id]
