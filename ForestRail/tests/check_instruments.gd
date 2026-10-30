@@ -42,7 +42,7 @@ func run() -> void:
 	game.rebuild()
 	await shot("handcar_loading")
 	check(game.dock_visible(),"loading dock available above instruments")
-	check(game.instruments.dial_maximum()==15,"manual dial uses 0..15 km/h")
+	check(game.instruments.dial_maximum()==30,"manual dial uses calibrated 0..30 km/h")
 	var mass = game.model.train_mass()
 	for i in range(2): game.model.transfer(game.model.state.cargo[i].id,game.model.slots()[i].key)
 	check(game.model.train_mass()==mass+70,"instrument mass source includes loaded cargo")

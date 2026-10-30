@@ -5,6 +5,7 @@ const StationInteraction = preload("res://scripts/station_interaction.gd")
 const HandcarMechanism = preload("res://scripts/handcar_mechanism.gd")
 const HandcarDrive = preload("res://scripts/handcar_drive.gd")
 const G = 9.81
+const BUFFER_SAFE_SPEED = 1.0
 const VEHICLE_IDS = ["handcar", "motorcar", "locomotive"]
 var data: Dictionary
 var route = Route.new()
@@ -757,10 +758,12 @@ func physics_step(dt: float) -> void:
 	var upper = route.length_m - 2.0 - (rear_span if state.direction < 0 else 0.0)
 	if state.s < lower or state.s > upper:
 		state.s = clampf(float(state.s), lower, upper)
+		var damaged=buffer_impact(absf(float(state.v)))
 		state.v = 0.0
 		state.brake = 1.0
 		state.throttle = 0.0
 		message = "Конец линии. Остановись и выбери обратное направление тяги"
+		if damaged: message="Удар об упор: посуда пострадала. Подъезжай к концу линии медленнее"
 	if absf(acceleration) > 1.2:
 		shock_time += dt
 	else:
@@ -772,6 +775,16 @@ func physics_step(dt: float) -> void:
 				item.health = maxf(0, float(item.health) - dt * (absf(acceleration) - 1.2) * 0.1 * float(object_stats(owner).shock))
 	if not state.active.is_empty() and state.active.phase == "return" and station_index() == 0 and stopped():
 		settle()
+
+func buffer_impact(speed: float) -> bool:
+	if speed<=BUFFER_SAFE_SPEED: return false
+	var damaged=false
+	for item in state.cargo:
+		if item.type=="fragile" and item.slot!="" and not item.delivered:
+			var owner=str(item.slot).split(":")[0]
+			item.health=maxf(0,float(item.health)-minf(1.0,(speed-BUFFER_SAFE_SPEED)*0.25)*float(object_stats(owner).shock))
+			damaged=true
+	return damaged
 
 func station_name(id: String) -> String:
 	for station in data.stations:

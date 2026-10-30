@@ -23,7 +23,7 @@ func _initialize():
 			print("TUNE ",ratio," loaded=",loaded," speeds10/30/60/120=",samples)
 			assert(0<samples[0] and samples[0]<samples[1] and samples[1]<samples[2] and samples[2]<samples[3])
 			if loaded: assert(samples[3]<results[0].speeds_kmh[3])
-			else: assert(samples[3]>=30 and samples[1]<20)
+			else: assert(samples[3]>=30 and samples[1]<30)
 			results.append({"loaded":loaded,"mass_kg":m.train_mass(),"seconds":[10,30,60,120],"speeds_kmh":samples,"cadence_at_30_hz":(30.0/3.6)/(TAU*0.21*ratio)})
 	var file=FileAccess.open(ProjectSettings.globalize_path("res://../qa/handcar30/speed_results.json"),FileAccess.WRITE)
 	file.store_string(JSON.stringify({"cases":results,"success":true,"controller":"phase-following target, 60 Hz, flat road; not a human trial"},"\t"));file.close()

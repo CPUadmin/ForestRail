@@ -1,6 +1,8 @@
 extends RefCounted
 
 const Model = preload("res://scripts/model.gd")
+const PREVIOUS_CAREER = "save_v2.previous_career.json"
+var validator
 var directory = "user://"
 var error = ""
 
@@ -17,8 +19,8 @@ func read_valid(name: String) -> Dictionary:
 	var parsed = parser.data
 	if not parsed is Dictionary:
 		return {}
-	var probe = Model.new()
-	if not probe.validate_save(parsed):
+	if validator==null: validator=Model.new()
+	if not validator.validate_save(parsed):
 		return {}
 	return parsed
 
@@ -46,3 +48,13 @@ func write(model, preserve_backup: bool = false) -> bool:
 
 func has_any() -> bool:
 	return FileAccess.file_exists(path("save_v2.json")) or FileAccess.file_exists(path("save_v2.backup.json"))
+
+func archive_career() -> bool:
+	error=""
+	for name in ["save_v2.json","save_v2.backup.json"]:
+		if read_valid(name).is_empty(): continue
+		if DirAccess.copy_absolute(path(name),path(PREVIOUS_CAREER))!=OK:
+			error="Не удалось сохранить прежнюю карьеру"
+			return false
+		return true
+	return true

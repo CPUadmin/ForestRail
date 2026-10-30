@@ -182,6 +182,15 @@ func run() -> void:
 	check(not storage.read_valid("save_v2.backup.json").is_empty(), "backup remains available")
 	check(storage.write(m), "save in memory after corrupt primary")
 	check(int(storage.read_valid("save_v2.backup.json").money) == backup_money, "corrupt primary cannot overwrite good backup")
+	# A replaced career stays outside the backup rotation of the new one.
+	check(storage.write(m), "repair primary save")
+	var career_money = int(m.state.money)
+	check(storage.archive_career(), "archive career before a new game")
+	var fresh = Model.new()
+	fresh.new_game(7)
+	check(storage.write(fresh) and storage.write(fresh), "new career saves twice")
+	check(int(storage.read_valid(SaveGame.PREVIOUS_CAREER).money) == career_money, "previous career survives the new career's saves")
+	buffer_checks()
 	worst_economy()
 	var report = {"checks": checks, "failures": failures, "engine": Engine.get_version_info().string}
 	var out = FileAccess.open("user://qa_model/results.json", FileAccess.WRITE)
@@ -194,6 +203,20 @@ func station_index(m, id: String) -> int:
 	for i in range(m.data.stations.size()):
 		if m.data.stations[i].id == id: return i
 	return 0
+
+func buffer_checks() -> void:
+	for speed in [0.5, 3.0]:
+		var m = Model.new()
+		m.new_game(42)
+		m.state.phase = "route"
+		m.state.cargo = [{"id": "crate", "type": "fragile", "destination": "B", "slot": "handcar:0", "delivered": false, "health": 1.0}]
+		m.state.brake = 0
+		m.state.s = m.route.length_m - 2.004
+		m.state.v = speed
+		m.physics_step(1.0 / 60)
+		check(m.state.v == 0, "buffer stop halts the train at %.1f m/s" % speed)
+		var health = float(m.state.cargo[0].health)
+		check(health == 1.0 if speed < Model.BUFFER_SAFE_SPEED else health < 1.0, "buffer impact at %.1f m/s damages only fast fragile cargo" % speed)
 
 func worst_economy() -> void:
 	var m = Model.new()

@@ -13,6 +13,9 @@ const GREEN = Color("466c51")
 const GOLD = Color("bb964f")
 const RED = Color("a64d3b")
 var model = Model.new()
+var menu_preview = Model.new()
+var styles: Dictionary = {}
+var resume_prompt = false
 var saves = SaveGame.new()
 var sound
 var textures: Dictionary = {}
@@ -85,10 +88,7 @@ var settings_path = "user://settings.json"
 func _ready() -> void:
 	Input.use_accumulated_input=false
 	font = ThemeDB.fallback_font
-	var edge_shader = Shader.new()
-	edge_shader.code = "shader_type canvas_item; void fragment() { vec4 t = texture(TEXTURE, UV); if(t.r > 0.8 && t.g < 0.19 && t.b < 0.2) { COLOR.a = 0.0; } }"
 	var edge_material = ShaderMaterial.new()
-	edge_material.shader = edge_shader
 	material = edge_material
 	var qa_args = OS.get_cmdline_user_args()
 	if "--handcar-drive-bench" in qa_args and not get_tree().root.has_meta("drive_bench_running"):
@@ -115,6 +115,8 @@ func _ready() -> void:
 				get_tree().root.add_child.call_deferred(load("res://tests/" + suite + ".gd").new())
 				return
 	get_tree().auto_accept_quit = false
+	menu_preview.new_game(42)
+	saves.validator=model
 	load_textures()
 	art = ArtV3.new()
 	edge_material.shader = load(ArtV3.ROOT + "materials/edge_clean.gdshader")
@@ -196,12 +198,14 @@ func load_settings() -> void:
 		var saved = JSON.parse_string(FileAccess.get_file_as_string(settings_path))
 		if saved is Dictionary:
 			for key in settings:
-				if saved.has(key):
+				if saved.has(key) and ((key=="fullscreen" and saved[key] is bool) or (key!="fullscreen" and saved[key] is float and is_finite(saved[key])) or (key!="fullscreen" and saved[key] is int)):
 					settings[key] = saved[key]
 	apply_settings()
 
 func apply_settings() -> void:
-	settings.master = clampf(float(settings.master), 0, 1)
+	for key in ["master","mechanisms","forest","music"]:
+		settings[key] = clampf(float(settings[key]), 0, 1)
+	settings.fullscreen = settings.fullscreen is bool and settings.fullscreen
 	settings.text_scale = clampf(float(settings.text_scale), 1, 1.5)
 	settings.sensitivity = clampf(float(settings.sensitivity), 0.5, 2)
 	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN if settings.fullscreen else DisplayServer.WINDOW_MODE_WINDOWED)
@@ -230,6 +234,8 @@ func clear_children(node: Node) -> void:
 		child.queue_free()
 
 func style(bg: Color, border: Color = GOLD, radius: int = 12) -> StyleBoxFlat:
+	var key="%s|%s|%d" % [bg.to_html(),border.to_html(),radius]
+	if styles.has(key): return styles[key]
 	var box = StyleBoxFlat.new()
 	box.bg_color = bg
 	box.border_color = border
@@ -239,6 +245,7 @@ func style(bg: Color, border: Color = GOLD, radius: int = 12) -> StyleBoxFlat:
 	box.content_margin_right = 18
 	box.content_margin_top = 12
 	box.content_margin_bottom = 12
+	styles[key]=box
 	return box
 
 func setup_theme() -> void:
@@ -347,6 +354,9 @@ func build_menu(size: Vector2) -> void:
 	positioned_label("01  /  ОТ РУЧНОЙ ДРЕЗИНЫ ДО ЭЛЕКТРОВОЗА", Rect2(580, size.y - 60, size.x - 620, 40), 17)
 
 func begin_new(seed_number: int = -1) -> void:
+	if not saves.archive_career():
+		notify(saves.error)
+		return
 	if seed_number < 0:
 		seed_number = int(Time.get_unix_time_from_system()) % 100000
 	model.new_game(seed_number)
@@ -383,7 +393,8 @@ func load_career(saved: Dictionary) -> void:
 	last_paid_count = model.state.paid_ids.size()
 	paused = screen == "game"
 	modal_kind = "pause" if paused else ""
-	model.message = "Готов продолжить поездку?" if paused else ""
+	resume_prompt = paused
+	model.message = ""
 	rebuild()
 
 func build_depot(size: Vector2) -> void:
@@ -773,6 +784,7 @@ func show_modal(kind: String) -> void:
 	rebuild()
 
 func close_modal() -> void:
+	resume_prompt=false
 	modal_kind = ""
 	paused = false
 	rebuild()
@@ -815,7 +827,7 @@ func build_modal(size: Vector2) -> void:
 		add_button(box, "Отмена", close_modal)
 	elif modal_kind == "pause":
 		add_label(box, "Пауза", 34)
-		if model.message == "Готов продолжить поездку?": add_label(box, model.message, 23)
+		if resume_prompt: add_label(box, "Готов продолжить поездку?", 23)
 		add_button(box, "Продолжить", close_modal)
 		add_button(box, "Сохранить", func(): save_game(); notify("Сохранено"))
 		add_button(box, "Настройки", func(): show_modal("settings"))
@@ -1613,7 +1625,6 @@ func draw_tooltip() -> void:
 func draw_menu_train(size: Vector2) -> void:
 	var p = Vector2(size.x*0.74,size.y*0.75)
 	draw_line(Vector2(size.x*0.48,p.y-5),Vector2(size.x,p.y-5),INK,7,true)
-	if model.state.is_empty(): model.new_game(42)
 	var outer = Transform2D(0,Vector2(1.7,1.7),0,p)
-	art.draw_vehicle(self,"handcar",0,1,outer,model,false,art.forward_pose(time*1.5))
+	art.draw_vehicle(self,"handcar",0,1,outer,menu_preview,false,art.forward_pose(time*1.5))
 	draw_set_transform_matrix(Transform2D.IDENTITY)

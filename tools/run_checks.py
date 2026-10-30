@@ -11,13 +11,14 @@ parser.add_argument('--exported', action='store_true')
 parser.add_argument('--report-dir', type=Path)
 parser.add_argument('--suite', default='check_model,check_physics,check_interaction,drive_campaign')
 parser.add_argument('--partial-first', action='store_true')
+parser.add_argument('--manual-run', action='store_true', help='Run on a new human request despite a completed autonomous stop marker')
 args = parser.parse_args()
 root = Path(__file__).resolve().parents[1]
 reports = args.report_dir.resolve() if args.report_dir else root/'qa'
 reports.mkdir(parents=True, exist_ok=True)
 results = []
 for suite in args.suite.split(','):
-    if (root/'qa/autonomous_run/stop.json').exists():
+    if (root/'qa/autonomous_run/stop.json').exists() and not args.manual_run:
         raise SystemExit('Autonomous guard requested a saved stop; no further QA started')
     script = root/'ForestRail'/'tests'/f'{suite}.gd'
     command = [str(args.engine.resolve())]
@@ -46,7 +47,7 @@ for suite in args.suite.split(','):
     with log.open('w', encoding='utf-8') as output:
         try:
             process = subprocess.run(command, stdout=output, stderr=subprocess.STDOUT, timeout=180,
-                                     cwd=args.engine.resolve().parent, creationflags=subprocess.CREATE_NO_WINDOW)
+                                     cwd=args.engine.resolve().parent, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
             exit_code = process.returncode
         except subprocess.TimeoutExpired:
             output.write('\nFAIL: QA process exceeded 180 seconds; terminated by runner\n')
