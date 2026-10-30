@@ -14,3 +14,4 @@ qa/*.png
 qa/install_smoke/
 *.log
 qa/github_publication.json
+__pycache__/

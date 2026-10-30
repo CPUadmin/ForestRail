@@ -10,6 +10,8 @@ parser.add_argument('engine', type=Path)
 parser.add_argument('--exported', action='store_true')
 parser.add_argument('--suite', default='check_model,check_physics,check_interaction,drive_campaign')
 args = parser.parse_args()
+# Hides the console window on Windows; the flag does not exist elsewhere.
+NO_WINDOW = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
 root = Path(__file__).resolve().parents[1]
 reports = root/'qa'
 reports.mkdir(exist_ok=True)
@@ -26,7 +28,7 @@ for suite in args.suite.split(','):
     start = time.monotonic()
     with log.open('w', encoding='utf-8') as output:
         process = subprocess.run(command, stdout=output, stderr=subprocess.STDOUT, timeout=180,
-                                 cwd=args.engine.resolve().parent, creationflags=subprocess.CREATE_NO_WINDOW)
+                                 cwd=args.engine.resolve().parent, creationflags=NO_WINDOW)
     content = log.read_text(encoding='utf-8', errors='replace')
     success = process.returncode == 0 and 'SCRIPT ERROR' not in content and 'FAIL:' not in content
     # A script unavailable in an exported build must not be confused with a passed check.

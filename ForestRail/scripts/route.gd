@@ -1,6 +1,8 @@
 extends RefCounted
 
 const VERSION = 1
+# Straight track beyond each end station for the tail of a reversed full consist.
+const BUFFER_M = 40
 var points: Array = []
 var seed_value = 42
 var length_m = 0.0
@@ -12,8 +14,6 @@ func generate(world_seed: int, stations: Array) -> void:
 	rng.seed = world_seed
 	points.clear()
 	station_s.clear()
-	# End stations include forty metres of buffer for a reversed full consist.
-	var height = 0.0
 	for segment in range(stations.size() - 1):
 		var start = float(stations[segment].s_m)
 		var finish = float(stations[segment + 1].s_m)
@@ -26,13 +26,14 @@ func generate(world_seed: int, stations: Array) -> void:
 		for x in range(int(start), int(finish)):
 			var u = clampf((float(x) - start - 22.0) / span, 0.0, 1.0)
 			# A squared sine envelope makes platforms and joins exactly flat.
-			var y = height + sign_y * amplitude * pow(sin(PI * u), 2) * sin(TAU * waves * u)
+			var y = sign_y * amplitude * pow(sin(PI * u), 2) * sin(TAU * waves * u)
 			_append(float(x), y)
-	for x in range(1700, 1741):
-		_append(float(x), height)
+	var last = int(stations[-1].s_m)
+	for x in range(last, last + BUFFER_M + 1):
+		_append(float(x), 0.0)
 	# Prepend a straight approach without changing the station coordinate system.
 	var pre: Array = []
-	for x in range(-40, 0):
+	for x in range(-BUFFER_M, 0):
 		pre.append([float(x), 0.0, float(x)])
 	points = pre + points
 	length_m = float(points[-1][2])

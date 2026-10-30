@@ -86,7 +86,10 @@
       "mass_kg": 180,
       "deck_slots": 2,
       "default_wagons": 0,
-      "fuel_l": 0
+      "fuel_l": 0,
+      "brake_n": 700,
+      "top_speed_mps": 3.34,
+      "description": "Ручной рычаг · без топлива · до 4 мест"
     },
     {
       "id": "motorcar",
@@ -103,7 +106,10 @@
       "gear_speed_mps": [
         4,
         6.5
-      ]
+      ],
+      "brake_n": 1800,
+      "energy_per_m": 0.00045,
+      "description": "Бензиновый двигатель · бак 2 л · один вагон"
     },
     {
       "id": "locomotive",
@@ -120,7 +126,12 @@
       "gear_speed_mps": [
         5,
         8
-      ]
+      ],
+      "display_name": "Электролокомотив",
+      "brake_n": 6000,
+      "battery_kwh": 0.6,
+      "energy_per_m": 9e-05,
+      "description": "Электротяга · батарея 0,6 кВт·ч · до трёх вагонов"
     }
   ],
   "wagon": {
@@ -663,7 +674,8 @@
           1.3
         ]
       },
-      "scope": "selected_vehicle_id"
+      "scope": "selected_vehicle_id",
+      "display_name": "Электромотор"
     },
     {
       "id": "locomotive_gearbox",
@@ -684,7 +696,8 @@
           1.15
         ]
       },
-      "scope": "selected_vehicle_id"
+      "scope": "selected_vehicle_id",
+      "display_name": "Контроллер тяги"
     },
     {
       "id": "locomotive_brakes",
@@ -718,7 +731,8 @@
           1.7
         ]
       },
-      "scope": "selected_vehicle_id"
+      "scope": "selected_vehicle_id",
+      "display_name": "Аккумулятор"
     },
     {
       "id": "wagon_platform",

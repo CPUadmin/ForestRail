@@ -1,5 +1,8 @@
 extends Node
 
+# Pause silences the machine; interface, payment and finale cues still play.
+const MECHANISM_CLIPS = ["brake", "pump", "rail_clack", "gear", "cargo"]
+
 var clips: Dictionary = {}
 var voices: Array = []
 var forest: AudioStreamPlayer
@@ -38,6 +41,7 @@ func play(name: String, gain: float = 1.0) -> void:
 	for voice in voices:
 		if not voice.playing:
 			voice.stream = clips[name]
+			voice.set_meta("clip", name)
 			voice.volume_db = linear_to_db(maxf(0.0001, float(settings.get("master", 0.65)) * float(settings.get("mechanisms", 0.7)) * gain))
 			voice.play()
 			return
@@ -55,7 +59,8 @@ func update(model, paused: bool, in_menu: bool, dt: float) -> void:
 	if model.state.is_empty() or paused or in_menu:
 		engine.stop()
 		for voice in voices:
-			voice.stop()
+			if voice.get_meta("clip", "") in MECHANISM_CLIPS:
+				voice.stop()
 		return
 	if model.state.engine:
 		engine.pitch_scale = 0.7 + float(model.state.throttle) * 0.55 + absf(float(model.state.v)) * 0.02

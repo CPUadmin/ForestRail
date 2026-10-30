@@ -13,6 +13,10 @@ const GOLD = Color("bb964f")
 const RED = Color("a64d3b")
 var model = Model.new()
 var saves = SaveGame.new()
+# Drives the decorative handcar in the main menu without touching the career.
+var menu_preview
+var styles: Dictionary = {}
+var resume_prompt = false
 var sound
 var textures: Dictionary = {}
 var art
@@ -32,6 +36,7 @@ var selected_object = "handcar"
 var paused = false
 var modal_kind = ""
 var settings = {"master": 0.65, "mechanisms": 0.7, "forest": 0.6, "music": 0.25, "sensitivity": 1.0, "text_scale": 1.0, "fullscreen": false}
+const VOLUME_KEYS = ["master", "mechanisms", "forest", "music"]
 var camera_s = 0.0
 var camera_y = 0.0
 var camera_x = 0.0
@@ -62,11 +67,7 @@ var settings_path = "user://settings.json"
 
 func _ready() -> void:
 	font = ThemeDB.fallback_font
-	var edge_shader = Shader.new()
-	edge_shader.code = "shader_type canvas_item; void fragment() { vec4 t = texture(TEXTURE, UV); if(t.r > 0.8 && t.g < 0.19 && t.b < 0.2) { COLOR.a = 0.0; } }"
-	var edge_material = ShaderMaterial.new()
-	edge_material.shader = edge_shader
-	material = edge_material
+	saves.validator = model
 	var qa_args = OS.get_cmdline_user_args()
 	if not get_tree().root.has_meta("qa_running"):
 		for arg in qa_args:
@@ -83,7 +84,11 @@ func _ready() -> void:
 	get_tree().auto_accept_quit = false
 	load_textures()
 	art = ArtV3.new()
+	var edge_material = ShaderMaterial.new()
 	edge_material.shader = load(ArtV3.ROOT + "materials/edge_clean.gdshader")
+	material = edge_material
+	menu_preview = Model.new()
+	menu_preview.new_game(42)
 	art_world = ArtWorld.new()
 	art_world.game = self
 	art_world.art = art
@@ -132,13 +137,8 @@ func load_textures() -> void:
 		atlas.atlas = load("res://" + str(manifest.sheets[sprite.sheet].file))
 		var r = sprite.region_px
 		atlas.region = Rect2(r[0], r[1], r[2], r[3])
-		if sprite.id in ["pine", "birch", "bush", "fern", "rocks", "depot", "station_hut", "fuel_pump", "log_pile"]:
-			var visible = visual_layout[sprite.id]
-			atlas.region = Rect2(r[0] + visible[0], r[1] + visible[1], visible[2] - visible[0], visible[3] - visible[1])
-			visual_layout[sprite.id] = [0, 0, visible[2] - visible[0], visible[3] - visible[1]]
 		atlas.filter_clip = true
 		textures[sprite.id] = atlas
-	textures.background = load("res://assets/forest_background.png")
 	for name in ["control_pump", "control_brake", "control_gear", "control_throttle", "control_start", "control_mount", "gauge_face", "gauge_needle"]:
 		textures[name] = load("res://assets/ui/" + name + ".svg")
 
@@ -152,7 +152,9 @@ func load_settings() -> void:
 	apply_settings()
 
 func apply_settings() -> void:
-	settings.master = clampf(float(settings.master), 0, 1)
+	for key in VOLUME_KEYS:
+		settings[key] = clampf(float(settings[key]), 0, 1)
+	settings.fullscreen = settings.fullscreen is bool and settings.fullscreen
 	settings.text_scale = clampf(float(settings.text_scale), 1, 1.5)
 	settings.sensitivity = clampf(float(settings.sensitivity), 0.5, 2)
 	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN if settings.fullscreen else DisplayServer.WINDOW_MODE_WINDOWED)
@@ -180,7 +182,11 @@ func clear_children(node: Node) -> void:
 		node.remove_child(child)
 		child.queue_free()
 
+# Boxes are shared and must not be modified by callers; drawing asks for them every frame.
 func style(bg: Color, border: Color = GOLD, radius: int = 12) -> StyleBoxFlat:
+	var key = "%s|%s|%d" % [bg.to_html(), border.to_html(), radius]
+	if styles.has(key):
+		return styles[key]
 	var box = StyleBoxFlat.new()
 	box.bg_color = bg
 	box.border_color = border
@@ -190,6 +196,7 @@ func style(bg: Color, border: Color = GOLD, radius: int = 12) -> StyleBoxFlat:
 	box.content_margin_right = 18
 	box.content_margin_top = 12
 	box.content_margin_bottom = 12
+	styles[key] = box
 	return box
 
 func setup_theme() -> void:
@@ -287,7 +294,7 @@ func build_menu(size: Vector2) -> void:
 	add_button(box, "Продолжить", continue_game, not saves.has_any())
 	add_button(box, "Новая игра", func():
 		if saves.has_any():
-			confirm("Начать новую карьеру? Текущая останется в резервной копии.", func(): begin_new())
+			confirm("Начать новую карьеру? Текущая будет сохранена в файл %s рядом с сохранениями." % SaveGame.PREVIOUS_CAREER, func(): begin_new())
 		else:
 			begin_new())
 	add_button(box, "Настройки", func(): show_modal("settings"))
@@ -299,6 +306,9 @@ func build_menu(size: Vector2) -> void:
 func begin_new(seed_number: int = -1) -> void:
 	if seed_number < 0:
 		seed_number = int(Time.get_unix_time_from_system()) % 100000
+	if saves.has_any() and not saves.archive_career():
+		notify(saves.error)
+		return
 	model.new_game(seed_number)
 	selected_object = "handcar"
 	screen = "depot"
@@ -333,7 +343,8 @@ func load_career(saved: Dictionary) -> void:
 	last_paid_count = model.state.paid_ids.size()
 	paused = screen == "game"
 	modal_kind = "pause" if paused else ""
-	model.message = "Готов продолжить поездку?" if paused else ""
+	resume_prompt = paused
+	model.message = ""
 	rebuild()
 
 func build_depot(size: Vector2) -> void:
@@ -366,9 +377,9 @@ func build_depot(size: Vector2) -> void:
 		for id in Model.VEHICLE_IDS:
 			var owned = model.state.fleet_by_id.has(id)
 			var base = model.vehicle_base(id)
-			var label = str(base.name) if id != "locomotive" else "Электролокомотив"
+			var label = model.vehicle_name(id)
 			add_label(right, label, 24)
-			add_label(right, {"handcar": "Ручной рычаг · без топлива · до 4 мест", "motorcar": "Бензиновый двигатель · бак 2 л · один вагон", "locomotive": "Электротяга · батарея 0,6 кВт·ч · до трёх вагонов"}[id], 18)
+			add_label(right, str(base.description), 18)
 			if owned:
 				add_button(right, "Выбрана" if model.vehicle_id() == id else "Выбрать", func():
 					if model.select_vehicle(id):
@@ -393,7 +404,8 @@ func build_depot(size: Vector2) -> void:
 				if model.toggle_wagon(id): save_game(); rebuild()
 				else: notify(model.message))
 		if not model.state.wagons_by_id.has("W03"):
-			add_button(right, "Купить W03 · 180 монет", func(): confirm("Купить третий вагон за 180 монет?", func():
+			var wagon_cost = model.third_wagon_cost()
+			add_button(right, "Купить W03 · %d монет" % wagon_cost, func(): confirm("Купить третий вагон за %d монет?" % wagon_cost, func():
 				if model.buy_wagon(): save_game(); rebuild()
 				else: notify(model.message)))
 		add_label(right, "Мест в составе: %d. Для финала нужно шесть." % model.capacity(), 21)
@@ -436,9 +448,7 @@ func build_upgrades(right: VBoxContainer) -> void:
 		if branch.target_type != ("wagon" if selected_object.begins_with("W") else selected_object):
 			continue
 		var lv = int(model.object_state(selected_object).levels.get(branch.id, 0))
-		var name = str(branch.name)
-		if selected_object == "locomotive":
-			name = {"locomotive_engine": "Электромотор", "locomotive_gearbox": "Контроллер тяги", "locomotive_tank": "Аккумулятор"}.get(branch.id, name)
+		var name = model.branch_name(branch)
 		add_label(right, "%s  ·  %d / 2" % [name, lv], 23)
 		if lv < 2:
 			var preview = upgrade_preview(selected_object, branch)
@@ -606,7 +616,7 @@ func energy_text() -> String:
 	return "Бензин %.2f / %.1f л" % [amount, cap]
 
 func vehicle_display_name() -> String:
-	return "Электролокомотив" if model.vehicle_id() == "locomotive" else str(model.vehicle_base().name)
+	return model.vehicle_name()
 
 func station_number(id: String) -> int:
 	for i in range(model.data.stations.size()):
@@ -632,6 +642,7 @@ func show_modal(kind: String) -> void:
 
 func close_modal() -> void:
 	modal_kind = ""
+	resume_prompt = false
 	paused = false
 	rebuild()
 
@@ -673,12 +684,13 @@ func build_modal(size: Vector2) -> void:
 		add_button(box, "Отмена", close_modal)
 	elif modal_kind == "pause":
 		add_label(box, "Пауза", 34)
-		if model.message == "Готов продолжить поездку?": add_label(box, model.message, 23)
+		if resume_prompt: add_label(box, "Готов продолжить поездку?", 23)
 		add_button(box, "Продолжить", close_modal)
 		add_button(box, "Сохранить", func(): save_game(); notify("Сохранено"))
 		add_button(box, "Настройки", func(): show_modal("settings"))
 		add_button(box, "Как играть", func(): show_modal("help"))
-		add_button(box, "Помощь депо", func(): confirm("Вернуть состав домой? Груз, отметки доставки и покупки сохранятся. Запас энергии пополнится.", func():
+		var rescue_price = " Стоимость %d монет." % model.rescue_cost() if model.rescue_cost() > 0 else ""
+		add_button(box, "Помощь депо", func(): confirm("Вернуть состав домой? Груз, отметки доставки и покупки сохранятся. Запас энергии пополнится." + rescue_price, func():
 			model.rescue()
 			screen = "depot"
 			camera_s = 0
@@ -767,13 +779,14 @@ func _process(dt: float) -> void:
 				show_modal("result")
 			else:
 				rebuild()
-		if model.message != "" and model.message != "Готов продолжить поездку?":
+		if model.message != "":
 			notify(model.message)
 			model.message = ""
 	while not model.events.is_empty():
 		sound.play(str(model.events.pop_front()), 0.6)
 	sound.update(model, paused, screen == "menu", dt)
 	if art_world != null: art_world.update_view()
+	update_hits()
 	queue_redraw()
 	if smoke_frames >= 0:
 		smoke_frames -= 1
@@ -813,9 +826,9 @@ func _input(event: InputEvent) -> void:
 			if float(model.state.brake) > 0.9 and absf(delta_y) > 2: notify("Тормоз затянут. Сначала отпусти красную рукоять вниз")
 			model.pump_motion(delta_y / maxf(45, 64 * zoom_level))
 		elif drag == "brake":
-			model.state.brake = clampf(drag_initial - drag_total / 130, 0, 1)
+			model.set_brake(drag_initial - drag_total / 130)
 		elif drag == "throttle":
-			model.state.throttle = clampf(drag_initial - drag_total / 130, 0, 1)
+			model.set_throttle(drag_initial - drag_total / 130)
 		get_viewport().set_input_as_handled()
 	elif event is InputEventMouseButton and not event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		finish_drag(event.position)
@@ -901,11 +914,6 @@ func view_scale() -> float:
 func _draw() -> void:
 	if art == null: return
 	var size = get_viewport_rect().size
-	if art_world == null: draw_background(size)
-	grip_hits.clear()
-	slot_hits.clear()
-	cargo_hits.clear()
-	body_hits.clear()
 	if screen == "menu":
 		draw_rect(Rect2(0, 0, size.x * 0.55, size.y), Color(0.06, 0.13, 0.1, 0.72))
 		draw_menu_train(size)
@@ -924,13 +932,6 @@ func _draw() -> void:
 		draw_style_box(style(INK, GOLD, 8), rect)
 		draw_string(font, rect.position + Vector2(18, 29), toast, HORIZONTAL_ALIGNMENT_LEFT, width - 30, 19, PAPER)
 
-func draw_background(size: Vector2) -> void:
-	if textures.has("background"):
-		# One oversized image: no repeating seam in the distant forest.
-		var shift = -fmod(camera_s * 1.8, 80.0)
-		draw_texture_rect(textures.background, Rect2(shift - 80, -30, size.x + 240, size.y + 80), false, Color(0.78, 0.86, 0.78))
-		draw_rect(Rect2(0, 0, size.x, size.y), Color(0.11, 0.22, 0.16, 0.12))
-
 func sprite(id: String, rect: Rect2, color: Color = Color.WHITE) -> void:
 	if textures.has(id): draw_texture_rect(textures[id], rect, false, color)
 
@@ -947,123 +948,60 @@ func grounded_sprite(id: String, foot: Vector2, height: float, color: Color = Co
 	var anchor = Vector2((float(bounds[0]) + float(bounds[2])) * 0.5, float(bounds[3]))
 	sprite(id, Rect2(foot - anchor * factor, texture.get_size() * factor), color)
 
-func terrain_band(track: PackedVector2Array, top: float, bottom: float, color: Color) -> void:
-	var polygon = PackedVector2Array()
-	for p in track: polygon.append(p + Vector2(0, top))
-	for i in range(track.size() - 1, -1, -1): polygon.append(track[i] + Vector2(0, bottom))
-	draw_colored_polygon(polygon, color)
+# The depot lines the parked train up on flat ground instead of the route.
+func body_track_s(index: int) -> float:
+	return model.body_s(index) if screen != "depot" else -index * Model.WAGON_PITCH_M
 
-func draw_world(size: Vector2) -> void:
-	var begin_s = camera_s - 38
-	var end_s = camera_s + 38
-	var sc = view_scale()
-	var track = PackedVector2Array()
-	for i in range(153):
-		var s = begin_s + i * 0.5
-		var p = world_point(s)
-		track.append(p)
-	terrain_band(track, -102 * sc, size.y, Color("9aa47b"))
-	# A more distant tree row moves more slowly than the railway.
-	for i in range(floori((camera_s - 55) / 3.6), ceili((camera_s + 55) / 3.6)):
-		var s = i * 3.6 + sin(i * 2.71 + model.route.seed_value) * 0.9
-		var p = world_point(s)
-		p.x = get_viewport_rect().size.x * 0.5 + (p.x - get_viewport_rect().size.x * 0.5) * 0.62
-		p.y -= 72 * sc
-		if p.x < -300 or p.x > size.x + 300: continue
-		var h = (155 + fposmod(sin(i * 13.1) * 3197, 100)) * sc
-		grounded_sprite("pine" if posmod(i, 4) else "birch", p, h, Color(0.68, 0.77, 0.65, 0.72))
-	terrain_band(track, -34 * sc, size.y, Color("728453"))
-	for i in range(floori(begin_s / 5.2), ceili(end_s / 5.2)):
-		var tree_s = i * 5.2 + sin(i * 4.3 + model.route.seed_value) * 1.25
-		var p = world_point(tree_s) + Vector2(0, -13 * sc)
-		if p.x < -400 or p.x > size.x + 400: continue
-		var h = (255 + fposmod(sin(i * 62.3 + model.route.seed_value) * 43758, 200)) * sc
-		ellipse(p + Vector2(12, 1) * sc, Vector2(h * 0.18, h * 0.025), Color(0.13, 0.22, 0.12, 0.22))
-		grounded_sprite("pine" if posmod(i, 3) else "birch", p, h, Color(0.88, 0.94, 0.83))
-		if posmod(i, 2) == 0:
-			grounded_sprite("bush", p + Vector2(-45, 3) * sc, 43 * sc, Color(0.8, 0.91, 0.72))
-	for station_index in range(model.data.stations.size()):
-		var p = world_point(float(model.route.station_s[station_index]))
-		if p.x < -500 or p.x > size.x + 500: continue
-		var station = model.data.stations[station_index]
-		ellipse(p + Vector2(290, -5), Vector2(155, 14), Color(0.12, 0.18, 0.1, 0.25))
-		grounded_sprite("depot" if station_index == 0 else "station_hut", p + Vector2(295, -8), 240)
-		if station_index == 2:
-			sprite("loading_crane", Rect2(p.x - 430, p.y - 300, 220, 280))
-			grounded_sprite("log_pile", p + Vector2(490, -4), 80)
-		if station_index == 0:
-			grounded_sprite("fuel_pump", p + Vector2(480, -5), 145)
-			if model.state.finale: sprite("final_flags", Rect2(p.x + 100, p.y - 335, 320, 130))
-		draw_line(Vector2(p.x - 420, p.y + 6), Vector2(p.x + 500, p.y + 6), Color("8f9970"), 15)
-		draw_style_box(style(PAPER, GOLD, 5), Rect2(p.x + 185, p.y - 285, 310, 48))
-		draw_string(font, Vector2(p.x + 195, p.y - 253), station.name, HORIZONTAL_ALIGNMENT_CENTER, 290, 22, INK)
-	terrain_band(track, 21 * sc, size.y, Color("564733"))
-	# The supplied soil has a grass lip and a shaded stone face. Its transparent
-	# border is accounted for so adjacent pieces form one embankment.
-	for i in range(floori(begin_s / 4), ceili(end_s / 4)):
-		var s = i * 4.0 + 2.0
-		var p = world_point(s)
-		if p.x < -350 or p.x > size.x + 350: continue
-		var width = 4 * 64 * sc * 400.0 / 371.0 + 3
-		var height = width * 220 / 400
-		draw_set_transform(p, -model.route.slope(s))
-		sprite("soil_segment", Rect2(-width * 0.5, 25 * sc - height * 36 / 220, width, height), Color(0.83, 0.86, 0.73))
-		draw_set_transform_matrix(Transform2D.IDENTITY)
-	terrain_band(track, -2 * sc, 25 * sc, Color("817a62"))
-	for i in range(floori(begin_s * 2), ceili(end_s * 2)):
-		var p = world_point(i * 0.5)
-		if p.x < -40 or p.x > size.x + 40: continue
-		var gravel = fposmod(sin(i * 52.31) * 41657, 1)
-		ellipse(p + Vector2(12 * sin(i * 7.2), 9 + gravel * 14) * sc, Vector2(4 + gravel * 6, 2 + gravel * 2) * sc, Color("b3ab8e"))
-		var sleeper = PackedVector2Array([p + Vector2(-14, -9) * sc, p + Vector2(9, -5) * sc, p + Vector2(17, 17) * sc, p + Vector2(-5, 15) * sc])
-		draw_colored_polygon(sleeper, Color("4d4030"))
-		draw_line(p + Vector2(-12, -8) * sc, p + Vector2(8, -4) * sc, Color("a08961"), 2 * sc, true)
-	var far_rail = PackedVector2Array()
-	var shine = PackedVector2Array()
-	for p in track:
-		far_rail.append(p + Vector2(0, -8 * sc))
-		shine.append(p + Vector2(0, -3 * sc))
-	draw_polyline(far_rail, Color("4b544f"), 5 * sc, true)
-	draw_polyline(track, Color("303b37"), 9 * sc, true)
-	draw_polyline(shine, Color("d1cfb6"), 2 * sc, true)
+func body_facing() -> int:
+	return int(model.state.direction) if screen != "depot" else 1
 
-func draw_foreground() -> void:
-	var sc = view_scale()
-	for i in range(floori((camera_s - 35) / 3), ceili((camera_s + 35) / 3)):
-		var p = world_point(i * 3.0 + sin(i * 3.7))
-		if p.x < -200 or p.x > get_viewport_rect().size.x + 200: continue
-		p.y += (58 + fposmod(sin(i * 23.7) * 1893, 35)) * sc
-		var id = ["fern", "bush", "rocks"][posmod(i, 3)]
-		var h = (32 + fposmod(sin(i * 1.9) * 5137, 28)) * sc
-		ellipse(p + Vector2(8, 0), Vector2(h * 0.65, h * 0.12), Color(0.08, 0.13, 0.07, 0.28))
-		grounded_sprite(id, p, h, Color(0.76, 0.84, 0.66))
+func train_body_transform(index: int) -> Transform2D:
+	var s = body_track_s(index)
+	var scale_value = view_scale()
+	return Transform2D(-model.route.slope(s), Vector2(scale_value * body_facing(), scale_value), 0, world_point(s))
+
+# Input regions are computed from the same transforms as the drawing, but
+# before it, so clicks never depend on what the previous frame happened to draw.
+func update_hits() -> void:
+	grip_hits.clear()
+	slot_hits.clear()
+	cargo_hits.clear()
+	body_hits.clear()
+	if art == null or screen == "menu" or model.state.is_empty(): return
+	var ids = model.body_ids()
+	var scale_value = view_scale()
+	for i in range(ids.size() - 1, -1, -1):
+		var transform = train_body_transform(i)
+		var p = transform.origin
+		body_hits.append({"id": ids[i], "rect": Rect2(p - Vector2(art.body_width(ids[i])*0.5, 220) * scale_value, Vector2(art.body_width(ids[i]), 230) * scale_value)})
+		if screen == "game":
+			add_world_hits(ids[i], i, transform)
+	if dock_visible():
+		for entry in dock_items():
+			cargo_hits.append({"id": entry.item.id, "rect": Rect2(entry.position - Vector2(8, 4), Vector2(96, 82))})
 
 func draw_train() -> void:
 	var ids = model.body_ids()
 	var scale_value = view_scale()
+	var direction = body_facing()
 	for i in range(ids.size() - 1, -1, -1):
-		var s = model.body_s(i) if screen != "depot" else -i * 3.5
-		var p = world_point(s)
-		var angle = -model.route.slope(s)
-		var direction = int(model.state.direction) if screen != "depot" else 1
-		var transform = Transform2D(angle, Vector2(scale_value * direction, scale_value), 0, p)
+		var s = body_track_s(i)
+		var transform = train_body_transform(i)
+		var p = transform.origin
 		draw_set_transform_matrix(transform)
 		draw_body(ids[i], s, screen == "game")
 		draw_set_transform_matrix(Transform2D.IDENTITY)
-		body_hits.append({"id": ids[i], "rect": Rect2(p - Vector2(art.body_width(ids[i])*0.5, 220) * scale_value, Vector2(art.body_width(ids[i]), 230) * scale_value)})
 		if screen == "depot" and selected_object == ids[i]:
 			draw_line(p + Vector2(-art.body_width(ids[i])*0.46,14)*scale_value,p+Vector2(art.body_width(ids[i])*0.46,14)*scale_value,GOLD,3,true)
 		if i > 0:
-			var front = world_point(model.body_s(i - 1) if screen != "depot" else -(i - 1) * 3.5)
+			var front = world_point(body_track_s(i - 1))
 			draw_line(p + Vector2(art.body_width(ids[i])*0.5*direction*scale_value,-27*scale_value),front-Vector2(art.body_width(ids[i-1])*0.5*direction*scale_value,27*scale_value),INK,5)
-		if screen == "game":
-			add_world_hits(ids[i], i, transform)
 
 func draw_body(id: String, s: float, controls: bool) -> void:
 	var body_scale = view_scale()
-	var body_transform = Transform2D(-model.route.slope(s), Vector2(body_scale * (model.state.direction if screen != "depot" else 1), body_scale), 0, world_point(s))
+	var body_transform = Transform2D(-model.route.slope(s), Vector2(body_scale * body_facing(), body_scale), 0, world_point(s))
 	ellipse(Vector2(10, 7), Vector2(art.body_width(id)*0.48, 7), Color(0.05, 0.08, 0.05, 0.23))
-	art.draw_vehicle(self,id,s,int(model.state.direction) if screen!="depot" else 1,body_transform,model,controls)
+	art.draw_vehicle(self,id,s,body_facing(),body_transform,model,controls)
 	var stats = model.object_stats(id)
 	for index in range(int(stats.slots)):
 		var loc = slot_local(id, index)
@@ -1083,35 +1021,6 @@ func draw_body(id: String, s: float, controls: bool) -> void:
 	if id.begins_with("W"): art.draw_wagon_front(self,id,body_transform)
 	if id == model.vehicle_id() and controls:
 		draw_controls(body_transform)
-
-func wheel_rotation(distance: float, facing: int) -> float:
-	# Positive rotation is clockwise in Godot. Mirrored bodies invert the local angle.
-	return distance * 64.0 / 28.0 * facing
-
-func draw_pump_linkage() -> void:
-	var pivot = Vector2(0, -177)
-	var bearing = Vector2(40, -48)
-	var normalized = clampf(sin(model.pump_angle) / sin(deg_to_rad(28)), -1, 1)
-	var phase = asin(normalized)
-	if model.pump_last_direction * model.drive_direction() < 0: phase = PI - phase
-	var attachment = pivot + Vector2(42, 0).rotated(model.pump_angle)
-	var crank_pin = bearing + Vector2(cos(phase), sin(phase)) * 20
-	draw_circle(bearing, 25, Color("242e2b"))
-	for i in range(14):
-		var a = phase + i * TAU / 14
-		var radial = Vector2(cos(a), sin(a))
-		var tangent = radial.orthogonal()
-		draw_colored_polygon(PackedVector2Array([bearing + radial * 22 - tangent * 3, bearing + radial * 29 - tangent * 2, bearing + radial * 29 + tangent * 2, bearing + radial * 22 + tangent * 3]), Color("8e805c"))
-	draw_arc(bearing, 23, 0, TAU, 32, Color("b5a275"), 3, true)
-	for i in range(8):
-		var a = phase + i * TAU / 8
-		draw_line(bearing + Vector2(cos(a), sin(a)) * 8, bearing + Vector2(cos(a), sin(a)) * 24, Color("736d54"), 4, true)
-	draw_line(attachment + Vector2(2, 1), crank_pin + Vector2(2, 1), Color("26332f"), 9, true)
-	draw_line(attachment, crank_pin, Color("b4a27a"), 6, true)
-	draw_line(attachment + Vector2(-1, 0), crank_pin + Vector2(-1, 0), Color("e0cba0"), 2, true)
-	for pin in [attachment, crank_pin, bearing]:
-		draw_circle(pin, 6, Color("34443e"))
-		draw_circle(pin, 3, GOLD)
 
 func find_slot_cargo(key: String) -> Dictionary:
 	for item in model.state.cargo:
@@ -1175,21 +1084,6 @@ func add_world_hits(id: String, index: int, transform: Transform2D) -> void:
 		var item = find_slot_cargo(slot.key)
 		if not item.is_empty(): cargo_hits.append({"id": item.id, "rect": rect})
 
-func draw_map(size: Vector2) -> void:
-	var left = 80.0
-	var right = size.x - 80
-	var y = 132.0
-	draw_line(Vector2(left, y), Vector2(right, y), Color(0.95, 0.92, 0.82, 0.4), 3)
-	var train_x = lerpf(left, right, clampf(float(model.state.s) / float(model.route.station_s[-1]), 0, 1))
-	draw_line(Vector2(left, y), Vector2(train_x, y), GOLD, 3)
-	for i in range(model.data.stations.size()):
-		var station = model.data.stations[i]
-		var x = lerpf(left, right, float(model.route.station_s[i]) / float(model.route.station_s[-1]))
-		draw_circle(Vector2(x, y), 7, GOLD if station.id == model.next_destination() else PAPER)
-		draw_string(font, Vector2(x - 96, y + 29), station.name, HORIZONTAL_ALIGNMENT_CENTER, 192, 17, PAPER)
-	draw_circle(Vector2(train_x, y), 11, GREEN)
-	draw_circle(Vector2(train_x, y), 5, PAPER)
-
 func draw_loading_dock(size: Vector2) -> void:
 	var station_index = model.station_index()
 	var rect = dock_rect()
@@ -1198,24 +1092,31 @@ func draw_loading_dock(size: Vector2) -> void:
 	draw_string(font, rect.position + Vector2(20, 28), title, HORIZONTAL_ALIGNMENT_LEFT, 600, 18, PAPER)
 	if station_index >= 0 and model.stopped():
 		draw_string(font, rect.position + Vector2(590, 28), "Отпусти груз здесь, чтобы выгрузить", HORIZONTAL_ALIGNMENT_RIGHT, rect.size.x - 615, 18, PAPER)
-	var index = 0
-	for item in model.state.cargo:
-		if item.delivered or item.slot != "": continue
-		if station_index != 0: continue
-		var p = rect.position + Vector2(42 + index * 128, 58)
+	var entries = dock_items()
+	for entry in entries:
+		var item = entry.item
+		var p = entry.position
 		if item.id != drag_item:
 			sprite(model.cargo_base(item.type).sprite, Rect2(p, Vector2(60, 65)))
-		cargo_hits.append({"id": item.id, "rect": Rect2(p - Vector2(8, 4), Vector2(96, 82))})
 		draw_string(font, p + Vector2(65, 44), item.destination, HORIZONTAL_ALIGNMENT_LEFT, 45, 19, GOLD)
-		index += 1
 	if drag_item != "":
 		for item in model.state.cargo:
 			if item.id == drag_item:
 				sprite(model.cargo_base(item.type).sprite, Rect2(get_global_mouse_position() - Vector2(38, 48), Vector2(76, 80)))
-	if index == 0:
+	if entries.is_empty():
 		var text = "Груз закреплён. Можно отправляться."
 		if not model.state.active.is_empty() and model.state.active.phase == "return": text = "Все доставки выполнены. Дома ждут %d монет." % model.state.active.pending_reward
 		draw_string(font, rect.position + Vector2(25, 95), text, HORIZONTAL_ALIGNMENT_LEFT, rect.size.x - 50, 21, PAPER)
+
+# Unloaded cargo waits on the home platform; other stations only receive it.
+func dock_items() -> Array:
+	var entries: Array = []
+	if model.station_index() != 0: return entries
+	var rect = dock_rect()
+	for item in model.state.cargo:
+		if item.delivered or item.slot != "": continue
+		entries.append({"item": item, "position": rect.position + Vector2(42 + entries.size() * 128, 58)})
+	return entries
 
 func draw_tooltip() -> void:
 	if drag != "": return
@@ -1238,10 +1139,7 @@ func draw_tooltip() -> void:
 func draw_menu_train(size: Vector2) -> void:
 	var p = Vector2(size.x*0.74,size.y*0.75)
 	draw_line(Vector2(size.x*0.48,p.y-5),Vector2(size.x,p.y-5),INK,7,true)
-	if model.state.is_empty(): model.new_game(42)
-	var previous = model.pump_angle
-	model.pump_angle = sin(time*1.5)*deg_to_rad(26)
+	menu_preview.pump_angle = sin(time*1.5)*deg_to_rad(26)
 	var outer = Transform2D(0,Vector2(1.7,1.7),0,p)
-	art.draw_vehicle(self,"handcar",0,1,outer,model,false)
-	model.pump_angle = previous
+	art.draw_vehicle(self,"handcar",0,1,outer,menu_preview,false)
 	draw_set_transform_matrix(Transform2D.IDENTITY)

@@ -7,7 +7,6 @@ var manifest: Dictionary
 var assets: Dictionary
 var textures: Dictionary = {}
 var rig: Dictionary
-var last_motion = 1
 var wagon_front: AtlasTexture
 
 func _init() -> void:
@@ -86,8 +85,9 @@ func forward_pose(phase: float) -> Dictionary:
 	var rocker_pin = s + u * a + Vector2(u.y, -u.x) * h
 	return {"rocker": s, "rocker_pin": rocker_pin, "crank": c, "crank_pin": b, "angle": (rocker_pin - s).angle(), "phase": phase}
 
+# motion is the last non-zero stroke direction; it picks the crank branch.
 func pose(control_angle: float, motion: int, direction: int) -> Dictionary:
-	if motion != 0: last_motion = motion
+	var stroke = motion if motion != 0 else 1
 	var limits = rig.validation.rocker_degrees
 	var angle = deg_to_rad(lerpf(float(limits[0]), float(limits[1]), clampf((control_angle + deg_to_rad(28)) / deg_to_rad(56), 0.00001, 0.99999)))
 	var s = vec(rig.rocker_pivot)
@@ -106,11 +106,11 @@ func pose(control_angle: float, motion: int, direction: int) -> Dictionary:
 	for b in [base + perpendicular * h, base - perpendicular * h]:
 		var phase = (b - c).angle()
 		var slope = float(forward_pose(phase + 0.0001).angle) - float(forward_pose(phase).angle)
-		if signf(slope) == signf(float(last_motion * direction)): chosen = b; break
+		if signf(slope) == signf(float(stroke * direction)): chosen = b; break
 	return {"rocker": s, "rocker_pin": a_point, "crank": c, "crank_pin": chosen, "angle": angle, "phase": (chosen - c).angle()}
 
 func mechanism_pose(model) -> Dictionary:
-	return pose(model.pump_angle, model.pump_last_direction, model.drive_direction())
+	return pose(model.pump_angle, model.pump_visual_motion, model.drive_direction())
 
 func hand_grip(model) -> Vector2:
 	var p = mechanism_pose(model)

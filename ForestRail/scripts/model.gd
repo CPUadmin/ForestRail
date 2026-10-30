@@ -3,6 +3,12 @@ extends RefCounted
 const Route = preload("res://scripts/route.gd")
 const G = 9.81
 const VEHICLE_IDS = ["handcar", "motorcar", "locomotive"]
+const WAGON_IDS = ["W01", "W02", "W03"]
+# Distance along the track from the head body to the first wagon, then between wagons.
+const FIRST_WAGON_OFFSET_M = 3.8
+const WAGON_PITCH_M = 3.5
+# Hitting the buffer stop faster than this damages fragile cargo.
+const BUFFER_SAFE_SPEED = 1.0
 var data: Dictionary
 var route = Route.new()
 var state: Dictionary = {}
@@ -11,6 +17,8 @@ var pump_angle = 0.0
 var pump_pending = 0.0
 var pump_stroke = 0.0
 var pump_last_direction = 0
+# Last non-zero stroke direction; the drawn crank keeps its branch between strokes.
+var pump_visual_motion = 1
 var pump_work = 0.0
 var flywheel_energy = 0.0
 var output_power = 0.0
@@ -53,6 +61,22 @@ func vehicle_base(id: String = "") -> Dictionary:
 			return item
 	return {}
 
+func vehicle_name(id: String = "") -> String:
+	var base = vehicle_base(id)
+	return str(base.get("display_name", base.get("name", id)))
+
+func branch_name(branch: Dictionary) -> String:
+	return str(branch.get("display_name", branch.name))
+
+func max_wagons(id: String) -> int:
+	return int(data.upgrade_rules.get(id + "_max_wagons", 0))
+
+func handcar_top_speed() -> float:
+	return float(vehicle_base("handcar").top_speed_mps)
+
+func line_end_x() -> float:
+	return float(data.stations[-1].s_m)
+
 func cargo_base(id: String) -> Dictionary:
 	for item in data.cargo:
 		if item.id == id:
@@ -83,19 +107,21 @@ func object_stats(id: String) -> Dictionary:
 	var ef = effects(id)
 	var slots = int(base.slots if wagon else base.deck_slots) + int(ef.get("add_slots", 0))
 	var mass = float(base.mass_kg) + float(ef.get("add_mass_kg", 0))
-	var brake_base = 0.0 if wagon else {"handcar": 700.0, "motorcar": 1800.0, "locomotive": 6000.0}[id]
+	var brake_base = 0.0 if wagon else float(base.brake_n)
 	var result = {"slots": slots, "mass": mass, "rolling": 0.004 * float(ef.get("rolling_multiplier", 1.0)),
 		"brake": brake_base * float(ef.get("brake_multiplier", 1.0)) + float(ef.get("add_brake_n", 0)),
 		"shock": float(ef.get("cargo_shock_multiplier", 1.0)), "power": 220.0 * float(ef.get("power_multiplier", 1.0)),
 		"cycle_work": 160.0 * float(ef.get("work_multiplier", 1.0)),
-		"tank": float(base.get("fuel_l", 0)) * float(ef.get("fuel_capacity_multiplier", 1.0))}
-	if id == "locomotive":
-		result.tank = 0.6 * float(ef.get("fuel_capacity_multiplier", 1.0))
+		"tank": energy_capacity(base) * float(ef.get("fuel_capacity_multiplier", 1.0))}
 	if not wagon and id != "handcar":
 		result.traction = [float(base.traction_n[0]) * float(ef.get("traction_multiplier", 1)) * float(ef.get("low_gear_multiplier", 1)),
 			float(base.traction_n[1]) * float(ef.get("traction_multiplier", 1))]
 		result.speeds = [float(base.gear_speed_mps[0]), float(base.gear_speed_mps[1]) * float(ef.get("high_gear_speed_multiplier", 1))]
 	return result
+
+# The electric locomotive stores kWh instead of the litres in the original data.
+func energy_capacity(base: Dictionary) -> float:
+	return float(base.get("battery_kwh", base.get("fuel_l", 0)))
 
 func body_ids() -> Array:
 	return [vehicle_id()] + state.consist_ids
@@ -123,16 +149,19 @@ func body_mass(id: String) -> float:
 			total += float(cargo_base(cargo.type).mass_kg)
 	return total
 
+func body_offset(index: int) -> float:
+	return 0.0 if index == 0 else FIRST_WAGON_OFFSET_M + (index - 1) * WAGON_PITCH_M
+
 func body_s(index: int) -> float:
-	var offset = 0.0 if index == 0 else (3.8 + (index - 1) * 3.5)
-	return float(state.s) - float(state.direction) * offset
+	return float(state.s) - float(state.direction) * body_offset(index)
 
 func train_length() -> float:
-	return 3.0 + state.consist_ids.size() * 3.5
+	return 3.0 + state.consist_ids.size() * WAGON_PITCH_M
 
 func station_index() -> int:
+	var half_platform = float(data.rules.station_length_m) * 0.5
 	for i in range(route.station_s.size()):
-		if absf(float(state.s) - float(route.station_s[i])) <= 17.5:
+		if absf(float(state.s) - float(route.station_s[i])) <= half_platform:
 			return i
 	return -1
 
@@ -143,7 +172,9 @@ func depot_editable() -> bool:
 	return state.phase == "depot" and stopped() and state.cargo.is_empty() and state.active.is_empty()
 
 func buy_vehicle(id: String) -> bool:
-	if not depot_editable() or state.fleet_by_id.has(id):
+	if state.fleet_by_id.has(id):
+		return fail("Эта машина уже в гараже")
+	if not depot_editable():
 		return fail("Покупки доступны в депо до погрузки")
 	if id == "locomotive" and not state.fleet_by_id.has("motorcar"):
 		return fail("Сначала приобрети моторную дрезину")
@@ -151,7 +182,7 @@ func buy_vehicle(id: String) -> bool:
 	if int(state.money) < int(base.cost):
 		return fail("Не хватает %d монет" % (int(base.cost) - int(state.money)))
 	state.money -= int(base.cost)
-	state.fleet_by_id[id] = {"levels": {}, "fuel": 0.6 if id == "locomotive" else float(base.fuel_l), "consist": []}
+	state.fleet_by_id[id] = {"levels": {}, "fuel": energy_capacity(base), "consist": []}
 	var wagon_id = "W01" if id == "motorcar" else "W02"
 	state.wagons_by_id[wagon_id] = {"levels": {}}
 	select_vehicle(id)
@@ -161,16 +192,24 @@ func buy_vehicle(id: String) -> bool:
 	return true
 
 func buy_wagon() -> bool:
-	if not depot_editable() or not state.fleet_by_id.has("locomotive") or state.wagons_by_id.has("W03"):
+	if state.wagons_by_id.has("W03"):
+		return fail("Третий вагон уже куплен")
+	if not state.fleet_by_id.has("locomotive"):
 		return fail("Третий вагон доступен после покупки локомотива")
-	if state.money < 180:
-		return fail("Не хватает %d монет" % (180 - state.money))
-	state.money -= 180
+	if not depot_editable():
+		return fail("Покупки доступны в депо до погрузки")
+	var cost = third_wagon_cost()
+	if state.money < cost:
+		return fail("Не хватает %d монет" % (cost - state.money))
+	state.money -= cost
 	state.wagons_by_id.W03 = {"levels": {}}
-	if vehicle_id() == "locomotive" and state.consist_ids.size() < 3:
+	if vehicle_id() == "locomotive" and state.consist_ids.size() < max_wagons("locomotive"):
 		state.consist_ids.append("W03")
 		_claim_consist()
 	return true
+
+func third_wagon_cost() -> int:
+	return int(data.fleet_rules.third_wagon_cost)
 
 func select_vehicle(id: String) -> bool:
 	if not depot_editable() or not state.fleet_by_id.has(id):
@@ -193,7 +232,7 @@ func toggle_wagon(id: String) -> bool:
 		state.consist_ids.erase(id)
 		_claim_consist()
 		return true
-	var limit = {"handcar": 0, "motorcar": 1, "locomotive": 3}[vehicle_id()]
+	var limit = max_wagons(vehicle_id())
 	if state.consist_ids.size() >= limit:
 		return fail("Эта машина допускает вагонов: %d" % limit)
 	state.consist_ids.append(id)
@@ -259,7 +298,7 @@ func mission_error(mission: Dictionary) -> String:
 		for stop in mission.dropoffs:
 			for i in range(data.stations.size()):
 				if data.stations[i].id == stop.station: distance = maxf(distance, float(route.station_s[i]) * 2)
-		var estimated = distance * (0.00045 if vehicle_id() == "motorcar" else 0.00009)
+		var estimated = distance * float(vehicle_base().energy_per_m)
 		if float(state.fleet_by_id[vehicle_id()].fuel) < estimated:
 			return "Запас мал: нужно примерно %.2f %s. Пополни его в депо" % [estimated, "л" if vehicle_id() == "motorcar" else "кВт·ч"]
 	return ""
@@ -455,7 +494,7 @@ func settle() -> bool:
 	state.active.paid = true
 	if not state.active.get("free", false):
 		state.completed_ids.append(id)
-		state.chapter = mini(int(state.chapter) + 1, 10)
+		state.chapter = mini(int(state.chapter) + 1, data.missions.size())
 	if state.active.get("final", false):
 		state.finale = true
 		events.append("finale")
@@ -483,11 +522,21 @@ func rescue() -> void:
 	state.reverser = 1
 	flywheel_energy = 0.0
 	state.stats.rescues += 1
+	state.money -= mini(int(state.money), rescue_cost())
 	reset_input()
 	if not settle():
 		state.phase = "depot"
 	refuel()
 	message = "Помощь доставила состав в депо. Груз и покупки сохранены"
+
+func rescue_cost() -> int:
+	return int(data.rules.get("rescue_cost", 0))
+
+func set_brake(value: float) -> void:
+	state.brake = clampf(value, 0.0, 1.0)
+
+func set_throttle(value: float) -> void:
+	state.throttle = clampf(value, 0.0, 1.0)
 
 func set_gear(value: int) -> bool:
 	if float(state.throttle) >= 0.15:
@@ -555,9 +604,10 @@ func physics_step(dt: float) -> void:
 		var before = pump_angle
 		pump_angle = clampf(pump_angle + amount, -deg_to_rad(28), deg_to_rad(28))
 		var motion = pump_angle - before
-		if signi(int(signf(motion))) != pump_last_direction and absf(motion) > 0.00001:
+		if int(signf(motion)) != pump_last_direction and absf(motion) > 0.00001:
 			pump_stroke = 0.0
 			pump_last_direction = int(signf(motion))
+			pump_visual_motion = pump_last_direction
 		pump_stroke += absf(motion)
 		var work = 0.0
 		if pump_stroke >= deg_to_rad(56) * 0.03:
@@ -571,7 +621,7 @@ func physics_step(dt: float) -> void:
 		flywheel_energy = maxf(0, flywheel_energy - released_work)
 		if flywheel_energy < 0.02: flywheel_energy = 0.0
 		output_power = released_work / dt
-		var taper = maxf(0, 1.0 - pow(absf(float(state.v)) / 3.34, 2))
+		var taper = maxf(0, 1.0 - pow(absf(float(state.v)) / handcar_top_speed(), 2))
 		drive = float(drive_direction()) * minf(260, output_power / maxf(absf(float(state.v)), 0.65)) * taper
 	else:
 		var fleet = state.fleet_by_id[vehicle_id()]
@@ -615,15 +665,16 @@ func physics_step(dt: float) -> void:
 	state.stats.distance += absf(movement)
 	rail_distance += absf(movement)
 	# Bound the head so that every trailing body remains on the shared curve.
-	var rear_span = 3.8 + maxf(0, state.consist_ids.size() - 1) * 3.5 if not state.consist_ids.is_empty() else 0.0
-	var lower = -38.0 + (rear_span if state.direction > 0 else 0.0)
+	var rear_span = body_offset(state.consist_ids.size())
+	var lower = -float(Route.BUFFER_M) + 2.0 + (rear_span if state.direction > 0 else 0.0)
 	var upper = route.length_m - 2.0 - (rear_span if state.direction < 0 else 0.0)
 	if state.s < lower or state.s > upper:
 		state.s = clampf(float(state.s), lower, upper)
+		var damaged = buffer_impact(absf(float(state.v)))
 		state.v = 0.0
 		state.brake = 1.0
 		state.throttle = 0.0
-		message = "Конец линии. Остановись и выбери обратное направление тяги"
+		message = "Удар об упор: посуда пострадала. Подъезжай к концу линии медленнее" if damaged else "Конец линии. Остановись и выбери обратное направление тяги"
 	if absf(acceleration) > 1.2:
 		shock_time += dt
 	else:
@@ -635,6 +686,19 @@ func physics_step(dt: float) -> void:
 				item.health = maxf(0, float(item.health) - dt * (absf(acceleration) - 1.2) * 0.1 * float(object_stats(owner).shock))
 	if not state.active.is_empty() and state.active.phase == "return" and station_index() == 0 and stopped():
 		settle()
+
+# The clamp stops the train within one step, which the sustained-shock filter
+# ignores; charge the fragile cargo for the impact explicitly.
+func buffer_impact(speed: float) -> bool:
+	if speed <= BUFFER_SAFE_SPEED:
+		return false
+	var damaged = false
+	for item in state.cargo:
+		if item.type == "fragile" and item.slot != "" and not item.delivered:
+			var owner = str(item.slot).split(":")[0]
+			item.health = maxf(0, float(item.health) - minf(1.0, (speed - BUFFER_SAFE_SPEED) * 0.25) * float(object_stats(owner).shock))
+			damaged = true
+	return damaged
 
 func station_name(id: String) -> String:
 	for station in data.stations:
@@ -683,11 +747,12 @@ func validate_save(saved: Dictionary) -> bool:
 		return false
 	for key in ["money", "chapter", "s", "v", "direction", "brake", "throttle", "gear", "offer_serial"]:
 		if not numeric(saved[key]): return false
-	if saved.money < 0 or saved.chapter < 0 or saved.chapter > 10 or saved.brake < 0 or saved.brake > 1 or saved.throttle < 0 or saved.throttle > 1 or saved.gear < 0 or saved.gear > 2:
+	var chapters = data.missions.size()
+	if saved.money < 0 or saved.chapter < 0 or saved.chapter > chapters or saved.brake < 0 or saved.brake > 1 or saved.throttle < 0 or saved.throttle > 1 or saved.gear < 0 or saved.gear > 2:
 		return false
-	if absf(float(saved.v)) > 100 or float(saved.s) < -40 or float(saved.s) > 1760:
+	if absf(float(saved.v)) > 100 or float(saved.s) < -Route.BUFFER_M or float(saved.s) > line_end_x() + Route.BUFFER_M + 20:
 		return false
-	if not saved.route.has_all(["points", "seed", "generator_version"]) or not saved.route.points is Array or saved.route.points.size() < 1700:
+	if not saved.route.has_all(["points", "seed", "generator_version"]) or not saved.route.points is Array or saved.route.points.size() < int(line_end_x()):
 		return false
 	var previous_s = -INF
 	for point in saved.route.points:
@@ -698,7 +763,7 @@ func validate_save(saved: Dictionary) -> bool:
 		previous_s = float(point[2])
 	for group in [saved.fleet_by_id, saved.wagons_by_id]:
 		for id in group:
-			if id not in VEHICLE_IDS and id not in ["W01", "W02", "W03"]: return false
+			if id not in VEHICLE_IDS and id not in WAGON_IDS: return false
 			var object = group[id]
 			if not object is Dictionary or not object.has("levels") or not object.levels is Dictionary: return false
 			if id in VEHICLE_IDS and (not object.has("fuel") or not numeric(object.fuel) or object.fuel < 0): return false
@@ -716,7 +781,7 @@ func validate_save(saved: Dictionary) -> bool:
 		if not numeric(saved.active.reward) or not numeric(saved.active.pending_reward): return false
 		for stop in saved.active.dropoffs:
 			if not stop is Dictionary or not stop.has_all(["station", "cargo"]): return false
-	if not saved.fleet_by_id.has(saved.selected_vehicle_id) or int(saved.money) < 0 or int(saved.chapter) < 0 or int(saved.chapter) > 10:
+	if not saved.fleet_by_id.has(saved.selected_vehicle_id) or int(saved.money) < 0 or int(saved.chapter) < 0 or int(saved.chapter) > chapters:
 		return false
 	if saved.phase not in ["depot", "loading", "route"] or int(saved.direction) not in [-1, 1]:
 		return false
@@ -725,10 +790,12 @@ func validate_save(saved: Dictionary) -> bool:
 	for id in saved.consist_ids:
 		if not saved.wagons_by_id.has(id):
 			return false
-	if saved.consist_ids.size() > {"handcar": 0, "motorcar": 1, "locomotive": 3}.get(saved.selected_vehicle_id, 0): return false
-	if saved.consist_ids.size() != saved.consist_ids.duplicate().reduce(func(acc, value):
-		if value not in acc: acc.append(value)
-		return acc, []).size(): return false
+	if saved.consist_ids.size() > max_wagons(str(saved.selected_vehicle_id)): return false
+	var unique_wagons: Array = []
+	for id in saved.consist_ids:
+		if id in unique_wagons: return false
+		unique_wagons.append(id)
+	var max_slot = int(data.upgrade_rules.max_wagon_capacity) - 1
 	var seen: Array = []
 	var occupied: Array = []
 	for item in saved.cargo:
@@ -741,7 +808,7 @@ func validate_save(saved: Dictionary) -> bool:
 		if not item.slot is String or not item.id is String: return false
 		if item.slot != "":
 			var split = item.slot.split(":")
-			if split.size() != 2 or not split[1].is_valid_int() or int(split[1]) < 0 or int(split[1]) > 3: return false
+			if split.size() != 2 or not split[1].is_valid_int() or int(split[1]) < 0 or int(split[1]) > max_slot: return false
 			if split[0] != saved.selected_vehicle_id and split[0] not in saved.consist_ids: return false
 		seen.append(item.id)
 		if item.slot != "":

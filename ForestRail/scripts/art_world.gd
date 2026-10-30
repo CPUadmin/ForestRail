@@ -10,6 +10,7 @@ var art
 var strips: Dictionary = {}
 var stations
 var foreground
+var mesh_key: Array = []
 
 func _ready() -> void:
 	z_index = -10
@@ -71,6 +72,15 @@ func update_view() -> void:
 	var size = game.get_viewport_rect().size
 	var in_menu = game.screen == "menu"
 	var rail_y = size.y * 0.75 - 5 if in_menu else game.rail_baseline()
+	stations.visible = not in_menu
+	foreground.visible = true
+	stations.queue_redraw()
+	foreground.queue_redraw()
+	queue_redraw()
+	# The strips depend only on the view; a parked camera reuses last frame's meshes.
+	var key = [size, rail_y, game.screen, game.camera_s, game.camera_x, game.camera_y, 1.0 if in_menu else game.view_scale(), game.model.route.seed_value, game.model.route.points.size()]
+	if key == mesh_key: return
+	mesh_key = key
 	for name in ["far_hills", "far_forest", "mid_forest"]:
 		var height = size.y * {"far_hills": 0.25, "far_forest": 0.31, "mid_forest": 0.50}[name]
 		var baseline = rail_y - {"far_hills": 105.0, "far_forest": 48.0, "mid_forest": -4.0}[name]
@@ -94,11 +104,6 @@ func update_view() -> void:
 			uv.append(Vector2(s / tile_m, 0))
 			uv.append(Vector2(s / tile_m, 1))
 		strips[name].mesh = mesh_strip(points, uv, Color(0.88,0.9,0.8) if name=="soil" else Color.WHITE)
-	stations.visible = not in_menu
-	foreground.visible = true
-	stations.queue_redraw()
-	foreground.queue_redraw()
-	queue_redraw()
 
 func _draw() -> void:
 	if art == null: return
