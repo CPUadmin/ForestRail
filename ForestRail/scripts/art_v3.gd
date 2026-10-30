@@ -117,13 +117,21 @@ func hand_grip(model) -> Vector2:
 	var at128 = vec(rig.rocker_pivot) + Vector2(128, 0).rotated(float(p.angle))
 	return at128 * PX / 128 + Vector2(0, axis_height("handcar"))
 
+func wheel_radius(id: String) -> float:
+	return PX * (0.55 if id == "locomotive" else 0.42) * 0.5
+
+# Rolling without slip; mirrored bodies invert the local angle.
+func wheel_rotation(distance: float, facing: int, id: String = "handcar") -> float:
+	return distance * PX / wheel_radius(id) * facing
+
 func draw_vehicle(canvas: Node2D, id: String, distance: float, facing: int, outer: Transform2D, model, active: bool) -> void:
 	draw_part(canvas, body_key(id), Vector2(0, axis_height(id)), 0, scale_for(body_key(id)), outer)
 	var wheel_id = "vehicles/wheel_large" if id == "locomotive" else "vehicles/wheel_small"
-	var radius = PX * (0.55 if id == "locomotive" else 0.42) * 0.5
+	var radius = wheel_radius(id)
+	var angle = wheel_rotation(distance, facing, id)
 	for position in wheel_positions(id):
-		draw_part(canvas, wheel_id, position, distance * PX / radius * facing, scale_for(wheel_id), outer)
-		canvas.draw_set_transform_matrix(outer * Transform2D(distance * PX / radius * facing, position))
+		draw_part(canvas, wheel_id, position, angle, scale_for(wheel_id), outer)
+		canvas.draw_set_transform_matrix(outer * Transform2D(angle, position))
 		canvas.draw_circle(Vector2(0, -radius * 0.72), 1.8, Color("c9af73"))
 		canvas.draw_set_transform_matrix(outer)
 	if id == "handcar": draw_mechanism(canvas, model, outer)
