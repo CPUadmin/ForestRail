@@ -137,16 +137,48 @@ func draw_vehicle(canvas: Node2D, id: String, distance: float, facing: int, oute
 		canvas.draw_colored_polygon(bolt,Color("ddc37b"))
 	var p = mechanism_pose(model) if id=="handcar" and pose_override.is_empty() else pose_override
 	if id=="steam": draw_steam_overlay(canvas, model)
-	var wheel_id = "vehicles/steam_wheel" if id == "steam" else ("vehicles/wheel_large" if id in LARGE_WHEELS else "vehicles/wheel_small")
+	if id=="motorcar": draw_petrol_overlay(canvas, model)
+	var wheel_id = "vehicles/steam_wheel" if id == "steam" else "vehicles/petrol_wheel" if id == "motorcar" else ("vehicles/wheel_large" if id in LARGE_WHEELS else "vehicles/wheel_small")
 	var radius = PX * (0.55 if id in LARGE_WHEELS else 0.42) * 0.5
 	for position in wheel_positions(id):
 		var wheel_angle = fposmod(p.wheel_angle,TAU) if id=="handcar" else fposmod(distance*PX/radius*facing,TAU)
 		draw_part(canvas, wheel_id, position, wheel_angle, scale_for(wheel_id), outer)
 		canvas.draw_set_transform_matrix(outer * Transform2D(wheel_angle, position))
-		if id != "steam": canvas.draw_circle(Vector2(0, -radius * 0.72), 1.8, Color("c9af73"))
+		if id not in ["steam", "motorcar"]: canvas.draw_circle(Vector2(0, -radius * 0.72), 1.8, Color("c9af73"))
 		canvas.draw_set_transform_matrix(outer)
 	if id == "steam": draw_steam_motion(canvas, distance, facing, outer)
+	if id == "motorcar": draw_side_rod(canvas, id, distance, facing, outer)
 	if id == "handcar": draw_mechanism(canvas, model, outer,p)
+
+# Petrol locomotive live parts: headlamp glow and exhaust smoke (positions in
+# metres above the rail, axle at 0.21 m), plus a side rod between the wheels.
+func petrol_point(x: float, rail_y: float) -> Vector2:
+	return Vector2(x, -(rail_y - 0.21)) * PX
+
+func draw_petrol_overlay(canvas: Node2D, model) -> void:
+	if model == null or model.state.is_empty() or not model.state.get("engine", false): return
+	var t = Time.get_ticks_msec() / 1000.0
+	var load = clampf(float(model.state.get("throttle", 0)), 0.0, 1.0)
+	var lamp = petrol_point(1.18, 1.17)
+	for i in range(5):
+		canvas.draw_circle(lamp, (0.13 + 0.07 * i) * PX, Color(1.0, 0.85, 0.45, 0.11 - 0.018 * i))
+	for i in range(5):
+		var age = fposmod(t * (0.8 + 0.6 * load) + i / 5.0, 1.0)
+		var puff = petrol_point(0.55 - age * 0.9, 1.97 + age * 0.6)
+		canvas.draw_circle(puff, (0.05 + age * 0.16) * PX, Color(0.82, 0.82, 0.8, (0.25 + 0.35 * load) * (1.0 - age)))
+
+func draw_side_rod(canvas: Node2D, id: String, distance: float, facing: int, outer: Transform2D) -> void:
+	var radius = PX * float(Geometry.body(id).wheel_diameter_m) * 0.5
+	var angle = fposmod(distance * PX / radius * facing, TAU)
+	var positions = wheel_positions(id)
+	var pins: Array = []
+	for position in positions: pins.append(position + Vector2(0, -radius * 0.55).rotated(angle))
+	canvas.draw_set_transform_matrix(outer)
+	canvas.draw_line(pins[0], pins[1], Color("56635f"), 0.04 * PX, true)
+	canvas.draw_line(pins[0], pins[1], Color("8a9a94"), 0.01 * PX, true)
+	for pin in pins:
+		canvas.draw_circle(pin, 0.035 * PX, Color("c9af73"))
+		canvas.draw_circle(pin, 0.015 * PX, Color("6f5d33"))
 
 # Live parts of the steam engine on top of the painted body
 # (tools/make_steam_art.py): firebox glow, manometer needle, safety valve and

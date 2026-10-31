@@ -878,6 +878,31 @@
       "physical_width_m": 0.55,
       "scale_at_128_px_per_m": 0.1375,
       "resource": "textures/vehicles_steam_wheel.tres"
+    },
+    "vehicles/petrol_wheel": {
+      "id": "vehicles/petrol_wheel",
+      "label_ru": "Колесо бензиновой",
+      "file": "vehicles/petrol_wheel.png",
+      "size_px": [
+        512,
+        512
+      ],
+      "region_px": [
+        0,
+        0,
+        512,
+        512
+      ],
+      "mode": "RGBA",
+      "transparent_ratio": 0.2146,
+      "pivot_px": [
+        256.0,
+        256.0
+      ],
+      "pins_px": {},
+      "physical_width_m": 0.42,
+      "scale_at_128_px_per_m": 0.105,
+      "resource": "textures/vehicles_petrol_wheel.tres"
     }
   },
   "raw_png_seamless_guarantee": false,

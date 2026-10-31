@@ -124,7 +124,7 @@ func _ready() -> void:
 		for arg in qa_args:
 			if arg.begins_with("--qa-suite="):
 				var suite = arg.trim_prefix("--qa-suite=")
-				if suite not in ["check_model", "check_physics", "check_interaction", "drive_campaign", "check_presentation", "check_handcar_revision", "check_art_v3", "check_instruments", "check_station_service", "check_world_geometry", "check_mechanism", "check_mechanism_bench", "check_handcar_drive", "check_handcar_input", "check_motor_controls", "check_loading_selection", "check_layout_p7", "check_steam", "check_steam_view", "check_gearbox", "check_soak_p8", "check_save_p8"]: get_tree().quit(2); return
+				if suite not in ["check_model", "check_physics", "check_interaction", "drive_campaign", "check_presentation", "check_handcar_revision", "check_art_v3", "check_instruments", "check_station_service", "check_world_geometry", "check_mechanism", "check_mechanism_bench", "check_handcar_drive", "check_handcar_input", "check_motor_controls", "check_loading_selection", "check_layout_p7", "check_steam", "check_steam_view", "check_gearbox", "check_petrol_view", "check_soak_p8", "check_save_p8"]: get_tree().quit(2); return
 				get_tree().root.set_meta("qa_running", true)
 				set_process(false)
 				set_physics_process(false)
@@ -1799,7 +1799,7 @@ func draw_controls(body_transform: Transform2D, show_labels: bool = true) -> voi
 	var ids = control_ids()
 	if model.vehicle_id() != "handcar":
 		draw_line(Vector2(-1.28,art.deck_y(model.vehicle_id())/ArtV3.PX)*ArtV3.PX,Vector2(-1.28,-1.16)*ArtV3.PX,INK,0.04*ArtV3.PX,true)
-		draw_style_box(style(Color("34443c"),Color("918363"),3),Rect2(Vector2(-1.4,-1.62 if model.vehicle_id()=="steam" else -1.80)*ArtV3.PX,Vector2(1.04,0.62 if model.vehicle_id()=="steam" else 0.64)*ArtV3.PX))
+		draw_style_box(style(Color("34443c"),Color("918363"),3),Rect2(Vector2(-1.32 if model.vehicle_id()=="motorcar" else -1.4,-1.62 if model.vehicle_id() in ["steam","motorcar"] else -1.80)*ArtV3.PX,Vector2(0.84 if model.vehicle_id()=="motorcar" else 1.04,0.62 if model.vehicle_id() in ["steam","motorcar"] else 0.64)*ArtV3.PX))
 	var hover = get_global_mouse_position()
 	if model.vehicle_id()=="handcar":
 		var left_grip=model.handcar.pose().grip_left*ArtV3.PX
