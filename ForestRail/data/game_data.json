@@ -117,7 +117,26 @@
       "energy_per_m": 0.012,
       "energy_unit": "кг угля",
       "free_reward_multiplier": 1.25,
-      "free_reach": "D"
+      "free_reach": "D",
+      "boiler": {
+        "max_pressure_bar": 10,
+        "work_pressure_bar": 3,
+        "firebox_kg": 12,
+        "portion_kg": 8,
+        "min_fire_kg": 0.5,
+        "idle_burn_kg_s": 0.003,
+        "load_burn_kg_s": 0.006,
+        "heat_rise_s": 6,
+        "heat_fall_s": 20,
+        "steam_per_s": 0.04,
+        "use_per_s": 0.045,
+        "water_l_per_unit": 2.0,
+        "feed_full": 0.35,
+        "door_open_loss": 0.5,
+        "cooling_per_s": 0.006,
+        "spring_seconds": 2.5,
+        "default_feed": 0.5
+      }
     },
     {
       "id": "motorcar",

@@ -69,6 +69,7 @@ var pump_target_point = Vector2.ZERO
 var pump_grip_side = 1.0
 var push_cursor = Vector2.ZERO
 var grip_hits: Array = []
+var steam_hits: Array = []
 var slot_hits: Array = []
 var cargo_hits: Array = []
 var body_hits: Array = []
@@ -120,7 +121,7 @@ func _ready() -> void:
 		for arg in qa_args:
 			if arg.begins_with("--qa-suite="):
 				var suite = arg.trim_prefix("--qa-suite=")
-				if suite not in ["check_model", "check_physics", "check_interaction", "drive_campaign", "check_presentation", "check_handcar_revision", "check_art_v3", "check_instruments", "check_station_service", "check_world_geometry", "check_mechanism", "check_mechanism_bench", "check_handcar_drive", "check_handcar_input", "check_motor_controls", "check_loading_selection", "check_layout_p7", "check_soak_p8", "check_save_p8"]: get_tree().quit(2); return
+				if suite not in ["check_model", "check_physics", "check_interaction", "drive_campaign", "check_presentation", "check_handcar_revision", "check_art_v3", "check_instruments", "check_station_service", "check_world_geometry", "check_mechanism", "check_mechanism_bench", "check_handcar_drive", "check_handcar_input", "check_motor_controls", "check_loading_selection", "check_layout_p7", "check_steam", "check_soak_p8", "check_save_p8"]: get_tree().quit(2); return
 				get_tree().root.set_meta("qa_running", true)
 				set_process(false)
 				set_physics_process(false)
@@ -755,6 +756,10 @@ func update_hud() -> void:
 		hint = "Станция «%s». Перетащи груз для этой станции на площадку внизу." % at_station
 	elif model.vehicle_id() == "handcar":
 		hint = "Зажми деревянный хват и веди его по дуге рычага. Ровные полные ходы разгоняют лучше. Красный рычаг — тормоз."
+	elif model.vehicle_id() == "steam":
+		if not state.engine: hint = "Пульт [C]: открой дверцу, перетащи уголь из ведра в топку, закрой дверцу и нажми «Розжиг»."
+		elif not model.steam_ready(): hint = "Давление растёт: жди %d бар. Вода в кране должна быть открыта." % int(model.boiler_cfg().work_pressure_bar)
+		else: hint = "Вентиль — зелёный рычаг: после отпускания он закрывается сам. Тормоз — красный."
 	elif model.vehicle_id() == "locomotive":
 		hint = "Тяга — зелёный рычаг, тормоз — красный. Направление выбирается на стоянке кнопками «Тяга ←» и «Тяга →»."
 	elif not state.engine:
@@ -814,7 +819,7 @@ func energy_text() -> String:
 		return "Заряд %d%% · %.2f / %.2f кВт·ч" % [roundi(amount / cap * 100), amount, cap]
 	if model.vehicle_id() == "steam":
 		var fleet = model.state.fleet_by_id.steam
-		return "Уголь %.0f / %.0f кг · вода %.0f / %.0f л" % [amount, cap, float(fleet.get("water", 0)), float(model.object_stats("steam").water)]
+		return "Давление %.1f бар · топка %.1f кг · ведро %.0f / %.0f кг · вода %.0f / %.0f л" % [model.pressure_bar(), float(model.boiler().firebox), amount, cap, float(fleet.get("water", 0)), float(model.object_stats("steam").water)]
 	return "Бензин %.2f / %.1f л" % [amount, cap]
 
 func vehicle_display_name() -> String:
@@ -856,8 +861,50 @@ func control_ids() -> Array:
 	if model.vehicle_id() == "locomotive": return ["brake", "throttle"]
 	return ["brake", "throttle", "gear", "start"]
 
+func steam_fire_rect(rect: Rect2) -> Rect2:
+	return Rect2(rect.position+Vector2(150,282),Vector2(130,64))
+
+# Boiler corner of the steam pult: coal bucket, firebox with door, manometer.
+func draw_steam_panel(rect: Rect2) -> void:
+	var b=model.boiler()
+	var cfg=model.boiler_cfg()
+	var fleet=model.state.fleet_by_id.steam
+	var dim=Color("c7c3a0")
+	var bucket=Rect2(rect.position+Vector2(16,282),Vector2(112,64))
+	var fire=steam_fire_rect(rect)
+	var door_button=Rect2(rect.position+Vector2(150,352),Vector2(130,28))
+	var heat=float(b.heat)
+	draw_style_box(style(Color("3b2c1f"),GOLD if drag=="coal" else Color("66796b"),6),bucket)
+	draw_string(font,bucket.position+Vector2(0,24),"ВЕДРО",HORIZONTAL_ALIGNMENT_CENTER,112,16,PAPER)
+	draw_string(font,bucket.position+Vector2(0,50),"%.0f кг" % float(fleet.fuel),HORIZONTAL_ALIGNMENT_CENTER,112,18,GOLD)
+	draw_string(font,bucket.position+Vector2(0,82),"тащи в топку",HORIZONTAL_ALIGNMENT_CENTER,112,13,dim)
+	var fire_edge=GOLD if (bool(b.door) and drag=="coal") else (PAPER if bool(b.door) else Color("66796b"))
+	draw_style_box(style(Color(0.12+0.5*heat,0.07+0.2*heat,0.05),fire_edge,6),fire)
+	draw_string(font,fire.position+Vector2(0,24),"ТОПКА",HORIZONTAL_ALIGNMENT_CENTER,130,16,PAPER)
+	draw_string(font,fire.position+Vector2(0,50),"%.1f / %d кг" % [float(b.firebox),int(cfg.firebox_kg)],HORIZONTAL_ALIGNMENT_CENTER,130,17,GOLD)
+	draw_style_box(style(INK,GOLD if bool(b.door) else Color("66796b"),6),door_button)
+	draw_string(font,door_button.position+Vector2(0,20),"Дверца: открыта" if bool(b.door) else "Дверца: закрыта",HORIZONTAL_ALIGNMENT_CENTER,130,14,PAPER)
+	var center=rect.position+Vector2(360,322)
+	var first=deg_to_rad(150)
+	var sweep=deg_to_rad(240)
+	draw_arc(center,40,first,first+sweep,40,Color("66796b"),3,true)
+	var work=float(cfg.work_pressure_bar)/float(cfg.max_pressure_bar)
+	var mark=Vector2.from_angle(first+sweep*work)
+	draw_line(center+mark*34,center+mark*46,GREEN,3,true)
+	var needle=Vector2.from_angle(first+sweep*float(b.pressure))
+	draw_line(center,center+needle*34,RED if bool(b.venting) else PAPER,2.5,true)
+	draw_circle(center,3,PAPER)
+	draw_string(font,center+Vector2(-50,62),"%.1f бар" % model.pressure_bar(),HORIZONTAL_ALIGNMENT_CENTER,100,16,GOLD if model.steam_ready() else dim)
+	draw_string(font,center+Vector2(-50,-48),"ДАВЛЕНИЕ",HORIZONTAL_ALIGNMENT_CENTER,100,13,dim)
+	steam_hits.append({"id":"bucket","rect":bucket})
+	steam_hits.append({"id":"door","rect":door_button})
+	if drag=="coal":
+		var piece=Rect2(drag_cursor-Vector2(9,9),Vector2(18,18))
+		draw_rect(piece,Color("1b1713"))
+		draw_rect(piece,GOLD,false,2)
+
 func control_zoom_rect() -> Rect2:
-	return Rect2(36,90,430,320)
+	return Rect2(36,90,430,430 if model.vehicle_id()=="steam" else 320)
 
 func control_zoom_transform() -> Transform2D:
 	return Transform2D(0,Vector2.ONE*2.2,0,control_zoom_rect().position+Vector2(330,392))
@@ -886,12 +933,13 @@ func draw_control_zoom() -> void:
 		sprite("control_"+id,Rect2(-Vector2(128,224)*factor,Vector2.ONE*256*factor))
 		draw_set_transform_matrix(Transform2D.IDENTITY)
 		grip_hits.append({"id":id,"position":point,"closeup":true})
-		var title={"brake":"Тормоз","throttle":{"locomotive":"Тяга","steam":"Регулятор"}.get(model.vehicle_id(),"Газ"),"gear":"Отсечка" if model.vehicle_id()=="steam" else "Передача","start":"Пуск"}[id]
+		var steam=model.vehicle_id()=="steam"
+		var title={"brake":"Тормоз","throttle":{"locomotive":"Тяга","steam":"Вентиль"}.get(model.vehicle_id(),"Газ"),"gear":"Вода" if steam else "Передача","start":"Розжиг" if steam else "Пуск"}[id]
 		var shown_gear=lever_pending_gear if drag=="gear" else int(model.state.gear)
-		var label={"brake":"%d%%" % (model.state.brake*100),"throttle":"%d%%" % (model.state.throttle*100),"gear":["Н","1","2"][shown_gear],"start":"Вкл." if model.state.engine else "Выкл."}[id]
+		var label={"brake":"%d%%" % (model.state.brake*100),"throttle":"%d%%" % (model.state.throttle*100),"gear":("%d%%" % (float(model.boiler().feed)*100)) if steam else ["Н","1","2"][shown_gear],"start":("Горит" if model.state.engine else "Разжечь") if steam else ("Вкл." if model.state.engine else "Выкл.")}[id]
 		draw_string(font,rect.position+Vector2(15+100*i,78),title,HORIZONTAL_ALIGNMENT_CENTER,100,16,PAPER)
 		draw_string(font,rect.position+Vector2(15+100*i,253),label,HORIZONTAL_ALIGNMENT_CENTER,100,16,GOLD)
-		if id=="gear":
+		if id=="gear" and not steam:
 			for detent in range(3):
 				var mark=pivot+Vector2(0,-length).rotated(lerpf(-0.55,0.55,detent/2.0))
 				draw_circle(mark,3,GOLD if detent==shown_gear else Color("66796b"))
@@ -901,8 +949,9 @@ func draw_control_zoom() -> void:
 				var mark=pivot+Vector2(0,-length).rotated(lerpf(-0.55,0.55,float(endpoint)))
 				draw_string(font,mark+Vector2(-17,-12),["0","100"][endpoint],HORIZONTAL_ALIGNMENT_CENTER,34,13,PAPER)
 		if drag==id or point.distance_to(get_global_mouse_position())<24: draw_arc(point,10,0,TAU,28,PAPER,1.5,true)
-	var feedback=toast if toast_seconds>0 else "Веди рукоять по дуге. Пуск — щелчком."
-	draw_multiline_string(font,rect.position+Vector2(16,285),feedback,HORIZONTAL_ALIGNMENT_LEFT,400,15,2,GOLD if toast_seconds>0 else Color("c7c3a0"))
+	if model.vehicle_id()=="steam": draw_steam_panel(rect)
+	var feedback=toast if toast_seconds>0 else ("Веди рукоять по дуге. Розжиг — щелчком." if model.vehicle_id()=="steam" else "Веди рукоять по дуге. Пуск — щелчком.")
+	draw_multiline_string(font,rect.position+Vector2(16,rect.size.y-35),feedback,HORIZONTAL_ALIGNMENT_LEFT,400,15,2,GOLD if toast_seconds>0 else Color("c7c3a0"))
 
 func show_modal(kind: String) -> void:
 	cancel_drag()
@@ -1028,6 +1077,7 @@ func cancel_drag() -> void:
 
 func _process(dt: float) -> void:
 	time += dt
+	model.valve_held = drag == "throttle"
 	advance_shunting(dt)
 	if not delivery_ghost.is_empty():
 		delivery_ghost.time+=dt
@@ -1099,7 +1149,7 @@ func _input(event: InputEvent) -> void:
 	if drag == "": return
 	if event is InputEventMouseMotion:
 		if paused: cancel_drag(); return
-		if drag=="cargo":
+		if drag=="cargo" or drag=="coal":
 			drag_cursor=event.position
 			get_viewport().set_input_as_handled()
 			return
@@ -1132,7 +1182,8 @@ func _input(event: InputEvent) -> void:
 				var value=clampf((angle+0.55)/1.1,0,1)
 				if value<0.001: value=0.0
 				elif value>0.999: value=1.0
-				if drag=="gear": lever_pending_gear=roundi(value*2)
+				if drag=="gear" and model.vehicle_id()=="steam": model.set_feed(value)
+				elif drag=="gear": lever_pending_gear=roundi(value*2)
 				else: model.state[drag]=value
 		get_viewport().set_input_as_handled()
 	elif event is InputEventMouseButton and not event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
@@ -1160,6 +1211,17 @@ func _unhandled_input(event: InputEvent) -> void:
 			control_zoom=false
 			get_viewport().set_input_as_handled()
 			return
+		if in_closeup and model.vehicle_id()=="steam":
+			for hit in steam_hits:
+				if not hit.rect.has_point(mouse): continue
+				if hit.id=="door":
+					model.set_door(not bool(model.boiler().door))
+				else:
+					drag="coal"
+					drag_cursor=mouse
+					Input.set_default_cursor_shape(Input.CURSOR_DRAG)
+				get_viewport().set_input_as_handled()
+				return
 		for hit in grip_hits:
 			if in_closeup!=bool(hit.get("closeup",false)): continue
 			var d = mouse.distance_to(hit.position)
@@ -1235,6 +1297,11 @@ func finish_drag(mouse: Vector2) -> void:
 		if target != "invalid":
 			transfer_cargo(drag_item,target,mouse)
 		else: notify("Перенеси груз в выделенную зону разгрузки или свободное место")
+	elif drag == "coal":
+		if steam_fire_rect(control_zoom_rect()).has_point(mouse):
+			if not model.stoke(): notify(model.message)
+		else:
+			notify("Брось уголь в топку: перетащи ведро на красную топку")
 	elif drag == "gear" and lever_pending_gear!=int(model.state.gear):
 		if not model.set_gear(lever_pending_gear): notify(model.message)
 	elif drag == "start" and lever_travel<8 and mouse.distance_to(lever_click_origin)<8:
@@ -1330,6 +1397,7 @@ func _draw() -> void:
 	var size = get_viewport_rect().size
 	if art_world == null: draw_background(size)
 	grip_hits.clear()
+	steam_hits.clear()
 	slot_hits.clear()
 	cargo_hits.clear()
 	cargo_visuals.clear()
@@ -1719,7 +1787,7 @@ func control_geometry(id: String, closeup: bool = false) -> Dictionary:
 		pivot=control_zoom_rect().position+Vector2(65+100*["brake","throttle","gear","start"].find(id),225)
 		length=42.0 if id=="start" else 78.0
 	var value=float(model.state.get(id,0))
-	if id=="gear": value=float(lever_pending_gear if drag=="gear" else model.state.gear)/2
+	if id=="gear": value=float(model.boiler().feed) if model.vehicle_id()=="steam" else float(lever_pending_gear if drag=="gear" else model.state.gear)/2
 	var angle=lerpf(-0.55,0.55,value)
 	if id=="start": angle=0.0 if model.state.engine else PI
 	return {"pivot":pivot,"grip":pivot+Vector2(0,-length).rotated(angle),"angle":angle}
@@ -1764,7 +1832,7 @@ func draw_controls(body_transform: Transform2D, show_labels: bool = true) -> voi
 			for endpoint in range(2):
 				var mark=geo.pivot+Vector2(0,-geo.pivot.distance_to(geo.grip)).rotated(lerpf(-0.55,0.55,float(endpoint)))
 				draw_string(font,mark+Vector2(-8,-12),["0","100"][endpoint],HORIZONTAL_ALIGNMENT_LEFT,30,12,PAPER)
-		var label = {"pump": "КАЧАЙ ↕", "brake": "%d%%" % (float(model.state.brake) * 100), "throttle": "%d%%" % (float(model.state.throttle) * 100), "gear": ["Н", "1", "2"][int(model.state.gear)], "start": "ВКЛ" if model.state.engine else "ПУСК"}[id]
+		var label = {"pump": "КАЧАЙ ↕", "brake": "%d%%" % (float(model.state.brake) * 100), "throttle": "%d%%" % (float(model.state.throttle) * 100), "gear": ("%d%%" % (float(model.boiler().feed) * 100)) if model.vehicle_id() == "steam" else ["Н", "1", "2"][int(model.state.gear)], "start": "ВКЛ" if model.state.engine else "ПУСК"}[id]
 		draw_string(font, geo.grip + Vector2(-25, -25), label, HORIZONTAL_ALIGNMENT_CENTER, 80, 16, PAPER)
 
 func add_world_hits(id: String, index: int, transform: Transform2D) -> void:
@@ -1901,7 +1969,7 @@ func draw_tooltip() -> void:
 	var text = ""
 	for hit in grip_hits:
 		if hit.position.distance_to(mouse) < 31:
-			text = {"pump": "Зажми хват и веди его по дуге рычага", "brake": "Тормоз: веди рукоять по дуге от 0 до 100%", "throttle": "Подача: веди рукоять по дуге от 0 до 100%", "gear": "Перетащи рукоять к Н, 1 или 2", "start": "Щёлкни тумблер, чтобы включить или выключить"}[hit.id]
+			text = {"pump": "Зажми хват и веди его по дуге рычага", "brake": "Тормоз: веди рукоять по дуге от 0 до 100%", "throttle": "Подача: веди рукоять по дуге от 0 до 100%", "gear": "Кран воды: веди рукоять по дуге. Без воды пара нет" if model.vehicle_id() == "steam" else "Перетащи рукоять к Н, 1 или 2", "start": "Щёлкни, чтобы разжечь или погасить огонь" if model.vehicle_id() == "steam" else "Щёлкни тумблер, чтобы включить или выключить"}[hit.id]
 	if text=="" and screen=="game" and model.vehicle_id()=="locomotive" and charge_strip_rect.has_point(mouse):
 		text="Заряд %d%% · доступная тяга %d%%" % [roundi(charge_fraction()*100),roundi(model.charge_traction_factor()*100)]
 	for hit in cargo_hits:

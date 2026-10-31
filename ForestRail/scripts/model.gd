@@ -23,6 +23,7 @@ var acceleration = 0.0
 var shock_time = 0.0
 var rail_distance = 0.0
 var regen_kw = 0.0
+var valve_held = false
 var motor_energy: Dictionary = {}
 var loading_cache: Dictionary = {}
 var events: Array = []
@@ -594,6 +595,7 @@ func back_to_depot() -> bool:
 	state.phase = "depot"
 	state.engine = false
 	state.throttle = 0.0
+	cool_boiler()
 	return true
 
 func resume_mission() -> bool:
@@ -662,6 +664,7 @@ func settle() -> bool:
 	state.engine = false
 	state.throttle = 0.0
 	state.gear = 0
+	cool_boiler()
 	message = "Рейс окончен. Заработано %d монет" % reward
 	return true
 
@@ -672,6 +675,7 @@ func rescue() -> void:
 	state.throttle = 0.0
 	state.gear = 0
 	state.engine = false
+	cool_boiler()
 	state.direction = 1
 	state.reverser = 1
 	state.stats.rescues += 1
@@ -682,7 +686,7 @@ func rescue() -> void:
 	message = "Помощь доставила состав в депо. Груз и покупки сохранены"
 
 func set_gear(value: int) -> bool:
-	if vehicle_id() == "locomotive": return true
+	if vehicle_id() in ["locomotive", "steam"]: return true
 	if float(state.throttle) >= 0.15:
 		return fail("Сначала убавь подачу ниже 15%")
 	state.gear = clampi(value, 0, 2)
@@ -704,6 +708,7 @@ func drive_direction() -> int:
 
 func start_engine(value: bool) -> bool:
 	if vehicle_id() == "locomotive": return true
+	if vehicle_id() == "steam": return light_fire() if value else douse_fire()
 	if value:
 		if int(state.gear) != 0:
 			return fail("Для запуска нужна нейтраль Н")
@@ -716,6 +721,132 @@ func start_engine(value: bool) -> bool:
 	state.engine = value
 	events.append("gear")
 	return true
+
+# --- Steam boiler (N4). Simplified game model, see VEHICLE_CLASSES_v3_1_RU.md ---
+
+func boiler_cfg() -> Dictionary:
+	return vehicle_base("steam").boiler
+
+# The boiler lives in the steam fleet entry; old saves get cold defaults.
+func boiler() -> Dictionary:
+	var fleet = state.fleet_by_id.steam
+	for key in ["firebox", "heat", "pressure"]:
+		if not fleet.has(key): fleet[key] = 0.0
+	for key in ["lit", "door", "venting"]:
+		if not fleet.has(key): fleet[key] = false
+	if not fleet.has("feed"): fleet.feed = float(boiler_cfg().default_feed)
+	return fleet
+
+func pressure_bar() -> float:
+	if not state.fleet_by_id.has("steam"): return 0.0
+	return float(boiler().pressure) * float(boiler_cfg().max_pressure_bar)
+
+func steam_ready() -> bool:
+	return vehicle_id() == "steam" and pressure_bar() >= float(boiler_cfg().work_pressure_bar)
+
+func cool_boiler() -> void:
+	if not state.get("fleet_by_id", {}).has("steam"): return
+	var b = boiler()
+	b.lit = false
+	b.door = false
+	b.heat = 0.0
+	b.pressure = 0.0
+	b.venting = false
+
+# A save from before N4 had no boiler. A mid-trip steam save gets a warm one,
+# so the career does not strand on load.
+func migrate_boiler() -> void:
+	if not state.fleet_by_id.has("steam"): return
+	var fresh = not state.fleet_by_id.steam.has("pressure")
+	var b = boiler()
+	if fresh and state.phase == "route" and vehicle_id() == "steam":
+		b.firebox = 6.0
+		b.lit = true
+		b.heat = 1.0
+		b.pressure = 0.8
+
+func set_door(open: bool) -> bool:
+	if vehicle_id() != "steam": return fail("Топка есть только у паровоза")
+	boiler().door = open
+	events.append("gear")
+	return true
+
+func stoke() -> bool:
+	if vehicle_id() != "steam": return fail("Топка есть только у паровоза")
+	var b = boiler()
+	var cfg = boiler_cfg()
+	var fleet = state.fleet_by_id.steam
+	if not bool(b.door): return fail("Сначала открой топочную дверцу")
+	if float(fleet.fuel) <= 0.0: return fail("Уголь в ведре закончился. Пополни его в депо")
+	var room = float(cfg.firebox_kg) - float(b.firebox)
+	if room < 0.5: return fail("Топка полна")
+	var kg = minf(minf(float(cfg.portion_kg), room), float(fleet.fuel))
+	fleet.fuel = float(fleet.fuel) - kg
+	b.firebox = float(b.firebox) + kg
+	events.append("cargo")
+	return true
+
+func light_fire() -> bool:
+	if vehicle_id() != "steam": return fail("Розжиг нужен только паровозу")
+	var b = boiler()
+	if bool(b.lit): return fail("Огонь уже горит")
+	if float(b.firebox) < float(boiler_cfg().min_fire_kg):
+		return fail("В топке нет угля. Открой дверцу и брось уголь из ведра")
+	if float(state.fleet_by_id.steam.get("water", 0)) <= 0.0:
+		return fail("Без воды котёл не разжечь. Пополни её в депо")
+	b.lit = true
+	state.engine = true
+	events.append("gear")
+	message = "Огонь разожжён. Давление растёт, подожди"
+	return true
+
+func douse_fire() -> bool:
+	if vehicle_id() != "steam": return true
+	boiler().lit = false
+	state.engine = false
+	events.append("gear")
+	return true
+
+func set_feed(value: float) -> void:
+	if vehicle_id() == "steam": boiler().feed = clampf(value, 0.0, 1.0)
+
+# One tick of fire, water and steam. Returns the signed pull of the engine.
+func steam_step(dt: float, fleet: Dictionary) -> float:
+	var cfg = boiler_cfg()
+	var b = boiler()
+	var on_route = state.phase == "route"
+	state.gear = 1
+	# The regulator is spring loaded: let go and it closes. It never brakes.
+	if on_route and not valve_held and float(state.throttle) > 0.0:
+		state.throttle = maxf(0.0, float(state.throttle) - dt / float(cfg.spring_seconds))
+	var valve = float(state.throttle) if on_route else 0.0
+	var water = float(fleet.get("water", 0))
+	if bool(b.lit) and float(b.firebox) <= 0.0: b.lit = false
+	var burning = bool(b.lit)
+	b.heat = move_toward(float(b.heat), 1.0 if burning else 0.0, dt / float(cfg.heat_rise_s if burning else cfg.heat_fall_s))
+	if burning:
+		b.firebox = maxf(0.0, float(b.firebox) - (float(cfg.idle_burn_kg_s) + float(cfg.load_burn_kg_s) * valve) * dt)
+	# Steam appears only from fire AND water; the tap limits how fast.
+	var feed_k = clampf(float(b.feed) / float(cfg.feed_full), 0.0, 1.0) if water > 0.0 else 0.0
+	var door_k = float(cfg.door_open_loss) if bool(b.door) else 1.0
+	var made = float(cfg.steam_per_s) * float(b.heat) * feed_k * door_k * dt
+	var p = float(b.pressure)
+	var spent = minf(p + made, float(cfg.use_per_s) * valve * dt)
+	var cooling = float(cfg.cooling_per_s) * (1.0 - float(b.heat)) * dt
+	var after = p + made - spent - cooling
+	var vented = maxf(0.0, after - 1.0)
+	b.pressure = clampf(after, 0.0, 1.0)
+	b.venting = vented > 0.0
+	fleet.water = maxf(0.0, water - (made - vented) * float(cfg.water_l_per_unit))
+	state.engine = bool(b.lit)
+	if not on_route: return 0.0
+	var stats = object_stats("steam")
+	var low = float(cfg.work_pressure_bar) / float(cfg.max_pressure_bar)
+	var strong = smoothstep(low, 0.8, float(b.pressure))
+	var vmax = lerpf(float(stats.speeds[0]), float(stats.speeds[1]), smoothstep(low, 1.0, float(b.pressure)))
+	var pull = float(stats.traction[0]) * strong * valve * maxf(0.0, 1.0 - pow(absf(float(state.v)) / vmax, 2))
+	var adhesion = 0.35 * float(stats.mass) * G * cos(route.slope(float(state.s)))
+	return float(drive_direction()) * minf(pull, adhesion)
 
 func grab_pump() -> void:
 	hand_drive.grab(handcar.pose().angle)
@@ -761,6 +892,8 @@ func physics_step(dt: float) -> void:
 		return
 	update_station_dwell(dt)
 	if state.phase == "depot" or state.phase == "loading":
+		# The boiler can be prepared while the wagons are being loaded.
+		if state.phase == "loading" and vehicle_id() == "steam": steam_step(dt, state.fleet_by_id.steam)
 		reset_input()
 		return
 	state.stats.seconds += dt
@@ -792,8 +925,9 @@ func physics_step(dt: float) -> void:
 			# engaged and only the battery charge limits it.
 			state.gear = 1
 			state.engine = float(fleet.fuel) > 0
-		if fleet.fuel <= 0: state.engine = false
-		if state.engine and fleet.fuel > 0:
+		if vehicle_id() == "steam": drive = steam_step(dt, fleet)
+		elif fleet.fuel <= 0: state.engine = false
+		if vehicle_id() != "steam" and state.engine and fleet.fuel > 0:
 			if fleet.fuel <= 0:
 				state.engine = false
 			if int(state.gear) > 0:
@@ -839,20 +973,16 @@ func physics_step(dt: float) -> void:
 			fleet.fuel=clampf(before+(recovered-used)/3600000.0,0,float(stats.tank))
 			regen_kw=recovered/dt/1000.0
 		elif vehicle_id()=="steam":
-			# Game calibration: coal 29 MJ/kg at 7 % to the wheels, a fire that
-			# keeps burning while lit, and about 7 l of water per kg of coal.
-			used=shaft_work/0.07+(30000.0*dt if state.engine else 0.0)
-			var coal=used/29000000.0
-			fleet.fuel=maxf(0,before-coal)
-			fleet.water=maxf(0,float(fleet.get("water",0))-coal*7.0)
-			if float(fleet.water)<=0: state.engine=false
+			# Coal and water are spent by the boiler itself (steam_step); this is
+			# only the shaft work for reports.
+			used=shaft_work/0.07
 		else:
 			# Game calibration: petrol 34 MJ/l, 20% shaft efficiency,
 			# plus a small idle burn. Higher load costs more through work.
 			used=shaft_work/0.20+(10200.0*dt if state.engine else 0.0)
 			fleet.fuel=maxf(0,before-used/34000000.0)
 		motor_energy={"shaft_work_j":shaft_work,"brake_work_j":brake_work,"used_j":used,"recovered_j":recovered,"delta_store":float(fleet.fuel)-before}
-		if fleet.fuel<=0: state.engine=false
+		if vehicle_id()!="steam" and fleet.fuel<=0: state.engine=false
 	acceleration=(new_v-old_v)/dt
 	state.v=new_v
 	state.s+=movement
@@ -951,6 +1081,7 @@ func restore(saved: Dictionary) -> bool:
 	else:
 		handcar.seek_rocker(lerpf(float(handcar.limits.minimum.angle),float(handcar.limits.maximum.angle),clampf((pump_angle+deg_to_rad(28))/deg_to_rad(56),0,1)))
 	state.reverser = int(state.get("reverser", 1))
+	migrate_boiler()
 	migrate_deck_cargo()
 	drop_temporary_wagon()
 	stationary_seconds=0.0

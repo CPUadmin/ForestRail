@@ -166,7 +166,24 @@ func draw_steam_boiler(canvas: Node2D, model) -> void:
 	var stack=PackedVector2Array([Vector2(1.66*PX,top),Vector2(1.86*PX,top),Vector2(1.9*PX,top-0.5*PX),Vector2(1.62*PX,top-0.5*PX)])
 	canvas.draw_colored_polygon(stack,Color("1b2220"))
 	canvas.draw_rect(Rect2(Vector2(1.58*PX,top-0.58*PX),Vector2(0.36*PX,0.09*PX)),Color("b89a55"))
-	if model == null or model.state.is_empty() or not model.state.get("engine",false): return
+	if model == null or model.state.is_empty(): return
+	var boiler = model.state.fleet_by_id.steam if model.state.fleet_by_id.has("steam") else {}
+	# Firebox door under the cab end: dark when cold, glowing with the fire.
+	var door_open = bool(boiler.get("door", false))
+	var glow = float(boiler.get("heat", 0.0))
+	var door_rect = Rect2(Vector2(back + 0.06 * PX, bottom - 0.30 * PX), Vector2(0.22 * PX, 0.26 * PX))
+	canvas.draw_rect(door_rect, Color("0d100f"))
+	if glow > 0.02: canvas.draw_rect(door_rect.grow(-3), Color(1.0, 0.55, 0.15, (0.45 if not door_open else 0.9) * glow))
+	canvas.draw_rect(door_rect, Color("b89a55") if door_open else Color("6f5d33"), false, 2.0)
+	# Manometer needle on the brass dome follows the real pressure.
+	var needle = lerpf(-2.2, 0.8, float(boiler.get("pressure", 0.0)))
+	canvas.draw_line(Vector2(0.95 * PX, top + 3), Vector2(0.95 * PX, top + 3) + Vector2(0, -0.1 * PX).rotated(needle), Color("f3ead2"), 2.0, true)
+	if bool(boiler.get("venting", false)):
+		var tv = Time.get_ticks_msec() / 1000.0
+		for i in range(4):
+			var age = fposmod(tv * 1.6 + i / 4.0, 1.0)
+			canvas.draw_circle(Vector2((0.95 + age * 0.3) * PX, top - 0.12 * PX - age * 0.5 * PX), (0.05 + age * 0.12) * PX, Color(1, 1, 1, 0.5 * (1.0 - age)))
+	if not model.state.get("engine",false): return
 	# Smoke thickens with the regulator and trails backwards.
 	var t=Time.get_ticks_msec()/1000.0
 	var throttle=float(model.state.get("throttle",0))

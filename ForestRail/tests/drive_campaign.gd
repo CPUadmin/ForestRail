@@ -58,7 +58,10 @@ func run() -> void:
 				if m.vehicle_id() == "handcar":
 					preload("res://tests/handcar_input.gd").pull(m,int(m.state.direction))
 				else:
-					if not m.state.engine:
+					if m.vehicle_id() == "steam":
+						# The boiler needs a fire and coal; stoke again when it runs low.
+						if not m.state.engine or float(m.boiler().firebox) < 1.5: preload("res://tests/fixtures.gd").fire_up(m)
+					elif not m.state.engine:
 						m.state.throttle = 0
 						m.set_gear(0)
 						m.start_engine(true)

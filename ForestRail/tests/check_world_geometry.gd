@@ -222,7 +222,7 @@ func run() -> void:
 				check(box.size.x>20 and box.size.y>20,"visible load "+str(item.id))
 				var expected = game.art.cargo_size(sprite,float(game.visual_layout[sprite][2])/float(game.visual_layout[sprite][3]))
 				check((box.size-Vector2.ONE*8).distance_to(expected*zoom)<1,"cargo dimensions at zoom "+str(zoom))
-			var controls = ["pump","brake"] if vehicle=="handcar" else ["brake","throttle","gear","start"]
+			var controls = game.control_ids()
 			for id in controls:
 				var point = grip(id)
 				await button(point,true)

@@ -19,3 +19,15 @@ static func equip(m, id: String) -> void:
 			if m.state.wagons_by_id.has(wagon) and wagon not in m.state.consist_ids: spare = wagon
 		if spare == "" or not m.toggle_wagon(spare): break
 	m.state.money = money
+
+# Prepares the steam boiler through the same actions a player uses (door,
+# coal from the bucket, spark), then fast-forwards the heat-up so a scripted
+# drive starts with working pressure.
+static func fire_up(m) -> void:
+	if m.vehicle_id() != "steam": return
+	m.set_door(true)
+	while float(m.boiler().firebox) < 6.0 and m.stoke(): pass
+	m.set_door(false)
+	m.light_fire()
+	m.boiler().heat = 1.0
+	m.boiler().pressure = 1.0
