@@ -72,7 +72,7 @@ func run() -> void:
 				check(game.hud.get_global_rect().end.x<=game.map_button.get_global_rect().position.x,"route heading and buttons do not overlap")
 				for b in game.ui.find_children("*","Button",true,false):
 					if b.is_visible_in_tree(): check(viewport.encloses(b.get_global_rect()),"visible HUD button remains inside window")
-					if b.text in ["Карта [M]","Пульт [E]","Пауза"]: check(b.size.y<=46,"actual header buttons fit declared panel height")
+					if b.text in ["Карта [M]","Пульт [C]","Пауза"]: check(b.size.y<=46,"actual header buttons fit declared panel height")
 				var state=JSON.stringify(game.model.serialize())
 				await frame(3)
 				check(JSON.stringify(game.model.serialize())==state,"redrawing does not change model")
@@ -83,7 +83,7 @@ func run() -> void:
 				check(await click_button(game.overlay,"Закрыть [M / Esc]"),"map has mouse close action")
 				check(game.modal_kind=="" and not game.paused,"mouse closes map and resumes")
 				if id!="handcar":
-					check(await click_button(game.ui,"Пульт [E]"),"mouse opens pult at every text scale")
+					check(await click_button(game.ui,"Пульт [C]"),"mouse opens pult at every text scale")
 					check(game.control_zoom,"pult actually opened")
 					check(viewport.encloses(game.control_zoom_rect()),"pult stays inside window")
 					await click(game.control_zoom_rect().position+Vector2(390,20))

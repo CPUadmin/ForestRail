@@ -54,6 +54,15 @@ var camera_y = 0.0
 var camera_x = 0.0
 var zoom_level = 1.0
 var control_zoom = false
+# Cab view (E): the camera closes in on the cab and every control of the machine is
+# drawn and grabbed in the world at human scale. cab_blend animates 0..1.
+var cab_view = false
+var cab_blend = 0.0
+var cab_hits: Array = []
+# The pult drawn full size inside the cab scene is the same pult scaled and moved:
+# pult_t maps its own coordinates to the screen (identity for the panel on C).
+var pult_t = Transform2D.IDENTITY
+var cab_exit_rect = Rect2()
 var drag = ""
 var drag_item = ""
 var drag_total = 0.0
@@ -131,7 +140,7 @@ func _ready() -> void:
 		for arg in qa_args:
 			if arg.begins_with("--qa-suite="):
 				var suite = arg.trim_prefix("--qa-suite=")
-				if suite not in ["check_model", "check_physics", "check_interaction", "drive_campaign", "check_presentation", "check_handcar_revision", "check_art_v3", "check_instruments", "check_station_service", "check_world_geometry", "check_mechanism", "check_mechanism_bench", "check_handcar_drive", "check_handcar_input", "check_motor_controls", "check_loading_selection", "check_layout_p7", "check_steam", "check_steam_view", "check_gearbox", "check_petrol_view", "check_skins", "check_perf", "check_soak_p8", "check_save_p8"]: get_tree().quit(2); return
+				if suite not in ["check_model", "check_physics", "check_interaction", "drive_campaign", "check_presentation", "check_handcar_revision", "check_art_v3", "check_instruments", "check_station_service", "check_world_geometry", "check_mechanism", "check_mechanism_bench", "check_handcar_drive", "check_handcar_input", "check_motor_controls", "check_loading_selection", "check_layout_p7", "check_steam", "check_steam_view", "check_gearbox", "check_petrol_view", "check_skins", "check_perf", "check_cab", "check_soak_p8", "check_save_p8"]: get_tree().quit(2); return
 				get_tree().root.set_meta("qa_running", true)
 				set_process(false)
 				set_physics_process(false)
@@ -688,7 +697,7 @@ func build_hud(size: Vector2) -> void:
 	for state in ["normal","hover","pressed","focus"]: mini_button.add_theme_stylebox_override(state,StyleBoxEmpty.new())
 	mini_button.pressed.connect(toggle_map)
 	ui.add_child(mini_button)
-	var buttons_width = (270 if model.vehicle_id()=="handcar" else 410)*float(settings.text_scale)
+	var buttons_width = (270 if model.vehicle_id()=="handcar" else 560)*float(settings.text_scale)
 	hud = positioned_label("", Rect2(34, 12, size.x - buttons_width - 90, 42), 20)
 	hud.autowrap_mode=TextServer.AUTOWRAP_OFF
 	hud.text_overrun_behavior=TextServer.OVERRUN_TRIM_ELLIPSIS
@@ -698,7 +707,8 @@ func build_hud(size: Vector2) -> void:
 	pause_row.add_theme_constant_override("separation",10)
 	ui.add_child(pause_row)
 	map_button = add_button(pause_row, "Карта [M]", toggle_map)
-	if model.vehicle_id()!="handcar": add_button(pause_row,"Пульт [E]",toggle_control_zoom)
+	if model.vehicle_id()!="handcar": add_button(pause_row,"Пульт [C]",toggle_control_zoom)
+	if model.vehicle_id()!="handcar": add_button(pause_row,"Кабина [E]",toggle_cab_view)
 	add_button(pause_row, "Пауза", pause_game)
 	for button in pause_row.get_children():
 		for state_name in ["normal","hover","pressed","disabled","focus"]:
@@ -767,7 +777,7 @@ func update_hud() -> void:
 	elif model.vehicle_id() == "handcar":
 		hint = "Зажми деревянный хват и веди его по дуге рычага. Ровные полные ходы разгоняют лучше. Красный рычаг — тормоз."
 	elif model.vehicle_id() == "steam":
-		if not state.engine: hint = "Пульт [E]: открой дверцу, перетащи уголь из ведра в топку, закрой дверцу и нажми «Розжиг»."
+		if not state.engine: hint = "Кабина [E]: открой дверцу, перетащи уголь из ведра в топку, закрой дверцу и нажми «Розжиг»."
 		elif not model.steam_ready(): hint = "Давление растёт: жди %d бар. Вода в кране должна быть открыта." % int(model.boiler_cfg().work_pressure_bar)
 		else: hint = "Вентиль — колесо: крути по кругу, отпустишь — закроется сам. Тормоз — красный рычаг."
 	elif model.vehicle_id() == "locomotive":
@@ -855,8 +865,20 @@ func pause_game() -> void:
 
 func toggle_map() -> void:
 	if screen != "game": return
+	if cab_view: toggle_cab_view()
 	if modal_kind == "map": close_modal()
 	elif modal_kind == "": show_modal("map")
+
+# E: close in on the cab and work every control there, or step back out. Levers keep
+# their positions; only the mouse grab is dropped.
+func toggle_cab_view() -> void:
+	if screen != "game" or paused or model.vehicle_id() == "handcar": return
+	cancel_drag()
+	cab_view = not cab_view
+	if cab_view: control_zoom = false
+	update_pult_transform()
+	update_hud()
+	queue_redraw()
 
 func toggle_control_zoom() -> void:
 	if screen!="game" or paused or model.vehicle_id()=="handcar": return
@@ -907,10 +929,10 @@ func draw_steam_panel(rect: Rect2) -> void:
 	draw_circle(center,3,PAPER)
 	draw_string(font,center+Vector2(-50,58),"%.1f бар" % model.pressure_bar(),HORIZONTAL_ALIGNMENT_CENTER,100,16,GOLD if model.steam_ready() else dim)
 	draw_string(font,center+Vector2(-50,-48),"ДАВЛЕНИЕ",HORIZONTAL_ALIGNMENT_CENTER,100,13,dim)
-	steam_hits.append({"id":"bucket","rect":bucket})
-	steam_hits.append({"id":"door","rect":door_button})
+	steam_hits.append({"id":"bucket","rect":Rect2(pult_t*bucket.position,bucket.size*pult_t.get_scale())})
+	steam_hits.append({"id":"door","rect":Rect2(pult_t*door_button.position,door_button.size*pult_t.get_scale())})
 	if drag=="coal":
-		var piece=Rect2(drag_cursor-Vector2(9,9),Vector2(18,18))
+		var piece=Rect2(pult_t.affine_inverse()*drag_cursor-Vector2(9,9),Vector2(18,18))
 		draw_rect(piece,Color("1b1713"))
 		draw_rect(piece,GOLD,false,2)
 
@@ -951,11 +973,12 @@ func control_zoom_transform() -> Transform2D:
 
 func draw_control_zoom() -> void:
 	var rect = control_zoom_rect()
-	draw_set_transform_matrix(Transform2D.IDENTITY)
-	draw_style_box(style(INK,GOLD,8),rect)
-	draw_rect(Rect2(rect.position,Vector2(rect.size.x,42)),INK)
-	draw_string(font,rect.position+Vector2(16,28),"ПУЛЬТ",HORIZONTAL_ALIGNMENT_LEFT,330,19,PAPER)
-	draw_string(font,rect.position+Vector2(370,28),"C ×",HORIZONTAL_ALIGNMENT_LEFT,50,19,GOLD)
+	draw_set_transform_matrix(pult_t)
+	if not cab_active():
+		draw_style_box(style(INK,GOLD,8),rect)
+		draw_rect(Rect2(rect.position,Vector2(rect.size.x,42)),INK)
+		draw_string(font,rect.position+Vector2(16,28),"ПУЛЬТ",HORIZONTAL_ALIGNMENT_LEFT,330,19,PAPER)
+		draw_string(font,rect.position+Vector2(370,28),"C ×",HORIZONTAL_ALIGNMENT_LEFT,50,19,GOLD)
 	var ids=control_ids()
 	for i in range(ids.size()):
 		var id=ids[i]
@@ -974,17 +997,17 @@ func draw_control_zoom() -> void:
 			for notch in range(11):
 				var tick=pivot+Vector2(0,-length-5).rotated(lerpf(-0.55,0.55,notch/10.0))
 				draw_line(pivot+(tick-pivot).normalized()*(length-3),tick,Color("66796b"),1,true)
-			draw_lever(Transform2D.IDENTITY,pivot,length,angle,Color("c23b2e") if id=="brake" else Color("4f9a5f"),drag==id)
+			draw_lever(pult_t,pivot,length,angle,Color("c23b2e") if id=="brake" else Color("4f9a5f"),drag==id)
 		else:
 			if id!="start":
 				draw_arc(pivot,length,-PI/2-0.55,-PI/2+0.55,32,Color("66796b"),2,true)
 			var source_length=float({"brake":166,"throttle":165,"gear":166,"start":138}[id])
 			var factor=length/source_length
 			sprite("control_mount",Rect2(pivot-Vector2(8,8),Vector2(16,16)))
-			draw_set_transform_matrix(Transform2D(angle,pivot))
+			draw_set_transform_matrix(pult_t*Transform2D(angle,pivot))
 			sprite("control_"+id,Rect2(-Vector2(128,224)*factor,Vector2.ONE*256*factor))
-			draw_set_transform_matrix(Transform2D.IDENTITY)
-		grip_hits.append({"id":id,"position":point,"closeup":true})
+			draw_set_transform_matrix(pult_t)
+		grip_hits.append({"id":id,"position":pult_t*point,"closeup":true})
 		var steam=model.vehicle_id()=="steam"
 		var title={"brake":"Тормоз","throttle":{"locomotive":"Тяга","steam":"Вентиль"}.get(model.vehicle_id(),"Газ"),"gear":"Вода" if steam else "Передача","start":"Розжиг" if steam else "Пуск"}[id]
 		var shown_gear=lever_pending_gear if drag=="gear" else int(model.state.gear)
@@ -995,13 +1018,14 @@ func draw_control_zoom() -> void:
 			for endpoint in range(2):
 				var mark=pivot+Vector2(0,-length).rotated(lerpf(-0.55,0.55,float(endpoint)))
 				draw_string(font,mark+Vector2(-17,-12),["0","100"][endpoint],HORIZONTAL_ALIGNMENT_CENTER,34,13,PAPER)
-		if drag==id or point.distance_to(get_global_mouse_position())<24: draw_arc(point,10,0,TAU,28,PAPER,1.5,true)
+		if drag==id or (pult_t*point).distance_to(get_global_mouse_position())<24: draw_arc(point,10,0,TAU,28,PAPER,1.5,true)
 	if model.vehicle_id()=="steam": draw_steam_panel(rect)
 	var feedback=toast if toast_seconds>0 else ("Крути вентиль по кругу, отпусти — закроется сам. Розжиг — щелчком." if model.vehicle_id()=="steam" else ("Веди шар рычага по кулисе: через N в нужный паз. Пуск — щелчком." if model.vehicle_id()=="motorcar" else "Веди рукоять по дуге. Пуск — щелчком."))
 	draw_multiline_string(font,rect.position+Vector2(16,rect.size.y-35),feedback,HORIZONTAL_ALIGNMENT_LEFT,400,15,2,GOLD if toast_seconds>0 else Color("c7c3a0"))
 
 func show_modal(kind: String) -> void:
 	cancel_drag()
+	cab_view = false
 	control_zoom=false
 	if screen != "menu": paused = true
 	modal_kind = kind
@@ -1124,6 +1148,11 @@ func cancel_drag() -> void:
 
 func _process(dt: float) -> void:
 	time += dt
+	if screen != "game" or model.vehicle_id() == "handcar": cab_view = false
+	cab_blend = move_toward(cab_blend, 1.0 if cab_view else 0.0, dt * 4.0)
+	if ui != null and ui.visible == cab_active(): ui.visible = not cab_active()
+	if art_world != null and art_world.visible == cab_active(): art_world.visible = not cab_active()
+	update_pult_transform()
 	model.valve_held = drag == "throttle"
 	advance_shunting(dt)
 	if not delivery_ghost.is_empty():
@@ -1179,8 +1208,12 @@ func _physics_process(dt: float) -> void:
 			save_game()
 
 func _input(event: InputEvent) -> void:
-	if event is InputEventKey and event.pressed and not event.echo and (event.physical_keycode in [KEY_C,KEY_E] or event.keycode in [KEY_C,KEY_E]) and screen=="game" and not paused:
+	if event is InputEventKey and event.pressed and not event.echo and (event.physical_keycode==KEY_C or event.keycode==KEY_C) and screen=="game" and not paused:
 		toggle_control_zoom()
+		get_viewport().set_input_as_handled()
+		return
+	if event is InputEventKey and event.pressed and not event.echo and (event.physical_keycode==KEY_E or event.keycode==KEY_E) and screen=="game" and not paused:
+		toggle_cab_view()
 		get_viewport().set_input_as_handled()
 		return
 	if event is InputEventKey and event.pressed and not event.echo and (event.physical_keycode==KEY_M or event.keycode==KEY_M) and screen=="game":
@@ -1188,6 +1221,10 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
+		if cab_view:
+			toggle_cab_view()
+			get_viewport().set_input_as_handled()
+			return
 		if control_zoom:
 			cancel_drag()
 			control_zoom=false
@@ -1223,7 +1260,7 @@ func _input(event: InputEvent) -> void:
 		elif drag in ["brake","throttle","gear","start"]:
 			lever_travel+=event.relative.length()
 			if drag!="start":
-				var outer=Transform2D.IDENTITY if drag_closeup else body_transform(model.vehicle_id(),model.body_s_render(0))
+				var outer=pult_t if drag_closeup else body_transform(model.vehicle_id(),model.body_s_render(0))
 				# Relative local travel excludes camera motion and preserves the grab offset.
 				# Motor controls follow the visible arc one-to-one, independent of pump sensitivity.
 				var local_move=outer.affine_inverse().basis_xform(event.relative)
@@ -1272,8 +1309,12 @@ func _unhandled_input(event: InputEvent) -> void:
 			return
 		var nearest: Dictionary = {}
 		var distance = float(Geometry.data().controls.hit_diameter_px)*0.5
-		var in_closeup = control_zoom and control_zoom_rect().has_point(mouse)
-		if in_closeup and mouse.y<control_zoom_rect().position.y+42:
+		if cab_active() and cab_exit_rect.has_point(mouse):
+			toggle_cab_view()
+			get_viewport().set_input_as_handled()
+			return
+		var in_closeup = (control_zoom or cab_active()) and pult_screen_rect().has_point(mouse)
+		if in_closeup and not cab_active() and mouse.y<control_zoom_rect().position.y+42:
 			control_zoom=false
 			get_viewport().set_input_as_handled()
 			return
@@ -1369,7 +1410,9 @@ func finish_drag(mouse: Vector2) -> void:
 			transfer_cargo(drag_item,target,mouse)
 		else: notify("Перенеси груз в выделенную зону разгрузки или свободное место")
 	elif drag == "coal":
-		if steam_fire_rect(control_zoom_rect()).has_point(mouse):
+		var fire_local = steam_fire_rect(control_zoom_rect())
+		var fire_box = Rect2(pult_t * fire_local.position, fire_local.size * pult_t.get_scale())
+		if fire_box.has_point(mouse):
 			if not model.stoke(): notify(model.message)
 		else:
 			notify("Брось уголь в топку: перетащи ведро на красную топку")
@@ -1459,6 +1502,9 @@ func rail_baseline() -> float:
 	# The compact bottom strip leaves room to set the track lower in the frame.
 	return minf(height*0.66,dock_rect().position.y-20) if screen=="game" else height*0.63
 
+func cab_active() -> bool:
+	return screen == "game" and cab_view and model.vehicle_id() != "handcar"
+
 func view_scale() -> float:
 	if screen != "depot": return zoom_level
 	return minf(0.94, (get_viewport_rect().size.x * 0.46 - 150) / (ArtV3.PX * depot_span_m()))
@@ -1469,10 +1515,19 @@ func _draw() -> void:
 	if art_world == null: draw_background(size)
 	grip_hits.clear()
 	steam_hits.clear()
+	cab_hits.clear()
 	slot_hits.clear()
 	cargo_hits.clear()
 	cargo_visuals.clear()
 	body_hits.clear()
+	if cab_active():
+		update_pult_transform()
+		draw_cab_scene(size)
+		if toast_seconds > 0 and modal_kind != "confirm":
+			var banner = Rect2(size.x * 0.5 - 420, 66, 840, 44)
+			draw_style_box(style(INK, GOLD, 8), banner)
+			draw_string(font, banner.position + Vector2(18, 29), toast, HORIZONTAL_ALIGNMENT_LEFT, banner.size.x - 30, 19, PAPER)
+		return
 	if screen == "menu":
 		var scrim = Color(0.03, 0.08, 0.06, 0.9)
 		draw_rect(Rect2(0, 0, size.x * 0.22, size.y), scrim)
@@ -1504,6 +1559,477 @@ func _draw() -> void:
 		if control_zoom: rect=Rect2(480,195,size.x-500,44)
 		draw_style_box(style(INK, GOLD, 8), rect)
 		draw_string(font, rect.position + Vector2(18, 29), toast, HORIZONTAL_ALIGNMENT_LEFT, rect.size.x - 30, 19, PAPER)
+
+# ===== Cab scene (E): looking ahead through the glass, the dashboard below ==========
+# Everything is drawn here in code. The pult (levers, gate, wheels, coal, door) is the
+# same pult as on C, scaled onto the dashboard; pult_t maps its coordinates to the screen.
+
+func cab_layout(size: Vector2) -> Dictionary:
+	var rect = control_zoom_rect()
+	var k = minf(1.3, size.y * 0.5 / rect.size.y)
+	var origin = Vector2(size.x * 0.5 - rect.size.x * k * 0.5, size.y - rect.size.y * k - 14.0)
+	return {"k": k, "dash_top": origin.y - 26.0, "rect": Rect2(origin, rect.size * k),
+		"xform": Transform2D(Vector2(k, 0), Vector2(0, k), origin - rect.position * k)}
+
+func update_pult_transform() -> void:
+	pult_t = cab_layout(get_viewport_rect().size).xform if cab_active() else Transform2D.IDENTITY
+
+func pult_screen_rect() -> Rect2:
+	if cab_active(): return cab_layout(get_viewport_rect().size).rect
+	return control_zoom_rect() if control_zoom else Rect2()
+
+func cab_hash(i: int, salt: float = 0.0) -> float:
+	return fposmod(sin(float(i) * 12.9898 + salt * 78.233) * 43758.5453, 1.0)
+
+func cab_project(x: float, z: float, horizon: float, focal: float, cx: float, camera_height: float) -> Vector2:
+	return Vector2(cx + x * focal / z, horizon + camera_height * focal / z)
+
+func cab_fog(color: Color, z: float) -> Color:
+	return color.lerp(Color("cfe0dc"), clampf(z / 170.0, 0.0, 0.85))
+
+func draw_cab_scene(size: Vector2) -> void:
+	var layout = cab_layout(size)
+	var top = float(layout.dash_top)
+	draw_set_transform_matrix(Transform2D.IDENTITY)
+	var view = Rect2(0, 0, size.x, top)
+	var look = draw_cab_forward(view)
+	draw_cab_nose(view, look)
+	draw_cab_frame(size, top)
+	draw_cab_dash_details(size, layout)
+	draw_cab_gauges(size, layout)
+	draw_control_zoom()
+	draw_set_transform_matrix(Transform2D.IDENTITY)
+	cab_exit_rect = Rect2(size.x - 206, 14, 190, 40)
+	draw_style_box(style(Color(0.08, 0.12, 0.10, 0.86), GOLD, 8), cab_exit_rect)
+	draw_string(font, cab_exit_rect.position + Vector2(0, 27), "Выйти [E]", HORIZONTAL_ALIGNMENT_CENTER, cab_exit_rect.size.x, 19, PAPER)
+	var ahead = instruments.climb_ahead(400.0) if instruments != null else {}
+	var text = "Впереди без крутых подъёмов" if ahead.is_empty() else ("Подъём +%.1f%% — сейчас" % ahead.grade if ahead.distance < 10 else "Подъём +%.1f%% через %d м" % [ahead.grade, ahead.distance])
+	draw_string(font, Vector2(0, 44), model.journey_heading() + "  ·  " + text, HORIZONTAL_ALIGNMENT_CENTER, size.x - 240, 18, Color(PAPER, 0.92))
+
+# The view forward along the track. Returns the horizon line and focal length so the
+# nose of the machine can be placed against it.
+func draw_cab_forward(view: Rect2) -> Dictionary:
+	var facing = int(model.state.direction)
+	var travelled = model.render_s() * facing
+	var speed = absf(float(model.state.v))
+	var slope = tan(model.route.slope(float(model.state.s) + facing * 40.0))
+	var bob = sin(time * 9.0) * minf(1.6, speed * 0.25)
+	var horizon = view.position.y + view.size.y * 0.47 - clampf(slope, -0.08, 0.08) * view.size.y * 2.0 + bob
+	var focal = view.size.y * 0.95
+	var cx = view.size.x * 0.5
+	var camera_height = 1.7
+	var look = {"horizon": horizon, "focal": focal, "cx": cx, "speed": speed, "travelled": travelled}
+	# sky, sun and drifting clouds
+	draw_polygon(PackedVector2Array([view.position, Vector2(view.end.x, view.position.y), Vector2(view.end.x, horizon), Vector2(view.position.x, horizon)]), PackedColorArray([Color("6ea6d4"), Color("6ea6d4"), Color("d9e8e0"), Color("d9e8e0")]))
+	var sun = Vector2(view.size.x * 0.78, horizon - view.size.y * 0.30)
+	for ring in range(6):
+		draw_circle(sun, 120.0 - ring * 18.0, Color(1.0, 0.96, 0.78, 0.05 + ring * 0.025))
+	for cloud in range(6):
+		var base_x = fposmod(cab_hash(cloud, 9.0) * view.size.x * 1.4 + time * (4.0 + cloud) - travelled * 0.15, view.size.x * 1.4) - view.size.x * 0.2
+		var base_y = view.position.y + view.size.y * (0.08 + cab_hash(cloud, 5.0) * 0.2)
+		for puff in range(5):
+			var offset = Vector2(puff * 34.0 - 68.0, sin(puff * 1.7) * 9.0)
+			draw_circle(Vector2(base_x, base_y) + offset, 26.0 + cab_hash(cloud + puff, 3.0) * 14.0, Color(1, 1, 1, 0.55))
+	# three ridges of hills, hazier the further away
+	for layer in range(3):
+		var ridge = PackedVector2Array([Vector2(0, horizon)])
+		var height = view.size.y * (0.20 - layer * 0.05)
+		for step in range(0, int(view.size.x) + 41, 40):
+			var wave = 0.5 + 0.5 * sin(step * (0.005 + 0.003 * layer) + layer * 2.1 + travelled * 0.003 * (layer + 1))
+			ridge.append(Vector2(step, horizon - height * (0.30 + 0.70 * wave)))
+		ridge.append(Vector2(view.size.x + 40, horizon))
+		draw_colored_polygon(ridge, [Color("9db6b4"), Color("82a29a"), Color("668b7e")][layer])
+	draw_polygon(PackedVector2Array([Vector2(0, horizon - 3), Vector2(view.size.x, horizon - 3), Vector2(view.size.x, horizon + 28), Vector2(0, horizon + 28)]), PackedColorArray([Color(0.85, 0.92, 0.9, 0.0), Color(0.85, 0.92, 0.9, 0.0), Color(0.85, 0.92, 0.9, 0.5), Color(0.85, 0.92, 0.9, 0.5)]))
+	draw_polygon(PackedVector2Array([Vector2(0, horizon), Vector2(view.size.x, horizon), view.end, Vector2(0, view.end.y)]), PackedColorArray([Color("77a06a"), Color("77a06a"), Color("3a5e3c"), Color("3a5e3c")]))
+	var near = 1.3
+	var far = 170.0
+	draw_colored_polygon(PackedVector2Array([cab_project(-2.6, near, horizon, focal, cx, camera_height), cab_project(2.6, near, horizon, focal, cx, camera_height), cab_project(2.6, far, horizon, focal, cx, camera_height), cab_project(-2.6, far, horizon, focal, cx, camera_height)]), Color("5f7f54"))
+	draw_colored_polygon(PackedVector2Array([cab_project(-1.9, near, horizon, focal, cx, camera_height), cab_project(1.9, near, horizon, focal, cx, camera_height), cab_project(1.9, far, horizon, focal, cx, camera_height), cab_project(-1.9, far, horizon, focal, cx, camera_height)]), Color("8a8174"))
+	# ballast speckle close to the train
+	for i in range(60):
+		var z = near + 0.4 + fposmod(cab_hash(i, 6.0) * 14.0 - travelled, 14.0)
+		var spot = cab_project((cab_hash(i, 7.0) - 0.5) * 3.4, z, horizon, focal, cx, camera_height)
+		draw_rect(Rect2(spot, Vector2(clampf(0.06 * focal / z, 1, 5), clampf(0.03 * focal / z, 1, 3))), Color(0.35, 0.32, 0.28, 0.6))
+	var phase = fposmod(-travelled, 0.9)
+	for k in range(0, 150):
+		var z = near + phase + k * 0.9
+		if z > 120.0: break
+		var a = cab_project(-1.15, z, horizon, focal, cx, camera_height)
+		var b = cab_project(1.15, z, horizon, focal, cx, camera_height)
+		draw_line(a, b, cab_fog(Color("4a3b2e"), z), clampf(0.2 * focal / z, 1.0, 20.0), true)
+		draw_line(a + Vector2(0, -clampf(0.07 * focal / z, 0, 6)), b + Vector2(0, -clampf(0.07 * focal / z, 0, 6)), cab_fog(Color("6a5646"), z), clampf(0.05 * focal / z, 0.5, 5.0), true)
+	var steps = [near, 2.0, 3.0, 4.5, 7.0, 11.0, 18.0, 30.0, 55.0, 100.0, far]
+	for rail_x in [-0.55, 0.55]:
+		for i in range(steps.size() - 1):
+			var a = cab_project(rail_x, steps[i], horizon, focal, cx, camera_height)
+			var b = cab_project(rail_x, steps[i + 1], horizon, focal, cx, camera_height)
+			draw_line(a, b, cab_fog(Color("8d8a84"), steps[i]), clampf(0.09 * focal / steps[i], 1.5, 12.0), true)
+			draw_line(a + Vector2(0, -clampf(0.03 * focal / steps[i], 0, 4)), b + Vector2(0, -clampf(0.03 * focal / steps[i], 0, 4)), cab_fog(Color("e2dfd6"), steps[i]), clampf(0.03 * focal / steps[i], 0.5, 3.0), true)
+	# rail joints every 12 m
+	var joint_phase = fposmod(-travelled, 12.0)
+	for j in range(0, 12):
+		var z = near + joint_phase + j * 12.0
+		if z > 110.0: break
+		for rail_x in [-0.55, 0.55]:
+			var p = cab_project(rail_x, z, horizon, focal, cx, camera_height)
+			draw_rect(Rect2(p + Vector2(-clampf(0.08 * focal / z, 1, 9), -1), Vector2(clampf(0.16 * focal / z, 2, 18), clampf(0.03 * focal / z, 1, 3))), cab_fog(Color("2c2a27"), z))
+	# stations ahead: platform, building, sign
+	for i in range(model.route.station_s.size()):
+		var z = (float(model.route.station_s[i]) - model.render_s()) * facing
+		if z < 6.0 or z > 190.0: continue
+		var z0 = maxf(near + 0.5, z - 9.0)
+		var z1 = z + 9.0
+		draw_colored_polygon(PackedVector2Array([cab_project(1.5, z0, horizon, focal, cx, camera_height), cab_project(3.4, z0, horizon, focal, cx, camera_height), cab_project(3.4, z1, horizon, focal, cx, camera_height), cab_project(1.5, z1, horizon, focal, cx, camera_height)]), cab_fog(Color("b7ab94"), z))
+		var edge_a = cab_project(1.5, z0, horizon, focal, cx, camera_height)
+		var edge_b = cab_project(1.5, z1, horizon, focal, cx, camera_height)
+		draw_line(edge_a, edge_b, cab_fog(Color("e6d9a8"), z), clampf(0.06 * focal / z, 1, 5), true)
+		var base_l = cab_project(4.2, z, horizon, focal, cx, camera_height)
+		var base_r = cab_project(11.0, z, horizon, focal, cx, camera_height)
+		var wall_h = 4.2 * focal / z
+		draw_rect(Rect2(base_l.x, base_l.y - wall_h, base_r.x - base_l.x, wall_h), cab_fog(Color("7c4f34"), z))
+		draw_colored_polygon(PackedVector2Array([Vector2(base_l.x - wall_h * 0.12, base_l.y - wall_h), Vector2((base_l.x + base_r.x) * 0.5, base_l.y - wall_h * 1.5), Vector2(base_r.x + wall_h * 0.12, base_l.y - wall_h)]), cab_fog(Color("8e3b2e"), z))
+		for window in range(3):
+			var wx = base_l.x + (base_r.x - base_l.x) * (0.15 + window * 0.3)
+			draw_rect(Rect2(wx, base_l.y - wall_h * 0.7, (base_r.x - base_l.x) * 0.14, wall_h * 0.38), cab_fog(Color("f1d98a"), z))
+		if z < 110.0:
+			draw_string(font, Vector2(base_l.x, base_l.y - wall_h * 0.12), model.data.stations[i].name, HORIZONTAL_ALIGNMENT_CENTER, base_r.x - base_l.x, clampi(roundi(900.0 / z), 9, 26), Color("f1e6c8"))
+	# telegraph poles on the left with sagging wires, mileposts on the right
+	var pole_first = floori((travelled + 4.0) / 40.0)
+	var pole_last = floori((travelled + 160.0) / 40.0)
+	var previous_top = []
+	for i in range(pole_last, pole_first - 1, -1):
+		var z = i * 40.0 - travelled
+		if z < 5.0 or z > 160.0: continue
+		var base = cab_project(-4.6, z, horizon, focal, cx, camera_height)
+		var tall = 7.0 * focal / z
+		draw_line(base, base + Vector2(0, -tall), cab_fog(Color("4b3a2c"), z), clampf(0.2 * focal / z, 1, 9), true)
+		draw_line(base + Vector2(-tall * 0.16, -tall * 0.92), base + Vector2(tall * 0.16, -tall * 0.92), cab_fog(Color("4b3a2c"), z), clampf(0.1 * focal / z, 1, 5), true)
+		var tops = [base + Vector2(-tall * 0.14, -tall * 0.92), base + Vector2(tall * 0.14, -tall * 0.92)]
+		for wire in range(2):
+			if previous_top.size() == 2:
+				var a = tops[wire]
+				var b = previous_top[wire]
+				draw_polyline(PackedVector2Array([a, a.lerp(b, 0.5) + Vector2(0, tall * 0.05), b]), cab_fog(Color("2c2a27"), z), clampf(0.03 * focal / z, 0.7, 2.0), true)
+		previous_top = tops
+	var post_first = floori((travelled + 4.0) / 100.0)
+	for i in range(post_first + 2, post_first - 1, -1):
+		var z = i * 100.0 - travelled
+		if z < 6.0 or z > 160.0: continue
+		var base = cab_project(2.6, z, horizon, focal, cx, camera_height)
+		var tall = 1.1 * focal / z
+		draw_rect(Rect2(base.x - 0.16 * focal / z, base.y - tall, 0.32 * focal / z, tall), cab_fog(Color("e8e4d4"), z))
+		draw_string(font, Vector2(base.x - 0.2 * focal / z, base.y - tall * 0.45), str(i), HORIZONTAL_ALIGNMENT_CENTER, 0.4 * focal / z, clampi(roundi(0.35 * focal / z), 6, 20), Color("2c2a27"))
+	# grass tufts, bushes, spruces and birches, far to near
+	var first = floori((travelled + 5.0) / 4.0)
+	var last = floori((travelled + 170.0) / 4.0)
+	for i in range(last, first - 1, -1):
+		var distance = i * 4.0 + cab_hash(i) * 3.0
+		var z = distance - travelled
+		if z < 7.0 or z > 168.0: continue
+		var side = -1.0 if cab_hash(i, 1.0) < 0.5 else 1.0
+		var lateral = side * (3.6 + cab_hash(i, 2.0) * 20.0)
+		var tree_h = 7.0 + cab_hash(i, 3.0) * 8.0
+		var base = cab_project(lateral, z, horizon, focal, cx, camera_height)
+		var h = tree_h * focal / z
+		var w = tree_h * 0.3 * focal / z
+		var shade = 0.7 + cab_hash(i, 4.0) * 0.5
+		if cab_hash(i, 8.0) > 0.78:
+			draw_line(base, base + Vector2(0, -h * 0.55), cab_fog(Color("e6e2d4"), z), maxf(1.0, w * 0.12), true)
+			for blob in range(4):
+				draw_circle(base + Vector2((blob - 1.5) * w * 0.28, -h * (0.5 + 0.1 * (blob % 2))), w * 0.34, cab_fog(Color(0.45 * shade, 0.66 * shade, 0.30 * shade), z))
+		else:
+			var green = Color(0.12 * shade, 0.30 * shade, 0.16 * shade)
+			draw_rect(Rect2(base.x - w * 0.07, base.y - h * 0.16, w * 0.14, h * 0.16), cab_fog(Color("3b2a1d"), z))
+			for tier in range(3):
+				var lift = h * (0.1 + tier * 0.27)
+				var half = w * (1.0 - tier * 0.26)
+				draw_colored_polygon(PackedVector2Array([Vector2(base.x - half, base.y - lift), Vector2(base.x + half, base.y - lift), Vector2(base.x, base.y - lift - h * 0.46)]), cab_fog(green.lightened(tier * 0.05), z))
+		if cab_hash(i, 10.0) > 0.4 and z < 90.0:
+			var bush = cab_project(side * (2.3 + cab_hash(i, 11.0) * 2.2), z, horizon, focal, cx, camera_height)
+			draw_circle(bush + Vector2(0, -0.35 * focal / z), 0.55 * focal / z, cab_fog(Color(0.16, 0.34, 0.18), z))
+			draw_circle(bush + Vector2(0.4 * focal / z, -0.25 * focal / z), 0.4 * focal / z, cab_fog(Color(0.2, 0.4, 0.22), z))
+	# speed streaks at the edges and a soft vignette
+	if speed > 3.0:
+		for streak in range(14):
+			var y = view.position.y + view.size.y * (0.35 + cab_hash(streak, 12.0) * 0.65)
+			var side_x = 1.0 if streak % 2 == 0 else -1.0
+			var start_x = cx + side_x * view.size.x * (0.3 + 0.2 * cab_hash(streak, 13.0))
+			draw_line(Vector2(start_x, y), Vector2(start_x + side_x * view.size.x * 0.2, y + (y - horizon) * 0.2), Color(1, 1, 1, clampf((speed - 3.0) * 0.02, 0.0, 0.14)), 2.0, true)
+	draw_polygon(PackedVector2Array([view.position, Vector2(view.end.x, view.position.y), Vector2(view.end.x, view.end.y), Vector2(view.position.x, view.end.y)]), PackedColorArray([Color(0, 0, 0, 0.22), Color(0, 0, 0, 0.22), Color(0, 0, 0, 0.0), Color(0, 0, 0, 0.0)]))
+	return look
+
+# The front of the machine seen over the dashboard: hood, boiler or battery box.
+func draw_cab_nose(view: Rect2, look: Dictionary) -> void:
+	var kind = model.vehicle_id()
+	var cx = float(look.cx)
+	var bottom = view.end.y
+	var vh = view.size.y
+	var running = bool(model.state.engine)
+	var steel = Color("1d2427")
+	var brass = Color("c9a85a")
+	if kind == "motorcar":
+		var hood = PackedVector2Array([Vector2(cx - vh * 0.52, bottom), Vector2(cx + vh * 0.52, bottom), Vector2(cx + vh * 0.30, bottom - vh * 0.30), Vector2(cx - vh * 0.30, bottom - vh * 0.30)])
+		draw_polygon(hood, PackedColorArray([Color("2b3438"), Color("2b3438"), Color("11171a"), Color("11171a")]))
+		draw_line(Vector2(cx, bottom), Vector2(cx, bottom - vh * 0.30), Color(1, 1, 1, 0.08), 3.0, true)
+		for slat in range(5):
+			var f = 0.15 + slat * 0.16
+			var y = bottom - vh * 0.30 * f
+			draw_line(Vector2(cx - vh * (0.52 - 0.22 * f) * 0.78, y), Vector2(cx + vh * (0.52 - 0.22 * f) * 0.78, y), Color(0, 0, 0, 0.55), 3.0, true)
+		for band in [0.2, 0.62]:
+			var y = bottom - vh * 0.30 * band
+			draw_line(Vector2(cx - vh * (0.52 - 0.22 * band), y), Vector2(cx + vh * (0.52 - 0.22 * band), y), brass, 4.0, true)
+		var lamp = Vector2(cx, bottom - vh * 0.33)
+		draw_circle(lamp, vh * 0.035, brass)
+		draw_circle(lamp, vh * 0.026, Color("fff0b4") if running else Color("8a8466"))
+		if running:
+			for ring in range(4): draw_circle(lamp, vh * (0.05 + ring * 0.03), Color(1.0, 0.9, 0.5, 0.07 - ring * 0.015))
+		var stack = Vector2(cx - vh * 0.16, bottom - vh * 0.26)
+		draw_rect(Rect2(stack.x - 7, stack.y - vh * 0.16, 14, vh * 0.16), brass)
+		draw_rect(Rect2(stack.x - 11, stack.y - vh * 0.17, 22, 8), steel)
+		if running:
+			for puff in range(5):
+				var age = fposmod(time * 0.9 + puff / 5.0, 1.0)
+				draw_circle(Vector2(stack.x - age * vh * 0.1, stack.y - vh * 0.19 - age * vh * 0.22), 7 + age * 24, Color(0.85, 0.85, 0.82, 0.4 * (1.0 - age)))
+	elif kind == "steam":
+		var barrel = Rect2(cx - vh * 0.42, bottom - vh * 0.30, vh * 0.84, vh * 0.30)
+		draw_rect(barrel, Color("1b2224"))
+		draw_polygon(PackedVector2Array([barrel.position, Vector2(barrel.end.x, barrel.position.y), Vector2(barrel.end.x, barrel.position.y + barrel.size.y * 0.35), Vector2(barrel.position.x, barrel.position.y + barrel.size.y * 0.35)]), PackedColorArray([Color(1, 1, 1, 0.16), Color(1, 1, 1, 0.16), Color(1, 1, 1, 0.0), Color(1, 1, 1, 0.0)]))
+		draw_line(barrel.position, Vector2(barrel.end.x, barrel.position.y), brass, 4.0, true)
+		for band in [0.2, 0.5, 0.8]:
+			draw_line(Vector2(barrel.position.x + barrel.size.x * band, barrel.position.y), Vector2(barrel.position.x + barrel.size.x * band, bottom), brass, 5.0, true)
+		for rivet in range(14):
+			draw_circle(Vector2(barrel.position.x + 20 + rivet * barrel.size.x / 14.0, barrel.position.y + 14), 3.0, brass)
+		var dome = Vector2(cx - vh * 0.20, barrel.position.y)
+		draw_circle(dome + Vector2(0, -vh * 0.012), vh * 0.045, brass)
+		draw_rect(Rect2(dome.x - vh * 0.05, dome.y - vh * 0.012, vh * 0.1, vh * 0.012), Color("8a6d33"))
+		var chimney = Vector2(cx + vh * 0.12, barrel.position.y)
+		draw_colored_polygon(PackedVector2Array([Vector2(chimney.x - 15, chimney.y), Vector2(chimney.x + 15, chimney.y), Vector2(chimney.x + 12, chimney.y - vh * 0.20), Vector2(chimney.x - 12, chimney.y - vh * 0.20)]), steel)
+		draw_colored_polygon(PackedVector2Array([Vector2(chimney.x - 12, chimney.y - vh * 0.20), Vector2(chimney.x + 12, chimney.y - vh * 0.20), Vector2(chimney.x + 28, chimney.y - vh * 0.27), Vector2(chimney.x - 28, chimney.y - vh * 0.27)]), Color("2a3438"))
+		draw_rect(Rect2(chimney.x - 30, chimney.y - vh * 0.28, 60, 7), brass)
+		if running:
+			for puff in range(7):
+				var age = fposmod(time * (0.7 + float(model.state.throttle)) + puff / 7.0, 1.0)
+				draw_circle(Vector2(chimney.x + sin(puff * 2.0 + time) * 10 - age * 30, chimney.y - vh * 0.30 - age * vh * 0.34), 12 + age * 38, Color(0.9, 0.9, 0.88, 0.5 * (1.0 - age)))
+		var lamp = Vector2(cx - vh * 0.02, barrel.position.y - vh * 0.012)
+		draw_circle(lamp, vh * 0.026, brass)
+		draw_circle(lamp, vh * 0.018, Color("fff0b4") if running else Color("8a8466"))
+	else:
+		var deck = PackedVector2Array([Vector2(cx - vh * 0.56, bottom), Vector2(cx + vh * 0.56, bottom), Vector2(cx + vh * 0.38, bottom - vh * 0.24), Vector2(cx - vh * 0.38, bottom - vh * 0.24)])
+		draw_polygon(deck, PackedColorArray([Color("2d3a33"), Color("2d3a33"), Color("172019"), Color("172019")]))
+		for lid in range(3):
+			var f0 = lid / 3.0
+			var f1 = (lid + 0.9) / 3.0
+			var left0 = lerpf(cx - vh * 0.50, cx + vh * 0.50, f0)
+			var left1 = lerpf(cx - vh * 0.50, cx + vh * 0.50, f1)
+			draw_colored_polygon(PackedVector2Array([Vector2(left0, bottom - vh * 0.02), Vector2(left1, bottom - vh * 0.02), Vector2(lerpf(cx - vh * 0.34, cx + vh * 0.34, f1), bottom - vh * 0.21), Vector2(lerpf(cx - vh * 0.34, cx + vh * 0.34, f0), bottom - vh * 0.21)]), Color("33463a"))
+			draw_line(Vector2((left0 + left1) * 0.5, bottom - vh * 0.1), Vector2((left0 + left1) * 0.5 + 6, bottom - vh * 0.1), brass, 6.0, true)
+		for stripe in range(8):
+			var x = cx - vh * 0.5 + stripe * vh * 0.125
+			draw_colored_polygon(PackedVector2Array([Vector2(x, bottom), Vector2(x + vh * 0.05, bottom), Vector2(x + vh * 0.05 - 6, bottom - vh * 0.025), Vector2(x - 6, bottom - vh * 0.025)]), Color("d9b43e") if stripe % 2 == 0 else Color("1f2623"))
+		var lamp = Vector2(cx, bottom - vh * 0.25)
+		draw_circle(lamp, vh * 0.024, brass)
+		draw_circle(lamp, vh * 0.017, Color("fff0b4") if running else Color("8a8466"))
+
+# The cab around the view: roof lining, pillars, window rubber, wipers, lamps and the
+# dashboard ledge.
+func draw_cab_frame(size: Vector2, top: float) -> void:
+	var green = Color("2f4a3b")
+	var dark = Color("1f2f27")
+	var brass = Color("c9a85a")
+	var roof = size.y * 0.075
+	draw_polygon(PackedVector2Array([Vector2(0, 0), Vector2(size.x, 0), Vector2(size.x, roof), Vector2(0, roof)]), PackedColorArray([dark, dark, green, green]))
+	for plank in range(1, 24):
+		draw_line(Vector2(size.x * plank / 24.0, 0), Vector2(size.x * plank / 24.0, roof), Color(0, 0, 0, 0.22), 2.0)
+	draw_line(Vector2(0, roof), Vector2(size.x, roof), brass, 3.0)
+	draw_line(Vector2(0, roof + 3), Vector2(size.x, roof + 3), Color(0, 0, 0, 0.4), 3.0)
+	var pillar = size.x * 0.085
+	draw_colored_polygon(PackedVector2Array([Vector2(0, 0), Vector2(pillar, 0), Vector2(pillar * 0.45, top), Vector2(0, top)]), green)
+	draw_colored_polygon(PackedVector2Array([Vector2(size.x, 0), Vector2(size.x - pillar, 0), Vector2(size.x - pillar * 0.45, top), Vector2(size.x, top)]), green)
+	for grain in range(7):
+		var gx = pillar * (0.1 + grain * 0.1)
+		draw_line(Vector2(gx, 0), Vector2(gx * 0.55, top), Color(0, 0, 0, 0.12), 1.5)
+		draw_line(Vector2(size.x - gx, 0), Vector2(size.x - gx * 0.55, top), Color(0, 0, 0, 0.12), 1.5)
+	for side in [-1.0, 1.0]:
+		var edge_x = pillar if side < 0 else size.x - pillar
+		var low_x = pillar * 0.45 if side < 0 else size.x - pillar * 0.45
+		draw_line(Vector2(edge_x, roof), Vector2(low_x, top), brass, 3.0)
+		draw_line(Vector2(edge_x + side * 5, roof), Vector2(low_x + side * 5, top), Color(0, 0, 0, 0.45), 4.0)
+		for bolt in range(8):
+			var f = (bolt + 0.5) / 8.0
+			draw_circle(Vector2(lerpf(edge_x, low_x, f) + side * 14, lerpf(roof, top, f)), 3.5, brass)
+	# a brass lantern on a hook at the left pillar
+	var hook = Vector2(pillar * 0.4, size.y * 0.16)
+	draw_line(Vector2(hook.x, roof), hook, brass, 2.0)
+	draw_rect(Rect2(hook.x - 12, hook.y, 24, 34), Color("a98a4a"))
+	draw_rect(Rect2(hook.x - 8, hook.y + 5, 16, 24), Color("ffe9a6") if bool(model.state.engine) else Color("6f6a52"))
+	draw_circle(hook + Vector2(0, 17), 36.0, Color(1.0, 0.85, 0.45, 0.07 if bool(model.state.engine) else 0.0))
+	# two ceiling lamps with a warm glow
+	for lamp_x in [0.27, 0.73]:
+		var p = Vector2(size.x * lamp_x, roof + 6)
+		draw_line(Vector2(p.x, roof), p, Color("6a5a3a"), 3.0)
+		draw_circle(p + Vector2(0, 9), 11, brass)
+		draw_circle(p + Vector2(0, 11), 7, Color("fff1c4"))
+		for ring in range(5): draw_circle(p + Vector2(0, 11), 20.0 + ring * 16.0, Color(1.0, 0.9, 0.55, 0.06 - ring * 0.01))
+	# centre post, curtains, window rubber
+	var post = Rect2(size.x * 0.5 - 9, roof, 18, top - roof)
+	draw_rect(post, green)
+	draw_line(post.position, Vector2(post.position.x, post.end.y), brass, 2.0)
+	draw_line(Vector2(post.end.x, post.position.y), post.end, brass, 2.0)
+	for rivet in range(7):
+		draw_circle(Vector2(size.x * 0.5, roof + (top - roof) * (rivet + 0.5) / 7.0), 2.5, brass)
+	for side in [-1.0, 1.0]:
+		var corner_x = pillar * 1.05 if side < 0 else size.x - pillar * 1.05
+		for fold in range(4):
+			draw_colored_polygon(PackedVector2Array([Vector2(corner_x, roof + 3), Vector2(corner_x - side * (12 + fold * 9), roof + 3), Vector2(corner_x - side * (6 + fold * 9), roof + 50 + fold * 6)]), Color("6f3a34") if fold % 2 == 0 else Color("55292a"))
+	draw_line(Vector2(pillar + 6, roof + 6), Vector2(size.x - pillar - 6, roof + 6), Color("171c19"), 6.0)
+	# windscreen wipers resting at the bottom of the glass
+	for wiper_x in [0.36, 0.64]:
+		var pivot = Vector2(size.x * wiper_x, top - 6)
+		draw_line(pivot, pivot + Vector2(size.x * 0.1, -size.y * 0.08), Color("101412"), 5.0, true)
+		draw_line(pivot + Vector2(size.x * 0.02, -size.y * 0.016), pivot + Vector2(size.x * 0.1, -size.y * 0.08), Color("050605"), 7.0, true)
+		draw_circle(pivot, 6, brass)
+	# glass: sheen, reflections and a few specks of dust
+	draw_colored_polygon(PackedVector2Array([Vector2(pillar * 1.6, roof), Vector2(pillar * 2.6, roof), Vector2(pillar * 1.6, top), Vector2(pillar * 0.7, top)]), Color(1, 1, 1, 0.05))
+	draw_colored_polygon(PackedVector2Array([Vector2(size.x * 0.64, roof), Vector2(size.x * 0.7, roof), Vector2(size.x * 0.59, top), Vector2(size.x * 0.53, top)]), Color(1, 1, 1, 0.04))
+	for speck in range(26):
+		draw_circle(Vector2(size.x * (0.1 + 0.8 * cab_hash(speck, 20.0)), roof + (top - roof) * cab_hash(speck, 21.0)), 1.0 + cab_hash(speck, 22.0) * 1.5, Color(1, 1, 1, 0.1))
+	# dashboard ledge in wood, then the steel panel
+	draw_polygon(PackedVector2Array([Vector2(0, top - 22), Vector2(size.x, top - 22), Vector2(size.x, top - 4), Vector2(0, top - 4)]), PackedColorArray([Color("7b5732"), Color("7b5732"), Color("4a3320"), Color("4a3320")]))
+	for grain in range(0, int(size.x), 70):
+		draw_line(Vector2(grain, top - 20), Vector2(grain + 40, top - 7), Color(0, 0, 0, 0.18), 1.5)
+	draw_line(Vector2(0, top - 22), Vector2(size.x, top - 22), brass, 3.0)
+	draw_polygon(PackedVector2Array([Vector2(0, top - 4), Vector2(size.x, top - 4), Vector2(size.x, size.y), Vector2(0, size.y)]), PackedColorArray([Color("3a4a41"), Color("3a4a41"), Color("151d19"), Color("151d19")]))
+	draw_line(Vector2(0, top - 4), Vector2(size.x, top - 4), Color(0, 0, 0, 0.55), 3.0)
+	for rivet in range(int(size.x / 50.0)):
+		draw_circle(Vector2(25 + rivet * 50.0, top + 8), 2.5, Color("a98a4a"))
+	for screw in range(int(size.x / 50.0)):
+		draw_circle(Vector2(25 + screw * 50.0, size.y - 10), 3.0, Color("0c100e"))
+		draw_line(Vector2(25 + screw * 50.0 - 2, size.y - 12), Vector2(25 + screw * 50.0 + 2, size.y - 8), Color("55645a"), 1.2)
+
+# Small dashboard details: nameplate, indicator lamps, clock, vents, cables, and the
+# vehicle-specific bits (water glass and whistle cord on the steam engine).
+func draw_cab_dash_details(size: Vector2, layout: Dictionary) -> void:
+	var top = float(layout.dash_top)
+	var pult: Rect2 = layout.rect
+	var brass = Color("c9a85a")
+	var kind = model.vehicle_id()
+	# nameplate
+	var plate = Rect2(size.x * 0.5 - 150, top + 12, 300, 26)
+	draw_style_box(style(Color("2a2218"), brass, 4), plate)
+	var title = {"steam": "ЛЕСНАЯ КОЛЕЯ · ПАРОВОЗ", "motorcar": "ЛЕСНАЯ КОЛЕЯ · БЕНЗИНОВАЯ", "locomotive": "ЛЕСНАЯ КОЛЕЯ · ЭЛЕКТРОВОЗ"}.get(kind, "ЛЕСНАЯ КОЛЕЯ")
+	draw_string(font, plate.position + Vector2(0, 19), title, HORIZONTAL_ALIGNMENT_CENTER, plate.size.x, 14, Color("e6cf8b"))
+	draw_circle(plate.position + Vector2(8, 13), 2.5, brass)
+	draw_circle(plate.position + Vector2(plate.size.x - 8, 13), 2.5, brass)
+	# indicator lamps
+	var amount = float(model.state.fleet_by_id[kind].fuel)
+	var tank = float(model.object_stats(kind).tank)
+	var lamps = [["ХОД", absf(float(model.state.v)) > 0.1, Color("5cc17f")], ["ДВИГАТЕЛЬ", bool(model.state.engine), Color("e6b34a")], ["ТОРМОЗ", float(model.state.brake) > 0.1, Color("e0564a")], ["ЗАПАС", amount / maxf(0.001, tank) < 0.15, Color("e0564a")]]
+	for i in range(lamps.size()):
+		var at = Vector2(60 + i * 86, top + 22)
+		draw_circle(at, 9, Color("0c100e"))
+		draw_circle(at, 7, lamps[i][2] if lamps[i][1] else lamps[i][2].darkened(0.75))
+		if lamps[i][1]: draw_circle(at, 16, Color(lamps[i][2], 0.22))
+		draw_string(font, at + Vector2(-40, 25), lamps[i][0], HORIZONTAL_ALIGNMENT_CENTER, 80, 10, Color("a9a589"))
+	# brass clock on the right of the ledge
+	var clock = Vector2(size.x - 70, top + 26)
+	draw_circle(clock, 22, brass)
+	draw_circle(clock, 19, Color("f1ead2"))
+	for hour in range(12):
+		var a = TAU * hour / 12.0 - PI / 2
+		draw_line(clock + Vector2(cos(a), sin(a)) * 15, clock + Vector2(cos(a), sin(a)) * 18, Color("2a2218"), 1.5)
+	var minutes = fposmod(float(model.state.stats.seconds) / 60.0, 60.0)
+	var hours = fposmod(float(model.state.stats.seconds) / 3600.0 + 9.0, 12.0)
+	var am = TAU * minutes / 60.0 - PI / 2
+	var ah = TAU * hours / 12.0 - PI / 2
+	draw_line(clock, clock + Vector2(cos(am), sin(am)) * 15, Color("2a2218"), 1.5, true)
+	draw_line(clock, clock + Vector2(cos(ah), sin(ah)) * 10, Color("2a2218"), 2.5, true)
+	draw_circle(clock, 2, Color("a8231c"))
+	# vents beside the pult and hanging cables
+	for side in [-1.0, 1.0]:
+		var vx = pult.position.x - 70.0 if side < 0 else pult.end.x + 20.0
+		for slat in range(6):
+			draw_line(Vector2(vx, top + 80 + slat * 9), Vector2(vx + 50, top + 80 + slat * 9), Color("0a0e0c"), 4.0)
+			draw_line(Vector2(vx, top + 83 + slat * 9), Vector2(vx + 50, top + 83 + slat * 9), Color(1, 1, 1, 0.1), 1.0)
+	draw_polyline(PackedVector2Array([Vector2(size.x * 0.30, top + 6), Vector2(size.x * 0.34, top + 42), Vector2(size.x * 0.38, top + 8)]), Color("0b0e0c"), 4.0, true)
+	draw_polyline(PackedVector2Array([Vector2(size.x * 0.62, top + 6), Vector2(size.x * 0.66, top + 38), Vector2(size.x * 0.70, top + 8)]), Color("0b0e0c"), 4.0, true)
+	if kind == "steam":
+		# water glass on the right: tube with the level, brass fittings
+		var tube = Rect2(size.x - 150, top + 70, 16, 120)
+		draw_rect(tube, Color("a9d1d6", 0.35))
+		var level = clampf(float(model.state.fleet_by_id.steam.get("water", 0)) / float(model.object_stats("steam").water), 0.0, 1.0)
+		draw_rect(Rect2(tube.position.x + 2, tube.end.y - tube.size.y * level, tube.size.x - 4, tube.size.y * level), Color("4f8fbf", 0.85))
+		draw_rect(Rect2(tube.position.x - 6, tube.position.y - 8, tube.size.x + 12, 8), brass)
+		draw_rect(Rect2(tube.position.x - 6, tube.end.y, tube.size.x + 12, 8), brass)
+		draw_string(font, tube.position + Vector2(-20, tube.size.y + 26), "уровень", HORIZONTAL_ALIGNMENT_CENTER, 56, 11, Color("a9a589"))
+		# whistle cord with a ring, swaying a little with the speed
+		var sway = sin(time * 3.0) * minf(6.0, absf(float(model.state.v)))
+		var cord_top = Vector2(size.x * 0.5 + 220, 0.0)
+		var ring_at = Vector2(size.x * 0.5 + 224 + sway, top - 60)
+		draw_line(Vector2(cord_top.x, size.y * 0.075), ring_at, Color("a58b57"), 3.0, true)
+		draw_arc(ring_at + Vector2(0, 8), 8, 0, TAU, 16, brass, 3.0, true)
+
+func draw_round_gauge(center: Vector2, radius: float, fraction: float, title: String, readout: String, zones: Array, ticks: int = 10, scale_text: Array = []) -> void:
+	draw_circle(center + Vector2(2, 3), radius + 8, Color(0, 0, 0, 0.4))
+	draw_circle(center, radius + 8, Color("a98a4a"))
+	draw_arc(center, radius + 8, PI * 1.1, PI * 1.6, 12, Color("e6cf8b"), 2.0, true)
+	draw_circle(center, radius + 6, Color("2a2218"))
+	draw_circle(center, radius + 4, Color("0f1a1c"))
+	for screw in range(4):
+		var screw_at = center + Vector2.from_angle(PI / 4 + screw * PI / 2) * (radius + 6.5)
+		draw_circle(screw_at, 2.2, Color("d9bb6a"))
+	var start = deg_to_rad(150)
+	var span = deg_to_rad(240)
+	var from = 0.0
+	for zone in zones:
+		draw_arc(center, radius - 3, start + span * from, start + span * float(zone[0]), 16, zone[1], maxf(4.0, radius * 0.07), true)
+		from = float(zone[0])
+	for i in range(ticks * 2 + 1):
+		var angle = start + span * i / float(ticks * 2)
+		var radial = Vector2(cos(angle), sin(angle))
+		var major = i % 2 == 0
+		draw_line(center + radial * (radius - (radius * 0.2 if major else radius * 0.12)), center + radial * (radius - 7), PAPER if major else Color(PAPER, 0.6), 2.0 if major else 1.0, true)
+	for i in range(scale_text.size()):
+		var angle = start + span * i / float(maxi(1, scale_text.size() - 1))
+		var radial = Vector2(cos(angle), sin(angle))
+		draw_string(font, center + radial * (radius - radius * 0.27) + Vector2(-14, 5), str(scale_text[i]), HORIZONTAL_ALIGNMENT_CENTER, 28, clampi(roundi(radius * 0.15), 9, 14), Color("e8e0c4"))
+	var angle = start + span * clampf(fraction, 0.0, 1.0)
+	var needle = Vector2(cos(angle), sin(angle))
+	draw_line(center + Vector2(1.5, 2), center + needle * (radius - 8) + Vector2(1.5, 2), Color(0, 0, 0, 0.45), 4.0, true)
+	draw_line(center - needle * (radius * 0.18), center + needle * (radius - 8), Color("f3ead2"), 3.5, true)
+	draw_line(center + needle * (radius - 22), center + needle * (radius - 8), Color("e0564a"), 3.5, true)
+	draw_circle(center, radius * 0.1, Color("c9af73"))
+	draw_circle(center, radius * 0.04, Color("1a1612"))
+	# glare on the glass
+	draw_arc(center, radius - 2, PI * 1.12, PI * 1.45, 10, Color(1, 1, 1, 0.14), radius * 0.16, true)
+	draw_string(font, center + Vector2(-radius, radius * 0.38), title, HORIZONTAL_ALIGNMENT_CENTER, radius * 2, clampi(roundi(radius * 0.15), 9, 14), Color("c7c3a0"))
+	draw_string(font, center + Vector2(-radius, radius * 0.66), readout, HORIZONTAL_ALIGNMENT_CENTER, radius * 2, clampi(roundi(radius * 0.21), 12, 20), GOLD)
+
+func draw_cab_gauges(size: Vector2, layout: Dictionary) -> void:
+	var pult: Rect2 = layout.rect
+	var radius = clampf((pult.position.x - 70.0) * 0.22, 46.0, 92.0)
+	var y = float(layout.dash_top) + (size.y - float(layout.dash_top)) * 0.46
+	var kind = model.vehicle_id()
+	var speed = absf(float(model.state.v)) * 3.6
+	var maximum = instruments.dial_maximum() if instruments != null else 30.0
+	var nominal = instruments.nominal_speed() / maximum if instruments != null else 0.8
+	var speed_zones = [[nominal * 0.72, Color("5cc17f")], [nominal, Color("e6b34a")], [1.0, Color("e0564a")]]
+	var left = pult.position.x * 0.5
+	draw_round_gauge(Vector2(left - radius * 1.1, y), radius, speed / maximum, "СКОРОСТЬ", "%.1f км/ч" % speed, speed_zones, 10, [0, roundi(maximum * 0.25), roundi(maximum * 0.5), roundi(maximum * 0.75), roundi(maximum)])
+	var right = pult.end.x + (size.x - pult.end.x) * 0.5
+	var stats = model.object_stats(kind)
+	var amount = float(model.state.fleet_by_id[kind].fuel)
+	var low_bad = [[0.15, Color("e0564a")], [0.35, Color("e6b34a")], [1.0, Color("5cc17f")]]
+	if kind == "motorcar":
+		draw_round_gauge(Vector2(left + radius * 1.1, y), radius, model.engine_rpm() / 6000.0, "ОБОРОТЫ", "%.1f тыс" % (model.engine_rpm() / 1000.0), [[0.7, Color("5cc17f")], [0.88, Color("e6b34a")], [1.0, Color("e0564a")]], 6, [0, 1, 2, 3, 4, 5, 6])
+		draw_round_gauge(Vector2(right, y), radius, amount / float(stats.tank), "БЕНЗИН", "%.2f л" % amount, low_bad, 4, ["0", "", "1/2", "", "П"])
+	elif kind == "steam":
+		var work = float(model.boiler_cfg().work_pressure_bar) / float(model.boiler_cfg().max_pressure_bar)
+		draw_round_gauge(Vector2(left + radius * 1.1, y), radius, float(model.boiler().pressure), "ДАВЛЕНИЕ", "%.1f бар" % model.pressure_bar(), [[work, Color("e6b34a")], [0.9, Color("5cc17f")], [1.0, Color("e0564a")]], 10, [0, 2, 4, 6, 8, 10])
+		var water = float(model.state.fleet_by_id.steam.get("water", 0))
+		draw_round_gauge(Vector2(right - radius * 0.9, y), radius, water / float(stats.water), "ВОДА", "%.0f л" % water, low_bad, 4, ["0", "", "1/2", "", "П"])
+	else:
+		draw_round_gauge(Vector2(left + radius * 1.1, y), radius, amount / float(stats.tank), "ЗАРЯД", "%d%%" % roundi(amount / float(stats.tank) * 100), low_bad, 10, [0, 25, 50, 75, 100])
+		draw_round_gauge(Vector2(right, y), radius, float(model.state.brake), "ТОРМОЗ", "%d%%" % roundi(float(model.state.brake) * 100), [[0.05, Color("5cc17f")], [0.6, Color("e6b34a")], [1.0, Color("e0564a")]], 10, [0, 25, 50, 75, 100])
 
 func draw_background(size: Vector2) -> void:
 	if textures.has("background"):
