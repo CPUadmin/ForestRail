@@ -176,15 +176,15 @@ func run() -> void:
 	game.model.set_gear(0)
 	check(game.model.start_engine(true), "valid start")
 	game.sound.update(game.model, true, false, 0.1)
-	check(not game.sound.engine.playing, "engine stops on pause")
-	check(game.sound.voices.size() == 6, "bounded audio voices")
+	check(not game.sound.loops["petrol_idle"].playing and not game.sound.loops["petrol_run"].playing, "engine stops on pause")
+	check(game.sound.voices.size() == 12, "bounded audio voices")
 	game.sound.play("coins")
-	game.sound.play("brake")
+	game.sound.play("pump")
 	game.sound.update(game.model, true, false, 0.1)
 	var cues: Array = []
 	for voice in game.sound.voices:
 		if voice.playing: cues.append(voice.get_meta("clip", ""))
-	check("coins" in cues and "brake" not in cues, "pause silences mechanisms but keeps the payment cue")
+	check("coins" in cues and "pump" not in cues, "pause silences mechanisms but keeps the payment cue")
 	game.settings_path = "user://qa_interaction/settings.json"
 	var original = game.settings.duplicate(true)
 	game.settings.master = 0.3
