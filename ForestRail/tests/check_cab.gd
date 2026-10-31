@@ -107,6 +107,8 @@ func run() -> void:
 				check(view.has_point(hit.position), "dashboard grip %s is on screen" % hit.id)
 			for id in game.control_ids(): check(id in seen, "dashboard has " + id)
 			check(game.cab_exit_rect.size.x > 0 and view.encloses(game.cab_exit_rect), "exit button is on screen")
+			check(game.cab_sides.size() == 2 and game.cab_sides[0].visible and game.cab_sides[1].visible, "both side windows show in the cab")
+			for window in game.cab_sides: check(view.encloses(Rect2(window.position, window.size)), "side window is on screen")
 			await shot("cab_%s_%d" % [kind, resolution.y])
 			# The brake is pulled with the mouse on the dashboard: the lever follows, drop keeps it.
 			var brake_at = grip("brake")

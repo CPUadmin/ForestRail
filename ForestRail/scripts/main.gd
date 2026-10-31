@@ -7,6 +7,7 @@ const ArtV3 = preload("res://scripts/art_v3.gd")
 const ArtWorld = preload("res://scripts/art_world.gd")
 const Geometry = preload("res://scripts/world_geometry.gd")
 const Instruments = preload("res://scripts/instruments.gd")
+const CabSide = preload("res://scripts/cab_side.gd")
 const PAPER = Color("f5ecd6")
 const MUTED_INK = Color("5c6b62")
 const CARD_EDGE = Color("dccfae")
@@ -63,6 +64,7 @@ var cab_hits: Array = []
 # pult_t maps its own coordinates to the screen (identity for the panel on C).
 var pult_t = Transform2D.IDENTITY
 var cab_exit_rect = Rect2()
+var cab_sides: Array = []
 var drag = ""
 var drag_item = ""
 var drag_total = 0.0
@@ -170,6 +172,16 @@ func _ready() -> void:
 	overlay = Control.new()
 	overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(overlay)
+	# Side windows of the cab clip their own picture, so they are separate nodes.
+	for window_side in [-1.0, 1.0]:
+		var window = CabSide.new()
+		window.game = self
+		window.side = window_side
+		window.clip_contents = true
+		window.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		window.visible = false
+		add_child(window)
+		cab_sides.append(window)
 	sound = Sound.new()
 	add_child(sound)
 	sound.settings = settings
@@ -896,6 +908,49 @@ func control_ids() -> Array:
 func steam_fire_rect(rect: Rect2) -> Rect2:
 	return Rect2(rect.position+Vector2(150,282),Vector2(130,64))
 
+# In the cab the steam corner of the dashboard has real props: an iron plate, a bucket
+# with coal in it and a firebox door that glows and flickers with the fire.
+func draw_steam_cab_props(bucket: Rect2, fire: Rect2, door_button: Rect2, boiler: Dictionary, fleet: Dictionary) -> void:
+	var plate = Rect2(bucket.position - Vector2(14, 14), Vector2(fire.end.x - bucket.position.x + 28, door_button.end.y - bucket.position.y + 30))
+	draw_style_box(style(Color("232a28"), Color("6c6f66"), 6), plate)
+	for rivet in [plate.position + Vector2(7, 7), Vector2(plate.end.x - 7, plate.position.y + 7), Vector2(plate.position.x + 7, plate.end.y - 7), plate.end - Vector2(7, 7)]:
+		draw_circle(rivet, 3.0, Color("a98a4a"))
+	# bucket: tapered, hooped, a handle and a heap of coal that shrinks with the stock
+	var body = PackedVector2Array([bucket.position + Vector2(16, 26), Vector2(bucket.end.x - 16, bucket.position.y + 26), Vector2(bucket.end.x - 24, bucket.end.y - 4), bucket.position + Vector2(24, bucket.size.y - 4)])
+	draw_colored_polygon(body, Color("2a2f2c"))
+	draw_polyline(PackedVector2Array([bucket.position + Vector2(18, 28), bucket.position + Vector2(56, 4), Vector2(bucket.end.x - 18, bucket.position.y + 28)]), Color("8a8a7a"), 2.5, true)
+	draw_line(bucket.position + Vector2(20, 40), Vector2(bucket.end.x - 20, bucket.position.y + 40), Color("6c6f66"), 3.0)
+	var stock = clampf(float(fleet.fuel) / float(model.object_stats("steam").tank), 0.0, 1.0)
+	for lump in range(int(8 + 10 * stock)):
+		var lx = bucket.position.x + 24 + fposmod(lump * 23.0, bucket.size.x - 48)
+		draw_circle(Vector2(lx, bucket.position.y + 26 - 2.0 * stock * (lump % 3)), 4.0 + (lump % 3), Color("141517") if lump % 2 == 0 else Color("2c2e33"))
+	if drag == "coal": draw_arc(bucket.get_center(), 54, 0, TAU, 28, GOLD, 2.0, true)
+	# firebox door: an iron arch with the fire behind it
+	var heat = float(boiler.heat)
+	var door_open = bool(boiler.door)
+	draw_rect(fire, Color("0a0b0b"))
+	if heat > 0.02:
+		var inner = fire.grow(-6)
+		draw_polygon(PackedVector2Array([inner.position, Vector2(inner.end.x, inner.position.y), Vector2(inner.end.x, inner.end.y), Vector2(inner.position.x, inner.end.y)]), PackedColorArray([Color(0.35 + 0.3 * heat, 0.1, 0.02), Color(0.35 + 0.3 * heat, 0.1, 0.02), Color(1.0, 0.55 + 0.3 * heat, 0.1), Color(1.0, 0.55 + 0.3 * heat, 0.1)]))
+		for flame in range(6):
+			var fx = inner.position.x + inner.size.x * (flame + 0.5) / 6.0
+			var flick = 0.55 + 0.45 * sin(time * 8.0 + flame * 1.9)
+			var fh = (6.0 + 26.0 * heat) * flick
+			draw_colored_polygon(PackedVector2Array([Vector2(fx - 9, inner.end.y), Vector2(fx + 9, inner.end.y), Vector2(fx + sin(time * 5.0 + flame) * 4.0, inner.end.y - fh)]), Color(1.0, 0.8 - 0.2 * flick, 0.2, 0.85))
+	if not door_open:
+		# closed leaf with slits the glow shows through
+		var leaf = fire.grow(-3)
+		draw_rect(leaf, Color("2d3230"))
+		for slit in range(4):
+			var sy = leaf.position.y + 9 + slit * 11
+			draw_line(Vector2(leaf.position.x + 12, sy), Vector2(leaf.end.x - 12, sy), Color(1.0, 0.6, 0.15, 0.2 + 0.7 * heat) if heat > 0.02 else Color("0a0b0b"), 3.0)
+		draw_circle(Vector2(leaf.end.x - 14, leaf.get_center().y), 5.0, Color("c9a85a"))
+		draw_rect(leaf, Color("5c615a"), false, 2.0)
+	else:
+		draw_polygon(PackedVector2Array([fire.position + Vector2(-26, -4), fire.position + Vector2(-2, 6), fire.position + Vector2(-2, fire.size.y - 6), fire.position + Vector2(-26, fire.size.y + 4)]), PackedColorArray([Color("3a403d"), Color("2d3230"), Color("2d3230"), Color("3a403d")]))
+		draw_rect(fire, GOLD if drag == "coal" else Color("a98a4a"), false, 2.5)
+	draw_arc(Vector2(fire.get_center().x, fire.position.y), fire.size.x * 0.5, PI, TAU, 18, Color("5c615a"), 3.0, true)
+
 # Boiler corner of the steam pult: coal bucket, firebox with door, manometer.
 func draw_steam_panel(rect: Rect2) -> void:
 	var b=model.boiler()
@@ -906,13 +961,14 @@ func draw_steam_panel(rect: Rect2) -> void:
 	var fire=steam_fire_rect(rect)
 	var door_button=Rect2(rect.position+Vector2(150,352),Vector2(130,28))
 	var heat=float(b.heat)
-	draw_style_box(style(Color("3b2c1f"),GOLD if drag=="coal" else Color("66796b"),6),bucket)
+	if cab_active(): draw_steam_cab_props(bucket,fire,door_button,b,fleet)
+	else: draw_style_box(style(Color("3b2c1f"),GOLD if drag=="coal" else Color("66796b"),6),bucket)
 	draw_string(font,bucket.position+Vector2(0,24),"ВЕДРО",HORIZONTAL_ALIGNMENT_CENTER,112,16,PAPER)
 	draw_string(font,bucket.position+Vector2(0,50),"%.0f кг" % float(fleet.fuel),HORIZONTAL_ALIGNMENT_CENTER,112,18,GOLD)
 	draw_string(font,bucket.position+Vector2(0,82),"тащи в топку",HORIZONTAL_ALIGNMENT_CENTER,112,13,dim)
 	var fire_edge=GOLD if (bool(b.door) and drag=="coal") else (PAPER if bool(b.door) else Color("66796b"))
 	var glow=roundf(heat*12.0)/12.0
-	draw_style_box(style(Color(0.12+0.5*glow,0.07+0.2*glow,0.05),fire_edge,6),fire)
+	if not cab_active(): draw_style_box(style(Color(0.12+0.5*glow,0.07+0.2*glow,0.05),fire_edge,6),fire)
 	draw_string(font,fire.position+Vector2(0,24),"ТОПКА",HORIZONTAL_ALIGNMENT_CENTER,130,16,PAPER)
 	draw_string(font,fire.position+Vector2(0,50),"%.1f / %d кг" % [float(b.firebox),int(cfg.firebox_kg)],HORIZONTAL_ALIGNMENT_CENTER,130,17,GOLD)
 	draw_style_box(style(INK,GOLD if bool(b.door) else Color("66796b"),6),door_button)
@@ -1153,6 +1209,7 @@ func _process(dt: float) -> void:
 	if ui != null and ui.visible == cab_active(): ui.visible = not cab_active()
 	if art_world != null and art_world.visible == cab_active(): art_world.visible = not cab_active()
 	update_pult_transform()
+	update_cab_sides()
 	model.valve_held = drag == "throttle"
 	advance_shunting(dt)
 	if not delivery_ghost.is_empty():
@@ -1574,6 +1631,27 @@ func cab_layout(size: Vector2) -> Dictionary:
 func update_pult_transform() -> void:
 	pult_t = cab_layout(get_viewport_rect().size).xform if cab_active() else Transform2D.IDENTITY
 
+# The side windows sit in the cab pillars; they follow the layout every frame.
+func cab_window_rect(size: Vector2, top: float, window_side: float) -> Rect2:
+	var pillar = size.x * 0.12
+	var roof = size.y * 0.075
+	var width = pillar * 0.62
+	var height = (top - roof) * 0.52
+	var x = pillar * 0.10 if window_side < 0 else size.x - pillar * 0.10 - width
+	return Rect2(x, roof + 26.0, width, height)
+
+func update_cab_sides() -> void:
+	var active = cab_active() and not model.state.is_empty()
+	var size = get_viewport_rect().size
+	var top = float(cab_layout(size).dash_top) if active else 0.0
+	for window in cab_sides:
+		if window.visible != active: window.visible = active
+		if active:
+			var rect = cab_window_rect(size, top, window.side)
+			window.position = rect.position
+			window.size = rect.size
+			window.queue_redraw()
+
 func pult_screen_rect() -> Rect2:
 	if cab_active(): return cab_layout(get_viewport_rect().size).rect
 	return control_zoom_rect() if control_zoom else Rect2()
@@ -1842,7 +1920,7 @@ func draw_cab_frame(size: Vector2, top: float) -> void:
 		draw_line(Vector2(size.x * plank / 24.0, 0), Vector2(size.x * plank / 24.0, roof), Color(0, 0, 0, 0.22), 2.0)
 	draw_line(Vector2(0, roof), Vector2(size.x, roof), brass, 3.0)
 	draw_line(Vector2(0, roof + 3), Vector2(size.x, roof + 3), Color(0, 0, 0, 0.4), 3.0)
-	var pillar = size.x * 0.085
+	var pillar = size.x * 0.12
 	draw_colored_polygon(PackedVector2Array([Vector2(0, 0), Vector2(pillar, 0), Vector2(pillar * 0.45, top), Vector2(0, top)]), green)
 	draw_colored_polygon(PackedVector2Array([Vector2(size.x, 0), Vector2(size.x - pillar, 0), Vector2(size.x - pillar * 0.45, top), Vector2(size.x, top)]), green)
 	for grain in range(7):
@@ -1857,8 +1935,15 @@ func draw_cab_frame(size: Vector2, top: float) -> void:
 		for bolt in range(8):
 			var f = (bolt + 0.5) / 8.0
 			draw_circle(Vector2(lerpf(edge_x, low_x, f) + side * 14, lerpf(roof, top, f)), 3.5, brass)
-	# a brass lantern on a hook at the left pillar
-	var hook = Vector2(pillar * 0.4, size.y * 0.16)
+	for window_side in [-1.0, 1.0]:
+		var frame = cab_window_rect(size, top, window_side).grow(7.0)
+		draw_rect(frame, Color("0f1512"))
+		draw_rect(frame, brass, false, 3.0)
+		draw_rect(frame.grow(-3.0), Color("2a2218"), false, 2.0)
+		for bolt in [frame.position, Vector2(frame.end.x, frame.position.y), Vector2(frame.position.x, frame.end.y), frame.end]:
+			draw_circle(bolt, 3.5, brass)
+	# a brass lantern on a hook at the left pillar, under the side window
+	var hook = Vector2(pillar * 0.4, size.y * 0.29)
 	draw_line(Vector2(hook.x, roof), hook, brass, 2.0)
 	draw_rect(Rect2(hook.x - 12, hook.y, 24, 34), Color("a98a4a"))
 	draw_rect(Rect2(hook.x - 8, hook.y + 5, 16, 24), Color("ffe9a6") if bool(model.state.engine) else Color("6f6a52"))
