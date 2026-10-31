@@ -205,11 +205,11 @@ func draw_stations(canvas: Node2D) -> void:
 		var height = art.textures[name].get_height()*art.scale_for(name)
 		var plaque = Rect2(center+Vector2(-150,-height-48)*sc,Vector2(300,42)*sc)
 		if game.screen=="game": plaque.position.y=maxf(plaque.position.y,game.hud_top_clearance())
-		# Enamel station board: dark green field, brass rim and an inner keyline.
-		canvas.draw_rect(Rect2(plaque.position + Vector2(4, 6), plaque.size), Color(0, 0, 0, 0.25))
-		canvas.draw_style_box(game.style(Color("234232"), Color("e2c27a"), 6), plaque)
-		canvas.draw_rect(plaque.grow(-4 * sc), Color(0.96, 0.93, 0.84, 0.45), false, 1.0)
-		canvas.draw_string(ThemeDB.fallback_font, plaque.position+Vector2(10,28)*sc, game.model.data.stations[i].name,HORIZONTAL_ALIGNMENT_CENTER,280*sc,int(20*sc*float(game.settings.text_scale)),game.PAPER)
+		plaque.position.x=clampf(plaque.position.x,12,size.x-plaque.size.x-12)
+		# In the depot the board would sit under the info box or the tab panel.
+		var covered=game.screen=="depot" and (plaque.intersects(game.depot_info_rect) or plaque.end.x>size.x*0.46)
+		if not covered:
+			draw_station_board(canvas,plaque,sc,game.model.data.stations[i].name)
 		if i == 0 and game.model.state.finale:
 			canvas.draw_texture_rect(game.textures.final_flags,Rect2(center+Vector2(-170,-290),Vector2(320,130)),false)
 	# The sleepers stay aligned to the same tangent as the rail strips.
@@ -218,6 +218,13 @@ func draw_stations(canvas: Node2D) -> void:
 		var p = game.world_point(s)
 		if p.x < -40 or p.x > size.x+40: continue
 		art.draw_part(canvas,"terrain/sleeper",p+Vector2(0,12*game.view_scale()),-game.model.route.slope(s),art.scale_for("terrain/sleeper")*0.58*game.view_scale(),Transform2D.IDENTITY,Color(0.82,0.82,0.7))
+
+# Enamel station board: dark green field, brass rim and an inner keyline.
+func draw_station_board(canvas: Node2D, plaque: Rect2, sc: float, name: String) -> void:
+	canvas.draw_rect(Rect2(plaque.position + Vector2(4, 6), plaque.size), Color(0, 0, 0, 0.25))
+	canvas.draw_style_box(game.style(Color("234232"), Color("e2c27a"), 6), plaque)
+	canvas.draw_rect(plaque.grow(-4 * sc), Color(0.96, 0.93, 0.84, 0.45), false, 1.0)
+	canvas.draw_string(ThemeDB.fallback_font, plaque.position+Vector2(10,28)*sc, name,HORIZONTAL_ALIGNMENT_CENTER,280*sc,int(20*sc*float(game.settings.text_scale)),game.PAPER)
 
 func draw_service_platform(canvas: Node2D, index: int) -> void:
 	var rect=game.world_platform_rect(index)

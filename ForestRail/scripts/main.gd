@@ -75,6 +75,8 @@ var body_hits: Array = []
 var toast = ""
 var toast_seconds = 0.0
 var charge_strip_rect = Rect2()
+var depot_header_bottom = 127.0
+var depot_info_rect = Rect2(22, 151, 708, 195)
 var charge_band = 0
 var autosave = 0.0
 var refresh_seconds = 0.0
@@ -362,17 +364,27 @@ func menu_layout_scale(size: Vector2) -> float:
 
 func build_menu(size: Vector2) -> void:
 	var k = menu_layout_scale(size)
-	positioned_label("ЛЕСНАЯ ЖЕЛЕЗНАЯ ДОРОГА", Rect2(86, 92 * k, 700, 32), 17, Color("e2c27a"))
-	for i in range(2):
-		var line = positioned_label(["Лесная", "колея"][i], Rect2(80, (140 + i * 104) * k, 900, 120 * k), 96, PAPER)
-		line.add_theme_font_size_override("font_size", int(96 * k))
-		line.autowrap_mode = TextServer.AUTOWRAP_OFF
-	positioned_label("Начни с рычага. Верни поезда в Дальний бор.", Rect2(86, 378 * k, 740, 40), 22, Color(PAPER, 0.82))
+	# One stacked column: a wrapped subtitle or larger text pushes the
+	# buttons down instead of running into them.
+	var column = VBoxContainer.new()
+	column.position = Vector2(86, 88 * k)
+	column.size = Vector2(minf(620, size.x * 0.5), 0)
+	column.add_theme_constant_override("separation", int(10 * k))
+	ui.add_child(column)
+	add_label(column, "ЛЕСНАЯ ЖЕЛЕЗНАЯ ДОРОГА", 17, Color("e2c27a"))
+	var title = add_label(column, "Лесная\nколея", 96, PAPER)
+	title.add_theme_font_size_override("font_size", int(96 * k))
+	title.add_theme_constant_override("line_spacing", int(-22 * k))
+	title.autowrap_mode = TextServer.AUTOWRAP_OFF
+	add_label(column, "Начни с рычага. Верни поезда в Дальний бор.", 22, Color(PAPER, 0.82))
+	var gap = Control.new()
+	gap.custom_minimum_size.y = 18 * k
+	column.add_child(gap)
 	var box = VBoxContainer.new()
-	box.position = Vector2(86, 452 * k)
-	box.size = Vector2(330, 0)
+	box.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	box.custom_minimum_size.x = 330
 	box.add_theme_constant_override("separation", int(6 * k))
-	ui.add_child(box)
+	column.add_child(box)
 	var has_save = saves.has_any()
 	if has_save: menu_button(box, "Продолжить", continue_game, true)
 	menu_button(box, "Новая игра", func():
@@ -384,7 +396,9 @@ func build_menu(size: Vector2) -> void:
 	menu_button(box, "Как играть", func(): show_modal("help"))
 	menu_button(box, "Об игре", func(): show_modal("credits"))
 	menu_button(box, "Выход", func(): get_tree().quit())
-	positioned_label("От ручной дрезины до электровоза  ·  версия %s" % ProjectSettings.get_setting("application/config/version"), Rect2(86, size.y - 52, 700, 30), 15, Color(PAPER, 0.55))
+	# The footer needs the room the column leaves at small windows with large text.
+	if size.y / float(settings.text_scale) > 640:
+		positioned_label("От ручной дрезины до электровоза  ·  версия %s" % ProjectSettings.get_setting("application/config/version"), Rect2(86, size.y - 52, 700, 30), 15, Color(PAPER, 0.55))
 
 # Menu entries are a plain list on the scrim; only the main action is filled.
 func menu_button(parent: Node, text: String, action: Callable, primary: bool = false) -> Button:
@@ -445,16 +459,24 @@ func load_career(saved: Dictionary) -> void:
 	model.message = ""
 	rebuild()
 
+# Line height of the fallback font at a size before text scaling.
+func line_height(font_size: int) -> float:
+	return font_size * float(settings.text_scale) * 1.4
+
 func build_depot(size: Vector2) -> void:
+	# Header and info box grow with the text scale; at 150 % the fixed boxes
+	# let the money line touch the title and the details spill out.
+	var money_y = maxf(87, 30 + line_height(32) + 6)
+	depot_header_bottom = maxf(127, money_y + line_height(20) + 8)
 	positioned_label("ДЕПО  /  ЛЕСНАЯ", Rect2(44, 30, 1000, 50), 32)
-	positioned_label("%d монет  ·  %d / 10 основных рейсов" % [model.state.money, model.state.chapter], Rect2(46, 87, 1000, 45), 20)
+	positioned_label("%d монет  ·  %d / 10 основных рейсов" % [model.state.money, model.state.chapter], Rect2(46, money_y, 1000, 45), 20)
 	var menu_row = HBoxContainer.new()
 	menu_row.position = Vector2(size.x - 285, 28)
 	menu_row.size = Vector2(245, 50)
 	ui.add_child(menu_row)
 	add_button(menu_row, "☰  Меню", func(): pause_game())
 	var left_width = size.x * 0.46
-	var panel_rect = Rect2(left_width + 30, 155, size.x - left_width - 70, size.y - 185)
+	var panel_rect = Rect2(left_width + 30, depot_header_bottom + 28, size.x - left_width - 70, size.y - depot_header_bottom - 58)
 	var right = panel_at(ui, panel_rect, true)
 	var tabs = GridContainer.new()
 	tabs.columns=2
@@ -516,14 +538,17 @@ func build_depot(size: Vector2) -> void:
 		build_upgrades(right)
 	else:
 		build_missions(right)
-	positioned_label(vehicle_display_name(), Rect2(44, 158, left_width - 20, 70), 32)
+	var info_top = depot_header_bottom + 24
+	positioned_label(vehicle_display_name(), Rect2(44, info_top + 7, left_width - 20, 70), 32)
 	var stats = model.object_stats(model.vehicle_id())
 	var details = "%d кг  ·  %d мест" % [model.train_mass(), model.capacity()]
 	if model.vehicle_id() == "handcar":
 		details += "\nРучной привод · без топлива\nМаховик сохраняет накат"
 	else:
 		details += "\nПередачи Н / I / II · до %.0f км/ч\n" % (float(stats.speeds[1])*3.6) + energy_text()
-	positioned_label(details, Rect2(46, 239, left_width - 20, 105), 19)
+	var details_y = maxf(info_top + 88, info_top + 7 + line_height(32) + 6)
+	positioned_label(details, Rect2(46, details_y, left_width - 20, 105), 19)
+	depot_info_rect = Rect2(22, info_top, left_width - 28, maxf(195, details_y + (details.count("\n") + 1) * line_height(19) + 12 - info_top))
 	var service = HBoxContainer.new()
 	service.position = Vector2(44, size.y - 150)
 	service.size = Vector2(left_width - 25, 50)
@@ -1277,13 +1302,13 @@ func _draw() -> void:
 		var scrim = Color(0.03, 0.08, 0.06, 0.9)
 		draw_rect(Rect2(0, 0, size.x * 0.22, size.y), scrim)
 		ArtWorld.horizontal_gradient(self, Rect2(size.x * 0.22, 0, size.x * 0.4, size.y), scrim, Color(scrim, 0.0))
-		draw_line(Vector2(88, 128 * menu_layout_scale(size)), Vector2(148, 128 * menu_layout_scale(size)), Color("e2c27a"), 3)
+
 		draw_menu_train(size)
 	else:
 		draw_train()
 		if screen == "depot":
-			draw_style_box(style(Color(0.08,0.15,0.12,0.88),Color(0.5,0.57,0.39,0.45),8),Rect2(22,12,size.x-44,115))
-			draw_style_box(style(Color(0.08,0.15,0.12,0.88),Color(0.5,0.57,0.39,0.45),8),Rect2(22,151,size.x*0.46-28,195))
+			draw_style_box(style(Color(0.08,0.15,0.12,0.88),Color(0.5,0.57,0.39,0.45),8),Rect2(22,12,size.x-44,depot_header_bottom-12))
+			draw_style_box(style(Color(0.08,0.15,0.12,0.88),Color(0.5,0.57,0.39,0.45),8),depot_info_rect)
 		if screen == "game":
 			draw_style_box(style(Color(0.08,0.15,0.12,0.88),Color(0.5,0.57,0.39,0.45),8),Rect2(22,10,size.x-44,46))
 			draw_zone_label()

@@ -181,16 +181,17 @@ func draw_minimap() -> void:
 	var to_s=here+(WINDOW_AHEAD_M if drive>0 else WINDOW_BEHIND_M)
 	if from_s<0: to_s-=from_s;from_s=0.0
 	if to_s>total: from_s=maxf(0,from_s-(to_s-total));to_s=total
-	var area=Rect2(r.position.x+24,r.position.y+48,r.size.x-48,40)
-	draw_profile(area,from_s,to_s,area.end.y+14,100,3)
+	# Rows: title, profile, station names, footer; sized so 150 % text fits.
+	var area=Rect2(r.position.x+24,r.position.y+44,r.size.x-48,32)
+	draw_profile(area,from_s,to_s,area.end.y+10,100,3)
 	for i in range(m.route.station_s.size()):
 		var station_s=float(m.route.station_s[i])
 		if station_s<from_s or station_s>to_s: continue
 		var p=profile_point(station_s,area,from_s,to_s)
-		draw_line(p,Vector2(p.x,area.end.y+14),Color(MUTED,0.4),1)
+		draw_line(p,Vector2(p.x,area.end.y+10),Color(MUTED,0.4),1)
 		draw_circle(p,7 if i==target else 5,GOLD if i==target else PAPER)
 		draw_circle(p,2.5,PANEL)
-		put("%d · %s" % [i+1,m.data.stations[i].name],Vector2(clampf(p.x-90,area.position.x,area.end.x-180),area.end.y+30),180,12,GOLD if i==target else MUTED,HORIZONTAL_ALIGNMENT_CENTER)
+		put("%d · %s" % [i+1,m.data.stations[i].name],Vector2(clampf(p.x-90,area.position.x,area.end.x-180),area.end.y+22),180,12,GOLD if i==target else MUTED,HORIZONTAL_ALIGNMENT_CENTER)
 	# Train from tail to head, then the direction arrow at the head.
 	var tail=m.body_s(m.body_ids().size()-1)
 	var head_point=profile_point(here,area,from_s,to_s)
@@ -199,8 +200,8 @@ func draw_minimap() -> void:
 	var climb=climb_ahead(WINDOW_AHEAD_M)
 	var ahead="Впереди без крутых подъёмов"
 	if not climb.is_empty(): ahead="Подъём +%.1f%% — сейчас" % climb.grade if climb.distance<10 else "Подъём +%.1f%% через %d м" % [climb.grade,climb.distance]
-	put(ahead,Vector2(area.position.x,r.end.y-14),r.size.x*0.45,14,GOLD if not climb.is_empty() else MUTED)
-	put("%d м до станции" % absf(float(m.route.station_s[target])-here),Vector2(r.end.x-r.size.x*0.45-24,r.end.y-14),r.size.x*0.45,14,PAPER,HORIZONTAL_ALIGNMENT_RIGHT)
+	put(ahead,Vector2(area.position.x,r.end.y-12),r.size.x*0.5,14,GOLD if not climb.is_empty() else MUTED)
+	put("%d м до станции" % absf(float(m.route.station_s[target])-here),Vector2(r.end.x-r.size.x*0.4-24,r.end.y-12),r.size.x*0.4,14,PAPER,HORIZONTAL_ALIGNMENT_RIGHT)
 
 func draw_status() -> void:
 	var r = Rect2(size.x-status_width()-22,size.y-174,status_width(),152)
