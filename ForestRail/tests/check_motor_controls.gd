@@ -1,4 +1,5 @@
 extends Node
+const Fixtures = preload("res://tests/fixtures.gd")
 
 const Model=preload("res://scripts/model.gd")
 var game
@@ -16,8 +17,8 @@ func check(ok: bool,label: String) -> void:
 
 func fixture(id: String):
 	var m=Model.new()
-	m.new_game(42);m.state.money=10000;m.buy_vehicle("motorcar")
-	if id=="locomotive": m.buy_vehicle(id)
+	m.new_game(42);m.state.money=10000;Fixtures.equip(m,"motorcar")
+	if id=="locomotive": Fixtures.equip(m,id)
 	m.select_vehicle(id)
 	m.state.phase="route";m.state.s=100;m.state.brake=0
 	for p in m.route.points: p[1]=0.0

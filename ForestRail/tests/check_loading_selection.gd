@@ -47,22 +47,22 @@ func numerical() -> void:
 	var id=m.state.cargo[0].id
 	m.transfer(id,m.slots()[0].key)
 	var plan=m.loading_preview()
-	check(plan.loaded==1 and plan.offered==2 and plan.mass_kg==215 and plan.reward==50,"partial preview shows mass/slots/pay")
+	check(plan.loaded==1 and plan.offered==2 and plan.mass_kg==215 and plan.reward==60,"partial preview shows mass/slots/pay")
 	m.transfer(id,"")
 	check(m.loading_preview().loaded==0 and m.loading_preview().reward==0 and m.state.money==0,"removing cargo before departure has no fee")
 	m.transfer(id,m.slots()[0].key)
 	var restored=Model.new()
-	check(restored.restore(m.serialize()) and restored.loading_preview().reward==50,"unfinished selection persists")
+	check(restored.restore(m.serialize()) and restored.loading_preview().reward==60,"unfinished selection persists")
 	m=restored
 	check(m.depart() and m.state.cargo.size()==1 and m.state.active.warehouse_cargo.size()==1,"departure separates accepted set from warehouse")
-	check(m.state.active.selection_locked and m.state.active.reward==50,"departure freezes payment")
+	check(m.state.active.selection_locked and m.state.active.reward==60,"departure freezes payment")
 	check(restored.restore(m.serialize()) and restored.state.cargo.size()==1,"frozen partial order persists")
 	var corrupt=m.serialize();corrupt.active.warehouse_cargo[0].slot="handcar:1"
 	check(not restored.restore(corrupt),"corrupt warehouse cannot become hidden loaded cargo")
 	var money=m.state.money
 	finish_fixture(m)
-	check(m.state.money==money+50 and m.state.last_result.left_on_warehouse==1,"pay only accepted cargo, warehouse recorded without loss")
-	check(not m.settle() and m.state.money==money+50,"partial payout cannot repeat")
+	check(m.state.money==money+60 and m.state.last_result.left_on_warehouse==1,"pay only accepted cargo, warehouse recorded without loss")
+	check(not m.settle() and m.state.money==money+60,"partial payout cannot repeat")
 	# Legacy active contracts retain their fixed full load and full reward.
 	m=Model.new();m.new_game(42);m.accept_mission(m.current_mission())
 	var old=m.serialize()
@@ -72,7 +72,7 @@ func numerical() -> void:
 	m.transfer(m.state.cargo[0].id,m.slots()[0].key)
 	check(not m.depart(),"legacy partial departure remains prohibited")
 	m.transfer(m.state.cargo[1].id,m.slots()[1].key)
-	check(m.depart() and m.state.active.reward==100,"legacy full reward preserved")
+	check(m.depart() and m.state.active.reward==120,"legacy full reward preserved")
 	# Grade estimate responds to actual slope and body masses.
 	m=Model.new();m.new_game(42);m.accept_mission(m.current_mission())
 	m.transfer(m.state.cargo[0].id,m.slots()[0].key)
@@ -91,12 +91,11 @@ func numerical() -> void:
 		var recovery=0
 		var rows: Array=[]
 		for chapter in range(10):
-			if chapter==2:
-				recovery+=earn(m,180);check(m.buy_vehicle("motorcar"),"economy buys motorcar")
-			if chapter==6:
-				recovery+=earn(m,600);check(m.buy_vehicle("locomotive"),"economy buys locomotive")
-			if chapter==9 and not partial:
-				recovery+=earn(m,180);check(m.buy_wagon(),"full-load economy buys third wagon")
+			var purchase={2:"steam",4:"motorcar",8:"locomotive"}.get(chapter,"")
+			if purchase!="":
+				recovery+=earn(m,int(m.vehicle_base(purchase).cost));check(m.buy_vehicle(purchase),"economy buys "+purchase)
+			if (chapter==4 or chapter==9) and not partial:
+				recovery+=earn(m,m.wagon_price(m.next_wagon_id()));check(m.buy_wagon(),"full-load economy buys a wagon")
 			m.refuel();check(m.accept_mission(m.current_mission()),"economy accepts career")
 			var count=1 if partial else m.state.cargo.size()
 			for i in range(count): check(m.transfer(m.state.cargo[i].id,m.slots()[i].key),"economy loads chosen amount")
@@ -104,7 +103,9 @@ func numerical() -> void:
 			finish_fixture(m)
 			rows.append({"chapter":chapter+1,"money":m.state.money,"accepted":count})
 		check(m.state.chapter==10 and m.state.finale,"career can end with chosen partial loads")
-		if not partial: check(m.state.money==1360,"full-load ten-mission reward baseline recomputed")
+		# Exact balance is pinned in check_model; here the full-load career only
+		# has to finish solvent after the free runs it needed (3.2 economy).
+		if not partial: check(m.state.money>=0 and recovery<=14,"full-load ten-mission economy finishes solvent")
 		# Spend on an optional upgrade, cancel a new offer, and earn again.
 		m.select_vehicle("handcar");m.upgrade("handcar","handcar_lever")
 		var before=int(m.state.money)
@@ -155,11 +156,11 @@ func gui() -> void:
 				var p=b.get_global_rect().get_center();await mouse(p,true);await mouse(p,false);break
 		check(game.model.state.phase=="route" and game.model.state.cargo.size()==1,"mouse departs with one accepted item")
 		var saved=game.saves.read_valid("save_v2.json")
-		check(not saved.is_empty() and saved.active.selection_locked and saved.active.reward==50,"GUI saves frozen selection on departure")
+		check(not saved.is_empty() and saved.active.selection_locked and saved.active.reward==60,"GUI saves frozen selection on departure")
 		park(game.model,1);game.camera_s=game.model.state.s;game.camera_y=game.model.route.sample(game.camera_s).y
 		game.rebuild();await frame();await frame()
 		await drag(id,game.dock_rect().get_center())
-		check(game.model.state.active.phase=="return" and game.model.state.active.pending_reward==50,"GUI partial delivery completes without warehouse item")
+		check(game.model.state.active.phase=="return" and game.model.state.active.pending_reward==60,"GUI partial delivery completes without warehouse item")
 		get_tree().root.get_texture().get_image().save_png(out_dir.path_join("return_"+str(resolution.x)+".png"))
 
 func run() -> void:

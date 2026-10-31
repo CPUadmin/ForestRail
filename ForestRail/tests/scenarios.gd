@@ -1,4 +1,5 @@
 extends Node
+const Fixtures = preload("res://tests/fixtures.gd")
 
 var root: Window:
 	get: return get_tree().root
@@ -20,10 +21,7 @@ func _ready() -> void:
 	m.new_game(42)
 	if scenario in ["electric", "motor", "finale", "upgrades"]:
 		m.state.money = 5000
-		m.buy_vehicle("motorcar")
-		if scenario != "motor":
-			m.buy_vehicle("locomotive")
-			m.buy_wagon()
+		Fixtures.equip(m, "motorcar" if scenario == "motor" else "locomotive")
 	if scenario == "loading":
 		m.accept_mission(m.current_mission())
 	elif scenario in ["electric", "motor"]:

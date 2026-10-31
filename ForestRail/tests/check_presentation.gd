@@ -1,4 +1,5 @@
 extends Node
+const Fixtures = preload("res://tests/fixtures.gd")
 
 var root: Window:
 	get: return get_tree().root
@@ -49,11 +50,10 @@ func run() -> void:
 	game.model.back_to_depot()
 	game.model.cancel_mission()
 	game.model.state.money = 5000
-	game.model.buy_vehicle("motorcar")
+	Fixtures.equip(game.model, "motorcar")
 	game.rebuild()
 	await shot("petrol_motorcar")
-	game.model.buy_vehicle("locomotive")
-	game.model.buy_wagon()
+	Fixtures.equip(game.model, "locomotive")
 	for size in [Vector2i(1280, 720), Vector2i(1600, 900), Vector2i(1920, 1080)]:
 		root.size = size
 		game.screen = "menu"

@@ -64,37 +64,32 @@ func run() -> void:
 	park(m,1)
 	var money = int(m.state.money)
 	for item in m.state.cargo.duplicate(true): check(m.transfer(item.id, ""), "unload at B")
-	check(m.state.money == money and m.state.active.pending_reward == 100, "reward deferred until return")
+	check(m.state.money == money and m.state.active.pending_reward == 120, "reward deferred until return")
 	check(m.turn() and m.state.direction == -1, "safe turn after unloading")
 	m.state.s = 0
 	check(m.settle(), "settle M01 at home")
-	check(not m.settle() and m.state.money == 100, "no duplicate payment")
-	# Drive the actual ten-mission domain cycle with manual loading and all dropoffs.
+	check(not m.settle() and m.state.money == 120, "no duplicate payment")
+	# Drive the ten-mission cycle with manual loading and all dropoffs. Money
+	# for purchases comes from real free runs, as a player would earn it
+	# (ECONOMY_v3_2_RU.md): steam before M03, petrol and W02 before M05,
+	# electric before M09 and W03 before M10.
+	var free_runs = 0
 	for chapter in range(1, 10):
-		if chapter == 2: check(m.buy_vehicle("motorcar"), "buy motorcar with W01")
-		if chapter == 6: check(m.buy_vehicle("locomotive"), "buy electric locomotive with W02")
-		if chapter == 9: check(m.buy_wagon(), "buy W03 for six slots")
-		m.refuel()
+		var purchase = {2: "steam", 4: "motorcar", 8: "locomotive"}.get(chapter, "")
+		if purchase != "":
+			free_runs += earn(m, int(m.vehicle_base(purchase).cost))
+			check(m.buy_vehicle(purchase), "buy " + purchase)
+		if chapter == 4 or chapter == 9:
+			free_runs += earn(m, m.wagon_price(m.next_wagon_id()))
+			check(m.buy_wagon(), "buy wagon before " + str(m.current_mission().id))
 		var mission = m.current_mission()
-		check(m.accept_mission(mission), "accept " + str(mission.id))
-		slots = m.slots()
-		for i in range(m.state.cargo.size()): check(m.transfer(m.state.cargo[i].id, slots[i].key), "load " + str(mission.id))
-		check(m.depart(), "depart " + str(mission.id))
-		for stop in mission.dropoffs:
-			park(m,station_index(m,stop.station))
-			for item in m.state.cargo.duplicate(true):
-				if item.destination == stop.station:
-					check(m.transfer(item.id, ""), "dropoff " + str(mission.id))
-		check(m.state.active.phase == "return", "return phase " + str(mission.id))
-		check(m.turn(), "turn " + str(mission.id))
-		var saved = m.serialize()
-		var restored = Model.new()
-		check(restored.restore(saved), "restore pending payout " + str(mission.id))
-		m = restored
-		m.state.s = 0
-		check(m.settle(), "finish " + str(mission.id))
-	check(m.state.chapter == 10 and m.state.finale and m.state.money == 1360, "career economy and finale")
-	check(m.state.fleet_by_id.size() == 3 and m.state.wagons_by_id.size() == 3, "garage retains fleet")
+		check(m.capacity() >= m.mission_count(mission), "room for full " + str(mission.id))
+		m = complete(m, mission, true)
+	check(m.state.chapter == 10 and m.state.finale and m.state.money >= 0, "career economy and finale")
+	check(free_runs >= 3 and free_runs <= 12, "career needs a few free runs, not a grind: %d" % free_runs)
+	print("ECONOMY free runs %d, money after M10 %d" % [free_runs, int(m.state.money)])
+	m.state.money += 5000
+	check(m.state.fleet_by_id.size() == 4 and m.state.wagons_by_id.size() == 3, "garage retains fleet")
 	var final_restore = Model.new()
 	check(final_restore.restore(m.serialize()) and final_restore.state.finale and final_restore.state.chapter == 10, "save and restore after finale")
 	check(m.upgrade("handcar", "handcar_lever"), "upgrade retained old vehicle")
@@ -141,7 +136,7 @@ func run() -> void:
 	m.buy_vehicle("locomotive")
 	m.state.chapter = 6
 	m.accept_mission(m.data.missions[6])
-	for i in range(m.state.cargo.size()): m.transfer(m.state.cargo[i].id, m.slots()[i].key)
+	for i in range(mini(m.state.cargo.size(), m.slots().size())): m.transfer(m.state.cargo[i].id, m.slots()[i].key)
 	m.depart()
 	m.state.engine = true
 	m.state.gear = 1
@@ -165,8 +160,13 @@ func run() -> void:
 	check(not m.set_gear(2) or m.state.throttle < 0.15, "gear interlock")
 	m.state.throttle = 0.5
 	check(not m.set_gear(2), "reject shift with throttle")
+	var money_before_rescue = int(m.state.money)
+	var cargo_before_rescue = m.state.cargo.size()
+	var refill_before_rescue = m.refill_cost()
 	m.rescue()
-	check(m.state.phase == "depot" and m.state.cargo.size() == 4 and m.state.money == 4220, "rescue preserves cargo and money")
+	# The tow is free; the refill after it is paid at depot prices (3.2).
+	check(m.state.phase == "depot" and m.state.cargo.size() == cargo_before_rescue and cargo_before_rescue > 0 and int(m.state.money) == money_before_rescue - refill_before_rescue, "rescue keeps cargo and charges only the refill")
+	check(m.refill_cost() == 0 and refill_before_rescue > 0, "rescue refills the battery")
 	# Atomic save and corruption recovery use a dedicated directory.
 	var storage = SaveGame.new()
 	storage.directory = "user://qa_model"
@@ -192,6 +192,7 @@ func run() -> void:
 	check(int(storage.read_valid(SaveGame.PREVIOUS_CAREER).money) == career_money, "previous career survives the new career's saves")
 	buffer_checks()
 	charge_traction_checks()
+	economy_v32_checks()
 	worst_economy()
 	var report = {"checks": checks, "failures": failures, "engine": Engine.get_version_info().string}
 	var out = FileAccess.open("user://qa_model/results.json", FileAccess.WRITE)
@@ -199,6 +200,47 @@ func run() -> void:
 	out.close()
 	print("MODEL CHECKS ", checks, "; FAILURES ", failures.size())
 	quit(0 if failures.is_empty() else 1)
+
+# Load, deliver, turn, save/restore with the payout pending, settle.
+func complete(m, mission: Dictionary, checks_on: bool = false, broken_fragile: bool = false):
+	m.refuel()
+	var ok = m.accept_mission(mission)
+	if checks_on: check(ok, "accept " + str(mission.id))
+	var slots = m.slots()
+	for i in range(mini(m.state.cargo.size(), slots.size())): m.transfer(m.state.cargo[i].id, slots[i].key)
+	if broken_fragile:
+		for item in m.state.cargo:
+			if item.type == "fragile": item.health = 0.0
+	ok = m.depart()
+	if checks_on: check(ok, "depart " + str(mission.id))
+	for stop in mission.dropoffs:
+		park(m,station_index(m,stop.station))
+		for item in m.state.cargo.duplicate(true):
+			if item.destination == stop.station and not item.delivered: m.transfer(item.id, "")
+	if checks_on: check(m.state.active.get("phase","") == "return", "return phase " + str(mission.id))
+	m.turn()
+	var restored = Model.new()
+	ok = restored.restore(m.serialize())
+	if checks_on: check(ok, "restore pending payout " + str(mission.id))
+	m = restored
+	var paid = m.state.paid_ids.size()
+	# Stopping at home pays the order by itself; settle() covers a train
+	# that is already standing there.
+	park(m,0)
+	if m.state.paid_ids.size() == paid: m.settle()
+	if checks_on: check(m.state.paid_ids.size() == paid + 1, "finish " + str(mission.id))
+	return m
+
+# Take the best-paying free run until the target sum is reached.
+func earn(m, target: int) -> int:
+	var runs = 0
+	while int(m.state.money) < target and runs < 20:
+		var offers = m.free_offers()
+		offers.sort_custom(func(a, b): return int(a.reward) > int(b.reward))
+		var model_after = complete(m, offers[0])
+		m.state = model_after.state
+		runs += 1
+	return runs
 
 func station_index(m, id: String) -> int:
 	for i in range(m.data.stations.size()):
@@ -246,24 +288,65 @@ func charge_traction_checks() -> void:
 		speeds.append(float(m.state.v))
 	check(speeds[1] > 0 and speeds[1] < speeds[0] * 0.6, "quarter charge pulls clearly weaker than full charge")
 
+func economy_v32_checks() -> void:
+	var m = Model.new()
+	m.new_game(42)
+	m.state.money = 499
+	check(not m.buy_vehicle("steam"), "steam costs 500")
+	m.state.money = 500
+	check(m.buy_vehicle("steam") and m.state.money == 0 and m.capacity() == 2 and m.state.consist_ids == ["W01"], "steam comes with W01 and has no deck places")
+	check(m.object_stats("steam").slots == 0 and m.object_stats("motorcar").slots == 0 and m.object_stats("locomotive").slots == 0, "no deck places on steam, petrol, electric")
+	# Paid refill: half a tank of coal costs half its price; no money, no coal.
+	m.state.fleet_by_id.steam.fuel = 20.0
+	m.state.money = 100
+	check(m.refill_cost() == 30 and m.refuel() and m.state.money == 70 and is_equal_approx(float(m.state.fleet_by_id.steam.fuel), 40.0), "coal refill is paid")
+	m.state.fleet_by_id.steam.fuel = 0.0
+	m.state.money = 15
+	m.refuel()
+	check(m.state.money == 0 and is_equal_approx(float(m.state.fleet_by_id.steam.fuel), 10.0), "too little money buys part of the coal")
+	m.state.fleet_by_id.steam.water = 0.0
+	check(not m.start_engine(true), "no water, no fire")
+	# Missions name the weakest class; stronger machines may take them.
+	m.state.fleet_by_id.steam.water = 300.0
+	check(m.mission_error(m.data.missions[0]) == "", "steam may run a handcar order")
+	m.state.money = 10000
+	check(m.buy_wagon() and m.state.wagons_by_id.has("W02") and m.state.money == 9650, "W02 costs 350")
+	# Old save: two items on the petrol deck, W01 full -> W01 cannot take
+	# them, so the temporary wagon WT carries them until the order is done.
+	var old = Model.new()
+	old.new_game(42)
+	old.state.money = 5000
+	old.buy_vehicle("motorcar")
+	old.state.chapter = 4
+	old.accept_mission(old.current_mission())
+	var saved = old.serialize()
+	saved.consist_ids = ["W01"]
+	saved.fleet_by_id.motorcar.consist = ["W01"]
+	saved.wagons_by_id.erase("W02")
+	var slots = ["motorcar:0", "motorcar:1", "W01:0", "W01:1"]
+	for i in range(saved.cargo.size()): saved.cargo[i].slot = slots[i]
+	var migrated = Model.new()
+	check(migrated.restore(saved), "old petrol-deck save loads")
+	var in_temp = 0
+	for item in migrated.state.cargo:
+		check(str(item.slot).begins_with("W"), "deck cargo moved to a wagon " + str(item.id))
+		if str(item.slot).begins_with(Model.TEMP_WAGON): in_temp += 1
+	check(in_temp == 2 and migrated.state.cargo.size() == 4, "temporary wagon holds the two deck items")
+	check(migrated.back_to_depot() and migrated.cancel_mission(), "cancel the migrated order from the depot")
+	check(not migrated.state.wagons_by_id.has(Model.TEMP_WAGON) and Model.TEMP_WAGON not in migrated.state.consist_ids, "temporary wagon leaves once its cargo is gone")
+
 func worst_economy() -> void:
 	var m = Model.new()
 	m.new_game(42)
+	var runs = 0
 	for chapter in range(10):
-		if chapter == 2: check(m.buy_vehicle("motorcar"), "motorcar affordable with maximum fragile penalty")
-		if chapter == 6: check(m.buy_vehicle("locomotive"), "locomotive affordable with maximum fragile penalty")
-		if chapter == 9: check(m.buy_wagon(), "W03 affordable with maximum fragile penalty")
-		m.refuel()
-		var mission = m.current_mission()
-		check(m.accept_mission(mission), "accept maximum-penalty career " + str(mission.id))
-		for i in range(m.state.cargo.size()):
-			m.transfer(m.state.cargo[i].id, m.slots()[i].key)
-			if m.state.cargo[i].type == "fragile": m.state.cargo[i].health = 0.0
-		m.depart()
-		for stop in mission.dropoffs:
-			park(m,station_index(m,stop.station))
-			for item in m.state.cargo.duplicate(true):
-				if item.destination == stop.station: m.transfer(item.id, "")
-		m.state.s = 0
-		m.settle()
-	check(m.state.finale and m.state.money == 1234, "worst fragile penalty matches specified 1234 balance")
+		var purchase = {2: "steam", 4: "motorcar", 8: "locomotive"}.get(chapter, "")
+		if purchase != "":
+			runs += earn(m, int(m.vehicle_base(purchase).cost))
+			check(m.buy_vehicle(purchase), purchase + " reachable with maximum fragile penalty")
+		if chapter == 4 or chapter == 9:
+			runs += earn(m, m.wagon_price(m.next_wagon_id()))
+			check(m.buy_wagon(), "wagon reachable with maximum fragile penalty")
+		m = complete(m, m.current_mission(), true, true)
+	check(m.state.finale and m.state.money >= 0 and runs <= 14, "career finishes with maximum fragile penalty: %d free runs" % runs)
+	print("ECONOMY worst case free runs %d, money after M10 %d" % [runs, int(m.state.money)])

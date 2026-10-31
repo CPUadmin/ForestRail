@@ -1,4 +1,5 @@
 extends Node
+const Fixtures = preload("res://tests/fixtures.gd")
 
 var root: Window:
 	get: return get_tree().root
@@ -20,6 +21,39 @@ func check(condition: bool, text: String) -> void:
 	if not condition:
 		failures.append(text)
 		print("FAIL: ", text)
+
+# Depot shunting through the coupler markers with real clicks (3.2).
+func shunting_checks() -> void:
+	game.model.new_game(42)
+	Fixtures.equip(game.model, "locomotive")
+	game.screen = "depot"
+	game.modal_kind = ""
+	game.paused = false
+	game.rebuild()
+	for i in range(4): await get_tree().process_frame
+	var detach = {}
+	for hit in game.coupler_hits:
+		if not hit.attach: detach = hit
+	check(not detach.is_empty() and detach.id == "W03", "tail wagon offers uncoupling")
+	if detach.is_empty(): return
+	press(detach.position)
+	check(not game.coupling_anim.is_empty(), "click starts the shunting animation")
+	for i in range(90): await get_tree().process_frame
+	check(game.coupling_anim.is_empty() and "W03" not in game.model.state.consist_ids and "W03" in game.parked_wagons(), "W03 rolled away and stands parked")
+	var attach = {}
+	for hit in game.coupler_hits:
+		if hit.attach: attach = hit
+	check(not attach.is_empty() and attach.id == "W03", "nearest parked wagon offers coupling")
+	if attach.is_empty(): return
+	press(attach.position)
+	for i in range(90): await get_tree().process_frame
+	check(game.model.state.consist_ids == ["W01", "W02", "W03"], "W03 coupled back to the tail")
+	game.model.accept_mission(game.model.current_mission())
+	game.rebuild()
+	await get_tree().process_frame
+	var before = game.model.state.consist_ids.duplicate()
+	for hit in game.coupler_hits: press(hit.position)
+	check(game.model.state.consist_ids == before and game.coupling_anim.is_empty(), "no shunting with an active order")
 
 func press(position: Vector2) -> void:
 	var event = InputEventMouseButton.new()
@@ -131,8 +165,7 @@ func run() -> void:
 	game.model.rescue()
 	check(game.model.state.cargo.size() == 2 and game.model.state.active.id == "M01", "rescue keeps active loaded order")
 	game.model.cancel_mission()
-	game.model.state.money = 1000
-	game.model.buy_vehicle("motorcar")
+	Fixtures.equip(game.model, "motorcar")
 	check(not game.model.start_engine(true) or game.model.state.gear == 0, "neutral start")
 	game.model.state.throttle = 0.5
 	check(not game.model.set_gear(1), "gear cannot move under throttle")
@@ -175,6 +208,7 @@ func run() -> void:
 	check(DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_WINDOWED, "windowed mode restores")
 	for key in original: game.settings[key] = original[key]
 	game.apply_settings()
+	await shunting_checks()
 	var report = {"checks": checks, "failures": failures}
 	var file = FileAccess.open("user://qa_interaction/results.json", FileAccess.WRITE)
 	file.store_string(JSON.stringify(report, "\t"))

@@ -86,16 +86,47 @@
       "mass_kg": 180,
       "deck_slots": 2,
       "default_wagons": 0,
-      "fuel_l": 0
+      "fuel_l": 0,
+      "rank": 0,
+      "max_wagons": 0,
+      "brake_n": 700,
+      "free_reward_multiplier": 1.0,
+      "free_reach": "C"
+    },
+    {
+      "id": "steam",
+      "name": "Паровоз",
+      "cost": 500,
+      "mass_kg": 900,
+      "deck_slots": 0,
+      "default_wagons": 0,
+      "rank": 1,
+      "max_wagons": 2,
+      "brake_n": 3500,
+      "traction_n": [
+        2200,
+        1300
+      ],
+      "gear_speed_mps": [
+        3.5,
+        6.0
+      ],
+      "coal_kg": 40,
+      "water_l": 300,
+      "refill_price": 1.5,
+      "energy_per_m": 0.012,
+      "energy_unit": "кг угля",
+      "free_reward_multiplier": 1.25,
+      "free_reach": "D"
     },
     {
       "id": "motorcar",
-      "name": "Моторная дрезина",
-      "cost": 180,
+      "name": "Бензиновая машина",
+      "cost": 1000,
       "mass_kg": 320,
-      "deck_slots": 2,
-      "default_wagons": 1,
-      "fuel_l": 2,
+      "deck_slots": 0,
+      "default_wagons": 0,
+      "fuel_l": 2.5,
       "traction_n": [
         900,
         495
@@ -103,15 +134,23 @@
       "gear_speed_mps": [
         4,
         6.5
-      ]
+      ],
+      "rank": 2,
+      "max_wagons": 2,
+      "brake_n": 1800,
+      "refill_price": 18,
+      "energy_per_m": 0.00045,
+      "energy_unit": "л",
+      "free_reward_multiplier": 1.45,
+      "free_reach": "F"
     },
     {
       "id": "locomotive",
-      "name": "Локомотив",
-      "cost": 600,
+      "name": "Электровоз",
+      "cost": 3000,
       "mass_kg": 1100,
       "deck_slots": 0,
-      "default_wagons": 2,
+      "default_wagons": 0,
       "fuel_l": 4,
       "traction_n": [
         3000,
@@ -146,7 +185,16 @@
           1,
           1
         ]
-      ]
+      ],
+      "rank": 3,
+      "max_wagons": 3,
+      "brake_n": 6000,
+      "battery_kwh": 0.6,
+      "refill_price": 60,
+      "energy_per_m": 9e-05,
+      "energy_unit": "кВт·ч",
+      "free_reward_multiplier": 1.7,
+      "free_reach": "F"
     }
   ],
   "wagon": {
@@ -180,7 +228,7 @@
           2
         ]
       ],
-      "reward": 100,
+      "reward": 120,
       "tutorial": "Ручной привод, тормоз, остановка и разгрузка",
       "return_to": "A",
       "complete_after_return": true,
@@ -208,7 +256,7 @@
           1
         ]
       ],
-      "reward": 140,
+      "reward": 200,
       "tutorial": "Разворот и накопление на двигатель",
       "return_to": "A",
       "complete_after_return": true,
@@ -229,14 +277,14 @@
       "title": "Знакомство с мотором",
       "from": "A",
       "to": "B",
-      "tier": "motorcar",
+      "tier": "steam",
       "cargo": [
         [
           "fragile",
           2
         ]
       ],
-      "reward": 120,
+      "reward": 320,
       "tutorial": "Запуск, подача топлива, Н/1/2",
       "return_to": "A",
       "complete_after_return": true,
@@ -257,14 +305,14 @@
       "title": "К лесопилке",
       "from": "A",
       "to": "C",
-      "tier": "motorcar",
+      "tier": "steam",
       "cargo": [
         [
           "logs",
           2
         ]
       ],
-      "reward": 160,
+      "reward": 400,
       "return_to": "A",
       "complete_after_return": true,
       "dropoffs": [
@@ -291,7 +339,7 @@
           4
         ]
       ],
-      "reward": 180,
+      "reward": 560,
       "return_to": "A",
       "complete_after_return": true,
       "dropoffs": [
@@ -327,7 +375,7 @@
           4
         ]
       ],
-      "reward": 260,
+      "reward": 700,
       "return_to": "A",
       "complete_after_return": true,
       "dropoffs": [
@@ -347,14 +395,14 @@
       "title": "Первый состав",
       "from": "A",
       "to": "D",
-      "tier": "locomotive",
+      "tier": "motorcar",
       "cargo": [
         [
           "parts",
           4
         ]
       ],
-      "reward": 240,
+      "reward": 760,
       "tutorial": "Два вагона и торможение всем составом",
       "return_to": "A",
       "complete_after_return": true,
@@ -375,14 +423,14 @@
       "title": "Аккуратно, посуда",
       "from": "A",
       "to": "E",
-      "tier": "locomotive",
+      "tier": "motorcar",
       "cargo": [
         [
           "fragile",
           4
         ]
       ],
-      "reward": 300,
+      "reward": 900,
       "return_to": "A",
       "complete_after_return": true,
       "dropoffs": [
@@ -418,7 +466,7 @@
           4
         ]
       ],
-      "reward": 320,
+      "reward": 1100,
       "return_to": "A",
       "complete_after_return": true,
       "dropoffs": [
@@ -453,7 +501,7 @@
           2
         ]
       ],
-      "reward": 500,
+      "reward": 1500,
       "final": true,
       "return_to": "A",
       "complete_after_return": true,
@@ -828,9 +876,10 @@
     "wagon_upgrades_follow_id": true,
     "stock_wagon_capacity": 2,
     "max_wagon_capacity": 4,
-    "motorcar_max_wagons": 1,
+    "motorcar_max_wagons": 2,
     "locomotive_max_wagons": 3,
-    "handcar_max_wagons": 0
+    "handcar_max_wagons": 0,
+    "steam_max_wagons": 2
   },
   "fleet_rules": {
     "start_owned": [
@@ -844,6 +893,11 @@
       "W02",
       "W03"
     ],
-    "third_wagon_cost": 180
+    "third_wagon_cost": 600
+  },
+  "wagon_prices": {
+    "W01": 200,
+    "W02": 350,
+    "W03": 600
   }
 }

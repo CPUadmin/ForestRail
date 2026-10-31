@@ -1,4 +1,5 @@
 extends Node
+const Fixtures = preload("res://tests/fixtures.gd")
 
 var root: Window:
 	get: return get_tree().root
@@ -23,8 +24,7 @@ func setup(id: String, seed_value: int = 42):
 	var m = Model.new()
 	m.new_game(seed_value)
 	m.state.money = 5000
-	if id != "handcar": m.buy_vehicle("motorcar")
-	if id == "locomotive": m.buy_vehicle("locomotive"); m.buy_wagon()
+	if id != "handcar": Fixtures.equip(m, id)
 	m.state.chapter = {"handcar": 0, "motorcar": 5, "locomotive": 9}[id]
 	m.accept_mission(m.current_mission())
 	for i in range(m.state.cargo.size()): m.transfer(m.state.cargo[i].id, m.slots()[i].key)

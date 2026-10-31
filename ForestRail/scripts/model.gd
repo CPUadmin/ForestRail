@@ -6,7 +6,10 @@ const HandcarMechanism = preload("res://scripts/handcar_mechanism.gd")
 const HandcarDrive = preload("res://scripts/handcar_drive.gd")
 const G = 9.81
 const BUFFER_SAFE_SPEED = 1.0
-const VEHICLE_IDS = ["handcar", "motorcar", "locomotive"]
+const VEHICLE_IDS = ["handcar", "steam", "motorcar", "locomotive"]
+const WAGON_IDS = ["W01", "W02", "W03"]
+# Holds cargo migrated from an old petrol deck until it is unloaded (ECONOMY_v3_2_RU.md).
+const TEMP_WAGON = "WT"
 var data: Dictionary
 var route = Route.new()
 var state: Dictionary = {}
@@ -23,6 +26,7 @@ var regen_kw = 0.0
 var motor_energy: Dictionary = {}
 var loading_cache: Dictionary = {}
 var events: Array = []
+var last_refill_cost = 0
 var stationary_seconds = 0.25
 var stationary_station = 0
 
@@ -108,18 +112,31 @@ func object_stats(id: String) -> Dictionary:
 	var ef = effects(id)
 	var slots = int(base.slots if wagon else base.deck_slots) + int(ef.get("add_slots", 0))
 	var mass = float(base.mass_kg) + float(ef.get("add_mass_kg", 0))
-	var brake_base = 0.0 if wagon else {"handcar": 700.0, "motorcar": 1800.0, "locomotive": 6000.0}[id]
+	var brake_base = 0.0 if wagon else float(base.brake_n)
 	var result = {"slots": slots, "mass": mass, "rolling": 0.004 * float(ef.get("rolling_multiplier", 1.0)),
 		"brake": brake_base * float(ef.get("brake_multiplier", 1.0)) + float(ef.get("add_brake_n", 0)),
 		"shock": float(ef.get("cargo_shock_multiplier", 1.0)), "power": 220.0,
-		"tank": float(base.get("fuel_l", 0)) * float(ef.get("fuel_capacity_multiplier", 1.0))}
-	if id == "locomotive":
-		result.tank = 0.6 * float(ef.get("fuel_capacity_multiplier", 1.0))
+		"tank": float(base.get("battery_kwh", base.get("coal_kg", base.get("fuel_l", 0)))) * float(ef.get("fuel_capacity_multiplier", 1.0)),
+		"water": float(base.get("water_l", 0))}
 	if not wagon and id != "handcar":
 		result.traction = [float(base.traction_n[0]) * float(ef.get("traction_multiplier", 1)) * float(ef.get("low_gear_multiplier", 1)),
 			float(base.traction_n[1]) * float(ef.get("traction_multiplier", 1))]
 		result.speeds = [float(base.gear_speed_mps[0]), float(base.gear_speed_mps[1]) * float(ef.get("high_gear_speed_multiplier", 1))]
 	return result
+
+func rank(id: String) -> int:
+	return int(vehicle_base(id).get("rank", 0))
+
+func max_wagons(id: String) -> int:
+	return int(vehicle_base(id).get("max_wagons", 0))
+
+func wagon_price(id: String) -> int:
+	return int(data.wagon_prices.get(id, 0))
+
+func next_wagon_id() -> String:
+	for id in WAGON_IDS:
+		if not state.wagons_by_id.has(id): return id
+	return ""
 
 func body_ids() -> Array:
 	return [vehicle_id()] + state.consist_ids
@@ -169,33 +186,52 @@ func depot_editable() -> bool:
 	return state.phase == "depot" and stopped() and state.cargo.is_empty() and state.active.is_empty()
 
 func buy_vehicle(id: String) -> bool:
-	if not depot_editable() or state.fleet_by_id.has(id):
+	if state.fleet_by_id.has(id):
+		return fail("Эта машина уже в гараже")
+	if not depot_editable():
 		return fail("Покупки доступны в депо до погрузки")
-	if id == "locomotive" and not state.fleet_by_id.has("motorcar"):
-		return fail("Сначала приобрети моторную дрезину")
 	var base = vehicle_base(id)
 	if int(state.money) < int(base.cost):
 		return fail("Не хватает %d монет" % (int(base.cost) - int(state.money)))
 	state.money -= int(base.cost)
-	state.fleet_by_id[id] = {"levels": {}, "fuel": 0.6 if id == "locomotive" else float(base.fuel_l), "consist": []}
-	var wagon_id = "W01" if id == "motorcar" else "W02"
-	state.wagons_by_id[wagon_id] = {"levels": {}}
+	state.fleet_by_id[id] = {"levels": {}, "fuel": 0.0, "consist": []}
+	var stats = object_stats(id)
+	state.fleet_by_id[id].fuel = float(stats.tank)
+	if float(stats.water) > 0: state.fleet_by_id[id].water = float(stats.water)
+	# A machine without deck places comes with a first wagon, so it can earn.
+	if int(base.deck_slots) == 0 and not state.wagons_by_id.has("W01"):
+		state.wagons_by_id.W01 = {"levels": {}}
 	select_vehicle(id)
-	state.consist_ids = ["W01"] if id == "motorcar" else ["W01", "W02"]
+	var free_wagons: Array = []
+	for wagon in WAGON_IDS:
+		if not state.wagons_by_id.has(wagon): continue
+		var taken = false
+		for other in state.fleet_by_id:
+			if other != id and wagon in state.fleet_by_id[other].get("consist", []): taken = true
+		if not taken: free_wagons.append(wagon)
+	if free_wagons.is_empty():
+		for wagon in WAGON_IDS:
+			if state.wagons_by_id.has(wagon): free_wagons.append(wagon)
+	state.consist_ids = free_wagons.slice(0, max_wagons(id))
 	_claim_consist()
 	events.append("coins")
 	return true
 
 func buy_wagon() -> bool:
-	if not depot_editable() or not state.fleet_by_id.has("locomotive") or state.wagons_by_id.has("W03"):
-		return fail("Третий вагон доступен после покупки локомотива")
-	if state.money < 180:
-		return fail("Не хватает %d монет" % (180 - state.money))
-	state.money -= 180
-	state.wagons_by_id.W03 = {"levels": {}}
-	if vehicle_id() == "locomotive" and state.consist_ids.size() < 3:
-		state.consist_ids.append("W03")
+	var id = next_wagon_id()
+	if id == "":
+		return fail("Все три вагона уже куплены")
+	if not depot_editable():
+		return fail("Покупки доступны в депо до погрузки")
+	var price = wagon_price(id)
+	if int(state.money) < price:
+		return fail("Не хватает %d монет" % (price - int(state.money)))
+	state.money -= price
+	state.wagons_by_id[id] = {"levels": {}}
+	if state.consist_ids.size() < max_wagons(vehicle_id()):
+		state.consist_ids.append(id)
 		_claim_consist()
+	events.append("coins")
 	return true
 
 func select_vehicle(id: String) -> bool:
@@ -218,7 +254,7 @@ func toggle_wagon(id: String) -> bool:
 		state.consist_ids.erase(id)
 		_claim_consist()
 		return true
-	var limit = {"handcar": 0, "motorcar": 1, "locomotive": 3}[vehicle_id()]
+	var limit = max_wagons(vehicle_id())
 	if state.consist_ids.size() >= limit:
 		return fail("Эта машина допускает вагонов: %d" % limit)
 	state.consist_ids.append(id)
@@ -256,8 +292,28 @@ func upgrade(id: String, branch_id: String) -> bool:
 func refuel() -> bool:
 	if state.phase != "depot" or not stopped():
 		return fail("Заправка доступна в домашнем депо")
-	state.fleet_by_id[vehicle_id()].fuel = object_stats(vehicle_id()).tank
+	var fleet = state.fleet_by_id[vehicle_id()]
+	var stats = object_stats(vehicle_id())
+	if float(stats.water) > 0: fleet.water = float(stats.water)
+	var missing = maxf(0, float(stats.tank) - float(fleet.fuel))
+	var price = float(vehicle_base().get("refill_price", 0))
+	if missing <= 0.0001 or price <= 0:
+		fleet.fuel = float(stats.tank)
+		return true
+	# Pay for what is missing; with too little money fill what it buys.
+	var amount = minf(missing, float(state.money) / price)
+	var cost = ceili(amount * price - 0.0001)
+	if amount <= 0.0001:
+		return fail("Нет денег на пополнение: нужно %d монет" % ceili(missing * price))
+	state.money -= cost
+	fleet.fuel = float(fleet.fuel) + amount
+	last_refill_cost = cost
+	message = "Пополнено за %d монет" % cost if amount >= missing - 0.0001 else "Хватило денег только на часть запаса: %d монет" % cost
 	return true
+
+func refill_cost() -> int:
+	var stats = object_stats(vehicle_id())
+	return ceili(maxf(0, float(stats.tank) - float(state.fleet_by_id[vehicle_id()].fuel)) * float(vehicle_base().get("refill_price", 0)) - 0.0001)
 
 func current_mission() -> Dictionary:
 	if int(state.chapter) >= data.missions.size():
@@ -274,8 +330,8 @@ func mission_count(mission: Dictionary) -> int:
 func mission_error(mission: Dictionary) -> String:
 	if mission.is_empty():
 		return "Карьера завершена. Выбирай свободный рейс"
-	if mission.tier != vehicle_id():
-		return "Нужна техника: " + str(vehicle_base(mission.tier).name)
+	if rank(vehicle_id()) < rank(str(mission.tier)):
+		return "Нужна техника не слабее: " + str(vehicle_base(mission.tier).name)
 	if capacity() < 1:
 		return "Нужно хотя бы одно свободное место для груза"
 	if vehicle_id() != "handcar":
@@ -283,14 +339,19 @@ func mission_error(mission: Dictionary) -> String:
 		for stop in mission.dropoffs:
 			for i in range(data.stations.size()):
 				if data.stations[i].id == stop.station: distance = maxf(distance, float(route.station_s[i]) * 2)
-		var estimated = distance * (0.00045 if vehicle_id() == "motorcar" else 0.00009)
+		var estimated = distance * float(vehicle_base().energy_per_m)
 		if float(state.fleet_by_id[vehicle_id()].fuel) < estimated:
-			return "Запас мал: нужно примерно %.2f %s. Пополни его в депо" % [estimated, "л" if vehicle_id() == "motorcar" else "кВт·ч"]
+			return "Запас мал: нужно примерно %.2f %s. Пополни его в депо" % [estimated, vehicle_base().energy_unit]
+		if float(object_stats(vehicle_id()).water) > 0 and float(state.fleet_by_id[vehicle_id()].get("water", 0)) < estimated * 7:
+			return "Мало воды: нужно примерно %.0f л. Пополни её в депо" % (estimated * 7)
 	return ""
 
 func free_offers() -> Array:
 	var offers: Array = []
-	var max_station = 2 if vehicle_id() == "handcar" else 5
+	var reach = str(vehicle_base().get("free_reach", "F"))
+	var max_station = 5
+	for i in range(data.stations.size()):
+		if data.stations[i].id == reach: max_station = i
 	var types = ["sack", "parts", "logs"]
 	for i in range(3):
 		var destination = 1 + ((i + int(state.offer_serial)) % max_station)
@@ -309,8 +370,18 @@ func free_offers() -> Array:
 		else:
 			dropoffs.append({"station": data.stations[destination].id, "cargo": [[cargo_type, count]]})
 		offers.append({"id": "F%d_%d" % [int(state.offer_serial), i], "title": "Свободный рейс · " + data.stations[destination].name,
-			"tier": vehicle_id(), "reward": 60 + destination * 25 + i * 15, "dropoffs": dropoffs, "free": true})
+			"tier": vehicle_id(), "reward": free_reward(dropoffs), "dropoffs": dropoffs, "free": true})
 	return offers
+
+# Per item: (25 + 0.06 per metre) times the class multiplier (ECONOMY_v3_2_RU.md).
+func free_reward(dropoffs: Array) -> int:
+	var total = 0.0
+	for stop in dropoffs:
+		var distance = 0.0
+		for i in range(data.stations.size()):
+			if data.stations[i].id == stop.station: distance = float(data.stations[i].s_m)
+		for pair in stop.cargo: total += (25.0 + 0.06 * distance) * int(pair[1])
+	return roundi(total * float(vehicle_base().get("free_reward_multiplier", 1.0)))
 
 func accept_mission(mission: Dictionary) -> bool:
 	if not depot_editable():
@@ -539,6 +610,7 @@ func cancel_mission() -> bool:
 		return false
 	state.active = {}
 	state.cargo = []
+	drop_temporary_wagon()
 	state.offer_serial += 1
 	return true
 
@@ -584,6 +656,7 @@ func settle() -> bool:
 	state.last_result = {"title": state.active.title, "reward": reward, "final": state.active.get("final", false),"left_on_warehouse":state.active.get("warehouse_cargo",[]).size()}
 	state.active = {}
 	state.cargo = []
+	drop_temporary_wagon()
 	state.offer_serial += 1
 	state.phase = "depot"
 	state.engine = false
@@ -636,6 +709,8 @@ func start_engine(value: bool) -> bool:
 			return fail("Для запуска убавь подачу до 0%")
 		if state.fleet_by_id[vehicle_id()].fuel <= 0:
 			return fail("Запас энергии закончился. Вызови помощь депо")
+		if float(object_stats(vehicle_id()).water) > 0 and float(state.fleet_by_id[vehicle_id()].get("water", 0)) <= 0:
+			return fail("Без воды котёл не разжечь. Пополни её в депо")
 	state.engine = value
 	events.append("gear")
 	return true
@@ -754,6 +829,14 @@ func physics_step(dt: float) -> void:
 			recovered=minf(recovered,maxf(0,(float(stats.tank)-before)*3600000.0+used))
 			fleet.fuel=clampf(before+(recovered-used)/3600000.0,0,float(stats.tank))
 			regen_kw=recovered/dt/1000.0
+		elif vehicle_id()=="steam":
+			# Game calibration: coal 29 MJ/kg at 7 % to the wheels, a fire that
+			# keeps burning while lit, and about 7 l of water per kg of coal.
+			used=shaft_work/0.07+(30000.0*dt if state.engine else 0.0)
+			var coal=used/29000000.0
+			fleet.fuel=maxf(0,before-coal)
+			fleet.water=maxf(0,float(fleet.get("water",0))-coal*7.0)
+			if float(fleet.water)<=0: state.engine=false
 		else:
 			# Game calibration: petrol 34 MJ/l, 20% shaft efficiency,
 			# plus a small idle burn. Higher load costs more through work.
@@ -859,6 +942,8 @@ func restore(saved: Dictionary) -> bool:
 	else:
 		handcar.seek_rocker(lerpf(float(handcar.limits.minimum.angle),float(handcar.limits.maximum.angle),clampf((pump_angle+deg_to_rad(28))/deg_to_rad(56),0,1)))
 	state.reverser = int(state.get("reverser", 1))
+	migrate_deck_cargo()
+	drop_temporary_wagon()
 	stationary_seconds=0.0
 	stationary_station=-1
 	# Old loading saves used a fixed locomotive centre at s=0. A long
@@ -871,6 +956,35 @@ func restore(saved: Dictionary) -> bool:
 			message="Состав подготовлен на домашней погрузочной площадке"
 	reset_input()
 	return true
+
+# Since 3.2 petrol and electric machines have no deck places. Cargo an older
+# save keeps on such a deck moves to a free wagon place, or into the
+# temporary wagon WT that exists only until that cargo is delivered.
+func migrate_deck_cargo() -> void:
+	for item in state.cargo:
+		if item.delivered or str(item.slot) == "": continue
+		var parts = str(item.slot).split(":")
+		if parts[0].begins_with("W") or int(parts[1]) < int(object_stats(parts[0]).slots): continue
+		var target = free_wagon_slot()
+		if target == "":
+			if not state.wagons_by_id.has(TEMP_WAGON):
+				state.wagons_by_id[TEMP_WAGON] = {"levels": {}, "temporary": true}
+				state.consist_ids.append(TEMP_WAGON)
+			target = free_wagon_slot()
+		item.slot = target
+
+func free_wagon_slot() -> String:
+	for slot in slots():
+		if str(slot.owner).begins_with("W") and not slot_occupied(slot.key): return slot.key
+	return ""
+
+func drop_temporary_wagon() -> void:
+	if not state.wagons_by_id.has(TEMP_WAGON): return
+	for item in state.cargo:
+		if not item.delivered: return
+	state.wagons_by_id.erase(TEMP_WAGON)
+	state.consist_ids.erase(TEMP_WAGON)
+	for id in state.fleet_by_id: state.fleet_by_id[id].get("consist", []).erase(TEMP_WAGON)
 
 func validate_save(saved: Dictionary) -> bool:
 	var required = ["version", "route", "fleet_by_id", "wagons_by_id", "selected_vehicle_id", "consist_ids", "money", "chapter", "s", "v", "direction", "brake", "throttle", "gear", "engine", "phase", "cargo", "active", "paid_ids", "completed_ids", "stats", "finale", "visited_stations", "offer_serial", "tutorial"]
@@ -898,10 +1012,11 @@ func validate_save(saved: Dictionary) -> bool:
 		previous_s = float(point[2])
 	for group in [saved.fleet_by_id, saved.wagons_by_id]:
 		for id in group:
-			if id not in VEHICLE_IDS and id not in ["W01", "W02", "W03"]: return false
+			if id not in VEHICLE_IDS and id not in WAGON_IDS and id != TEMP_WAGON: return false
 			var object = group[id]
 			if not object is Dictionary or not object.has("levels") or not object.levels is Dictionary: return false
 			if id in VEHICLE_IDS and (not object.has("fuel") or not numeric(object.fuel) or object.fuel < 0): return false
+			if object.has("water") and (not numeric(object.water) or object.water < 0): return false
 			for branch_id in object.levels:
 				var valid = false
 				for branch in data.upgrade_catalog:
@@ -952,7 +1067,7 @@ func validate_save(saved: Dictionary) -> bool:
 	for id in saved.consist_ids:
 		if not saved.wagons_by_id.has(id):
 			return false
-	if saved.consist_ids.size() > {"handcar": 0, "motorcar": 1, "locomotive": 3}.get(saved.selected_vehicle_id, 0): return false
+	if saved.consist_ids.size() > max_wagons(str(saved.selected_vehicle_id)) + (1 if TEMP_WAGON in saved.consist_ids else 0): return false
 	if saved.consist_ids.size() != saved.consist_ids.duplicate().reduce(func(acc, value):
 		if value not in acc: acc.append(value)
 		return acc, []).size(): return false

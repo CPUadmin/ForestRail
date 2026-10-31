@@ -1,4 +1,5 @@
 extends Node
+const Fixtures = preload("res://tests/fixtures.gd")
 
 var game
 var checks=0
@@ -35,8 +36,7 @@ func click_button(parent: Node,text: String) -> bool:
 func fixture(id: String) -> void:
 	game.cancel_drag();game.modal_kind="";game.paused=false;game.control_zoom=false;game.toast_seconds=0
 	game.model.new_game(42);game.model.state.money=10000
-	if id!="handcar": game.model.buy_vehicle("motorcar")
-	if id=="locomotive": game.model.buy_vehicle("locomotive")
+	if id!="handcar": Fixtures.equip(game.model,id)
 	game.model.accept_mission(game.model.free_offers()[0])
 	game.model.transfer(game.model.state.cargo[0].id,game.model.slots()[0].key)
 	game.model.depart();game.model.state.s=160;game.model.state.v=2;game.model.state.brake=0

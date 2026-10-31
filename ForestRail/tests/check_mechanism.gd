@@ -1,4 +1,5 @@
 extends Node
+const Fixtures = preload("res://tests/fixtures.gd")
 
 const Mechanism = preload("res://scripts/handcar_mechanism.gd")
 const Art = preload("res://scripts/art_v3.gd")
@@ -144,8 +145,7 @@ func run() -> void:
 	model.set_pump_target(before.angle+0.1)
 	model.set_pump_target(before.angle-0.1)
 	check(art.mechanism_pose(model)==before,"target input cannot teleport phase")
-	model.state.money=10000
-	model.buy_vehicle("motorcar")
+	Fixtures.equip(model, "motorcar")
 	model.state.v=3.0
 	model.state.throttle=0.0
 	check(model.set_gear(1) and model.set_gear(2) and model.state.v==3.0,"motor gears change while moving with no teleport or speed reset")

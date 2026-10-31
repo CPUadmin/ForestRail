@@ -1,4 +1,5 @@
 extends Node
+const Fixtures = preload("res://tests/fixtures.gd")
 
 const Model = preload("res://scripts/model.gd")
 var failures: Array = []
@@ -15,8 +16,7 @@ func setup(id: String):
 	var m = Model.new()
 	m.new_game(42)
 	m.state.money = 5000
-	if id != "handcar": m.buy_vehicle("motorcar")
-	if id == "locomotive": m.buy_vehicle("locomotive")
+	if id != "handcar": Fixtures.equip(m, id)
 	m.state.chapter = {"handcar": 0, "motorcar": 2, "locomotive": 6}[id]
 	m.accept_mission(m.current_mission())
 	for i in range(m.state.cargo.size()): m.transfer(m.state.cargo[i].id, m.slots()[i].key)

@@ -1,4 +1,5 @@
 extends Node
+const Fixtures = preload("res://tests/fixtures.gd")
 
 var game
 var checks = 0
@@ -67,7 +68,7 @@ func prepare(chapter: int = 0) -> void:
 	game.selected_cargo=""
 	game.model.new_game(42)
 	game.model.state.money=10000 if chapter>0 else 0
-	if chapter>=2: game.model.buy_vehicle("motorcar")
+	if chapter>=2: Fixtures.equip(game.model,"motorcar")
 	game.model.state.chapter=chapter
 	check(game.model.accept_mission(game.model.current_mission()),"fixture accepts mission")
 	game.screen="game"
@@ -180,7 +181,7 @@ func run() -> void:
 	for i in range(20): game._physics_process(1.0/60)
 	await frame()
 	await drag_to("M01_1",game.dock_rect().get_center())
-	check(game.model.state.active.phase=="return" and game.model.state.active.pending_reward==100,"panel drop completes deliveries with deferred reward")
+	check(game.model.state.active.phase=="return" and game.model.state.active.pending_reward==120,"panel drop completes deliveries with deferred reward")
 	await button(game.dock_rect().get_center(),false)
 	check(game.model.state.stats.deliveries==2 and game.model.state.money==0,"duplicate release cannot deliver or pay twice")
 	await shot("04_panel_success_return_home")
@@ -188,9 +189,7 @@ func run() -> void:
 		var legacy=load("res://scripts/model.gd").new()
 		legacy.new_game(42)
 		legacy.state.money=10000
-		legacy.buy_vehicle("motorcar")
-		legacy.buy_vehicle("locomotive")
-		legacy.buy_wagon()
+		Fixtures.equip(legacy,"locomotive")
 		legacy.state.chapter=9
 		legacy.accept_mission(legacy.current_mission())
 		legacy.state.s=0

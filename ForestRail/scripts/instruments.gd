@@ -229,8 +229,9 @@ func draw_status() -> void:
 		value = "%d / %d Вт" % [roundi(m.output_power),roundi(stats.power)]
 		fraction = m.output_power / float(stats.power)
 	else:
-		title = "АККУМУЛЯТОР" if m.vehicle_id()=="locomotive" else "БЕНЗИН"
+		title = {"locomotive":"АККУМУЛЯТОР","steam":"УГОЛЬ · ВОДА"}.get(m.vehicle_id(),"БЕНЗИН")
 		value = "%.2f / %.2f кВт·ч" % [amount,stats.tank] if m.vehicle_id()=="locomotive" else "%.2f / %.1f л" % [amount,stats.tank]
+		if m.vehicle_id()=="steam": value = "%.0f кг · %.0f л" % [amount,float(m.state.fleet_by_id.steam.get("water",0))]
 		fraction = amount / maxf(0.001,float(stats.tank))
 	if m.vehicle_id()!="handcar": title+="  ·  "+["Н","I","II"][int(m.state.gear)]
 	if m.vehicle_id()=="locomotive" and m.regen_kw>0.01: title="РЕКУПЕРАЦИЯ +%.1f кВт" % m.regen_kw

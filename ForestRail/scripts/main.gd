@@ -75,6 +75,14 @@ var body_hits: Array = []
 var toast = ""
 var toast_seconds = 0.0
 var charge_strip_rect = Rect2()
+# Depot shunting: the wagon rolling to or from the train and its progress.
+var coupling_anim: Dictionary = {}
+var coupler_hits: Array = []
+var latch_flash: Dictionary = {}
+# The last wagon left behind stands nearest to the train.
+var parked_order: Array = []
+const COUPLE_SECONDS = 0.8
+const PARK_GAP_M = 1.4
 var depot_header_bottom = 127.0
 var depot_info_rect = Rect2(22, 151, 708, 195)
 var charge_band = 0
@@ -500,10 +508,10 @@ func build_depot(size: Vector2) -> void:
 		for id in Model.VEHICLE_IDS:
 			var owned = model.state.fleet_by_id.has(id)
 			var base = model.vehicle_base(id)
-			var label = str(base.name) if id != "locomotive" else "Электролокомотив"
+			var label = str(base.name)
 			var c = card(right, GOLD if model.vehicle_id() == id else CARD_EDGE)
 			add_label(c, label, 23)
-			add_label(c, {"handcar": "Ручной рычаг · без топлива · до 4 мест", "motorcar": "Бензиновый двигатель · бак 2 л · один вагон", "locomotive": "Электротяга · батарея 0,6 кВт·ч · до трёх вагонов"}[id], 17, MUTED_INK)
+			add_label(c, vehicle_summary(id), 17, MUTED_INK)
 			if owned:
 				add_button(c, "Выбрана" if model.vehicle_id() == id else "Выбрать", func():
 					if model.select_vehicle(id):
@@ -520,8 +528,9 @@ func build_depot(size: Vector2) -> void:
 							rebuild()
 						else: notify(model.message)))
 	elif tab == "Состав":
-		add_label(right, "Выбери конкретные вагоны. Их улучшения сохраняются при перестановке.")
+		add_label(right, "Вагоны твои: их улучшения сохраняются при перестановке. %s допускает вагонов: %d." % [vehicle_display_name(), model.max_wagons(model.vehicle_id())])
 		for id in model.state.wagons_by_id:
+			if id == Model.TEMP_WAGON: continue
 			var stats = model.object_stats(id)
 			var coupled = id in model.state.consist_ids
 			var c = card(right, GOLD if coupled else CARD_EDGE)
@@ -529,8 +538,10 @@ func build_depot(size: Vector2) -> void:
 			add_button(c, "Отцепить " + id if id in model.state.consist_ids else "Прицепить " + id, func():
 				if model.toggle_wagon(id): save_game(); rebuild()
 				else: notify(model.message))
-		if not model.state.wagons_by_id.has("W03"):
-			add_button(right, "Купить W03 · 180 монет", func(): confirm("Купить третий вагон за 180 монет?", func():
+		var next_wagon = model.next_wagon_id()
+		if next_wagon != "":
+			var price = model.wagon_price(next_wagon)
+			add_button(right, "Купить %s · %d монет" % [next_wagon, price], func(): confirm("Купить вагон %s за %d? Останется %d монет." % [next_wagon, price, maxi(0, int(model.state.money) - price)], func():
 				if model.buy_wagon(): save_game(); rebuild()
 				else: notify(model.message)))
 		add_label(right, "Мест в составе: %d. Для финала нужно шесть." % model.capacity(), 21)
@@ -553,16 +564,18 @@ func build_depot(size: Vector2) -> void:
 	service.position = Vector2(44, size.y - 150)
 	service.size = Vector2(left_width - 25, 50)
 	ui.add_child(service)
-	add_button(service, "Зарядить бесплатно" if model.vehicle_id() == "locomotive" else "Заправить бесплатно", func():
-		if model.refuel(): save_game(); rebuild(); notify("Запас пополнен")
-		else: notify(model.message), model.vehicle_id() == "handcar")
+	var refill = model.refill_cost() if model.vehicle_id() != "handcar" else 0
+	var refill_text = ("Зарядить" if model.vehicle_id() == "locomotive" else "Заправить") + (" · %d монет" % refill if refill > 0 else " · полон")
+	add_button(service, refill_text, func():
+		if model.refuel(): save_game(); rebuild(); notify(model.message if model.message != "" else "Запас пополнен"); model.message = ""
+		else: notify(model.message), model.vehicle_id() == "handcar" or refill <= 0)
 	add_button(service, "Улучшить", func(): selected_object = model.vehicle_id(); tab = "Улучшения"; rebuild())
 	positioned_label("Нажми на машину или вагон, чтобы выбрать его улучшения.", Rect2(46, size.y - 83, left_width - 30, 60), 17)
 
 func build_upgrades(right: VBoxContainer) -> void:
 	var row = HBoxContainer.new()
 	right.add_child(row)
-	var objects = [model.vehicle_id()] + model.state.wagons_by_id.keys()
+	var objects = [model.vehicle_id()] + model.state.wagons_by_id.keys().filter(func(id): return id != Model.TEMP_WAGON)
 	if not selected_object in objects:
 		selected_object = model.vehicle_id()
 	for id in objects:
@@ -797,10 +810,20 @@ func energy_text() -> String:
 	var cap = float(model.object_stats(model.vehicle_id()).tank)
 	if model.vehicle_id() == "locomotive":
 		return "Заряд %d%% · %.2f / %.2f кВт·ч" % [roundi(amount / cap * 100), amount, cap]
+	if model.vehicle_id() == "steam":
+		var fleet = model.state.fleet_by_id.steam
+		return "Уголь %.0f / %.0f кг · вода %.0f / %.0f л" % [amount, cap, float(fleet.get("water", 0)), float(model.object_stats("steam").water)]
 	return "Бензин %.2f / %.1f л" % [amount, cap]
 
 func vehicle_display_name() -> String:
-	return "Электролокомотив" if model.vehicle_id() == "locomotive" else str(model.vehicle_base().name)
+	return str(model.vehicle_base().name)
+
+func vehicle_summary(id: String) -> String:
+	var base = model.vehicle_base(id)
+	var places = "%d места на платформе" % int(base.deck_slots) if int(base.deck_slots) > 0 else "без мест на кузове"
+	var wagons = "вагонов: до %d" % int(base.get("max_wagons", 0)) if int(base.get("max_wagons", 0)) > 0 else "без вагонов"
+	var energy = {"handcar": "без топлива", "steam": "уголь и вода", "motorcar": "бензин", "locomotive": "аккумулятор"}.get(id, "")
+	return "%s · %s · %s" % [places, wagons, energy]
 
 func station_number(id: String) -> int:
 	for i in range(model.data.stations.size()):
@@ -855,7 +878,7 @@ func draw_control_zoom() -> void:
 		sprite("control_"+id,Rect2(-Vector2(128,224)*factor,Vector2.ONE*256*factor))
 		draw_set_transform_matrix(Transform2D.IDENTITY)
 		grip_hits.append({"id":id,"position":point,"closeup":true})
-		var title={"brake":"Тормоз","throttle":"Тяга" if model.vehicle_id()=="locomotive" else "Газ","gear":"Передача","start":"Пуск"}[id]
+		var title={"brake":"Тормоз","throttle":{"locomotive":"Тяга","steam":"Регулятор"}.get(model.vehicle_id(),"Газ"),"gear":"Отсечка" if model.vehicle_id()=="steam" else "Передача","start":"Пуск"}[id]
 		var shown_gear=lever_pending_gear if drag=="gear" else int(model.state.gear)
 		var label={"brake":"%d%%" % (model.state.brake*100),"throttle":"%d%%" % (model.state.throttle*100),"gear":["Н","1","2"][shown_gear],"start":"Вкл." if model.state.engine else "Выкл."}[id]
 		draw_string(font,rect.position+Vector2(15+100*i,78),title,HORIZONTAL_ALIGNMENT_CENTER,100,16,PAPER)
@@ -960,7 +983,7 @@ func build_modal(size: Vector2) -> void:
 		add_button(box, "Готово", close_modal)
 	elif modal_kind == "help":
 		add_label(box, "Как играть", 32)
-		add_label(box, "1. В депо выбери рейс и нажми «К погрузке». Перетащи каждый предмет с площадки в свободное место на машине или вагоне. Отправляйся, когда всё погружено.\n\n2. Отпусти тормоз: веди красную рукоять по дуге к 0%. На ручной дрезине веди любой конец деревянного рычага по его дуге. На спуске можно катиться по инерции.\n\n3. Перед станцией плавно переведи тормоз к 100%. Остановись в пределах платформы, затяни тормоз до 100% и перетащи нужные грузы на площадку. У каждого предмета указана станция.\n\n4. После последней доставки убери подачу, разверни пустой состав кнопкой на станции и вернись в Лесную. Деньги выдаются в домашнем депо.\n\n5. Моторная дрезина: передача Н, подача 0%, щёлкни тумблер запуска. Затем выбери 1 и добавь подачу. На ровном участке можно включить 2, сначала снизив подачу ниже 15%. Бензин пополняется в депо.\n\n6. Электролокомотив: вместо бензина аккумулятор. Режим 1 — тяговый, 2 — ходовой. Без подачи он катится по инерции; торможение возвращает четверть доступной энергии. Зарядка бесплатна в депо.\n\n7. В гараже остаются все купленные машины. Вагоны выбираются отдельно, улучшения следуют за их ID. Для финального рейса нужны шесть мест: три обычных вагона или два расширенных.\n\nЗадний ход: остановись, затяни тормоз и выбери стрелку направления. На ручной дрезине направление задаётся усилием на рычаге с отпущенным тормозом. Обратное усилие сначала замедляет движение. В мёртвой точке потяни край платформы, чтобы подтолкнуть машину. Состав при этом сохраняет положение и груз.\n\nКолесо мыши — приблизить машину. Esc — пауза. При потере фокуса игра останавливается. Если застрял или кончилась энергия, вызови помощь депо из паузы.", 20)
+		add_label(box, "1. В депо выбери рейс и нажми «К погрузке». Перетащи каждый предмет с площадки в свободное место на машине или вагоне. Отправляйся, когда всё погружено.\n\n2. Отпусти тормоз: веди красную рукоять по дуге к 0%. На ручной дрезине веди любой конец деревянного рычага по его дуге. На спуске можно катиться по инерции.\n\n3. Перед станцией плавно переведи тормоз к 100%. Остановись в пределах платформы, затяни тормоз до 100% и перетащи нужные грузы на площадку. У каждого предмета указана станция.\n\n4. После последней доставки убери подачу, разверни пустой состав кнопкой на станции и вернись в Лесную. Деньги выдаются в домашнем депо.\n\n5. Парк растёт так: ручная дрезина → паровоз (500) → бензиновая машина (1000) → электровоз (3000). У трёх последних нет мест на кузове: груз едет в вагонах. Первый вагон W01 входит в покупку, W02 и W03 покупаются отдельно. Не хватает денег — бери свободные рейсы: сильная машина платит за них больше.\n\n6. Паровоз: разожги котёл тумблером (режим Н, регулятор 0%), выбери отсечку 1 и открой регулятор. Он тратит уголь и воду. Бензиновая машина запускается так же и тратит бензин. Электровоз тратит заряд; ниже 75% заряда тяга слабеет, торможение возвращает часть энергии. Пополнение в депо платное: уголь, бензин и зарядка стоят денег.\n\n7. Вагоны в депо стоят на пути. Щёлкни по сцепке между составом и вагоном: хвостовой вагон отъедет, ближайший стоящий подкатится и сцепится. Улучшения следуют за ID вагона. Для финального рейса нужны шесть мест.\n\nЗадний ход: остановись, затяни тормоз и выбери стрелку направления. На ручной дрезине направление задаётся усилием на рычаге с отпущенным тормозом. Обратное усилие сначала замедляет движение. В мёртвой точке потяни край платформы, чтобы подтолкнуть машину. Состав при этом сохраняет положение и груз.\n\nКолесо мыши — приблизить машину. Esc — пауза. При потере фокуса игра останавливается. Если застрял или кончилась энергия, вызови помощь депо из паузы.", 20)
 		if screen != "menu":
 			add_button(box, "Подсказки: " + ("вкл." if model.state.tutorial else "выкл."), func(): model.state.tutorial = not model.state.tutorial; save_game(); rebuild())
 		add_button(box, "Понятно", close_modal)
@@ -997,6 +1020,7 @@ func cancel_drag() -> void:
 
 func _process(dt: float) -> void:
 	time += dt
+	advance_shunting(dt)
 	if not delivery_ghost.is_empty():
 		delivery_ghost.time+=dt
 		if delivery_ghost.time>0.45: delivery_ghost={}
@@ -1116,6 +1140,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		if event.button_index != MOUSE_BUTTON_LEFT: return
 		var mouse = event.position
 		if screen == "depot":
+			for hit in coupler_hits:
+				if hit.position.distance_to(mouse) < 22: start_shunting(hit.id, hit.attach); return
 			for hit in body_hits:
 				if hit.rect.has_point(mouse): selected_object = hit.id; tab = "Улучшения"; rebuild(); return
 			return
@@ -1289,7 +1315,7 @@ func rail_baseline() -> float:
 
 func view_scale() -> float:
 	if screen != "depot": return zoom_level
-	return minf(0.94, (get_viewport_rect().size.x * 0.46 - 150) / (ArtV3.PX * model.train_length()))
+	return minf(0.94, (get_viewport_rect().size.x * 0.46 - 150) / (ArtV3.PX * depot_span_m()))
 
 func _draw() -> void:
 	if art == null: return
@@ -1449,14 +1475,17 @@ func draw_foreground() -> void:
 func draw_train() -> void:
 	var ids = model.body_ids()
 	var scale_value = view_scale()
+	if screen == "depot": draw_parked_wagons()
 	# Draw every connector from the same transformed mount used by its body.
 	for i in range(1,ids.size()):
+		if screen == "depot" and not coupling_anim.is_empty() and coupling_anim.attach and ids[i] == coupling_anim.id: continue
 		var front_s = model.body_s(i-1) if screen!="depot" else -model.body_offset(i-1)
 		var rear_s = model.body_s(i) if screen!="depot" else -model.body_offset(i)
 		var a = body_transform(ids[i],rear_s)*Geometry.coupling(ids[i],1)
 		var b = body_transform(ids[i-1],front_s)*Geometry.coupling(ids[i-1],-1)
 		draw_coupler(a,b)
 	for i in range(ids.size() - 1, -1, -1):
+		if screen == "depot" and not coupling_anim.is_empty() and coupling_anim.attach and ids[i] == coupling_anim.id: continue
 		var s = model.body_s(i) if screen != "depot" else -model.body_offset(i)
 		var p = world_point(s)
 		var transform = body_transform(ids[i],s)
@@ -1477,6 +1506,109 @@ func draw_train() -> void:
 		var outer = body_transform(id,s)
 		var mount = Geometry.coupling(id,pair[1])
 		draw_coupler(outer*mount,outer*(mount+Vector2(pair[1]*float(Geometry.data().coupler.end_extension_m)*ArtV3.PX,0)))
+
+# Wagons the player owns but has not coupled stand behind the train.
+func parked_wagons() -> Array:
+	var result: Array = []
+	for id in parked_order + Model.WAGON_IDS:
+		if model.state.wagons_by_id.has(id) and id not in model.state.consist_ids and id not in result: result.append(id)
+	if not coupling_anim.is_empty() and coupling_anim.attach and coupling_anim.id not in result: result.push_front(coupling_anim.id)
+	return result
+
+func train_tail_s() -> float:
+	var ids = model.body_ids()
+	var last = ids.size()-1
+	if not coupling_anim.is_empty() and coupling_anim.attach: last -= 1
+	return -model.body_offset(last) - Geometry.length(ids[last])*0.5
+
+func parked_s(index: int) -> float:
+	var length = Geometry.length("W01")
+	return train_tail_s() - PARK_GAP_M - length*0.5 - index*(length + PARK_GAP_M)
+
+func depot_span_m() -> float:
+	var parked = 0
+	for id in Model.WAGON_IDS:
+		if model.state.wagons_by_id.has(id) and id not in model.state.consist_ids: parked += 1
+	return model.train_length() + parked*(Geometry.length("W01") + PARK_GAP_M)
+
+func draw_parked_wagons() -> void:
+	coupler_hits.clear()
+	var parked = parked_wagons()
+	for k in range(parked.size()):
+		var id = parked[k]
+		var s = parked_s(k)
+		if not coupling_anim.is_empty() and coupling_anim.id == id:
+			s = lerpf(coupling_anim.from, coupling_anim.to, ease(clampf(coupling_anim.t, 0, 1), -2.0))
+		var transform = body_transform(id, s)
+		draw_set_transform_matrix(transform)
+		draw_body(id, s, false)
+		draw_set_transform_matrix(Transform2D.IDENTITY)
+	if not coupling_anim.is_empty() or not model.depot_editable(): return
+	var ids = model.body_ids()
+	# Only the tail wagon can go and only the nearest parked one can come,
+	# as on a real siding.
+	if ids.size() > 1:
+		var tail = ids[-1]
+		var tail_transform = body_transform(tail, -model.body_offset(ids.size()-1))
+		var ahead_transform = body_transform(ids[-2], -model.body_offset(ids.size()-2))
+		var joint = (tail_transform*Geometry.coupling(tail,1) + ahead_transform*Geometry.coupling(ids[-2],-1))*0.5
+		coupler_hits.append({"id": tail, "attach": false, "position": joint})
+	if not parked.is_empty() and model.state.consist_ids.size() < model.max_wagons(model.vehicle_id()):
+		var tail_point = body_transform(ids[-1], -model.body_offset(ids.size()-1))*Geometry.coupling(ids[-1],-1)
+		var first_point = body_transform(parked[0], parked_s(0))*Geometry.coupling(parked[0],1)
+		coupler_hits.append({"id": parked[0], "attach": true, "position": (tail_point+first_point)*0.5})
+	var mouse = get_global_mouse_position()
+	for hit in coupler_hits:
+		var hover = hit.position.distance_to(mouse) < 22
+		draw_circle(hit.position, 15, Color(INK, 0.9))
+		draw_arc(hit.position, 15, 0, TAU, 28, Color("e2c27a") if hover else GOLD, 2.5, true)
+		# Two links: closed when coupled (offer to open), apart when not.
+		var gap = 3.0 if hit.attach else 0.0
+		draw_arc(hit.position + Vector2(-4 - gap, 0), 5, 0, TAU, 16, PAPER, 2, true)
+		draw_arc(hit.position + Vector2(4 + gap, 0), 5, 0, TAU, 16, PAPER, 2, true)
+		if hover:
+			var text = ("Прицепить " if hit.attach else "Отцепить ") + str(hit.id)
+			var width = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 15).x + 22
+			var box = Rect2(hit.position + Vector2(-width*0.5, -50), Vector2(width, 26))
+			draw_style_box(style(Color(INK, 0.92), GOLD, 10), box)
+			draw_string(font, box.position + Vector2(0, 18), text, HORIZONTAL_ALIGNMENT_CENTER, width, 15, PAPER)
+	if not latch_flash.is_empty():
+		var age = float(latch_flash.t)
+		draw_arc(latch_flash.position, 10 + age*30, 0, TAU, 24, Color(1, 0.9, 0.6, 1.0 - age), 3, true)
+
+func start_shunting(id: String, attach: bool) -> void:
+	if not coupling_anim.is_empty(): return
+	if not model.depot_editable():
+		notify("Сцеплять вагоны можно в депо без активного рейса")
+		return
+	var from = parked_s(parked_wagons().find(id)) if attach else -model.body_offset(model.state.consist_ids.find(id) + 1)
+	if not model.toggle_wagon(id):
+		notify(model.message)
+		return
+	parked_order.erase(id)
+	if not attach: parked_order.push_front(id)
+	var to = -model.body_offset(model.state.consist_ids.find(id) + 1) if attach else parked_s(parked_wagons().find(id))
+	coupling_anim = {"id": id, "attach": attach, "from": from, "to": to, "t": 0.0}
+	sound.play("gear", 0.4)
+
+func advance_shunting(dt: float) -> void:
+	if not latch_flash.is_empty():
+		latch_flash.t = float(latch_flash.t) + dt*2.0
+		if latch_flash.t >= 1.0: latch_flash = {}
+	if coupling_anim.is_empty(): return
+	coupling_anim.t = float(coupling_anim.t) + dt/COUPLE_SECONDS
+	if coupling_anim.t < 1.0: return
+	var id = coupling_anim.id
+	var attach = coupling_anim.attach
+	coupling_anim = {}
+	var ids = model.body_ids()
+	var index = ids.find(id)
+	var joint = body_transform(id, -model.body_offset(index))*Geometry.coupling(id, 1) if attach else body_transform(ids[-1], -model.body_offset(ids.size()-1))*Geometry.coupling(ids[-1], -1)
+	latch_flash = {"position": joint, "t": 0.0}
+	sound.play("cargo", 0.5)
+	notify(("%s прицеплен" if attach else "%s отцеплен") % id)
+	save_game()
+	rebuild()
 
 func body_transform(id: String, s: float) -> Transform2D:
 	var direction = int(model.state.direction) if screen!="depot" else 1

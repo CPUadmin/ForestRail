@@ -1,4 +1,5 @@
 extends Node
+const Fixtures = preload("res://tests/fixtures.gd")
 
 var game
 var checks = 0
@@ -156,8 +157,7 @@ func run() -> void:
 	check(game.model.train_mass()==mass+35,"mass readout source decreases after unloading")
 	game.model.rescue()
 	game.model.cancel_mission()
-	game.model.state.money=50000
-	game.model.buy_vehicle("motorcar")
+	Fixtures.equip(game.model, "motorcar")
 	game.model.state.chapter=2
 	game.model.accept_mission(game.model.current_mission())
 	game.screen="game"
@@ -167,8 +167,7 @@ func run() -> void:
 	await shot("petrol_low_fuel")
 	game.model.rescue()
 	game.model.cancel_mission()
-	game.model.buy_vehicle("locomotive")
-	game.model.buy_wagon()
+	Fixtures.equip(game.model, "locomotive")
 	game.model.state.chapter=6
 	game.model.accept_mission(game.model.current_mission())
 	game.screen="game"

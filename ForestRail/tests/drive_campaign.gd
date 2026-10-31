@@ -22,9 +22,16 @@ func run() -> void:
 	var partial="--partial-first" in OS.get_cmdline_user_args()
 	var trips=1 if partial else 13
 	for chapter in range(trips):
-		if chapter == 2: m.buy_vehicle("motorcar")
-		if chapter == 6: m.buy_vehicle("locomotive")
-		if chapter == 9: m.buy_wagon()
+		# This suite drives; the economy and its free runs are checked in
+		# check_model. Purchases follow ECONOMY_v3_2_RU.md with the money
+		# the free runs would have earned.
+		var purchase = {2: "steam", 4: "motorcar", 8: "locomotive"}.get(chapter, "")
+		if purchase != "":
+			m.state.money += int(m.vehicle_base(purchase).cost)
+			m.buy_vehicle(purchase)
+		if chapter == 4 or chapter == 9:
+			m.state.money += m.wagon_price(m.next_wagon_id())
+			m.buy_wagon()
 		m.refuel()
 		var mission = m.current_mission() if chapter < 10 else m.free_offers()[chapter - 10]
 		if not m.accept_mission(mission): failures.append("accept " + str(mission.id)); break

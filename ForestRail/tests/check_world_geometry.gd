@@ -1,4 +1,5 @@
 extends Node
+const Fixtures = preload("res://tests/fixtures.gd")
 
 const Geometry = preload("res://scripts/world_geometry.gd")
 var game
@@ -69,8 +70,7 @@ func prepare(vehicle: String, chapter: int) -> void:
 	game.paused=false
 	game.model.new_game(42)
 	game.model.state.money = 10000
-	if vehicle!="handcar": game.model.buy_vehicle("motorcar")
-	if vehicle=="locomotive": game.model.buy_vehicle("locomotive"); game.model.buy_wagon()
+	if vehicle!="handcar": Fixtures.equip(game.model,vehicle)
 	game.model.state.chapter = chapter
 	check(game.model.accept_mission(game.model.current_mission()),"prepare mission "+str(chapter))
 	var slots = game.model.slots()
