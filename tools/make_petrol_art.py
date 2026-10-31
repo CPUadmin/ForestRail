@@ -16,11 +16,12 @@ _ROOT = Path(__file__).resolve().parent
 _src = (_ROOT / "make_steam_art.py").read_text(encoding="utf-8")
 _header = _src[:_src.index("# --- 1. far cab wall")]
 _header = (_header.replace("steam_locomotive_body.png", "petrol_locomotive_body.png")
-           .replace("LENGTH = 4.0", "LENGTH = 2.8").replace("HEIGHT = 2.40", "HEIGHT = 2.20"))
+           .replace("LENGTH = 3.0", "LENGTH = 3.6").replace("HEIGHT = 2.40", "HEIGHT = 2.20"))
 exec(compile(_header, "make_steam_art_header", "exec"), globals())
 
 RED_W = (150, 40, 34)
-AXLE_X = 0.80          # wheel centres at +-0.80 m
+XMAP = [(-1.4, -1.8), (-0.4, -0.8), (0.98, 1.38), (1.4, 1.8)]   # stretch the hood only
+AXLE_X = 1.10          # wheel centres at +-1.10 m (new coordinates)
 DECK = 0.55            # floor height above the rail
 
 # --- far cab wall with window and door (see-through window) -------------------------
@@ -48,7 +49,7 @@ rect(-1.40, 0.03, 1.40, 0.13, STEEL, STEEL_D)
 for x in (-1.10, -0.35, 0.35, 1.10):
     poly([(x - 0.06, 0.13), (x + 0.06, 0.13), (x + 0.24, 0.43), (x + 0.12, 0.43)], STEEL, STEEL_D)
     poly([(x + 0.06, 0.13), (x - 0.06, 0.13), (x - 0.24, 0.43), (x - 0.12, 0.43)], STEEL, STEEL_D)
-for x in (-AXLE_X, AXLE_X):
+for x in (inv_mx(-AXLE_X), inv_mx(AXLE_X)):
     rect(x - 0.14, 0.02, x + 0.14, 0.18, STEEL_L, STEEL_D, radius=0.03)
     ellipse(x, 0.21, 0.05, 0.05, BRASS_L, BRASS_D, edge=BRASS_D)
 

@@ -159,12 +159,12 @@ func draw_petrol_overlay(canvas: Node2D, model) -> void:
 	if model == null or model.state.is_empty() or not model.state.get("engine", false): return
 	var t = Time.get_ticks_msec() / 1000.0
 	var load = clampf(float(model.state.get("throttle", 0)), 0.0, 1.0)
-	var lamp = petrol_point(1.18, 1.17)
+	var lamp = petrol_point(1.58, 1.17)
 	for i in range(5):
 		canvas.draw_circle(lamp, (0.13 + 0.07 * i) * PX, Color(1.0, 0.85, 0.45, 0.11 - 0.018 * i))
 	for i in range(5):
 		var age = fposmod(t * (0.8 + 0.6 * load) + i / 5.0, 1.0)
-		var puff = petrol_point(0.55 - age * 0.9, 1.97 + age * 0.6)
+		var puff = petrol_point(0.701 - age * 0.9, 1.97 + age * 0.6)
 		canvas.draw_circle(puff, (0.05 + age * 0.16) * PX, Color(0.82, 0.82, 0.8, (0.25 + 0.35 * load) * (1.0 - age)))
 
 func draw_side_rod(canvas: Node2D, id: String, distance: float, facing: int, outer: Transform2D) -> void:
@@ -191,13 +191,13 @@ func draw_steam_overlay(canvas: Node2D, model) -> void:
 	var boiler = model.state.fleet_by_id.steam
 	var heat = float(boiler.get("heat", 0.0))
 	var door_open = bool(boiler.get("door", false))
-	var door = Rect2(steam_point(-0.66, 0.96), Vector2(0.26, 0.28) * PX)
+	var door = Rect2(steam_point(-0.554, 0.96), Vector2(0.19, 0.28) * PX)
 	if heat > 0.02:
 		canvas.draw_rect(door.grow(-3), Color(1.0, 0.5, 0.12, (0.95 if door_open else 0.55) * heat))
 		if door_open:
-			canvas.draw_rect(Rect2(steam_point(-0.72, 0.66), Vector2(0.34, 0.035) * PX), Color(1.0, 0.62, 0.22, 0.55 * heat))
+			canvas.draw_rect(Rect2(steam_point(-0.62, 0.66), Vector2(0.26, 0.035) * PX), Color(1.0, 0.62, 0.22, 0.55 * heat))
 	if door_open: canvas.draw_rect(door, Color("f1d890"), false, 2.0)
-	var center = steam_point(-0.68, 1.86)
+	var center = steam_point(-0.568, 1.86)
 	var needle = deg_to_rad(150.0) + deg_to_rad(240.0) * float(boiler.get("pressure", 0.0))
 	canvas.draw_line(center, center + Vector2.from_angle(needle) * 0.075 * PX, Color("a8231c"), 2.0, true)
 	canvas.draw_circle(center, 2.0, Color("2a2a2a"))
@@ -205,13 +205,13 @@ func draw_steam_overlay(canvas: Node2D, model) -> void:
 	if bool(boiler.get("venting", false)):
 		for i in range(4):
 			var age = fposmod(t * 1.6 + i / 4.0, 1.0)
-			canvas.draw_circle(steam_point(-0.05 + age * 0.12, 2.0 + age * 0.55), (0.04 + age * 0.12) * PX, Color(1, 1, 1, 0.5 * (1.0 - age)))
+			canvas.draw_circle(steam_point(-0.106 + age * 0.12, 2.0 + age * 0.55), (0.04 + age * 0.12) * PX, Color(1, 1, 1, 0.5 * (1.0 - age)))
 	if not model.state.get("engine", false): return
 	# Smoke thickens with the regulator and trails backwards.
 	var throttle = float(model.state.get("throttle", 0))
 	for i in range(6):
 		var age = fposmod(t * 0.9 + i / 6.0, 1.0)
-		var puff = steam_point(1.59 - age * 1.4, 2.30 + age * 0.7)
+		var puff = steam_point(1.168 - age * 1.4, 2.30 + age * 0.7)
 		canvas.draw_circle(puff, (0.10 + age * 0.22) * PX, Color(0.86, 0.86, 0.82, (0.35 + 0.35 * throttle) * (1.0 - age)))
 
 # Coupling rod, main rod, crosshead and piston rod follow the wheel angle.
@@ -227,11 +227,11 @@ func draw_steam_motion(canvas: Node2D, distance: float, facing: int, outer: Tran
 	canvas.draw_line(pins[0], pins[1], steel, 0.05 * PX, true)
 	canvas.draw_line(pins[0], pins[1], Color("8a9a94"), 0.012 * PX, true)
 	var front = positions[1]
-	var rod_length = 0.38 * PX
+	var rod_length = 0.30 * PX
 	var dy = pins[1].y - front.y
 	var crosshead = Vector2(pins[1].x + sqrt(maxf(0.0, rod_length * rod_length - dy * dy)), front.y)
 	canvas.draw_line(pins[1], crosshead, steel, 0.04 * PX, true)
-	canvas.draw_line(crosshead, Vector2(1.72 * PX, front.y), Color("a8b4ae"), 0.018 * PX, true)
+	canvas.draw_line(crosshead, Vector2(1.269 * PX, front.y), Color("a8b4ae"), 0.018 * PX, true)
 	canvas.draw_rect(Rect2(crosshead - Vector2(0.035, 0.07) * PX, Vector2(0.07, 0.14) * PX), Color("3c4744"))
 	for pin in pins:
 		canvas.draw_circle(pin, 0.045 * PX, brass)

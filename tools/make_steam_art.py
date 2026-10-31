@@ -28,7 +28,7 @@ OUT = ROOT / "ForestRail/assets/art_p2/steam_locomotive_body.png"
 S = 256            # output pixels per metre
 SS = 2             # supersampling
 MARGIN = 60        # output px
-LENGTH = 4.0
+LENGTH = 3.0
 HEIGHT = 2.40
 W = int(LENGTH * S + 2 * MARGIN)
 H = int(HEIGHT * S + 2 * MARGIN)
@@ -54,9 +54,36 @@ random.seed(7)
 canvas = Image.new("RGBA", (W * SS, H * SS), (0, 0, 0, 0))
 
 
+# The art is laid out on a 4.0 m drawing; XMAP squeezes or stretches stretches of it
+# to the standard platform length of this class (old x -> new x, piecewise linear).
+XMAP = [(-2.0, -1.5), (-0.3, -0.3), (1.94, 1.44), (2.0, 1.5)]
+
+
+def mx(x: float) -> float:
+    pts = XMAP
+    if x <= pts[0][0]:
+        i = 0
+    elif x >= pts[-1][0]:
+        i = len(pts) - 2
+    else:
+        i = max(k for k in range(len(pts) - 1) if pts[k][0] <= x)
+    (a0, b0), (a1, b1) = pts[i], pts[i + 1]
+    return b0 + (x - a0) * (b1 - b0) / (a1 - a0)
+
+
+def inv_mx(xn: float) -> float:
+    pts = XMAP
+    i = 0
+    for k in range(len(pts) - 1):
+        if pts[k][1] <= xn:
+            i = k
+    (a0, b0), (a1, b1) = pts[i], pts[i + 1]
+    return a0 + (xn - b0) * (a1 - a0) / (b1 - b0)
+
+
 def px(x: float, y: float):
     """Metres (x right of centre, y above rail) to supersampled pixels."""
-    return ((x + LENGTH / 2) * S + MARGIN) * SS, (RAIL_Y - y * S) * SS
+    return ((mx(x) + LENGTH / 2) * S + MARGIN) * SS, (RAIL_Y - y * S) * SS
 
 
 def lerp(a, b, t):
@@ -123,8 +150,10 @@ def poly(points, top, bottom, horizontal=False, edge=STEEL_D):
 
 
 def ellipse(cx, cy, rx, ry, top, bottom, horizontal=False, edge=STEEL_D):
-    a = px(cx - rx, cy + ry)
-    b = px(cx + rx, cy - ry)
+    # Centre is mapped, radii stay true so round parts remain round.
+    cxp, cyp = px(cx, cy)
+    a = (cxp - rx * S * SS, cyp - ry * S * SS)
+    b = (cxp + rx * S * SS, cyp + ry * S * SS)
     paint(lambda d: d.ellipse([a, b], fill=255), top, bottom, horizontal, edge=edge)
 
 
@@ -192,7 +221,7 @@ def cut(x, y, w, h):
 def paste(part, x_left, y_bottom, width_m=None, height_m=None):
     """Place a cut part with its bottom-left corner at metres (x_left, y_bottom)."""
     global canvas
-    w = int(width_m * S * SS) if width_m else part.width * SS * S // 258
+    w = int((mx(x_left + width_m) - mx(x_left)) * S * SS) if width_m else part.width * SS * S // 258
     h = int(height_m * S * SS) if height_m else part.height * SS * S // 258
     scaled = part.resize((w, h), Image.LANCZOS)
     left, bottom = px(x_left, y_bottom)
@@ -222,7 +251,7 @@ rect(-2.0, 0.04, 2.0, 0.15, STEEL, STEEL_D)
 for x in (-1.58, -0.55, 0.55, 1.58):
     poly([(x - 0.07, 0.15), (x + 0.07, 0.15), (x + 0.30, 0.55), (x + 0.16, 0.55)], STEEL, STEEL_D)
     poly([(x + 0.07, 0.15), (x - 0.07, 0.15), (x - 0.30, 0.55), (x - 0.16, 0.55)], STEEL, STEEL_D)
-for x in (-1.18, 1.18):
+for x in (inv_mx(-0.8), inv_mx(0.8)):
     rect(x - 0.17, 0.02, x + 0.17, 0.20, STEEL_L, STEEL_D, radius=0.03)
     ellipse(x, 0.275, 0.065, 0.065, BRASS_L, BRASS_D, edge=BRASS_D)
     rivet(x - 0.12, 0.06)
@@ -277,7 +306,7 @@ rivet(-0.62, 0.72, 0.014)
 CHIMNEY = cut(1098, 479, 129, 229)
 paste(CHIMNEY, 1.34, 1.44, height_m=0.84)
 LANTERN = cut(560, 758, 76, 149)
-paste(LANTERN, 1.86, 1.26, height_m=0.30)
+paste(LANTERN, 1.92, 1.26, height_m=0.30)
 
 # --- 12. outside cylinder, slide bars, buffer beams ------------------------------------
 rect(1.72, 0.17, 1.92, 0.38, STEEL_L, STEEL_D, radius=0.025, edge=STEEL_D)
@@ -323,5 +352,5 @@ print("bbox", box)
 axle_y = RAIL_Y - int(0.275 * S)
 cx = MARGIN + int(LENGTH * S / 2)
 print("region_px", [MARGIN, box[1], int(LENGTH * S), box[3] - box[1]])
-print("axles_px", [[cx - int(1.18 * S), axle_y], [cx + int(1.18 * S), axle_y]])
+print("axles_px", [[cx - int(0.8 * S), axle_y], [cx + int(0.8 * S), axle_y]])
 print("deck_y_px", RAIL_Y - int(0.60 * S))
