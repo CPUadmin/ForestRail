@@ -13,8 +13,37 @@ var assets: Dictionary
 var textures: Dictionary = {}
 var rig: Dictionary
 var geometry = Mechanism.new()
+# Player skins (tools/skin_check.py, docs/SKINS_RU.md): body.png of a locomotive
+# dropped into %APPDATA%/ForestRail/skins/<steam|motorcar|locomotive>/ replaces
+# the built-in picture. The picture is fitted to the class's standard platform
+# length and the wheels go to the class's standard axle places.
+const SKINNED = ["steam", "motorcar", "locomotive"]
+var skin_deck: Dictionary = {}
+var skin_wheel: Dictionary = {}
+var skin_config: Dictionary = {}
+var skin_report: Array = []
 
-func _init() -> void:
+static func default_skins_dir() -> String:
+	var appdata = OS.get_environment("APPDATA")
+	return appdata.replace("\\", "/") + "/ForestRail/skins" if appdata != "" else ""
+
+func is_skinned(kind: String) -> bool:
+	return skin_deck.has(kind)
+
+# A skinned machine keeps only the live parts that do not depend on where the
+# built-in picture has its details; stack_m / lamp_m / overlay in skin.json opt in.
+func skin_point(kind: String, key: String, fallback: Vector2) -> Vector2:
+	var value = skin_config.get(kind, {}).get(key, null)
+	if value is Array and value.size() == 2: return Vector2(float(value[0]), float(value[1]))
+	return fallback
+
+func _init(skins_path: String = "") -> void:
+	var skins_dir = skins_path
+	if skins_dir == "":
+		var under_test = false
+		for arg in OS.get_cmdline_user_args():
+			if str(arg).begins_with("--qa-suite="): under_test = true
+		if not under_test: skins_dir = default_skins_dir()
 	manifest = JSON.parse_string(FileAccess.get_file_as_string(ROOT + "manifest.json"))
 	assets = manifest.assets
 	rig = geometry.config
@@ -38,6 +67,8 @@ func _init() -> void:
 		atlas.region = Rect2(meta.region_px[0],meta.region_px[1],meta.region_px[2],meta.region_px[3])
 		atlas.filter_clip = true
 		textures[id] = atlas
+		if kind in SKINNED and skins_dir != "": apply_skin(kind, id, skins_dir)
+	if skins_dir != "": ensure_skins_folder(skins_dir)
 	assets["mechanism/lever"].scale_at_128_px_per_m = float(Geometry.body("handcar").beam_width_m)*128.0/float(assets["mechanism/lever"].region_px[2])
 	# Preserve the supplied station art and calibrate by its door, not by
 	# arbitrary overall image width.
@@ -45,6 +76,123 @@ func _init() -> void:
 		var spec = Geometry.data().buildings[id]
 		var metres_per_pixel = float(spec.height_m)/float(assets[id].region_px[3]) if spec.has("height_m") else float(spec.door_height_m)/(float(spec.door_px[3])-float(spec.door_px[1]))
 		assets[id].scale_at_128_px_per_m = metres_per_pixel*128.0
+
+func skin_note(kind: String, text: String) -> void:
+	skin_report.append("%s: %s" % [kind, text])
+	push_warning("skin %s: %s" % [kind, text])
+
+# Loads <dir>/<kind>/body.png (and wheel.png, skin.json) if present. Anything wrong
+# is reported and the built-in picture stays.
+func apply_skin(kind: String, id: String, skins_dir: String) -> void:
+	var folder = skins_dir.path_join(kind)
+	var body_path = folder.path_join("body.png")
+	if not FileAccess.file_exists(body_path): return
+	var image = Image.load_from_file(body_path)
+	if image == null or image.is_empty():
+		skin_note(kind, "body.png не читается как картинка")
+		return
+	image.convert(Image.FORMAT_RGBA8)
+	var used = image.get_used_rect()
+	if used.size.x < 64 or used.size.y < 32:
+		skin_note(kind, "в body.png почти нет непрозрачных пикселей")
+		return
+	var config: Dictionary = {}
+	var config_path = folder.path_join("skin.json")
+	if FileAccess.file_exists(config_path):
+		var parsed = JSON.parse_string(FileAccess.get_file_as_string(config_path))
+		if parsed is Dictionary: config = parsed
+		else: skin_note(kind, "skin.json не разобран, значения по умолчанию")
+	var spec = Geometry.body(kind)
+	var length = float(spec.length_m)
+	var per_m = float(used.size.x) / length
+	var old_region = spec.region_px
+	var old_per_m = float(old_region[2]) / length
+	var old_center = float(old_region[0]) + float(old_region[2]) * 0.5
+	var axle_height = float(spec.wheel_diameter_m) * 0.5
+	var bottom_m = clampf(float(config.get("bottom_m", 0.03)), -0.2, 0.6)
+	var offset_x = clampf(float(config.get("offset_x_m", 0.0)), -0.5, 0.5)
+	var centre_x = float(used.position.x) + float(used.size.x) * 0.5
+	var axle_y = float(used.end.y) - (axle_height - bottom_m) * per_m
+	var wheel_centres: Array = []
+	for point in spec.axles_px:
+		var metres = (float(point[0]) - old_center) / old_per_m + offset_x
+		wheel_centres.append([centre_x + metres * per_m, axle_y])
+	var deck_above_axle = (float(spec.axles_px[0][1]) - float(spec.deck_y_px)) / old_per_m
+	var meta = assets[id]
+	meta.region_px = [used.position.x, used.position.y, used.size.x, used.size.y]
+	meta.pivot_px = [centre_x, axle_y]
+	meta.physical_width_m = length
+	meta.scale_at_128_px_per_m = length * 128.0 / float(used.size.x)
+	meta.wheel_centres_px = wheel_centres
+	var atlas = AtlasTexture.new()
+	atlas.atlas = ImageTexture.create_from_image(image)
+	atlas.region = Rect2(used)
+	atlas.filter_clip = true
+	textures[id] = atlas
+	skin_deck[kind] = axle_y - deck_above_axle * per_m
+	skin_config[kind] = config
+	load_skin_wheel(kind, folder)
+	skin_note(kind, "загружен скин (%d×%d px, %.0f px/м)" % [used.size.x, used.size.y, per_m])
+
+func load_skin_wheel(kind: String, folder: String) -> void:
+	var path = folder.path_join("wheel.png")
+	if not FileAccess.file_exists(path): return
+	var image = Image.load_from_file(path)
+	if image == null or image.is_empty():
+		skin_note(kind, "wheel.png не читается, колесо стандартное")
+		return
+	image.convert(Image.FORMAT_RGBA8)
+	var used = image.get_used_rect()
+	if used.size.x < 16 or used.size.y < 16: return
+	var id = "skin/%s_wheel" % kind
+	var diameter = float(Geometry.body(kind).wheel_diameter_m)
+	assets[id] = {"id": id, "region_px": [used.position.x, used.position.y, used.size.x, used.size.y],
+		"pivot_px": [used.position.x + used.size.x * 0.5, used.position.y + used.size.y * 0.5],
+		"physical_width_m": diameter, "scale_at_128_px_per_m": diameter * 128.0 / float(used.size.x)}
+	var atlas = AtlasTexture.new()
+	atlas.atlas = ImageTexture.create_from_image(image)
+	atlas.region = Rect2(used)
+	atlas.filter_clip = true
+	textures[id] = atlas
+	skin_wheel[kind] = id
+
+const SKINS_README = """Лесная колея — скины машин
+
+Положи картинку в папку машины и перезапусти игру. Удалишь файл — вернётся стандартный вид.
+
+  steam/body.png        паровоз          платформа 3.0 м
+  motorcar/body.png     бензиновая       платформа 3.6 м
+  locomotive/body.png   электровоз       платформа 4.0 м
+
+Правила для body.png (боковой вид, машина смотрит вправо):
+  - прозрачный фон (PNG с альфой), без колёс и без сцепок;
+  - левый край рисунка — задний буфер, правый — передний: игра растягивает
+    рисунок так, чтобы он по ширине равнялся длине платформы;
+  - низ рисунка — низ рамы (по умолчанию 3 см над рельсом);
+  - оси колёс игра ставит сама на стандартные места, оставь там выемки или
+    буксы; колёса рисуются поверх. Свои колёса: wheel.png рядом (круг, без фона).
+
+Необязательный skin.json:
+  {"bottom_m": 0.03, "offset_x_m": 0.0, "overlay": false,
+   "stack_m": [1.2, 2.3], "lamp_m": [1.6, 1.2]}
+  bottom_m    — высота низа рисунка над рельсом;
+  offset_x_m  — сдвиг осей вдоль машины (от -0.5 до 0.5);
+  overlay     — для паровоза: true оставляет огонь в дверце и стрелку манометра;
+  stack_m     — где у трубы начинается дым [x от центра, высота над рельсом];
+  lamp_m      — где у бензиновой светит фара.
+
+Проверить картинку заранее: python tools/skin_check.py <папка машины> (в репозитории).
+"""
+
+func ensure_skins_folder(skins_dir: String) -> void:
+	if DirAccess.make_dir_recursive_absolute(skins_dir) != OK: return
+	for kind in SKINNED: DirAccess.make_dir_recursive_absolute(skins_dir.path_join(kind))
+	var readme = skins_dir.path_join("README.txt")
+	if not FileAccess.file_exists(readme):
+		var file = FileAccess.open(readme, FileAccess.WRITE)
+		if file != null:
+			file.store_string(SKINS_README)
+			file.close()
 
 func vec(value: Array) -> Vector2:
 	return Vector2(float(value[0]), float(value[1]))
@@ -79,7 +227,7 @@ func wheel_positions(id: String) -> Array:
 	return positions
 
 func deck_y(id: String) -> float:
-	var source_y = float(Geometry.body(id).deck_y_px)
+	var source_y = float(skin_deck.get(id, Geometry.body(id).deck_y_px))
 	return axis_height(id) + (source_y - pivot(body_key(id)).y) * scale_for(body_key(id))
 
 func slot_position(id: String, index: int, count: int, sprite_id: String = "sack") -> Vector2:
@@ -138,7 +286,7 @@ func draw_vehicle(canvas: Node2D, id: String, distance: float, facing: int, oute
 	var p = mechanism_pose(model) if id=="handcar" and pose_override.is_empty() else pose_override
 	if id=="steam": draw_steam_overlay(canvas, model)
 	if id=="motorcar": draw_petrol_overlay(canvas, model)
-	var wheel_id = "vehicles/steam_wheel" if id == "steam" else "vehicles/petrol_wheel" if id == "motorcar" else ("vehicles/wheel_large" if id in LARGE_WHEELS else "vehicles/wheel_small")
+	var wheel_id = skin_wheel.get(id, "vehicles/steam_wheel" if id == "steam" else "vehicles/petrol_wheel" if id == "motorcar" else ("vehicles/wheel_large" if id in LARGE_WHEELS else "vehicles/wheel_small"))
 	var radius = PX * (0.55 if id in LARGE_WHEELS else 0.42) * 0.5
 	for position in wheel_positions(id):
 		var wheel_angle = fposmod(p.wheel_angle,TAU) if id=="handcar" else fposmod(distance*PX/radius*facing,TAU)
@@ -160,11 +308,14 @@ func draw_petrol_overlay(canvas: Node2D, model) -> void:
 	var t = Time.get_ticks_msec() / 1000.0
 	var load = clampf(float(model.state.get("throttle", 0)), 0.0, 1.0)
 	var lamp = petrol_point(1.58, 1.17)
-	for i in range(5):
+	var lamp_at = skin_point("motorcar", "lamp_m", Vector2(1.58, 1.17))
+	if not is_skinned("motorcar") or skin_config.get("motorcar", {}).has("lamp_m"): lamp = petrol_point(lamp_at.x, lamp_at.y)
+	for i in range(5 if (not is_skinned("motorcar") or skin_config.get("motorcar", {}).has("lamp_m")) else 0):
 		canvas.draw_circle(lamp, (0.13 + 0.07 * i) * PX, Color(1.0, 0.85, 0.45, 0.11 - 0.018 * i))
 	for i in range(5):
 		var age = fposmod(t * (0.8 + 0.6 * load) + i / 5.0, 1.0)
-		var puff = petrol_point(0.701 - age * 0.9, 1.97 + age * 0.6)
+		var origin = skin_point("motorcar", "stack_m", Vector2(0.701, 1.97))
+		var puff = petrol_point(origin.x - age * 0.9, origin.y + age * 0.6)
 		canvas.draw_circle(puff, (0.05 + age * 0.16) * PX, Color(0.82, 0.82, 0.8, (0.25 + 0.35 * load) * (1.0 - age)))
 
 func draw_side_rod(canvas: Node2D, id: String, distance: float, facing: int, outer: Transform2D) -> void:
@@ -189,20 +340,22 @@ func steam_point(x: float, rail_y: float) -> Vector2:
 func draw_steam_overlay(canvas: Node2D, model) -> void:
 	if model == null or model.state.is_empty() or not model.state.fleet_by_id.has("steam"): return
 	var boiler = model.state.fleet_by_id.steam
+	var plain = not is_skinned("steam") or bool(skin_config.get("steam", {}).get("overlay", false))
 	var heat = float(boiler.get("heat", 0.0))
 	var door_open = bool(boiler.get("door", false))
 	var door = Rect2(steam_point(-0.554, 0.96), Vector2(0.19, 0.28) * PX)
-	if heat > 0.02:
+	if plain and heat > 0.02:
 		canvas.draw_rect(door.grow(-3), Color(1.0, 0.5, 0.12, (0.95 if door_open else 0.55) * heat))
 		if door_open:
 			canvas.draw_rect(Rect2(steam_point(-0.62, 0.66), Vector2(0.26, 0.035) * PX), Color(1.0, 0.62, 0.22, 0.55 * heat))
-	if door_open: canvas.draw_rect(door, Color("f1d890"), false, 2.0)
+	if plain and door_open: canvas.draw_rect(door, Color("f1d890"), false, 2.0)
 	var center = steam_point(-0.568, 1.86)
 	var needle = deg_to_rad(150.0) + deg_to_rad(240.0) * float(boiler.get("pressure", 0.0))
-	canvas.draw_line(center, center + Vector2.from_angle(needle) * 0.075 * PX, Color("a8231c"), 2.0, true)
-	canvas.draw_circle(center, 2.0, Color("2a2a2a"))
+	if plain:
+		canvas.draw_line(center, center + Vector2.from_angle(needle) * 0.075 * PX, Color("a8231c"), 2.0, true)
+		canvas.draw_circle(center, 2.0, Color("2a2a2a"))
 	var t = Time.get_ticks_msec() / 1000.0
-	if bool(boiler.get("venting", false)):
+	if plain and bool(boiler.get("venting", false)):
 		for i in range(4):
 			var age = fposmod(t * 1.6 + i / 4.0, 1.0)
 			canvas.draw_circle(steam_point(-0.106 + age * 0.12, 2.0 + age * 0.55), (0.04 + age * 0.12) * PX, Color(1, 1, 1, 0.5 * (1.0 - age)))
@@ -211,7 +364,8 @@ func draw_steam_overlay(canvas: Node2D, model) -> void:
 	var throttle = float(model.state.get("throttle", 0))
 	for i in range(6):
 		var age = fposmod(t * 0.9 + i / 6.0, 1.0)
-		var puff = steam_point(1.168 - age * 1.4, 2.30 + age * 0.7)
+		var origin = skin_point("steam", "stack_m", Vector2(1.168, 2.30))
+		var puff = steam_point(origin.x - age * 1.4, origin.y + age * 0.7)
 		canvas.draw_circle(puff, (0.10 + age * 0.22) * PX, Color(0.86, 0.86, 0.82, (0.35 + 0.35 * throttle) * (1.0 - age)))
 
 # Coupling rod, main rod, crosshead and piston rod follow the wheel angle.
