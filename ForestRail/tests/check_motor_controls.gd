@@ -88,7 +88,7 @@ func energy_checks() -> void:
 		var before=float(m.state.fleet_by_id[id].fuel)
 		m.physics_step(1.0/60)
 		check(m.motor_energy.shaft_work_j>0 and m.state.fleet_by_id[id].fuel<before,"first accelerating step consumes work "+id)
-		var conversion=34000000.0 if id=="motorcar" else 3600000.0
+		var conversion=8500000.0 if id=="motorcar" else 3600000.0
 		check(absf((before-m.state.fleet_by_id[id].fuel)*conversion-m.motor_energy.used_j)<1e-6,"energy store agrees with measured work "+id)
 		var clone=Model.new()
 		check(clone.restore(m.serialize()) and clone.state.throttle==m.state.throttle and clone.state.brake==m.state.brake,"save preserves controls "+id)
@@ -101,7 +101,7 @@ func energy_checks() -> void:
 	var before=float(petrol.state.fleet_by_id.motorcar.fuel)
 	petrol.state.throttle=1
 	petrol.physics_step(1)
-	check(absf(before-petrol.state.fleet_by_id.motorcar.fuel-0.0003*1.8)<1e-9,"neutral petrol revving at full pedal burns only the idle burn scaled by rpm")
+	check(absf(before-petrol.state.fleet_by_id.motorcar.fuel-0.0012*1.8)<1e-9,"neutral petrol revving at full pedal burns only the idle burn scaled by rpm")
 	for speed in [0.01,2.0,5.0]:
 		var m=fixture("locomotive")
 		m.state.fleet_by_id.locomotive.fuel=0.3;m.state.v=speed;m.state.brake=1

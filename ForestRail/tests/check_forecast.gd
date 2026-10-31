@@ -46,7 +46,7 @@ func run() -> void:
 	check(m.service_offer().is_empty() and not m.refuel() and is_equal_approx(float(m.state.fleet_by_id.motorcar.fuel), 0.5), "a station without the service does not refuel")
 	at_station(m, "F")
 	var cost = m.refill_cost()
-	check(cost == ceili((float(m.object_stats("motorcar").tank) - 0.5) * 18.0 * 1.5 - 0.0001), "the far station charges its multiplier (%d)" % cost)
+	check(cost == ceili((float(m.object_stats("motorcar").tank) - 0.5) * float(m.vehicle_base("motorcar").refill_price) * 1.5 - 0.0001), "the far station charges its multiplier (%d)" % cost)
 	var money = int(m.state.money)
 	check(m.refuel() and money - int(m.state.money) == cost and is_equal_approx(float(m.state.fleet_by_id.motorcar.fuel), float(m.object_stats("motorcar").tank)), "refuelling at the far station fills the tank for that price")
 	m.state.brake = 0.0

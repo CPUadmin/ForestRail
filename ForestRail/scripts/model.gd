@@ -384,7 +384,7 @@ func mission_far_s(mission: Dictionary) -> float:
 
 # What a trip needs against what is in the tank. The rates are measured on this road by
 # tests/check_forecast.gd (round trips driven with the player's own inputs, 20% margin) and
-# the test fails if the model drifts away from them. Distance only: the road climbs under
+# the test fails if the model drifts away from them. A fixed part (start-up) plus distance: the road climbs under
 # 20 m, so slope does not move the estimate; recalibrate when the line changes (N7.3).
 func trip_forecast(mission: Dictionary = {}) -> Dictionary:
 	if mission.is_empty(): mission = state.active
@@ -401,7 +401,7 @@ func trip_forecast(mission: Dictionary = {}) -> Dictionary:
 	var fleet = state.fleet_by_id[vehicle_id()]
 	var leg = longest_leg(far, fuel_points)
 	var water_leg = longest_leg(far, water_points)
-	return {"far_m": far, "leg_m": leg, "need": leg * float(base.energy_per_m), "have": float(fleet.fuel), "tank": float(stats.tank),
+	return {"far_m": far, "leg_m": leg, "need": float(base.get("energy_fixed", 0.0)) + leg * float(base.energy_per_m), "have": float(fleet.fuel), "tank": float(stats.tank),
 		"water_leg_m": water_leg, "water_need": water_leg * float(base.get("water_per_m", 0.0)) if float(stats.water) > 0 else 0.0,
 		"water_have": float(fleet.get("water", 0)), "water_tank": float(stats.water), "unit": str(base.energy_unit)}
 
@@ -1134,13 +1134,14 @@ func physics_step(dt: float) -> void:
 			# only the shaft work for reports.
 			used=shaft_work/0.07
 		else:
-			# Game calibration: petrol 34 MJ/l. Efficiency peaks mid-range and
+			# Game calibration: petrol 34 MJ/l burnt four times faster (N10: a tank lasts about one
+			# round trip to the far station). Efficiency peaks mid-range and
 			# falls when the engine lugs or screams; friction burn grows with rpm.
 			var rpm_fraction=engine_rpm_fraction()
 			var cfg_engine=vehicle_base().engine
 			var efficiency=clampf(0.22-0.30*pow(rpm_fraction-float(cfg_engine.best_fraction),2),0.10,0.22)
 			used=shaft_work/efficiency+(10200.0*(1.0+0.8*rpm_fraction)*dt if state.engine else 0.0)
-			fleet.fuel=maxf(0,before-used/34000000.0)
+			fleet.fuel=maxf(0,before-used/8500000.0)
 		motor_energy={"shaft_work_j":shaft_work,"brake_work_j":brake_work,"used_j":used,"recovered_j":recovered,"delta_store":float(fleet.fuel)-before}
 		if vehicle_id()!="steam" and fleet.fuel<=0: state.engine=false
 	acceleration=(new_v-old_v)/dt
