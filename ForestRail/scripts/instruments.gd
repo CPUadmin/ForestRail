@@ -33,7 +33,9 @@ func _process(_delta: float) -> void:
 func nominal_speed() -> float:
 	if game.model.vehicle_id() == "handcar": return 30.0
 	var speeds = game.model.object_stats(game.model.vehicle_id()).speeds
-	return maxf(float(speeds[0]),float(speeds[1])) * 3.6
+	var top = 0.0
+	for s in speeds: top = maxf(top, float(s))
+	return top * 3.6
 
 func dial_maximum() -> float:
 	var nominal = nominal_speed()
@@ -236,7 +238,7 @@ func draw_status() -> void:
 			title = "ПАР  ·  %.1f бар" % m.pressure_bar()
 			value = "ведро %.0f кг · %.0f л" % [amount,float(m.state.fleet_by_id.steam.get("water",0))]
 			fraction = float(m.boiler().pressure)
-	if m.vehicle_id() not in ["handcar","locomotive","steam"]: title+="  ·  "+["Н","I","II"][int(m.state.gear)]
+	if m.vehicle_id()=="motorcar": title+="  ·  %s  ·  %.1fк" % [{0:"N",1:"1",2:"2",3:"3",4:"4",5:"R"}[int(m.state.gear)],m.engine_rpm()/1000.0]
 	if m.vehicle_id()=="locomotive" and m.regen_kw>0.01: title="РЕКУПЕРАЦИЯ +%.1f кВт" % m.regen_kw
 	put(title,r.position+Vector2(16,22*f),r.size.x*0.5-16,12,GOLD if m.regen_kw>0.01 else MUTED)
 	put(value,r.position+Vector2(r.size.x*0.48,22*f),r.size.x*0.52-16,14,RED if fraction<=0.15 and m.vehicle_id()!="handcar" else PAPER,HORIZONTAL_ALIGNMENT_RIGHT)

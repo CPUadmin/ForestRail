@@ -250,7 +250,7 @@ func run() -> void:
 	check(game.model.state.engine,"closeup starts engine through mouse")
 	# Since preview.9 the levers follow their visible arc (LEVER_CONTROLS_RU.md),
 	# so the drags go along the arc instead of straight up or down.
-	await arc_drag("gear",0.5)
+	await arc_drag("gear",0.4)
 	check(game.model.state.gear==1,"closeup selects first gear")
 	await arc_drag("throttle",0.5)
 	check(absf(game.model.state.throttle-0.5)<0.001,"closeup throttle follows drag")

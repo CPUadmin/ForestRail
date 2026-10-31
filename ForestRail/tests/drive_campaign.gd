@@ -65,7 +65,7 @@ func run() -> void:
 						m.state.throttle = 0
 						m.set_gear(0)
 						m.start_engine(true)
-						m.set_gear(2)
+						m.set_gear(4 if m.vehicle_id() == "motorcar" else 2)
 					m.state.throttle = 0.95
 			m.physics_step(1.0 / 60)
 			timer += 1.0 / 60

@@ -24,6 +24,7 @@ var shock_time = 0.0
 var rail_distance = 0.0
 var regen_kw = 0.0
 var valve_held = false
+var shift_cut = 0.0
 var motor_energy: Dictionary = {}
 var loading_cache: Dictionary = {}
 var events: Array = []
@@ -41,7 +42,7 @@ func new_game(world_seed: int = 42) -> void:
 		"wagons_by_id": {}, "selected_vehicle_id": "handcar", "consist_ids": [],
 		"money": 0, "chapter": 0, "completed_ids": [], "paid_ids": [], "active": {},
 		"cargo": [], "s": 0.0, "v": 0.0, "direction": 1, "brake": 1.0, "throttle": 0.0,
-		"gear": 0, "engine": false, "phase": "depot", "finale": false, "reverser": 1,
+		"gear": 0, "gearbox": 4, "engine": false, "phase": "depot", "finale": false, "reverser": 1,
 		"visited_stations": ["A"], "tutorial": true,
 		"stats": {"distance": 0.0, "deliveries": 0, "earned": 0, "rescues": 0, "seconds": 0.0}, "offer_serial": 0}
 	reset_input()
@@ -123,6 +124,15 @@ func object_stats(id: String) -> Dictionary:
 		result.traction = [float(base.traction_n[0]) * float(ef.get("traction_multiplier", 1)) * float(ef.get("low_gear_multiplier", 1)),
 			float(base.traction_n[1]) * float(ef.get("traction_multiplier", 1))]
 		result.speeds = [float(base.gear_speed_mps[0]), float(base.gear_speed_mps[1]) * float(ef.get("high_gear_speed_multiplier", 1))]
+		if base.has("gears"):
+			# Manual gearbox: the two low gears use the low-gear upgrade, the two high ones the speed upgrade.
+			result.traction = []
+			result.speeds = []
+			for i in range(base.gears.size()):
+				var low = float(ef.get("low_gear_multiplier", 1)) if i < 2 else 1.0
+				var high = float(ef.get("high_gear_speed_multiplier", 1)) if i >= 2 else 1.0
+				result.traction.append(float(base.gears[i][0]) * float(ef.get("traction_multiplier", 1)) * low)
+				result.speeds.append(float(base.gears[i][1]) * high)
 	return result
 
 func rank(id: String) -> int:
@@ -689,7 +699,14 @@ func set_gear(value: int) -> bool:
 	if vehicle_id() in ["locomotive", "steam"]: return true
 	if float(state.throttle) >= 0.15:
 		return fail("Сначала убавь подачу ниже 15%")
-	state.gear = clampi(value, 0, 2)
+	var wanted = clampi(value, 0, 5 if vehicle_id() == "motorcar" else 2)
+	if vehicle_id() == "motorcar":
+		var cfg = vehicle_base().engine
+		var moving = absf(float(state.v)) > float(cfg.stop_speed_mps)
+		if wanted != int(state.gear) and (wanted == 5 or int(state.gear) == 5) and moving:
+			return fail("Задняя передача включается только после остановки")
+		if wanted != int(state.gear) and wanted != 0 and moving: shift_cut = float(cfg.shift_cut_s)
+	state.gear = wanted
 	events.append("gear")
 	return true
 
@@ -721,6 +738,31 @@ func start_engine(value: bool) -> bool:
 	state.engine = value
 	events.append("gear")
 	return true
+
+# --- Petrol gearbox (N5): gears 1-4, N, R(=5) ---
+
+# Engine fraction 0..1 between idle and the rev limit.
+func engine_rpm_fraction() -> float:
+	if vehicle_id() != "motorcar" or not state.engine: return 0.0
+	var gear = int(state.gear)
+	var thr = float(state.throttle)
+	if gear == 0: return thr
+	var idx = 0 if gear == 5 else gear - 1
+	var ratio = absf(float(state.v)) / float(object_stats("motorcar").speeds[idx])
+	return clampf(maxf(ratio, thr * 0.3), 0.0, 1.0)
+
+func engine_rpm() -> float:
+	if vehicle_id() != "motorcar" or not state.engine: return 0.0
+	var cfg = vehicle_base().engine
+	return lerpf(float(cfg.idle_rpm), float(cfg.max_rpm), engine_rpm_fraction())
+
+# High gears pull weakly at low engine speed: the engine lugs.
+func petrol_lug(gear: int, stats: Dictionary) -> float:
+	if vehicle_id() != "motorcar" or gear < 2: return 1.0
+	var cfg = vehicle_base().engine
+	var ratio = absf(float(state.v)) / float(stats.speeds[gear])
+	if ratio >= float(cfg.lug_below): return 1.0
+	return lerpf(float(cfg.lug_min), 1.0, ratio / float(cfg.lug_below))
 
 # --- Steam boiler (N4). Simplified game model, see VEHICLE_CLASSES_v3_1_RU.md ---
 
@@ -897,6 +939,7 @@ func physics_step(dt: float) -> void:
 		reset_input()
 		return
 	state.stats.seconds += dt
+	shift_cut = maxf(0.0, shift_cut - dt)
 	var ids = body_ids()
 	var total = train_mass()
 	var grade = 0.0
@@ -932,9 +975,12 @@ func physics_step(dt: float) -> void:
 				state.engine = false
 			if int(state.gear) > 0:
 				var gear = int(state.gear) - 1
-				var traction = float(stats.traction[gear]) * maxf(0, 1 - pow(absf(float(state.v)) / float(stats.speeds[gear]), 2)) * charge_traction_factor()
+				var reverse_gear = vehicle_id() == "motorcar" and gear == 4
+				if reverse_gear: gear = 0
+				var traction = float(stats.traction[gear]) * maxf(0, 1 - pow(absf(float(state.v)) / float(stats.speeds[gear]), 2)) * charge_traction_factor() * petrol_lug(gear, stats)
+				if shift_cut > 0.0: traction = 0.0
 				var adhesion = 0.35 * float(stats.mass) * G * cos(route.slope(float(state.s)))
-				drive = float(drive_direction()) * float(state.throttle) * minf(traction, adhesion)
+				drive = float(drive_direction()) * (-1.0 if reverse_gear else 1.0) * float(state.throttle) * minf(traction, adhesion)
 	var brake = float(state.brake) * max_brake
 	var old_v = float(state.v)
 	var new_v = old_v
@@ -977,9 +1023,12 @@ func physics_step(dt: float) -> void:
 			# only the shaft work for reports.
 			used=shaft_work/0.07
 		else:
-			# Game calibration: petrol 34 MJ/l, 20% shaft efficiency,
-			# plus a small idle burn. Higher load costs more through work.
-			used=shaft_work/0.20+(10200.0*dt if state.engine else 0.0)
+			# Game calibration: petrol 34 MJ/l. Efficiency peaks mid-range and
+			# falls when the engine lugs or screams; friction burn grows with rpm.
+			var rpm_fraction=engine_rpm_fraction()
+			var cfg_engine=vehicle_base().engine
+			var efficiency=clampf(0.22-0.30*pow(rpm_fraction-float(cfg_engine.best_fraction),2),0.10,0.22)
+			used=shaft_work/efficiency+(10200.0*(1.0+0.8*rpm_fraction)*dt if state.engine else 0.0)
 			fleet.fuel=maxf(0,before-used/34000000.0)
 		motor_energy={"shaft_work_j":shaft_work,"brake_work_j":brake_work,"used_j":used,"recovered_j":recovered,"delta_store":float(fleet.fuel)-before}
 		if vehicle_id()!="steam" and fleet.fuel<=0: state.engine=false
@@ -1081,6 +1130,10 @@ func restore(saved: Dictionary) -> bool:
 	else:
 		handcar.seek_rocker(lerpf(float(handcar.limits.minimum.angle),float(handcar.limits.maximum.angle),clampf((pump_angle+deg_to_rad(28))/deg_to_rad(56),0,1)))
 	state.reverser = int(state.get("reverser", 1))
+	# Saves from before the four-gear box used Н/1/2; the old high gear is now 4.
+	if int(state.get("gearbox", 0)) != 4:
+		if vehicle_id() == "motorcar": state.gear = {0: 0, 1: 1, 2: 4}.get(int(state.gear), 0)
+		state.gearbox = 4
 	migrate_boiler()
 	migrate_deck_cargo()
 	drop_temporary_wagon()
@@ -1137,7 +1190,7 @@ func validate_save(saved: Dictionary) -> bool:
 		return false
 	for key in ["money", "chapter", "s", "v", "direction", "brake", "throttle", "gear", "offer_serial"]:
 		if not numeric(saved[key]): return false
-	if saved.money < 0 or saved.chapter < 0 or saved.chapter > 10 or saved.brake < 0 or saved.brake > 1 or saved.throttle < 0 or saved.throttle > 1 or saved.gear < 0 or saved.gear > 2:
+	if saved.money < 0 or saved.chapter < 0 or saved.chapter > 10 or saved.brake < 0 or saved.brake > 1 or saved.throttle < 0 or saved.throttle > 1 or saved.gear < 0 or saved.gear > 5:
 		return false
 	if absf(float(saved.v)) > 100 or float(saved.s) < -40 or float(saved.s) > 1760:
 		return false

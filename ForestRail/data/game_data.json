@@ -154,6 +154,16 @@
         4,
         6.5
       ],
+      "gears": [[900, 2.0], [750, 3.5], [600, 5.0], [495, 6.5]],
+      "engine": {
+        "idle_rpm": 800,
+        "max_rpm": 6000,
+        "best_fraction": 0.55,
+        "lug_below": 0.18,
+        "lug_min": 0.45,
+        "shift_cut_s": 0.35,
+        "stop_speed_mps": 0.3
+      },
       "rank": 2,
       "max_wagons": 2,
       "brake_n": 1800,

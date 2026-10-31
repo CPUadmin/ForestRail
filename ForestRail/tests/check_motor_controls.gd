@@ -77,7 +77,7 @@ func energy_checks() -> void:
 	var before=float(petrol.state.fleet_by_id.motorcar.fuel)
 	petrol.state.throttle=1
 	petrol.physics_step(1)
-	check(absf(before-petrol.state.fleet_by_id.motorcar.fuel-0.0003)<1e-9,"neutral petrol burns idle only, not a fake throttle tax")
+	check(absf(before-petrol.state.fleet_by_id.motorcar.fuel-0.0003*1.8)<1e-9,"neutral petrol revving at full pedal burns only the idle burn scaled by rpm")
 	for speed in [0.01,2.0,5.0]:
 		var m=fixture("locomotive")
 		m.state.fleet_by_id.locomotive.fuel=0.3;m.state.v=speed;m.state.brake=1
@@ -163,10 +163,10 @@ func run() -> void:
 				await pull("start",1)
 				check(not game.model.state.engine and game.toast.contains("0%"),"nonzero throttle startup rejected with reason")
 				await pull("throttle",0)
-				await pull("gear",0.5)
+				await pull("gear",0.4)
 				await pull("start",1)
 				check(not game.model.state.engine and game.toast.contains("нейтраль"),"startup in gear rejected with reason")
-				await pull("gear",0)
+				await pull("gear",0.2)
 				await pull("start",1)
 				check(game.model.state.engine,"mouse starts at neutral and zero throttle")
 				await pull("start",0)
@@ -179,14 +179,14 @@ func run() -> void:
 				get_tree().root.push_input(slip,true)
 				await mouse(slip.position,false)
 				check(game.model.state.engine,"dragging away cancels switch click")
-				await pull("gear",0.5)
+				await pull("gear",0.4)
 				check(game.model.state.gear==1,"gear has fixed detent")
 				game.model.state.v=2
 				await pull("gear",1)
-				check(game.model.state.gear==2 and game.model.state.v==2,"upshift while moving with zero throttle")
+				check(game.model.state.gear==4 and game.model.state.v==2,"upshift while moving with zero throttle")
 				await pull("throttle",0.8)
-				await pull("gear",0.5)
-				check(game.model.state.gear==2 and game.toast.contains("15%"),"loaded shift rejected with nearby feedback")
+				await pull("gear",0.4)
+				check(game.model.state.gear==4 and game.toast.contains("15%"),"loaded shift rejected with nearby feedback")
 			await pull("brake",0.8)
 			var value=game.model.state.brake
 			await frame()

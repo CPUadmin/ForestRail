@@ -62,6 +62,9 @@ var drag_initial = 0.0
 var drag_closeup = false
 var lever_target_point = Vector2.ZERO
 var lever_pending_gear = 0
+# Petrol gearbox on the lever arc: R, N, 1, 2, 3, 4 (gear numbers as in the model).
+const GEAR_ORDER = [5, 0, 1, 2, 3, 4]
+const GEAR_LABELS = {0: "N", 1: "1", 2: "2", 3: "3", 4: "4", 5: "R"}
 var lever_travel = 0.0
 var lever_click_origin = Vector2.ZERO
 var pump_grab_offset = Vector2.ZERO
@@ -121,7 +124,7 @@ func _ready() -> void:
 		for arg in qa_args:
 			if arg.begins_with("--qa-suite="):
 				var suite = arg.trim_prefix("--qa-suite=")
-				if suite not in ["check_model", "check_physics", "check_interaction", "drive_campaign", "check_presentation", "check_handcar_revision", "check_art_v3", "check_instruments", "check_station_service", "check_world_geometry", "check_mechanism", "check_mechanism_bench", "check_handcar_drive", "check_handcar_input", "check_motor_controls", "check_loading_selection", "check_layout_p7", "check_steam", "check_steam_view", "check_soak_p8", "check_save_p8"]: get_tree().quit(2); return
+				if suite not in ["check_model", "check_physics", "check_interaction", "drive_campaign", "check_presentation", "check_handcar_revision", "check_art_v3", "check_instruments", "check_station_service", "check_world_geometry", "check_mechanism", "check_mechanism_bench", "check_handcar_drive", "check_handcar_input", "check_motor_controls", "check_loading_selection", "check_layout_p7", "check_steam", "check_steam_view", "check_gearbox", "check_soak_p8", "check_save_p8"]: get_tree().quit(2); return
 				get_tree().root.set_meta("qa_running", true)
 				set_process(false)
 				set_physics_process(false)
@@ -557,7 +560,7 @@ func build_depot(size: Vector2) -> void:
 	if model.vehicle_id() == "handcar":
 		details += "\nРучной привод · без топлива\nМаховик сохраняет накат"
 	else:
-		details += "\nПередачи Н / I / II · до %.0f км/ч\n" % (float(stats.speeds[1])*3.6) + energy_text()
+		details += "\nПередачи R / N / 1–4 · до %.0f км/ч\n" % (float(stats.speeds[stats.speeds.size()-1])*3.6) + energy_text()
 	var details_y = maxf(info_top + 88, info_top + 7 + line_height(32) + 6)
 	positioned_label(details, Rect2(46, details_y, left_width - 20, 105), 19)
 	depot_info_rect = Rect2(22, info_top, left_width - 28, maxf(195, details_y + (details.count("\n") + 1) * line_height(19) + 12 - info_top))
@@ -763,7 +766,7 @@ func update_hud() -> void:
 	elif model.vehicle_id() == "locomotive":
 		hint = "Тяга — зелёный рычаг, тормоз — красный. Направление выбирается на стоянке кнопками «Тяга ←» и «Тяга →»."
 	elif not state.engine:
-		hint = "Запуск: подача 0%, передача Н. Щёлкни тумблер, затем выбери режим и подай тягу."
+		hint = "Запуск: подача 0%, передача N. Щёлкни тумблер, затем выбери передачу и подай газ."
 	else:
 		hint = "Подача — зелёный рычаг, тормоз — красный. Передача меняется при подаче ниже 15%."
 	if float(state.brake) > 0.95 and not model.stopped():
@@ -793,7 +796,7 @@ func update_hud() -> void:
 			choice_label.add_theme_stylebox_override("normal",style(INK,Color("5d7561"),6))
 			choice_label.vertical_alignment=VERTICAL_ALIGNMENT_CENTER
 		elif model.stopped():
-			if model.vehicle_id()!="handcar":
+			if model.vehicle_id() not in ["handcar","motorcar"]:
 				add_button(action_bar, "Тяга ←", func():
 					if model.set_reverser(-int(state.direction)): save_game(); last_action_key = ""
 					else: notify(model.message), false, model.drive_direction() < 0)
@@ -936,14 +939,14 @@ func draw_control_zoom() -> void:
 		var steam=model.vehicle_id()=="steam"
 		var title={"brake":"Тормоз","throttle":{"locomotive":"Тяга","steam":"Вентиль"}.get(model.vehicle_id(),"Газ"),"gear":"Вода" if steam else "Передача","start":"Розжиг" if steam else "Пуск"}[id]
 		var shown_gear=lever_pending_gear if drag=="gear" else int(model.state.gear)
-		var label={"brake":"%d%%" % (model.state.brake*100),"throttle":"%d%%" % (model.state.throttle*100),"gear":("%d%%" % (float(model.boiler().feed)*100)) if steam else ["Н","1","2"][shown_gear],"start":("Горит" if model.state.engine else "Разжечь") if steam else ("Вкл." if model.state.engine else "Выкл.")}[id]
+		var label={"brake":"%d%%" % (model.state.brake*100),"throttle":"%d%%" % (model.state.throttle*100),"gear":("%d%%" % (float(model.boiler().feed)*100)) if steam else GEAR_LABELS[shown_gear],"start":("Горит" if model.state.engine else "Разжечь") if steam else ("Вкл." if model.state.engine else "Выкл.")}[id]
 		draw_string(font,rect.position+Vector2(15+100*i,78),title,HORIZONTAL_ALIGNMENT_CENTER,100,16,PAPER)
 		draw_string(font,rect.position+Vector2(15+100*i,253),label,HORIZONTAL_ALIGNMENT_CENTER,100,16,GOLD)
 		if id=="gear" and not steam:
-			for detent in range(3):
-				var mark=pivot+Vector2(0,-length).rotated(lerpf(-0.55,0.55,detent/2.0))
-				draw_circle(mark,3,GOLD if detent==shown_gear else Color("66796b"))
-				draw_string(font,mark+Vector2(-5,-12),["Н","1","2"][detent],HORIZONTAL_ALIGNMENT_LEFT,20,13,PAPER)
+			for detent in range(6):
+				var mark=pivot+Vector2(0,-length).rotated(lerpf(-0.55,0.55,detent/5.0))
+				draw_circle(mark,3,GOLD if GEAR_ORDER[detent]==shown_gear else Color("66796b"))
+				draw_string(font,mark+Vector2(-5,-12),GEAR_LABELS[GEAR_ORDER[detent]],HORIZONTAL_ALIGNMENT_LEFT,20,13,RED if GEAR_ORDER[detent]==5 else PAPER)
 		elif id!="start":
 			for endpoint in range(2):
 				var mark=pivot+Vector2(0,-length).rotated(lerpf(-0.55,0.55,float(endpoint)))
@@ -1183,7 +1186,7 @@ func _input(event: InputEvent) -> void:
 				if value<0.001: value=0.0
 				elif value>0.999: value=1.0
 				if drag=="gear" and model.vehicle_id()=="steam": model.set_feed(value)
-				elif drag=="gear": lever_pending_gear=roundi(value*2)
+				elif drag=="gear": lever_pending_gear=GEAR_ORDER[clampi(roundi(value*5.0),0,5)]
 				else: model.state[drag]=value
 		get_viewport().set_input_as_handled()
 	elif event is InputEventMouseButton and not event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
@@ -1787,7 +1790,7 @@ func control_geometry(id: String, closeup: bool = false) -> Dictionary:
 		pivot=control_zoom_rect().position+Vector2(65+100*["brake","throttle","gear","start"].find(id),225)
 		length=42.0 if id=="start" else 78.0
 	var value=float(model.state.get(id,0))
-	if id=="gear": value=float(model.boiler().feed) if model.vehicle_id()=="steam" else float(lever_pending_gear if drag=="gear" else model.state.gear)/2
+	if id=="gear": value=float(model.boiler().feed) if model.vehicle_id()=="steam" else float(GEAR_ORDER.find(lever_pending_gear if drag=="gear" else int(model.state.gear)))/5.0
 	var angle=lerpf(-0.55,0.55,value)
 	if id=="start": angle=0.0 if model.state.engine else PI
 	return {"pivot":pivot,"grip":pivot+Vector2(0,-length).rotated(angle),"angle":angle}
@@ -1832,7 +1835,7 @@ func draw_controls(body_transform: Transform2D, show_labels: bool = true) -> voi
 			for endpoint in range(2):
 				var mark=geo.pivot+Vector2(0,-geo.pivot.distance_to(geo.grip)).rotated(lerpf(-0.55,0.55,float(endpoint)))
 				draw_string(font,mark+Vector2(-8,-12),["0","100"][endpoint],HORIZONTAL_ALIGNMENT_LEFT,30,12,PAPER)
-		var label = {"pump": "КАЧАЙ ↕", "brake": "%d%%" % (float(model.state.brake) * 100), "throttle": "%d%%" % (float(model.state.throttle) * 100), "gear": ("%d%%" % (float(model.boiler().feed) * 100)) if model.vehicle_id() == "steam" else ["Н", "1", "2"][int(model.state.gear)], "start": "ВКЛ" if model.state.engine else "ПУСК"}[id]
+		var label = {"pump": "КАЧАЙ ↕", "brake": "%d%%" % (float(model.state.brake) * 100), "throttle": "%d%%" % (float(model.state.throttle) * 100), "gear": ("%d%%" % (float(model.boiler().feed) * 100)) if model.vehicle_id() == "steam" else GEAR_LABELS[int(model.state.gear)], "start": "ВКЛ" if model.state.engine else "ПУСК"}[id]
 		draw_string(font, geo.grip + Vector2(-25, -25), label, HORIZONTAL_ALIGNMENT_CENTER, 80, 16, PAPER)
 
 func add_world_hits(id: String, index: int, transform: Transform2D) -> void:
@@ -1969,7 +1972,7 @@ func draw_tooltip() -> void:
 	var text = ""
 	for hit in grip_hits:
 		if hit.position.distance_to(mouse) < 31:
-			text = {"pump": "Зажми хват и веди его по дуге рычага", "brake": "Тормоз: веди рукоять по дуге от 0 до 100%", "throttle": "Подача: веди рукоять по дуге от 0 до 100%", "gear": "Кран воды: веди рукоять по дуге. Без воды пара нет" if model.vehicle_id() == "steam" else "Перетащи рукоять к Н, 1 или 2", "start": "Щёлкни, чтобы разжечь или погасить огонь" if model.vehicle_id() == "steam" else "Щёлкни тумблер, чтобы включить или выключить"}[hit.id]
+			text = {"pump": "Зажми хват и веди его по дуге рычага", "brake": "Тормоз: веди рукоять по дуге от 0 до 100%", "throttle": "Подача: веди рукоять по дуге от 0 до 100%", "gear": "Кран воды: веди рукоять по дуге. Без воды пара нет" if model.vehicle_id() == "steam" else "Передачи по дуге: R, N, 1–4. Менять при подаче ниже 15%, R только на остановке", "start": "Щёлкни, чтобы разжечь или погасить огонь" if model.vehicle_id() == "steam" else "Щёлкни тумблер, чтобы включить или выключить"}[hit.id]
 	if text=="" and screen=="game" and model.vehicle_id()=="locomotive" and charge_strip_rect.has_point(mouse):
 		text="Заряд %d%% · доступная тяга %d%%" % [roundi(charge_fraction()*100),roundi(model.charge_traction_factor()*100)]
 	for hit in cargo_hits:
