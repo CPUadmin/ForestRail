@@ -65,6 +65,8 @@ var cab_hits: Array = []
 var pult_t = Transform2D.IDENTITY
 var cab_exit_rect = Rect2()
 var cab_sides: Array = []
+# Visual-only engine temperature of the petrol car, 0..1: warms up while it runs.
+var cab_temp = 0.05
 var drag = ""
 var drag_item = ""
 var drag_total = 0.0
@@ -1208,6 +1210,10 @@ func _process(dt: float) -> void:
 	time += dt
 	if screen != "game" or model.vehicle_id() == "handcar": cab_view = false
 	cab_blend = move_toward(cab_blend, 1.0 if cab_view else 0.0, dt * 4.0)
+	if screen == "game" and not model.state.is_empty() and model.vehicle_id() == "motorcar":
+		var running = bool(model.state.engine)
+		var heat_target = (0.30 + 0.42 * clampf(model.engine_rpm_fraction() * 0.8 + float(model.state.throttle) * 0.2, 0.0, 1.0)) if running else 0.05
+		cab_temp = move_toward(cab_temp, heat_target, dt * (0.03 if running else 0.012))
 	if ui != null and ui.visible == cab_active(): ui.visible = not cab_active()
 	if art_world != null and art_world.visible == cab_active(): art_world.visible = not cab_active()
 	update_pult_transform()
@@ -1863,6 +1869,13 @@ func draw_cab_nose(view: Rect2, look: Dictionary) -> void:
 		for band in [0.2, 0.62]:
 			var y = bottom - vh * 0.30 * band
 			draw_line(Vector2(cx - vh * (0.52 - 0.22 * band), y), Vector2(cx + vh * (0.52 - 0.22 * band), y), brass, 4.0, true)
+		var cap = Vector2(cx + vh * 0.17, bottom - vh * 0.22)
+		draw_circle(cap, vh * 0.026, brass)
+		draw_circle(cap, vh * 0.019, Color("8a6d33"))
+		draw_line(cap + Vector2(-vh * 0.014, 0), cap + Vector2(vh * 0.014, 0), Color("2a2218"), 2.5)
+		draw_line(cap + Vector2(0, -vh * 0.014), cap + Vector2(0, vh * 0.014), Color("2a2218"), 2.5)
+		draw_rect(Rect2(cx - 9, bottom - vh * 0.30, 18, vh * 0.30), Color("4b3321"))
+		draw_rect(Rect2(cx - 14, bottom - vh * 0.30 - 3, 28, 8), brass)
 		var lamp = Vector2(cx, bottom - vh * 0.33)
 		draw_circle(lamp, vh * 0.035, brass)
 		draw_circle(lamp, vh * 0.026, Color("fff0b4") if running else Color("8a8466"))
@@ -2044,6 +2057,7 @@ func draw_cab_dash_details(size: Vector2, layout: Dictionary) -> void:
 			draw_line(Vector2(vx, top + 83 + slat * 9), Vector2(vx + 50, top + 83 + slat * 9), Color(1, 1, 1, 0.1), 1.0)
 	draw_polyline(PackedVector2Array([Vector2(size.x * 0.30, top + 6), Vector2(size.x * 0.34, top + 42), Vector2(size.x * 0.38, top + 8)]), Color("0b0e0c"), 4.0, true)
 	draw_polyline(PackedVector2Array([Vector2(size.x * 0.62, top + 6), Vector2(size.x * 0.66, top + 38), Vector2(size.x * 0.70, top + 8)]), Color("0b0e0c"), 4.0, true)
+	if kind == "motorcar": draw_petrol_cab_extras(size, layout)
 	if kind == "steam":
 		# water glass on the right: tube with the level, brass fittings
 		var tube = Rect2(size.x - 150, top + 70, 16, 120)
@@ -2059,6 +2073,84 @@ func draw_cab_dash_details(size: Vector2, layout: Dictionary) -> void:
 		var ring_at = Vector2(size.x * 0.5 + 224 + sway, top - 60)
 		draw_line(Vector2(cord_top.x, size.y * 0.075), ring_at, Color("a58b57"), 3.0, true)
 		draw_arc(ring_at + Vector2(0, 8), 8, 0, TAU, 16, brass, 3.0, true)
+
+# Petrol cab: ignition lock, choke, fuse box, oil and temperature gauges, gear lamps,
+# a rear-view mirror and pedal pads. The two small gauges are live.
+func draw_petrol_cab_extras(size: Vector2, layout: Dictionary) -> void:
+	var top = float(layout.dash_top)
+	var pult: Rect2 = layout.rect
+	var brass = Color("c9a85a")
+	var cx = size.x * 0.5
+	var small = Color("c7c3a0")
+	var base_x = pult.end.x + 28.0
+	# ignition lock plate with a key
+	var lock = Rect2(base_x + 4, top + 60, 84, 60)
+	draw_style_box(style(Color("1d2320"), brass, 6), lock)
+	draw_circle(lock.position + Vector2(30, 30), 14, Color("0a0c0b"))
+	draw_circle(lock.position + Vector2(30, 30), 12, Color("3b3f3a"))
+	draw_line(lock.position + Vector2(30, 24), lock.position + Vector2(30, 36), Color("050605"), 3.0)
+	var key_on = bool(model.state.engine)
+	draw_line(lock.position + Vector2(30, 30), lock.position + Vector2(30 + (16 if key_on else 9), 30 - (6 if key_on else 14)), Color("d9c27a"), 4.0, true)
+	draw_circle(lock.position + Vector2(30 + (18 if key_on else 11), 30 - (7 if key_on else 16)), 6, Color("d9c27a"))
+	draw_string(font, lock.position + Vector2(0, 54), "ЗАЖИГАН.", HORIZONTAL_ALIGNMENT_CENTER, lock.size.x, 10, small)
+	draw_circle(lock.position + Vector2(8, 8), 2.2, brass)
+	draw_circle(lock.position + Vector2(lock.size.x - 8, 8), 2.2, brass)
+	# choke knob on its shaft
+	var choke = Vector2(base_x + 124, top + 82)
+	draw_line(choke, choke + Vector2(0, 34), Color("8d9a98"), 5.0, true)
+	draw_circle(choke, 12, Color("1a1a1a"))
+	draw_circle(choke, 9, Color("2d2d2d"))
+	draw_circle(choke + Vector2(-3, -3), 3, Color(1, 1, 1, 0.3))
+	draw_string(font, choke + Vector2(-30, 48), "ПОДСОС", HORIZONTAL_ALIGNMENT_CENTER, 60, 10, small)
+	# fuse box: six fuses, the third one blown for character
+	var box = Rect2(base_x + 2, top + 132, 124, 40)
+	draw_style_box(style(Color("20261f"), Color("6c6f66"), 4), box)
+	for fuse in range(6):
+		var colour = [Color("e6b34a"), Color("5cc17f"), Color("e0564a"), Color("5cc17f"), Color("e6b34a"), Color("5cc17f")][fuse]
+		var fx = box.position.x + 9 + fuse * 18
+		draw_rect(Rect2(fx, box.position.y + 7, 12, 18), colour.darkened(0.55) if fuse == 2 else colour)
+		draw_line(Vector2(fx + 6, box.position.y + 10), Vector2(fx + 6, box.position.y + 22), Color("101412"), 1.5)
+	draw_string(font, box.position + Vector2(0, 37), "ПРЕДОХРАНИТЕЛИ", HORIZONTAL_ALIGNMENT_CENTER, box.size.x, 9, small)
+	# two small live gauges: oil pressure follows the revs, temperature warms up and cools down
+	var running = bool(model.state.engine)
+	var oil = clampf(0.12 + model.engine_rpm_fraction() * 0.75, 0.0, 1.0) if running else 0.0
+	draw_round_gauge(Vector2(base_x + 28, top + 238), 30.0, oil, "МАСЛО", "%.1f" % (oil * 5.0), [[0.2, Color("e0564a")], [0.9, Color("5cc17f")], [1.0, Color("e6b34a")]], 4)
+	draw_round_gauge(Vector2(base_x + 92, top + 238), 30.0, cab_temp, "ТЕМП.", "%d°" % roundi(20.0 + cab_temp * 100.0), [[0.7, Color("5cc17f")], [0.88, Color("e6b34a")], [1.0, Color("e0564a")]], 4)
+	# gear lamps under the nameplate: the engaged gear is lit
+	var labels = ["1", "2", "3", "4", "N", "R"]
+	var gears = [1, 2, 3, 4, 0, 5]
+	for lamp in range(6):
+		var at = Vector2(cx - 70 + lamp * 28, top + 54)
+		var lit = int(model.state.gear) == gears[lamp]
+		var lamp_colour = Color("e0564a") if lamp == 5 else (Color("e6b34a") if lamp == 4 else Color("5cc17f"))
+		draw_circle(at, 9, Color("0c100e"))
+		draw_circle(at, 7, lamp_colour if lit else lamp_colour.darkened(0.78))
+		if lit: draw_circle(at, 15, Color(lamp_colour, 0.2))
+		draw_string(font, at + Vector2(-8, 4), labels[lamp], HORIZONTAL_ALIGNMENT_CENTER, 16, 10, Color("0c100e") if lit else Color("8a8466"))
+	# rear-view mirror on a stalk over the glass: the track and train behind, receding
+	var mirror = Rect2(cx + 150, size.y * 0.075 + 40, 118, 46)
+	draw_line(Vector2(cx + 209, size.y * 0.075), Vector2(cx + 209, mirror.position.y), Color("0f1512"), 5.0)
+	draw_rect(mirror.grow(5), Color("101512"))
+	draw_polygon(PackedVector2Array([mirror.position, Vector2(mirror.end.x, mirror.position.y), Vector2(mirror.end.x, mirror.get_center().y), Vector2(mirror.position.x, mirror.get_center().y)]), PackedColorArray([Color("86b3d6"), Color("86b3d6"), Color("d9e8e0"), Color("d9e8e0")]))
+	draw_rect(Rect2(mirror.position.x, mirror.get_center().y, mirror.size.x, mirror.size.y * 0.5), Color("5f8756"))
+	var vanishing = Vector2(mirror.get_center().x, mirror.get_center().y)
+	draw_line(vanishing + Vector2(-3, 0), Vector2(mirror.position.x + 34, mirror.end.y), Color("c7c3b4"), 2.0, true)
+	draw_line(vanishing + Vector2(3, 0), Vector2(mirror.end.x - 34, mirror.end.y), Color("c7c3b4"), 2.0, true)
+	for wagon in range(2):
+		var wagon_y = vanishing.y + 7 + wagon * 9
+		var wagon_w = 16 + wagon * 14
+		draw_rect(Rect2(vanishing.x - wagon_w * 0.5, wagon_y - 6 - wagon * 2, wagon_w, 8 + wagon * 2), Color("7a4a2a") if wagon == 0 else Color("8a5a34"))
+	draw_colored_polygon(PackedVector2Array([mirror.position + Vector2(10, 0), mirror.position + Vector2(40, 0), mirror.position + Vector2(20, mirror.size.y), mirror.position + Vector2(-8, mirror.size.y)]), Color(1, 1, 1, 0.16))
+	# pedal pads at the bottom, left of the pult: clutch, brake, gas (not controls)
+	for pedal in range(3):
+		var px = pult.position.x - 150 + pedal * 50
+		var py = size.y - 66
+		var tilt = 6 if pedal == 2 else 0
+		draw_colored_polygon(PackedVector2Array([Vector2(px, py + tilt), Vector2(px + 38, py + tilt), Vector2(px + 42, size.y), Vector2(px - 4, size.y)]), Color("171b19"))
+		for tread in range(5):
+			var ty = py + tilt + 8 + tread * 11
+			draw_line(Vector2(px + 3, ty), Vector2(px + 35, ty), Color(1, 1, 1, 0.12), 2.0)
+		draw_line(Vector2(px, py + tilt), Vector2(px + 38, py + tilt), brass, 2.0)
 
 func draw_round_gauge(center: Vector2, radius: float, fraction: float, title: String, readout: String, zones: Array, ticks: int = 10, scale_text: Array = []) -> void:
 	draw_circle(center + Vector2(2, 3), radius + 8, Color(0, 0, 0, 0.4))
