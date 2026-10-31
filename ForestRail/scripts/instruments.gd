@@ -7,6 +7,7 @@ const GREEN = Color("7fab85")
 const RED = Color("e18265")
 const PANEL = Color("203730")
 var game
+var panel_styles: Dictionary = {}
 var full_map = false
 var selected_station = -1
 var station_hits: Array = []
@@ -27,8 +28,15 @@ const WINDOW_AHEAD_M = 400.0
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP if full_map else Control.MOUSE_FILTER_IGNORE
 
-func _process(_delta: float) -> void:
-	queue_redraw()
+# The driving HUD redraws about 30 times a second: the needle and the minimap marker
+# move slowly, and every redraw costs a few milliseconds at 1080p.
+var redraw_clock = 0.0
+
+func _process(delta: float) -> void:
+	redraw_clock += delta
+	if full_map or redraw_clock >= 1.0 / 30.0:
+		redraw_clock = 0.0
+		queue_redraw()
 
 func nominal_speed() -> float:
 	if game.model.vehicle_id() == "handcar": return 30.0
@@ -135,11 +143,15 @@ func put(text: String, at: Vector2, width: float, font_size: int = 18, color: Co
 	draw_string(font,at,text,align,width,pixels,color)
 
 func panel(rect: Rect2, color: Color = PANEL, accent: Color = Color.TRANSPARENT) -> void:
-	var box = StyleBoxFlat.new()
-	box.bg_color = color
-	box.border_color = Color("5d7561") if accent.a == 0.0 else Color(accent, 0.55)
-	box.set_border_width_all(1)
-	box.set_corner_radius_all(12)
+	var key = "%s|%s" % [color.to_html(), accent.to_html()]
+	var box = panel_styles.get(key)
+	if box == null:
+		box = StyleBoxFlat.new()
+		box.bg_color = color
+		box.border_color = Color("5d7561") if accent.a == 0.0 else Color(accent, 0.55)
+		box.set_border_width_all(1)
+		box.set_corner_radius_all(12)
+		panel_styles[key] = box
 	draw_style_box(box,rect)
 	if accent.a > 0.0:
 		draw_style_box(game.style(accent,Color.TRANSPARENT,3),Rect2(rect.position+Vector2(0,14),Vector2(4,rect.size.y-28)))

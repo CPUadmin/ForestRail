@@ -131,7 +131,7 @@ func _ready() -> void:
 		for arg in qa_args:
 			if arg.begins_with("--qa-suite="):
 				var suite = arg.trim_prefix("--qa-suite=")
-				if suite not in ["check_model", "check_physics", "check_interaction", "drive_campaign", "check_presentation", "check_handcar_revision", "check_art_v3", "check_instruments", "check_station_service", "check_world_geometry", "check_mechanism", "check_mechanism_bench", "check_handcar_drive", "check_handcar_input", "check_motor_controls", "check_loading_selection", "check_layout_p7", "check_steam", "check_steam_view", "check_gearbox", "check_petrol_view", "check_skins", "check_soak_p8", "check_save_p8"]: get_tree().quit(2); return
+				if suite not in ["check_model", "check_physics", "check_interaction", "drive_campaign", "check_presentation", "check_handcar_revision", "check_art_v3", "check_instruments", "check_station_service", "check_world_geometry", "check_mechanism", "check_mechanism_bench", "check_handcar_drive", "check_handcar_input", "check_motor_controls", "check_loading_selection", "check_layout_p7", "check_steam", "check_steam_view", "check_gearbox", "check_petrol_view", "check_skins", "check_perf", "check_soak_p8", "check_save_p8"]: get_tree().quit(2); return
 				get_tree().root.set_meta("qa_running", true)
 				set_process(false)
 				set_physics_process(false)
@@ -889,7 +889,8 @@ func draw_steam_panel(rect: Rect2) -> void:
 	draw_string(font,bucket.position+Vector2(0,50),"%.0f кг" % float(fleet.fuel),HORIZONTAL_ALIGNMENT_CENTER,112,18,GOLD)
 	draw_string(font,bucket.position+Vector2(0,82),"тащи в топку",HORIZONTAL_ALIGNMENT_CENTER,112,13,dim)
 	var fire_edge=GOLD if (bool(b.door) and drag=="coal") else (PAPER if bool(b.door) else Color("66796b"))
-	draw_style_box(style(Color(0.12+0.5*heat,0.07+0.2*heat,0.05),fire_edge,6),fire)
+	var glow=roundf(heat*12.0)/12.0
+	draw_style_box(style(Color(0.12+0.5*glow,0.07+0.2*glow,0.05),fire_edge,6),fire)
 	draw_string(font,fire.position+Vector2(0,24),"ТОПКА",HORIZONTAL_ALIGNMENT_CENTER,130,16,PAPER)
 	draw_string(font,fire.position+Vector2(0,50),"%.1f / %d кг" % [float(b.firebox),int(cfg.firebox_kg)],HORIZONTAL_ALIGNMENT_CENTER,130,17,GOLD)
 	draw_style_box(style(INK,GOLD if bool(b.door) else Color("66796b"),6),door_button)
@@ -1130,7 +1131,7 @@ func _process(dt: float) -> void:
 		if delivery_ghost.time>0.45: delivery_ghost={}
 	toast_seconds = maxf(0, toast_seconds - dt)
 	if screen != "menu" and not model.state.is_empty():
-		var target_s = float(model.state.s)
+		var target_s = model.render_s()
 		if screen == "depot": target_s = 0
 		# The camera keeps following while a cab lever is held; lever input is read in
 		# the machine's own frame, so the grip stays under the cursor instead of the
@@ -1169,6 +1170,7 @@ func _process(dt: float) -> void:
 			get_tree().quit()
 
 func _physics_process(dt: float) -> void:
+	if screen != "game" or paused: model.last_movement = 0.0
 	if screen == "game" and not paused:
 		model.physics_step(dt)
 		autosave += dt
@@ -1203,7 +1205,7 @@ func _input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 			return
 		if drag=="push":
-			var outer=body_transform(model.vehicle_id(),model.body_s(0))
+			var outer=body_transform(model.vehicle_id(),model.body_s_render(0))
 			var delta=(outer.affine_inverse()*event.position-outer.affine_inverse()*push_cursor).x/ArtV3.PX*int(model.state.direction)
 			model.push_handcar(delta)
 			push_cursor=event.position
@@ -1213,7 +1215,7 @@ func _input(event: InputEvent) -> void:
 		drag_total += delta_y
 		if drag == "pump":
 			if float(model.state.brake) > 0.9 and absf(delta_y) > 2: notify("Тормоз затянут. Переведи красную рукоять к 0%")
-			var outer=body_transform(model.vehicle_id(),model.body_s(0))
+			var outer=body_transform(model.vehicle_id(),model.body_s_render(0))
 			# Accumulate local cursor travel. Camera translation never changes
 			# the target; capture offset is retained without snapping the grip.
 			pump_target_point+=outer.affine_inverse().basis_xform(event.relative)*float(settings.sensitivity)/ArtV3.PX
@@ -1221,7 +1223,7 @@ func _input(event: InputEvent) -> void:
 		elif drag in ["brake","throttle","gear","start"]:
 			lever_travel+=event.relative.length()
 			if drag!="start":
-				var outer=Transform2D.IDENTITY if drag_closeup else body_transform(model.vehicle_id(),model.body_s(0))
+				var outer=Transform2D.IDENTITY if drag_closeup else body_transform(model.vehicle_id(),model.body_s_render(0))
 				# Relative local travel excludes camera motion and preserves the grab offset.
 				# Motor controls follow the visible arc one-to-one, independent of pump sensitivity.
 				var local_move=outer.affine_inverse().basis_xform(event.relative)
@@ -1316,7 +1318,7 @@ func _unhandled_input(event: InputEvent) -> void:
 					wheel_acc=float(press_geo.angle)
 			model.reset_input()
 			if drag=="pump":
-				var outer=body_transform(model.vehicle_id(),model.body_s(0))
+				var outer=body_transform(model.vehicle_id(),model.body_s_render(0))
 				pump_grip_side=float(nearest.get("side",1.0))
 				var pose=model.handcar.pose()
 				var grip=pose.rocker+(pose.grip_right-pose.rocker)*pump_grip_side
@@ -1329,7 +1331,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 			return
 		if model.can_push_handcar():
-			var outer=body_transform(model.vehicle_id(),model.body_s(0))
+			var outer=body_transform(model.vehicle_id(),model.body_s_render(0))
 			var local=outer.affine_inverse()*mouse/ArtV3.PX
 			if absf(local.x)>0.85 and absf(local.x)<1.35 and local.y>-0.70 and local.y<0.05:
 				drag="push"
@@ -1624,14 +1626,14 @@ func draw_train() -> void:
 	# Draw every connector from the same transformed mount used by its body.
 	for i in range(1,ids.size()):
 		if screen == "depot" and not coupling_anim.is_empty() and coupling_anim.attach and ids[i] == coupling_anim.id: continue
-		var front_s = model.body_s(i-1) if screen!="depot" else -model.body_offset(i-1)
-		var rear_s = model.body_s(i) if screen!="depot" else -model.body_offset(i)
+		var front_s = model.body_s_render(i-1) if screen!="depot" else -model.body_offset(i-1)
+		var rear_s = model.body_s_render(i) if screen!="depot" else -model.body_offset(i)
 		var a = body_transform(ids[i],rear_s)*Geometry.coupling(ids[i],1)
 		var b = body_transform(ids[i-1],front_s)*Geometry.coupling(ids[i-1],-1)
 		draw_coupler(a,b)
 	for i in range(ids.size() - 1, -1, -1):
 		if screen == "depot" and not coupling_anim.is_empty() and coupling_anim.attach and ids[i] == coupling_anim.id: continue
-		var s = model.body_s(i) if screen != "depot" else -model.body_offset(i)
+		var s = model.body_s_render(i) if screen != "depot" else -model.body_offset(i)
 		var p = world_point(s)
 		var transform = body_transform(ids[i],s)
 		draw_set_transform_matrix(transform)
@@ -1647,7 +1649,7 @@ func draw_train() -> void:
 			add_world_hits(ids[i], i, transform)
 	for pair in [[0,1],[ids.size()-1,-1]]:
 		var id = ids[pair[0]]
-		var s = model.body_s(pair[0]) if screen!="depot" else -model.body_offset(pair[0])
+		var s = model.body_s_render(pair[0]) if screen!="depot" else -model.body_offset(pair[0])
 		var outer = body_transform(id,s)
 		var mount = Geometry.coupling(id,pair[1])
 		draw_coupler(outer*mount,outer*(mount+Vector2(pair[1]*float(Geometry.data().coupler.end_extension_m)*ArtV3.PX,0)))

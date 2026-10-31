@@ -24,6 +24,8 @@ var shock_time = 0.0
 var rail_distance = 0.0
 var regen_kw = 0.0
 var valve_held = false
+# Distance travelled in the last physics step, for drawing between steps.
+var last_movement = 0.0
 var shift_cut = 0.0
 var motor_energy: Dictionary = {}
 var loading_cache: Dictionary = {}
@@ -742,6 +744,18 @@ func start_engine(value: bool) -> bool:
 # --- Petrol gearbox (N5): gears 1-4, N, R(=5) ---
 
 # Engine fraction 0..1 between idle and the rev limit.
+# Drawing runs at the display rate, the model steps at 60 Hz. Positions for the
+# picture are pulled back by the part of the last step that has not happened yet
+# on screen, so motion is smooth at any frame rate.
+func render_shift() -> float:
+	return (1.0 - clampf(Engine.get_physics_interpolation_fraction(), 0.0, 1.0)) * last_movement
+
+func render_s() -> float:
+	return float(state.s) - render_shift()
+
+func body_s_render(index: int) -> float:
+	return body_s(index) - render_shift()
+
 func engine_rpm_fraction() -> float:
 	if vehicle_id() != "motorcar" or not state.engine: return 0.0
 	var gear = int(state.gear)
@@ -932,6 +946,7 @@ func push_handcar(distance_m: float) -> bool:
 func physics_step(dt: float) -> void:
 	if state.is_empty() or dt<=0:
 		return
+	last_movement = 0.0
 	update_station_dwell(dt)
 	if state.phase == "depot" or state.phase == "loading":
 		# The boiler can be prepared while the wagons are being loaded.
@@ -1034,6 +1049,7 @@ func physics_step(dt: float) -> void:
 		if vehicle_id()!="steam" and fleet.fuel<=0: state.engine=false
 	acceleration=(new_v-old_v)/dt
 	state.v=new_v
+	last_movement = movement
 	state.s+=movement
 	state.stats.distance += absf(movement)
 	rail_distance += absf(movement)
