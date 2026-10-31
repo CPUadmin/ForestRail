@@ -54,5 +54,10 @@ func run() -> void:
 	await shot("fc_map_steam")
 	check(game.service_text("D").contains("вода") and game.service_text("A").contains("заправка"), "map shows services per station")
 	game.close_modal()
+	# the menu's new game gives the long line, the depot shows the longer pay
+	game.begin_new(7)
+	await frame(4)
+	check(game.model.route.version == 2 and game.screen == "depot" and float(game.model.route.station_x[5]) == 6800.0, "a new career starts on the long line")
+	check(int(game.model.current_mission().reward) == 360, "and the first order pays for it")
 	print("FORECAST VIEW CHECKS ", checks, "; FAILURES ", failures)
 	get_tree().quit(0 if failures.is_empty() else 1)

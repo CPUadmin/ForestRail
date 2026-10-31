@@ -12,13 +12,15 @@ const Model = preload("res://scripts/model.gd")
 var failures: Array = []
 var stats: Array = []
 var steps = 0
+# 1 is the original 1.7 km line; drive_long.gd runs the same campaign on the long line.
+var line = 1
 
 func _ready() -> void:
 	call_deferred("run")
 
 func run() -> void:
 	var m = Model.new()
-	m.new_game(42)
+	m.new_game(42, line)
 	var partial="--partial-first" in OS.get_cmdline_user_args()
 	var trips=1 if partial else 13
 	for chapter in range(trips):
@@ -40,7 +42,7 @@ func run() -> void:
 		var timer = 0.0
 		var phase_time = 0.0
 		var last_stop = ""
-		while m.state.phase != "depot" and timer < 2400:
+		while m.state.phase != "depot" and timer < 9000:
 			var destination = m.next_destination()
 			var target_s = m.service_stop(station_index(m,destination))
 			var remaining = (target_s - float(m.state.s)) * int(m.state.direction)
@@ -60,7 +62,12 @@ func run() -> void:
 				else:
 					if m.vehicle_id() == "steam":
 						# The boiler needs a fire and coal; stoke again when it runs low.
-						if not m.state.engine or float(m.boiler().firebox) < 1.5: preload("res://tests/fixtures.gd").fire_up(m)
+						if not m.state.engine:
+							preload("res://tests/fixtures.gd").fire_up(m)
+						elif float(m.boiler().firebox) < 4.0:
+							m.set_door(true)
+							while float(m.boiler().firebox) < 9.0 and m.stoke(): pass
+							m.set_door(false)
 					elif not m.state.engine:
 						m.state.throttle = 0
 						m.set_gear(0)
@@ -72,6 +79,10 @@ func run() -> void:
 							m.state.throttle = 0.0
 							m.set_gear(want)
 					m.state.throttle = 0.95
+					if m.vehicle_id() == "steam":
+						# Ease the regulator when the pressure runs down, as a driver does.
+						var pressure = float(m.boiler().pressure)
+						m.state.throttle = 0.95 if pressure > 0.55 else (0.5 if pressure > 0.3 else 0.15)
 			m.physics_step(1.0 / 60)
 			timer += 1.0 / 60
 			steps += 1
@@ -96,7 +107,7 @@ func run() -> void:
 	output.store_string(JSON.stringify({"failures": failures, "missions": stats, "steps": steps}, "\t"))
 	output.close()
 	print("DRIVE CAMPAIGN: ", stats.size(), "/",trips," (partial first trip)" if partial else " (10 career + 3 free)"," steps ", steps, ", failures ", failures)
-	if partial and (stats.is_empty() or stats[0].money!=50): failures.append("partial payment must be 50")
+	if partial and line == 1 and (stats.is_empty() or stats[0].money!=50): failures.append("partial payment must be 50")
 	quit(0 if failures.is_empty() and stats.size() == trips else 1)
 
 func station_index(m, id: String) -> int:

@@ -38,9 +38,11 @@ var stationary_station = 0
 func _init() -> void:
 	data = JSON.parse_string(FileAccess.get_file_as_string("res://data/game_data.json"))
 
-func new_game(world_seed: int = 42) -> void:
+# line_version 1 is the original 1.7 km line (what the tests use unless they ask), 2 the long
+# line of about 6.8 km that the game gives to a new career (N7.3).
+func new_game(world_seed: int = 42, line_version: int = 1) -> void:
 	loading_cache.clear()
-	route.generate(world_seed, data.stations)
+	route.generate(world_seed, data.stations, line_version)
 	state = {"version": 2, "fleet_by_id": {"handcar": {"levels": {}, "fuel": 0.0, "consist": []}},
 		"wagons_by_id": {}, "selected_vehicle_id": "handcar", "consist_ids": [],
 		"money": 0, "chapter": 0, "completed_ids": [], "paid_ids": [], "active": {},
@@ -121,8 +123,8 @@ func object_stats(id: String) -> Dictionary:
 	var result = {"slots": slots, "mass": mass, "rolling": 0.004 * float(ef.get("rolling_multiplier", 1.0)),
 		"brake": brake_base * float(ef.get("brake_multiplier", 1.0)) + float(ef.get("add_brake_n", 0)),
 		"shock": float(ef.get("cargo_shock_multiplier", 1.0)), "power": 220.0,
-		"tank": float(base.get("battery_kwh", base.get("coal_kg", base.get("fuel_l", 0)))) * float(ef.get("fuel_capacity_multiplier", 1.0)),
-		"water": float(base.get("water_l", 0))}
+		"tank": float(base.get("battery_kwh", base.get("coal_kg", base.get("fuel_l", 0)))) * float(ef.get("fuel_capacity_multiplier", 1.0)) * line_tank_scale(base),
+		"water": float(base.get("water_l", 0)) * line_tank_scale(base, true)}
 	if not wagon and id != "handcar":
 		result.traction = [float(base.traction_n[0]) * float(ef.get("traction_multiplier", 1)) * float(ef.get("low_gear_multiplier", 1)),
 			float(base.traction_n[1]) * float(ef.get("traction_multiplier", 1))]
@@ -140,6 +142,13 @@ func object_stats(id: String) -> Dictionary:
 
 func rank(id: String) -> int:
 	return int(vehicle_base(id).get("rank", 0))
+
+# Tanks grow with the line; each class may need a little more or less than the plain
+# length ratio on the long line (line_tank_factor in the data, e.g. the electric drive
+# weakens when the battery runs low and so needs headroom for a round trip).
+func line_tank_scale(base: Dictionary, water: bool = false) -> float:
+	var factor = float(base.get("line_water_factor" if water else "line_tank_factor", 1.0)) if route.version >= 2 else 1.0
+	return route.fuel_scale() * factor
 
 func max_wagons(id: String) -> int:
 	return int(vehicle_base(id).get("max_wagons", 0))
@@ -401,14 +410,39 @@ func trip_forecast(mission: Dictionary = {}) -> Dictionary:
 	var fleet = state.fleet_by_id[vehicle_id()]
 	var leg = longest_leg(far, fuel_points)
 	var water_leg = longest_leg(far, water_points)
-	return {"far_m": far, "leg_m": leg, "need": float(base.get("energy_fixed", 0.0)) + leg * float(base.energy_per_m), "have": float(fleet.fuel), "tank": float(stats.tank),
-		"water_leg_m": water_leg, "water_need": water_leg * float(base.get("water_per_m", 0.0)) if float(stats.water) > 0 else 0.0,
+	var suffix = "_v2" if route.version >= 2 else ""
+	var rate = float(base.get("energy_per_m" + suffix, base.energy_per_m))
+	var fixed = float(base.get("energy_fixed" + suffix, base.get("energy_fixed", 0.0) if suffix == "" else 0.0))
+	var water_rate = float(base.get("water_per_m" + suffix, base.get("water_per_m", 0.0)))
+	return {"far_m": far, "leg_m": leg, "need": fixed + leg * rate, "have": float(fleet.fuel), "tank": float(stats.tank),
+		"water_leg_m": water_leg, "water_need": water_leg * water_rate if float(stats.water) > 0 else 0.0,
 		"water_have": float(fleet.get("water", 0)), "water_tank": float(stats.water), "unit": str(base.energy_unit)}
 
 func current_mission() -> Dictionary:
 	if int(state.chapter) >= data.missions.size():
 		return {}
-	return data.missions[int(state.chapter)]
+	return scaled_mission(data.missions[int(state.chapter)])
+
+# On a longer line a career order pays in proportion to how much farther its far station
+# is, so income per minute (and the time to afford a machine) stays what it was.
+func mission_reward_scale(mission: Dictionary) -> float:
+	if route.version < 2 or route.station_x.is_empty(): return 1.0
+	var old_far = 0.0
+	var new_far = 0.0
+	for stop in mission.get("dropoffs", []):
+		for i in range(data.stations.size()):
+			if data.stations[i].id == stop.station:
+				old_far = maxf(old_far, float(data.stations[i].s_m))
+				new_far = maxf(new_far, float(route.station_x[i]))
+	return new_far / old_far if old_far > 0.0 else 1.0
+
+func scaled_mission(mission: Dictionary) -> Dictionary:
+	var scale = mission_reward_scale(mission)
+	if scale == 1.0 or mission.has("reward_scale"): return mission
+	var copy = mission.duplicate(true)
+	copy.reward = roundi(float(mission.reward) * scale)
+	copy.reward_scale = scale
+	return copy
 
 func mission_count(mission: Dictionary) -> int:
 	var count = 0
@@ -467,11 +501,12 @@ func free_reward(dropoffs: Array) -> int:
 	for stop in dropoffs:
 		var distance = 0.0
 		for i in range(data.stations.size()):
-			if data.stations[i].id == stop.station: distance = float(data.stations[i].s_m)
+			if data.stations[i].id == stop.station: distance = float(route.station_x[i])
 		for pair in stop.cargo: total += (25.0 + 0.06 * distance) * int(pair[1])
 	return roundi(total * float(vehicle_base().get("free_reward_multiplier", 1.0)))
 
 func accept_mission(mission: Dictionary) -> bool:
+	if not mission.get("free", false): mission = scaled_mission(mission)
 	if not depot_editable():
 		return fail("Сначала закончи или отмени активный рейс")
 	if mission.get("id", "") in state.paid_ids:
@@ -1305,10 +1340,16 @@ func validate_save(saved: Dictionary) -> bool:
 		if not numeric(saved[key]): return false
 	if saved.money < 0 or saved.chapter < 0 or saved.chapter > 10 or saved.brake < 0 or saved.brake > 1 or saved.throttle < 0 or saved.throttle > 1 or saved.gear < 0 or saved.gear > 5:
 		return false
-	if absf(float(saved.v)) > 100 or float(saved.s) < -40 or float(saved.s) > 1760:
-		return false
 	if not saved.route.has_all(["points", "seed", "generator_version"]) or not saved.route.points is Array or saved.route.points.size() < 1700:
 		return false
+	if not saved.route.points[-1] is Array or saved.route.points[-1].size() != 3 or not numeric(saved.route.points[-1][2]): return false
+	if absf(float(saved.v)) > 100 or float(saved.s) < -40 or float(saved.s) > float(saved.route.points[-1][2]) + 20.0:
+		return false
+	if not numeric(saved.route.generator_version) or int(saved.route.generator_version) not in [1, 2]: return false
+	if int(saved.route.generator_version) >= 2:
+		if not saved.route.get("station_x") is Array or saved.route.station_x.size() != data.stations.size(): return false
+		for x in saved.route.station_x:
+			if not numeric(x): return false
 	var previous_s = -INF
 	for point in saved.route.points:
 		if not point is Array or point.size() != 3: return false

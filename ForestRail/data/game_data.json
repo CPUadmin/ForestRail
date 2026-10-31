@@ -11,6 +11,8 @@
       "id": "A",
       "name": "Лесная",
       "s_m": 0,
+      "s_m_v2": 0,
+      "height_v2": 0,
       "role": "Домашнее депо и погрузочная площадка",
       "services": {"fuel": 1.0, "water": 1.0}
     },
@@ -18,18 +20,24 @@
       "id": "B",
       "name": "Сосновый разъезд",
       "s_m": 300,
+      "s_m_v2": 900,
+      "height_v2": 6,
       "role": "Первый привал и разгрузка"
     },
     {
       "id": "C",
       "name": "Лесопилка",
       "s_m": 600,
+      "s_m_v2": 2100,
+      "height_v2": 18,
       "role": "Тяжёлые грузы"
     },
     {
       "id": "D",
       "name": "Тихая заводь",
       "s_m": 950,
+      "s_m_v2": 3500,
+      "height_v2": 4,
       "role": "Промежуточная станция в низине",
       "services": {"water": 1.0}
     },
@@ -37,12 +45,16 @@
       "id": "E",
       "name": "Верхний бор",
       "s_m": 1300,
+      "s_m_v2": 5200,
+      "height_v2": 40,
       "role": "Затяжные подъёмы"
     },
     {
       "id": "F",
       "name": "Дальний бор",
       "s_m": 1700,
+      "s_m_v2": 6800,
+      "height_v2": 28,
       "role": "Дальняя станция и финальная доставка",
       "services": {"fuel": 1.5, "water": 1.0}
     }
@@ -118,7 +130,11 @@
       "water_l": 160,
       "refill_price": 4.5,
       "energy_per_m": 0.0055,
+      "energy_per_m_v2": 0.00203,
+      "line_tank_factor": 0.4,
+      "line_water_factor": 0.45,
       "water_per_m": 0.0465,
+      "water_per_m_v2": 0.0195,
       "energy_unit": "кг угля",
       "free_reward_multiplier": 1.25,
       "free_reach": "D",
@@ -176,6 +192,9 @@
       "brake_n": 1800,
       "refill_price": 40,
       "energy_per_m": 0.00043,
+      "energy_per_m_v2": 0.00049,
+      "energy_fixed_v2": 0.31,
+      "line_tank_factor": 1.1,
       "energy_fixed": 0.12,
       "energy_unit": "л",
       "free_reward_multiplier": 1.45,
@@ -229,6 +248,8 @@
       "battery_kwh": 0.15,
       "refill_price": 550,
       "energy_per_m": 3.65e-05,
+      "energy_per_m_v2": 5.3e-05,
+      "line_tank_factor": 1.5,
       "energy_fixed": 0.0122,
       "energy_unit": "кВт·ч",
       "free_reward_multiplier": 1.7,
