@@ -1,9 +1,9 @@
 extends RefCounted
 
 const ROOT = "res://assets/art_v3/"
-# The steam engine borrows the locomotive frame until its own picture exists
-# (ECONOMY_v3_2_RU.md); its boiler is drawn on top in draw_steam_boiler.
-const BODY = {"handcar": "vehicles/handcar_body", "steam": "vehicles/battery_locomotive_body", "motorcar": "vehicles/petrol_motorcar_body", "locomotive": "vehicles/battery_locomotive_body"}
+# The steam engine body is drawn by tools/make_steam_art.py; the fire glow,
+# needle, smoke and rods are drawn live in draw_steam_overlay / draw_steam_motion.
+const BODY = {"handcar": "vehicles/handcar_body", "steam": "vehicles/steam_locomotive_body", "motorcar": "vehicles/petrol_motorcar_body", "locomotive": "vehicles/battery_locomotive_body"}
 const LARGE_WHEELS = ["locomotive", "steam"]
 const Geometry = preload("res://scripts/world_geometry.gd")
 const Mechanism = preload("res://scripts/handcar_mechanism.gd")
@@ -136,61 +136,74 @@ func draw_vehicle(canvas: Node2D, id: String, distance: float, facing: int, oute
 		for i in range(bolt.size()): bolt[i]=(bolt[i]+Vector2(1.02,-0.28))*PX
 		canvas.draw_colored_polygon(bolt,Color("ddc37b"))
 	var p = mechanism_pose(model) if id=="handcar" and pose_override.is_empty() else pose_override
-	if id=="steam": draw_steam_boiler(canvas, model)
-	var wheel_id = "vehicles/wheel_large" if id in LARGE_WHEELS else "vehicles/wheel_small"
+	if id=="steam": draw_steam_overlay(canvas, model)
+	var wheel_id = "vehicles/steam_wheel" if id == "steam" else ("vehicles/wheel_large" if id in LARGE_WHEELS else "vehicles/wheel_small")
 	var radius = PX * (0.55 if id in LARGE_WHEELS else 0.42) * 0.5
 	for position in wheel_positions(id):
 		var wheel_angle = fposmod(p.wheel_angle,TAU) if id=="handcar" else fposmod(distance*PX/radius*facing,TAU)
 		draw_part(canvas, wheel_id, position, wheel_angle, scale_for(wheel_id), outer)
 		canvas.draw_set_transform_matrix(outer * Transform2D(wheel_angle, position))
-		canvas.draw_circle(Vector2(0, -radius * 0.72), 1.8, Color("c9af73"))
+		if id != "steam": canvas.draw_circle(Vector2(0, -radius * 0.72), 1.8, Color("c9af73"))
 		canvas.draw_set_transform_matrix(outer)
+	if id == "steam": draw_steam_motion(canvas, distance, facing, outer)
 	if id == "handcar": draw_mechanism(canvas, model, outer,p)
 
-# Boiler, smokebox, dome and chimney over the borrowed frame, in body metres.
-func draw_steam_boiler(canvas: Node2D, model) -> void:
-	var top=-1.16*PX
-	var bottom=-0.56*PX
-	var front=1.92*PX
-	var back=0.12*PX
-	var shell=PackedVector2Array([Vector2(back,top),Vector2(front-0.18*PX,top),Vector2(front,top+0.1*PX),Vector2(front,bottom-0.06*PX),Vector2(front-0.08*PX,bottom),Vector2(back,bottom)])
-	var colors=PackedColorArray()
-	for point in shell: colors.append(Color("3a4a45").lerp(Color("151c1a"),clampf((point.y-top)/(bottom-top),0,1)))
-	canvas.draw_polygon(shell,colors)
-	canvas.draw_line(Vector2(back,top+0.07*PX),Vector2(front-0.2*PX,top+0.07*PX),Color(0.85,0.88,0.82,0.28),3,true)
-	canvas.draw_rect(Rect2(Vector2(1.58*PX,top),Vector2(0.34*PX,bottom-top)),Color("101614"))
-	for x in [0.42,0.86,1.28,1.58]:
-		canvas.draw_line(Vector2(x*PX,top+2),Vector2(x*PX,bottom-2),Color("b89a55"),3,true)
-	canvas.draw_circle(Vector2(0.95*PX,top+2),0.14*PX,Color("b89a55"))
-	canvas.draw_circle(Vector2(0.95*PX,top+4),0.11*PX,Color("6f5d33"))
-	var stack=PackedVector2Array([Vector2(1.66*PX,top),Vector2(1.86*PX,top),Vector2(1.9*PX,top-0.5*PX),Vector2(1.62*PX,top-0.5*PX)])
-	canvas.draw_colored_polygon(stack,Color("1b2220"))
-	canvas.draw_rect(Rect2(Vector2(1.58*PX,top-0.58*PX),Vector2(0.36*PX,0.09*PX)),Color("b89a55"))
-	if model == null or model.state.is_empty(): return
-	var boiler = model.state.fleet_by_id.steam if model.state.fleet_by_id.has("steam") else {}
-	# Firebox door under the cab end: dark when cold, glowing with the fire.
+# Live parts of the steam engine on top of the painted body
+# (tools/make_steam_art.py): firebox glow, manometer needle, safety valve and
+# chimney smoke. Positions are metres above the rail, converted to body pixels.
+func steam_point(x: float, rail_y: float) -> Vector2:
+	return Vector2(x, -(rail_y - 0.275)) * PX
+
+func draw_steam_overlay(canvas: Node2D, model) -> void:
+	if model == null or model.state.is_empty() or not model.state.fleet_by_id.has("steam"): return
+	var boiler = model.state.fleet_by_id.steam
+	var heat = float(boiler.get("heat", 0.0))
 	var door_open = bool(boiler.get("door", false))
-	var glow = float(boiler.get("heat", 0.0))
-	var door_rect = Rect2(Vector2(back + 0.06 * PX, bottom - 0.30 * PX), Vector2(0.22 * PX, 0.26 * PX))
-	canvas.draw_rect(door_rect, Color("0d100f"))
-	if glow > 0.02: canvas.draw_rect(door_rect.grow(-3), Color(1.0, 0.55, 0.15, (0.45 if not door_open else 0.9) * glow))
-	canvas.draw_rect(door_rect, Color("b89a55") if door_open else Color("6f5d33"), false, 2.0)
-	# Manometer needle on the brass dome follows the real pressure.
-	var needle = lerpf(-2.2, 0.8, float(boiler.get("pressure", 0.0)))
-	canvas.draw_line(Vector2(0.95 * PX, top + 3), Vector2(0.95 * PX, top + 3) + Vector2(0, -0.1 * PX).rotated(needle), Color("f3ead2"), 2.0, true)
+	var door = Rect2(steam_point(-0.66, 0.96), Vector2(0.26, 0.28) * PX)
+	if heat > 0.02:
+		canvas.draw_rect(door.grow(-3), Color(1.0, 0.5, 0.12, (0.95 if door_open else 0.55) * heat))
+		if door_open:
+			canvas.draw_rect(Rect2(steam_point(-0.72, 0.66), Vector2(0.34, 0.035) * PX), Color(1.0, 0.62, 0.22, 0.55 * heat))
+	if door_open: canvas.draw_rect(door, Color("f1d890"), false, 2.0)
+	var center = steam_point(-0.68, 1.86)
+	var needle = deg_to_rad(150.0) + deg_to_rad(240.0) * float(boiler.get("pressure", 0.0))
+	canvas.draw_line(center, center + Vector2.from_angle(needle) * 0.075 * PX, Color("a8231c"), 2.0, true)
+	canvas.draw_circle(center, 2.0, Color("2a2a2a"))
+	var t = Time.get_ticks_msec() / 1000.0
 	if bool(boiler.get("venting", false)):
-		var tv = Time.get_ticks_msec() / 1000.0
 		for i in range(4):
-			var age = fposmod(tv * 1.6 + i / 4.0, 1.0)
-			canvas.draw_circle(Vector2((0.95 + age * 0.3) * PX, top - 0.12 * PX - age * 0.5 * PX), (0.05 + age * 0.12) * PX, Color(1, 1, 1, 0.5 * (1.0 - age)))
-	if not model.state.get("engine",false): return
+			var age = fposmod(t * 1.6 + i / 4.0, 1.0)
+			canvas.draw_circle(steam_point(-0.05 + age * 0.12, 2.0 + age * 0.55), (0.04 + age * 0.12) * PX, Color(1, 1, 1, 0.5 * (1.0 - age)))
+	if not model.state.get("engine", false): return
 	# Smoke thickens with the regulator and trails backwards.
-	var t=Time.get_ticks_msec()/1000.0
-	var throttle=float(model.state.get("throttle",0))
+	var throttle = float(model.state.get("throttle", 0))
 	for i in range(6):
-		var age=fposmod(t*0.9+i/6.0,1.0)
-		var puff=Vector2((1.76-age*1.4)*PX,top-0.62*PX-age*0.7*PX)
-		canvas.draw_circle(puff,(0.1+age*0.22)*PX,Color(0.86,0.86,0.82,(0.35+0.35*throttle)*(1.0-age)))
+		var age = fposmod(t * 0.9 + i / 6.0, 1.0)
+		var puff = steam_point(1.59 - age * 1.4, 2.30 + age * 0.7)
+		canvas.draw_circle(puff, (0.10 + age * 0.22) * PX, Color(0.86, 0.86, 0.82, (0.35 + 0.35 * throttle) * (1.0 - age)))
+
+# Coupling rod, main rod, crosshead and piston rod follow the wheel angle.
+func draw_steam_motion(canvas: Node2D, distance: float, facing: int, outer: Transform2D) -> void:
+	var radius = PX * 0.55 * 0.5
+	var angle = fposmod(distance * PX / radius * facing, TAU)
+	var positions = wheel_positions("steam")
+	var pins: Array = []
+	for position in positions: pins.append(position + Vector2(0, -radius * 0.5).rotated(angle))
+	canvas.draw_set_transform_matrix(outer)
+	var steel = Color("56635f")
+	var brass = Color("c9af73")
+	canvas.draw_line(pins[0], pins[1], steel, 0.05 * PX, true)
+	canvas.draw_line(pins[0], pins[1], Color("8a9a94"), 0.012 * PX, true)
+	var front = positions[1]
+	var rod_length = 0.38 * PX
+	var dy = pins[1].y - front.y
+	var crosshead = Vector2(pins[1].x + sqrt(maxf(0.0, rod_length * rod_length - dy * dy)), front.y)
+	canvas.draw_line(pins[1], crosshead, steel, 0.04 * PX, true)
+	canvas.draw_line(crosshead, Vector2(1.72 * PX, front.y), Color("a8b4ae"), 0.018 * PX, true)
+	canvas.draw_rect(Rect2(crosshead - Vector2(0.035, 0.07) * PX, Vector2(0.07, 0.14) * PX), Color("3c4744"))
+	for pin in pins:
+		canvas.draw_circle(pin, 0.045 * PX, brass)
+		canvas.draw_circle(pin, 0.02 * PX, Color("6f5d33"))
 
 func mechanism_parts(p: Dictionary) -> Array:
 	var parts: Array = []

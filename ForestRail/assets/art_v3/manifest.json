@@ -816,6 +816,68 @@
       "physical_width_m": 0.42,
       "scale_at_128_px_per_m": 0.04843243243243243,
       "resource": "textures/vehicles_wheel_small.tres"
+    },
+    "vehicles/steam_locomotive_body": {
+      "id": "vehicles/steam_locomotive_body",
+      "label_ru": "Кузов паровоза",
+      "file": "vehicles/battery_locomotive_body.png",
+      "size_px": [
+        2035,
+        773
+      ],
+      "region_px": [
+        10,
+        51,
+        2015,
+        658
+      ],
+      "mode": "RGBA",
+      "transparent_ratio": 0.58179,
+      "sha256": "d8e22fe0279ba817c8d3f71139a9b29040b792a10aa6d3035fd45a414c866559",
+      "pivot_px": [
+        1015.465,
+        642.8625
+      ],
+      "pins_px": {},
+      "wheel_centres_px": [
+        [
+          565.73,
+          642.8625
+        ],
+        [
+          1465.2,
+          642.8625
+        ]
+      ],
+      "anchor_status": "Bearing centres visually aligned; inspect vehicle preview before integration.",
+      "physical_width_m": 4.0,
+      "scale_at_128_px_per_m": 0.2540942928039702,
+      "resource": "textures/vehicles_battery_locomotive_body.tres"
+    },
+    "vehicles/steam_wheel": {
+      "id": "vehicles/steam_wheel",
+      "label_ru": "Колесо паровоза",
+      "file": "vehicles/steam_wheel.png",
+      "size_px": [
+        512,
+        512
+      ],
+      "region_px": [
+        0,
+        0,
+        512,
+        512
+      ],
+      "mode": "RGBA",
+      "transparent_ratio": 0.2146,
+      "pivot_px": [
+        256.0,
+        256.0
+      ],
+      "pins_px": {},
+      "physical_width_m": 0.55,
+      "scale_at_128_px_per_m": 0.1375,
+      "resource": "textures/vehicles_steam_wheel.tres"
     }
   },
   "raw_png_seamless_guarantee": false,

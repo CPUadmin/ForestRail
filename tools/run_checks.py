@@ -22,7 +22,7 @@ for suite in args.suite.split(','):
         raise SystemExit('Autonomous guard requested a saved stop; no further QA started')
     script = root/'ForestRail'/'tests'/f'{suite}.gd'
     command = [str(args.engine.resolve())]
-    if suite not in ('check_interaction', 'check_presentation', 'check_instruments', 'check_station_service', 'check_world_geometry', 'check_mechanism_bench', 'check_handcar_input', 'check_motor_controls', 'check_loading_selection', 'check_layout_p7'):
+    if suite not in ('check_interaction', 'check_presentation', 'check_instruments', 'check_station_service', 'check_world_geometry', 'check_mechanism_bench', 'check_handcar_input', 'check_motor_controls', 'check_loading_selection', 'check_layout_p7', 'check_steam_view'):
         command.append('--headless')
     if not args.exported:
         command += ['--path', str(root/'ForestRail')]
@@ -39,6 +39,8 @@ for suite in args.suite.split(','):
         command.append('--motor-output='+str(root/'qa'/'v3_p5'))
     if suite == 'check_loading_selection':
         command.append('--loading-output='+str(root/'qa'/'v3_p6'))
+    if suite == 'check_steam_view':
+        command.append(str(reports/'steam_view'))
     if suite == 'check_layout_p7':
         command.append('--layout-output='+str(root/'qa'/'v3_p7'))
     log = reports/f'{"export" if args.exported else "source"}_{suite}.log'
@@ -55,7 +57,7 @@ for suite in args.suite.split(','):
     success = exit_code == 0 and 'SCRIPT ERROR' not in content and 'FAIL:' not in content
     # A script unavailable in an exported build must not be confused with a passed check.
     marker = {'check_model': 'MODEL CHECKS', 'check_physics': 'PHYSICS CHECKS',
-              'check_interaction': 'INTERACTION CHECKS', 'drive_campaign': 'DRIVE CAMPAIGN', 'check_handcar_revision': 'HANDCAR CHECKS', 'check_art_v3': 'ART V3 CHECKS', 'check_instruments': 'INSTRUMENT CHECKS', 'check_station_service': 'STATION SERVICE CHECKS', 'check_world_geometry':'WORLD GEOMETRY CHECKS','check_mechanism':'MECHANISM CHECKS','check_mechanism_bench':'MECHANISM BENCH CHECKS','check_handcar_drive':'HANDCAR DRIVE CHECKS','check_handcar_input':'HANDCAR INPUT CHECKS','check_motor_controls':'MOTOR CONTROL CHECKS','check_loading_selection':'LOADING SELECTION CHECKS','check_layout_p7':'LAYOUT P7 CHECKS','check_steam':'STEAM CHECKS'}
+              'check_interaction': 'INTERACTION CHECKS', 'drive_campaign': 'DRIVE CAMPAIGN', 'check_handcar_revision': 'HANDCAR CHECKS', 'check_art_v3': 'ART V3 CHECKS', 'check_instruments': 'INSTRUMENT CHECKS', 'check_station_service': 'STATION SERVICE CHECKS', 'check_world_geometry':'WORLD GEOMETRY CHECKS','check_mechanism':'MECHANISM CHECKS','check_mechanism_bench':'MECHANISM BENCH CHECKS','check_handcar_drive':'HANDCAR DRIVE CHECKS','check_handcar_input':'HANDCAR INPUT CHECKS','check_motor_controls':'MOTOR CONTROL CHECKS','check_loading_selection':'LOADING SELECTION CHECKS','check_layout_p7':'LAYOUT P7 CHECKS','check_steam':'STEAM CHECKS','check_steam_view':'STEAM VIEW CHECKS'}
     success &= marker.get(suite, 'PRESENTATION') in content
     result = {'suite': suite, 'exit_code': exit_code, 'success': success,
               'seconds': round(time.monotonic()-start, 3), 'log': log.name}

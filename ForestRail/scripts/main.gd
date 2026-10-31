@@ -121,7 +121,7 @@ func _ready() -> void:
 		for arg in qa_args:
 			if arg.begins_with("--qa-suite="):
 				var suite = arg.trim_prefix("--qa-suite=")
-				if suite not in ["check_model", "check_physics", "check_interaction", "drive_campaign", "check_presentation", "check_handcar_revision", "check_art_v3", "check_instruments", "check_station_service", "check_world_geometry", "check_mechanism", "check_mechanism_bench", "check_handcar_drive", "check_handcar_input", "check_motor_controls", "check_loading_selection", "check_layout_p7", "check_steam", "check_soak_p8", "check_save_p8"]: get_tree().quit(2); return
+				if suite not in ["check_model", "check_physics", "check_interaction", "drive_campaign", "check_presentation", "check_handcar_revision", "check_art_v3", "check_instruments", "check_station_service", "check_world_geometry", "check_mechanism", "check_mechanism_bench", "check_handcar_drive", "check_handcar_input", "check_motor_controls", "check_loading_selection", "check_layout_p7", "check_steam", "check_steam_view", "check_soak_p8", "check_save_p8"]: get_tree().quit(2); return
 				get_tree().root.set_meta("qa_running", true)
 				set_process(false)
 				set_physics_process(false)
@@ -894,7 +894,7 @@ func draw_steam_panel(rect: Rect2) -> void:
 	var needle=Vector2.from_angle(first+sweep*float(b.pressure))
 	draw_line(center,center+needle*34,RED if bool(b.venting) else PAPER,2.5,true)
 	draw_circle(center,3,PAPER)
-	draw_string(font,center+Vector2(-50,62),"%.1f бар" % model.pressure_bar(),HORIZONTAL_ALIGNMENT_CENTER,100,16,GOLD if model.steam_ready() else dim)
+	draw_string(font,center+Vector2(-50,58),"%.1f бар" % model.pressure_bar(),HORIZONTAL_ALIGNMENT_CENTER,100,16,GOLD if model.steam_ready() else dim)
 	draw_string(font,center+Vector2(-50,-48),"ДАВЛЕНИЕ",HORIZONTAL_ALIGNMENT_CENTER,100,13,dim)
 	steam_hits.append({"id":"bucket","rect":bucket})
 	steam_hits.append({"id":"door","rect":door_button})
@@ -904,7 +904,7 @@ func draw_steam_panel(rect: Rect2) -> void:
 		draw_rect(piece,GOLD,false,2)
 
 func control_zoom_rect() -> Rect2:
-	return Rect2(36,90,430,430 if model.vehicle_id()=="steam" else 320)
+	return Rect2(36,90,430,456 if model.vehicle_id()=="steam" else 320)
 
 func control_zoom_transform() -> Transform2D:
 	return Transform2D(0,Vector2.ONE*2.2,0,control_zoom_rect().position+Vector2(330,392))
@@ -1796,7 +1796,7 @@ func draw_controls(body_transform: Transform2D, show_labels: bool = true) -> voi
 	var ids = control_ids()
 	if model.vehicle_id() != "handcar":
 		draw_line(Vector2(-1.28,art.deck_y(model.vehicle_id())/ArtV3.PX)*ArtV3.PX,Vector2(-1.28,-1.16)*ArtV3.PX,INK,0.04*ArtV3.PX,true)
-		draw_style_box(style(Color("34443c"),Color("918363"),3),Rect2(Vector2(-1.4,-1.80)*ArtV3.PX,Vector2(1.04,0.64)*ArtV3.PX))
+		draw_style_box(style(Color("34443c"),Color("918363"),3),Rect2(Vector2(-1.4,-1.62 if model.vehicle_id()=="steam" else -1.80)*ArtV3.PX,Vector2(1.04,0.62 if model.vehicle_id()=="steam" else 0.64)*ArtV3.PX))
 	var hover = get_global_mouse_position()
 	if model.vehicle_id()=="handcar":
 		var left_grip=model.handcar.pose().grip_left*ArtV3.PX
