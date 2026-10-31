@@ -1048,6 +1048,8 @@ func draw_control_zoom() -> void:
 			draw_gate(gate_rect(true),gate_pos if drag=="gear" else gate_slot_pos(int(model.state.gear)),drag==id)
 		elif kind=="wheel":
 			draw_handwheel(pivot,float(geo.radius),angle,GOLD if id=="gear" else GREEN,drag==id)
+		elif kind=="slider":
+			draw_slider(pult_t,pivot,float(geo.length),float(model.state.get(id,0)),Color("c23b2e") if id=="brake" else Color("4f9a5f"),drag==id)
 		elif id in ["brake","throttle"]:
 			draw_arc(pivot,length,-PI/2-0.55,-PI/2+0.55,32,Color("66796b"),2,true)
 			for notch in range(11):
@@ -1076,7 +1078,7 @@ func draw_control_zoom() -> void:
 				draw_string(font,mark+Vector2(-17,-12),["0","100"][endpoint],HORIZONTAL_ALIGNMENT_CENTER,34,13,PAPER)
 		if drag==id or (pult_t*point).distance_to(get_global_mouse_position())<24: draw_arc(point,10,0,TAU,28,PAPER,1.5,true)
 	if model.vehicle_id()=="steam": draw_steam_panel(rect)
-	var feedback=toast if toast_seconds>0 else ("Крути вентиль по кругу, отпусти — закроется сам. Розжиг — щелчком." if model.vehicle_id()=="steam" else ("Веди шар рычага по кулисе: через N в нужный паз. Пуск — щелчком." if model.vehicle_id()=="motorcar" else "Веди рукоять по дуге. Пуск — щелчком."))
+	var feedback=toast if toast_seconds>0 else ("Крути вентиль по кругу, отпусти — закроется сам. Розжиг — щелчком." if model.vehicle_id()=="steam" else ("Веди шар рычага по кулисе: через N в нужный паз. Пуск — щелчком." if model.vehicle_id()=="motorcar" else ("Двигай ручки вверх и вниз по прорезям, они держат положение." if model.vehicle_id()=="locomotive" else "Веди рукоять по дуге. Пуск — щелчком.")))
 	draw_multiline_string(font,rect.position+Vector2(16,rect.size.y-35),feedback,HORIZONTAL_ALIGNMENT_LEFT,400,15,2,GOLD if toast_seconds>0 else Color("c7c3a0"))
 
 func show_modal(kind: String) -> void:
@@ -1328,6 +1330,11 @@ func _input(event: InputEvent) -> void:
 					var gate=gate_rect(drag_closeup)
 					gate_pos=gate_move(gate_pos,local_move/Vector2(gate.size.x*0.35,gate.size.y*0.38))
 					lever_pending_gear=gate_gear(gate_pos,lever_pending_gear)
+				elif kind=="slider":
+					var level=clampf((geo.pivot.y-lever_target_point.y)/float(geo.length),0.0,1.0)
+					if level<0.001: level=0.0
+					elif level>0.999: level=1.0
+					model.state[drag]=level
 				elif kind=="wheel":
 					var turn=lever_target_point-geo.pivot
 					var now=atan2(turn.x,-turn.y)
@@ -2459,6 +2466,8 @@ func slot_local(id: String, index: int) -> Vector2:
 # What kind of mouse control a pult element is: an arc lever, a rotary hand
 # wheel (steam regulator and water tap), an H-gate (petrol gearbox) or a toggle.
 func control_kind(id: String) -> String:
+	# The electric locomotive has aircraft-style handles: vertical sliders in slots.
+	if model.vehicle_id() == "locomotive" and id in ["brake", "throttle"]: return "slider"
 	if model.vehicle_id() == "steam" and id in ["throttle", "gear"]: return "wheel"
 	if model.vehicle_id() == "motorcar" and id == "gear": return "gate"
 	return "toggle" if id == "start" else "lever"
@@ -2537,6 +2546,41 @@ func draw_handwheel(center: Vector2, radius: float, angle: float, color: Color, 
 	var mark = center + Vector2(0, -1).rotated(angle) * (radius + 9)
 	draw_circle(mark, 3.0, PAPER if active else GOLD)
 
+# An aircraft-style handle: a slot with a scale, a coloured track up to a knurled knob.
+# pivot is the bottom end of the slot, value 0..1 runs upward.
+func draw_slider(base: Transform2D, pivot: Vector2, length: float, value: float, color: Color, active: bool) -> void:
+	draw_set_transform_matrix(base)
+	var w = clampf(length * 0.075, 4.0, 9.0)
+	var plate = Rect2(pivot + Vector2(-w * 3.4, -length - w * 2.6), Vector2(w * 6.8, length + w * 5.2))
+	draw_rect(plate, Color("1c2421"))
+	draw_rect(plate, Color("918363"), false, 1.5)
+	for corner in [plate.position + Vector2(4, 4), Vector2(plate.end.x - 4, plate.position.y + 4), Vector2(plate.position.x + 4, plate.end.y - 4), plate.end - Vector2(4, 4)]:
+		draw_circle(corner, 1.8, Color("a98a4a"))
+	var slot = Rect2(pivot + Vector2(-w * 0.55, -length), Vector2(w * 1.1, length))
+	draw_rect(slot, Color("030504"))
+	draw_rect(Rect2(slot.position + Vector2(w * 0.15, length * (1.0 - value)), Vector2(w * 0.8, length * value)), Color(color, 0.75))
+	var small = clampi(roundi(length * 0.075), 7, 12)
+	for i in range(11):
+		var y = pivot.y - length * i / 10.0
+		var major = i % 5 == 0
+		draw_line(Vector2(pivot.x - w * 2.9, y), Vector2(pivot.x - w * (1.2 if major else 1.7), y), PAPER if major else Color(PAPER, 0.5), 1.6 if major else 1.0)
+		draw_line(Vector2(pivot.x + w * (1.2 if major else 1.7), y), Vector2(pivot.x + w * 2.9, y), PAPER if major else Color(PAPER, 0.5), 1.6 if major else 1.0)
+	draw_string(font, Vector2(pivot.x - w * 3.2, pivot.y + small + 3), "0", HORIZONTAL_ALIGNMENT_CENTER, w * 6.4, small, Color("c7c3a0"))
+	draw_string(font, Vector2(pivot.x - w * 3.2, pivot.y - length - 5), "100", HORIZONTAL_ALIGNMENT_CENTER, w * 6.4, small, Color("c7c3a0"))
+	var knob_y = pivot.y - length * value
+	var kw = w * 2.4
+	var kh = clampf(length * 0.28, 16.0, 36.0)
+	var knob = Rect2(Vector2(pivot.x - kw * 0.5, knob_y - kh * 0.5), Vector2(kw, kh))
+	draw_rect(Rect2(knob.position + Vector2(1.5, 2.0), knob.size), Color(0, 0, 0, 0.4))
+	draw_rect(knob, Color("141917"))
+	for groove in range(5):
+		var gy = knob.position.y + kh * (groove + 1.0) / 6.0
+		draw_line(Vector2(knob.position.x + 2, gy), Vector2(knob.end.x - 2, gy), Color(1, 1, 1, 0.16), 1.2)
+	draw_rect(Rect2(knob.position, Vector2(kw, kh * 0.22)), color)
+	draw_line(knob.position + Vector2(1.5, 1), Vector2(knob.position.x + 1.5, knob.end.y - 1), Color(1, 1, 1, 0.28), 1.5)
+	draw_rect(knob, PAPER if active else Color("5c6660"), false, 1.5)
+	draw_set_transform_matrix(base)
+
 func lever_geometry(id: String) -> Dictionary:
 	if id == "pump":
 		var pose = art.mechanism_pose(model)
@@ -2545,6 +2589,14 @@ func lever_geometry(id: String) -> Dictionary:
 
 func control_geometry(id: String, closeup: bool = false) -> Dictionary:
 	var kind=control_kind(id)
+	if kind=="slider":
+		var slot_pivot=art.vec(Geometry.body(model.vehicle_id()).control_anchors_m[id])*ArtV3.PX
+		var slot_length=0.5*ArtV3.PX
+		if closeup:
+			slot_pivot=control_zoom_rect().position+Vector2(65+100*["brake","throttle","gear","start"].find(id),230)
+			slot_length=124.0
+		var amount=float(model.state.get(id,0))
+		return {"pivot":slot_pivot,"grip":slot_pivot+Vector2(0,-slot_length*amount),"angle":0.0,"length":slot_length}
 	if kind=="gate":
 		var rect=gate_rect(closeup)
 		var knob=gate_pos if drag=="gear" else gate_slot_pos(int(model.state.gear))
@@ -2591,6 +2643,8 @@ func draw_controls(body_transform: Transform2D, show_labels: bool = true) -> voi
 			draw_gate(gate_rect(false), gate_pos if drag == "gear" else gate_slot_pos(int(model.state.gear)), drag == id)
 		elif kind == "wheel":
 			draw_handwheel(geo.pivot, float(geo.radius), angle, GOLD if id == "gear" else GREEN, drag == id)
+		elif kind == "slider":
+			draw_slider(body_transform, geo.pivot, float(geo.length), float(model.state.get(id, 0)), Color("c23b2e") if id == "brake" else Color("4f9a5f"), drag == id)
 		elif id in ["brake","throttle"]:
 			draw_arc(geo.pivot,geo.pivot.distance_to(geo.grip),-PI/2-0.55,-PI/2+0.55,24,Color("918363"),1.0,true)
 			draw_lever(body_transform,geo.pivot,geo.pivot.distance_to(geo.grip),angle,Color("c23b2e") if id=="brake" else Color("4f9a5f"),drag==id)
@@ -2749,7 +2803,7 @@ func draw_tooltip() -> void:
 	var text = ""
 	for hit in grip_hits:
 		if hit.position.distance_to(mouse) < 31:
-			text = {"pump": "Зажми хват и веди его по дуге рычага", "brake": "Тормоз: веди рукоять по дуге от 0 до 100%", "throttle": "Вентиль: крути колесо по кругу, отпустишь — закроется сам" if model.vehicle_id() == "steam" else "Подача: веди рукоять по дуге от 0 до 100%", "gear": "Кран воды: крути по кругу. Без воды пара нет" if model.vehicle_id() == "steam" else "Кулиса: веди шар через N в паз. Менять при газе ниже 15%, R только на остановке", "start": "Щёлкни, чтобы разжечь или погасить огонь" if model.vehicle_id() == "steam" else "Щёлкни тумблер, чтобы включить или выключить"}[hit.id]
+			text = {"pump": "Зажми хват и веди его по дуге рычага", "brake": "Тормоз: двигай ручку вверх по прорези от 0 до 100%" if model.vehicle_id() == "locomotive" else "Тормоз: веди рукоять по дуге от 0 до 100%", "throttle": "Вентиль: крути колесо по кругу, отпустишь — закроется сам" if model.vehicle_id() == "steam" else ("Тяга: двигай ручку вверх по прорези от 0 до 100%" if model.vehicle_id() == "locomotive" else "Подача: веди рукоять по дуге от 0 до 100%"), "gear": "Кран воды: крути по кругу. Без воды пара нет" if model.vehicle_id() == "steam" else "Кулиса: веди шар через N в паз. Менять при газе ниже 15%, R только на остановке", "start": "Щёлкни, чтобы разжечь или погасить огонь" if model.vehicle_id() == "steam" else "Щёлкни тумблер, чтобы включить или выключить"}[hit.id]
 	if text=="" and screen=="game" and model.vehicle_id()=="locomotive" and charge_strip_rect.has_point(mouse):
 		text="Заряд %d%% · доступная тяга %d%%" % [roundi(charge_fraction()*100),roundi(model.charge_traction_factor()*100)]
 	for hit in cargo_hits:

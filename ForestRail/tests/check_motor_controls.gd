@@ -47,7 +47,8 @@ func pull(id: String,value: float) -> void:
 	var target=point
 	if id!="start":
 		var geo=game.control_geometry(id,true)
-		target=geo.pivot+Vector2(0,-geo.pivot.distance_to(geo.grip)).rotated(lerpf(-0.55,0.55,value))
+		if game.control_kind(id)=="slider": target=geo.pivot+Vector2(0,-float(geo.length)*value)
+		else: target=geo.pivot+Vector2(0,-geo.pivot.distance_to(geo.grip)).rotated(lerpf(-0.55,0.55,value))
 		var e=InputEventMouseMotion.new()
 		e.position=target;e.relative=target-point;e.button_mask=MOUSE_BUTTON_MASK_LEFT
 		get_tree().root.push_input(e,true)
@@ -142,7 +143,7 @@ func world_controls() -> void:
 				get_tree().root.push_input(e,true)
 				check(absf(game.model.state.brake-before)<0.00001,"camera movement cannot apply brake")
 				var geo=game.lever_geometry("brake")
-				var desired=geo.pivot+Vector2(0,-geo.pivot.distance_to(geo.grip)).rotated(lerpf(-0.55,0.55,0.7))
+				var desired=geo.pivot+Vector2(0,-float(geo.length)*0.7) if game.control_kind("brake")=="slider" else geo.pivot+Vector2(0,-geo.pivot.distance_to(geo.grip)).rotated(lerpf(-0.55,0.55,0.7))
 				var delta=game.body_transform(id,game.model.body_s(0)).basis_xform(desired-game.lever_target_point)
 				e=InputEventMouseMotion.new();e.position=point+delta;e.relative=delta;e.button_mask=MOUSE_BUTTON_MASK_LEFT
 				get_tree().root.push_input(e,true)
