@@ -363,7 +363,8 @@ func draw_full_map() -> void:
 		var label_y = p.y-48 if i%2==0 else floor_y+30
 		var label_x = clampf(p.x-115,40,size.x-270)
 		put("%d · %s" % [i+1,m.data.stations[i].name],Vector2(label_x,label_y),230,18,GOLD if i==target else PAPER,HORIZONTAL_ALIGNMENT_CENTER)
-		put("%.0f м" % float(m.route.station_s[i]),Vector2(label_x,label_y+24),230,13,MUTED,HORIZONTAL_ALIGNMENT_CENTER)
+		var services_text=game.service_text(str(m.data.stations[i].id))
+		put("%.0f м" % float(m.route.station_s[i])+(" · "+services_text if services_text!="" else ""),Vector2(label_x,label_y+24),230,13,MUTED,HORIZONTAL_ALIGNMENT_CENTER)
 	var here = map_point(float(m.state.s))
 	var direction = m.drive_direction()
 	if float(m.state.s)>=view.x and float(m.state.s)<=view.y: draw_colored_polygon(PackedVector2Array([here+Vector2(13*direction,-27),here+Vector2(-12*direction,-35),here+Vector2(-12*direction,-19)]),PAPER)
@@ -372,7 +373,10 @@ func draw_full_map() -> void:
 	var station = m.data.stations[selected_station]
 	put(station.name,r.position+Vector2(22,36),r.size.x*0.48,25)
 	put("%d м от состава  ·  отметка %d м" % [absf(float(m.route.station_s[selected_station])-float(m.state.s)),m.route.station_s[selected_station]],r.position+Vector2(22,68),r.size.x*0.48,17,MUTED)
-	put("Домашнее депо · оплата, заправка и зарядка" if selected_station==0 else "Остановись у платформы и затяни тормоз для разгрузки",r.position+Vector2(22,102),r.size.x*0.48,17,MUTED)
+	var services_here=game.service_text(str(station.id))
+	put(("Домашнее депо · оплата, " if selected_station==0 else "Остановись у платформы и затяни тормоз · ")+("услуги: "+services_here if services_here!="" else "услуг нет"),r.position+Vector2(22,102),r.size.x*0.48,17,MUTED)
+	var forecast=game.forecast_line()
+	if forecast!="": put(forecast,r.position+Vector2(22,134),r.size.x*0.48,15,GOLD if forecast.ends_with("хватит") else Color("e0564a"))
 	var rows: Array = []
 	var grouped: Dictionary = {}
 	for cargo in m.state.cargo:

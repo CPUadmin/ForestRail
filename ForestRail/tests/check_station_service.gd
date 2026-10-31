@@ -254,6 +254,29 @@ func run() -> void:
 		await frame()
 		check(game.station_state().phase=="position_required" and not game.station_state().can_transfer,"entire consist must fit marked service interval")
 		await shot("07_position_required")
+	# N7.2: the far station sells fuel through a button, the middle ones do not.
+	await prepare(2)
+	var tank=float(game.model.object_stats("motorcar").tank)
+	game.model.state.fleet_by_id.motorcar.fuel=0.4
+	await arrive(2)
+	game.cargo_action_key="x"
+	await frame(3)
+	var fuel_button: Button = null
+	for child in game.cargo_actions.get_children():
+		if child is Button and child.text.begins_with("Заправить"): fuel_button=child
+	check(fuel_button==null,"no fuel button at a station without the service")
+	await arrive(5)
+	game.cargo_action_key="x"
+	await frame(3)
+	for child in game.cargo_actions.get_children():
+		if child is Button and child.text.begins_with("Заправить"): fuel_button=child
+	check(fuel_button!=null and fuel_button.text.contains("монет") and not fuel_button.disabled,"fuel button with a price at the far station")
+	await shot("08_service_far_station")
+	if fuel_button!=null:
+		fuel_button.pressed.emit()
+		await frame(3)
+		check(is_equal_approx(float(game.model.state.fleet_by_id.motorcar.fuel),tank),"the button fills the tank")
+	check(game.service_text("F").contains("×1,5") and game.service_text("B")=="","station service text comes from the data")
 	var result={"checks":checks,"failures":failures,"matrix":cases,"input":"Viewport.push_input in local coordinates; mouse presses/motions/releases routed through GUI","human_novice_trial":"not performed"}
 	var file=FileAccess.open(out_dir.path_join("movie_results.json" if movie else "results.json"),FileAccess.WRITE)
 	file.store_string(JSON.stringify(result,"\t"));file.close()

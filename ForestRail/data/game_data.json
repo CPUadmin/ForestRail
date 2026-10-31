@@ -11,7 +11,8 @@
       "id": "A",
       "name": "Лесная",
       "s_m": 0,
-      "role": "Домашнее депо и погрузочная площадка"
+      "role": "Домашнее депо и погрузочная площадка",
+      "services": {"fuel": 1.0, "water": 1.0}
     },
     {
       "id": "B",
@@ -29,7 +30,8 @@
       "id": "D",
       "name": "Тихая заводь",
       "s_m": 950,
-      "role": "Промежуточная станция в низине"
+      "role": "Промежуточная станция в низине",
+      "services": {"water": 1.0}
     },
     {
       "id": "E",
@@ -41,7 +43,8 @@
       "id": "F",
       "name": "Дальний бор",
       "s_m": 1700,
-      "role": "Дальняя станция и финальная доставка"
+      "role": "Дальняя станция и финальная доставка",
+      "services": {"fuel": 1.5, "water": 1.0}
     }
   ],
   "cargo": [
@@ -114,7 +117,8 @@
       "coal_kg": 40,
       "water_l": 300,
       "refill_price": 1.5,
-      "energy_per_m": 0.012,
+      "energy_per_m": 0.0055,
+      "water_per_m": 0.05,
       "energy_unit": "кг угля",
       "free_reward_multiplier": 1.25,
       "free_reach": "D",
@@ -171,7 +175,7 @@
       "max_wagons": 2,
       "brake_n": 1800,
       "refill_price": 18,
-      "energy_per_m": 0.00045,
+      "energy_per_m": 0.00014,
       "energy_unit": "л",
       "free_reward_multiplier": 1.45,
       "free_reach": "F"
@@ -223,7 +227,7 @@
       "brake_n": 6000,
       "battery_kwh": 0.6,
       "refill_price": 60,
-      "energy_per_m": 9e-05,
+      "energy_per_m": 6.2e-05,
       "energy_unit": "кВт·ч",
       "free_reward_multiplier": 1.7,
       "free_reach": "F"

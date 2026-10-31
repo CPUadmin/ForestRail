@@ -149,7 +149,7 @@ func _ready() -> void:
 		for arg in qa_args:
 			if arg.begins_with("--qa-suite="):
 				var suite = arg.trim_prefix("--qa-suite=")
-				if suite not in ["check_model", "check_physics", "check_interaction", "drive_campaign", "check_presentation", "check_handcar_revision", "check_art_v3", "check_instruments", "check_station_service", "check_world_geometry", "check_mechanism", "check_mechanism_bench", "check_handcar_drive", "check_handcar_input", "check_motor_controls", "check_loading_selection", "check_layout_p7", "check_steam", "check_steam_view", "check_gearbox", "check_petrol_view", "check_skins", "check_perf", "check_cab", "check_sound", "check_soak_p8", "check_save_p8"]: get_tree().quit(2); return
+				if suite not in ["check_model", "check_physics", "check_interaction", "drive_campaign", "check_presentation", "check_handcar_revision", "check_art_v3", "check_instruments", "check_station_service", "check_world_geometry", "check_mechanism", "check_mechanism_bench", "check_handcar_drive", "check_handcar_input", "check_motor_controls", "check_loading_selection", "check_layout_p7", "check_steam", "check_steam_view", "check_gearbox", "check_petrol_view", "check_skins", "check_perf", "check_cab", "check_sound", "check_forecast", "check_forecast_view", "check_soak_p8", "check_save_p8"]: get_tree().quit(2); return
 				get_tree().root.set_meta("qa_running", true)
 				set_process(false)
 				set_physics_process(false)
@@ -510,6 +510,15 @@ func load_career(saved: Dictionary) -> void:
 func line_height(font_size: int) -> float:
 	return font_size * float(settings.text_scale) * 1.4
 
+# Lines a text takes in a box of this width, counting the wraps (with a little slack).
+func wrapped_lines(text: String, width: float, font_size: int) -> int:
+	var lines = 0
+	var pixels = int(font_size * float(settings.text_scale))
+	for line in text.split("
+"):
+		lines += maxi(1, ceili(font.get_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, -1, pixels).x * 1.08 / maxf(1.0, width)))
+	return lines
+
 func build_depot(size: Vector2) -> void:
 	# Header and info box grow with the text scale; at 150 % the fixed boxes
 	# let the money line touch the title and the details spill out.
@@ -595,10 +604,12 @@ func build_depot(size: Vector2) -> void:
 	if model.vehicle_id() == "handcar":
 		details += "\nРучной привод · без топлива\nМаховик сохраняет накат"
 	else:
-		details += "\nПередачи R / N / 1–4 · до %.0f км/ч\n" % (float(stats.speeds[stats.speeds.size()-1])*3.6) + energy_text()
+		details += "\nПередачи R / N / 1–4 · до %.0f км/ч\n" % (float(stats.speeds[stats.speeds.size()-1])*3.6) + energy_text() + "
+" + forecast_line(model.current_mission())
 	var details_y = maxf(info_top + 88, info_top + 7 + line_height(32) + 6)
-	positioned_label(details, Rect2(46, details_y, left_width - 20, 105), 19)
-	depot_info_rect = Rect2(22, info_top, left_width - 28, maxf(195, details_y + (details.count("\n") + 1) * line_height(19) + 12 - info_top))
+	var details_lines = wrapped_lines(details, left_width - 20, 19)
+	positioned_label(details, Rect2(46, details_y, left_width - 20, maxf(105, details_lines * line_height(19))), 19)
+	depot_info_rect = Rect2(22, info_top, left_width - 28, maxf(195, details_y + details_lines * line_height(19) + 12 - info_top))
 	var service = HBoxContainer.new()
 	service.position = Vector2(44, size.y - 150)
 	service.size = Vector2(left_width - 25, 50)
@@ -747,8 +758,10 @@ func build_hud(size: Vector2) -> void:
 	action_bar.add_theme_constant_override("separation", 12)
 	ui.add_child(action_bar)
 	cargo_actions=HBoxContainer.new()
-	cargo_actions.position=Vector2(size.x-390,dock_rect().position.y+84)
-	cargo_actions.size=Vector2(334,44)
+	cargo_actions.position=Vector2(size.x-720,dock_rect().position.y+84)
+	cargo_actions.size=Vector2(664,44)
+	cargo_actions.alignment=BoxContainer.ALIGNMENT_END
+	cargo_actions.mouse_filter=Control.MOUSE_FILTER_IGNORE
 	ui.add_child(cargo_actions)
 	cargo_action_key=""
 	last_action_key = ""
@@ -1560,7 +1573,8 @@ func update_cargo_actions(interaction: Dictionary) -> void:
 	for cargo in model.state.cargo:
 		if cargo.id==selected_cargo and not cargo.delivered and cargo.slot!="": item=cargo
 	var available=not item.is_empty() and interaction.can_transfer and (interaction.station_id=="A" or selected_cargo in interaction.eligible)
-	var key=selected_cargo+str(available)+str(item.is_empty())
+	var offer=model.service_offer()
+	var key=selected_cargo+str(available)+str(item.is_empty())+str(offer.get("station",""))+str(model.refill_cost())+str(roundi(float(model.state.money)))
 	if key==cargo_action_key: return
 	cargo_action_key=key
 	clear_children(cargo_actions)
@@ -1569,6 +1583,41 @@ func update_cargo_actions(interaction: Dictionary) -> void:
 		unload_selected_button=add_button(cargo_actions,"Выгрузить выбранный",func(): transfer_cargo(selected_cargo,"",world_platform_rect().get_center()),not available)
 		unload_selected_button.add_theme_font_size_override("font_size",int(18*float(settings.text_scale)))
 		unload_selected_button.tooltip_text="Этот груз ждут в "+model.station_name(item.destination) if selected_cargo not in interaction.eligible and interaction.station_id!="A" else interaction.reason
+	# Fuel and water on the road: only where the station really has the service.
+	if not offer.is_empty() and offer.station!="A":
+		var cost=model.refill_cost()
+		var water_short=float(model.object_stats(model.vehicle_id()).water)>0 and offer.services.has("water") and float(model.state.fleet_by_id[model.vehicle_id()].get("water",0))<float(model.object_stats(model.vehicle_id()).water)-0.0001
+		var label=""
+		if offer.services.has("fuel"): label=("Зарядить" if model.vehicle_id()=="locomotive" else "Заправить")+(" · %d монет" % cost if cost>0 else " · полон")
+		if water_short: label+=(" + " if label!="" else "")+"вода"
+		if label!="":
+			var service_button=add_button(cargo_actions,label,use_station_service,cost<=0 and not water_short)
+			service_button.add_theme_font_size_override("font_size",int(18*float(settings.text_scale)))
+
+func use_station_service() -> void:
+	if model.refuel():
+		save_game()
+		cargo_action_key=""
+		notify(model.message if model.message!="" else "Запас пополнен")
+		model.message=""
+		update_hud()
+	else: notify(model.message)
+
+# One line for the depot panel and the map: what the next trip needs against what is on board.
+func forecast_line(mission: Dictionary = {}) -> String:
+	var f=model.trip_forecast(mission)
+	if f.is_empty(): return ""
+	var text="Рейс: нужно ~%.2f из %.2f %s" % [f.need,f.have,f.unit]
+	if float(f.water_tank)>0: text+=" · вода ~%.0f из %.0f л" % [f.water_need,f.water_have]
+	var enough=float(f.have)>=float(f.need) and (float(f.water_tank)<=0 or float(f.water_have)>=float(f.water_need))
+	return text+(" · хватит" if enough else " · НЕ ХВАТИТ")
+
+func service_text(id: String) -> String:
+	var services=model.station_services(id)
+	var parts: Array = []
+	if services.has("fuel"): parts.append("заправка" + (" ×%s" % str(services.fuel).replace(".",",") if float(services.fuel)!=1.0 else ""))
+	if services.has("water"): parts.append("вода")
+	return " · ".join(parts)
 
 func transfer_cargo(id: String, target: String, from: Vector2) -> bool:
 	var interaction=station_state()

@@ -303,14 +303,44 @@ func upgrade(id: String, branch_id: String) -> bool:
 		return true
 	return false
 
+func station_services(id: String) -> Dictionary:
+	for station in data.stations:
+		if station.id == id: return station.get("services", {})
+	return {}
+
+# The service offered right here: at the home depot when stopped, at a station when the
+# train stands at the platform braked (the same condition as unloading). Prices are the
+# class price times the station's multiplier; only stations with a service in the data
+# offer it.
+func service_offer() -> Dictionary:
+	if vehicle_id() == "handcar": return {}
+	var id = ""
+	if state.phase == "depot":
+		if stopped(): id = "A"
+	elif state.phase == "route":
+		var interaction = station_interaction()
+		if interaction.can_transfer: id = str(interaction.station_id)
+	var services = station_services(id) if id != "" else {}
+	return {} if services.is_empty() else {"station": id, "services": services}
+
 func refuel() -> bool:
-	if state.phase != "depot" or not stopped():
-		return fail("Заправка доступна в домашнем депо")
+	var offer = service_offer()
+	if offer.is_empty():
+		return fail("Заправка есть в домашнем депо и на станциях с услугой: остановись у платформы и затяни тормоз")
+	var services: Dictionary = offer.services
 	var fleet = state.fleet_by_id[vehicle_id()]
 	var stats = object_stats(vehicle_id())
-	if float(stats.water) > 0: fleet.water = float(stats.water)
+	var water_added = false
+	if float(stats.water) > 0 and services.has("water"):
+		water_added = float(fleet.get("water", 0)) < float(stats.water) - 0.0001
+		fleet.water = float(stats.water)
+	if not services.has("fuel"):
+		if water_added:
+			message = "Вода пополнена"
+			return true
+		return fail("Здесь нет заправки для этой машины")
 	var missing = maxf(0, float(stats.tank) - float(fleet.fuel))
-	var price = float(vehicle_base().get("refill_price", 0))
+	var price = float(vehicle_base().get("refill_price", 0)) * float(services.fuel)
 	if missing <= 0.0001 or price <= 0:
 		fleet.fuel = float(stats.tank)
 		return true
@@ -327,7 +357,53 @@ func refuel() -> bool:
 
 func refill_cost() -> int:
 	var stats = object_stats(vehicle_id())
-	return ceili(maxf(0, float(stats.tank) - float(state.fleet_by_id[vehicle_id()].fuel)) * float(vehicle_base().get("refill_price", 0)) - 0.0001)
+	var offer = service_offer()
+	var multiplier = float(offer.services.get("fuel", 1.0)) if not offer.is_empty() else 1.0
+	return ceili(maxf(0, float(stats.tank) - float(state.fleet_by_id[vehicle_id()].fuel)) * float(vehicle_base().get("refill_price", 0)) * multiplier - 0.0001)
+
+# Longest stretch the machine has to cover on its own on a trip A -> far station -> A,
+# when it can refill at the given positions (the home depot at 0 always counts).
+func longest_leg(far_s: float, service_s: Array) -> float:
+	var points: Array = [0.0]
+	var sorted = service_s.duplicate()
+	sorted.sort()
+	for point in sorted:
+		if float(point) > 0.0 and float(point) <= far_s: points.append(float(point))
+	var leg = 0.0
+	for i in range(1, points.size()): leg = maxf(leg, float(points[i]) - float(points[i - 1]))
+	var last = float(points[-1])
+	if far_s > last: leg = maxf(leg, 2.0 * (far_s - last))
+	return leg
+
+func mission_far_s(mission: Dictionary) -> float:
+	var far = 0.0
+	for stop in mission.get("dropoffs", []):
+		for i in range(data.stations.size()):
+			if data.stations[i].id == stop.station: far = maxf(far, float(route.station_s[i]))
+	return far
+
+# What a trip needs against what is in the tank. The rates are measured on this road by
+# tests/check_forecast.gd (round trips driven with the player's own inputs, 20% margin) and
+# the test fails if the model drifts away from them. Distance only: the road climbs under
+# 20 m, so slope does not move the estimate; recalibrate when the line changes (N7.3).
+func trip_forecast(mission: Dictionary = {}) -> Dictionary:
+	if mission.is_empty(): mission = state.active
+	if vehicle_id() == "handcar" or mission.is_empty(): return {}
+	var base = vehicle_base()
+	var fuel_points: Array = []
+	var water_points: Array = []
+	for i in range(data.stations.size()):
+		var services = data.stations[i].get("services", {})
+		if services.has("fuel"): fuel_points.append(float(route.station_s[i]))
+		if services.has("water"): water_points.append(float(route.station_s[i]))
+	var far = mission_far_s(mission)
+	var stats = object_stats(vehicle_id())
+	var fleet = state.fleet_by_id[vehicle_id()]
+	var leg = longest_leg(far, fuel_points)
+	var water_leg = longest_leg(far, water_points)
+	return {"far_m": far, "leg_m": leg, "need": leg * float(base.energy_per_m), "have": float(fleet.fuel), "tank": float(stats.tank),
+		"water_leg_m": water_leg, "water_need": water_leg * float(base.get("water_per_m", 0.0)) if float(stats.water) > 0 else 0.0,
+		"water_have": float(fleet.get("water", 0)), "water_tank": float(stats.water), "unit": str(base.energy_unit)}
 
 func current_mission() -> Dictionary:
 	if int(state.chapter) >= data.missions.size():
@@ -349,15 +425,13 @@ func mission_error(mission: Dictionary) -> String:
 	if capacity() < 1:
 		return "Нужно хотя бы одно свободное место для груза"
 	if vehicle_id() != "handcar":
-		var distance = 0.0
-		for stop in mission.dropoffs:
-			for i in range(data.stations.size()):
-				if data.stations[i].id == stop.station: distance = maxf(distance, float(route.station_s[i]) * 2)
-		var estimated = distance * float(vehicle_base().energy_per_m)
-		if float(state.fleet_by_id[vehicle_id()].fuel) < estimated:
-			return "Запас мал: нужно примерно %.2f %s. Пополни его в депо" % [estimated, vehicle_base().energy_unit]
-		if float(object_stats(vehicle_id()).water) > 0 and float(state.fleet_by_id[vehicle_id()].get("water", 0)) < estimated * 7:
-			return "Мало воды: нужно примерно %.0f л. Пополни её в депо" % (estimated * 7)
+		var forecast = trip_forecast(mission)
+		if float(forecast.need) > float(forecast.tank):
+			return "Бака не хватит на участок %.0f м без заправки: нужно примерно %.2f %s, бак %.2f. Нужна заправка по пути" % [forecast.leg_m, forecast.need, forecast.unit, forecast.tank]
+		if float(forecast.have) < float(forecast.need):
+			return "Запас мал: нужно примерно %.2f %s на %.0f м без заправки. Пополни его в депо" % [forecast.need, forecast.unit, forecast.leg_m]
+		if float(forecast.water_tank) > 0 and float(forecast.water_have) < float(forecast.water_need):
+			return "Мало воды: нужно примерно %.0f л на %.0f м без воды. Пополни её в депо" % [forecast.water_need, forecast.water_leg_m]
 	return ""
 
 func free_offers() -> Array:
