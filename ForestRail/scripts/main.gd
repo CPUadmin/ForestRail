@@ -1073,7 +1073,7 @@ func draw_control_zoom() -> void:
 		var shown_gear=lever_pending_gear if drag=="gear" else int(model.state.gear)
 		var label={"brake":"%d%%" % (model.state.brake*100),"throttle":"%d%%" % (model.state.throttle*100),"gear":("%d%%" % (float(model.boiler().feed)*100)) if steam else GEAR_LABELS[shown_gear],"start":("Горит" if model.state.engine else "Разжечь") if steam else ("Вкл." if model.state.engine else "Выкл.")}[id]
 		draw_string(font,rect.position+Vector2(15+100*i,78),title,HORIZONTAL_ALIGNMENT_CENTER,100,16,PAPER)
-		draw_string(font,rect.position+Vector2(15+100*i,253),label,HORIZONTAL_ALIGNMENT_CENTER,100,16,GOLD)
+		draw_string(font,rect.position+Vector2(15+100*i,168 if id=="start" else 253),label,HORIZONTAL_ALIGNMENT_CENTER,100,16,GOLD)
 		if kind=="lever":
 			for endpoint in range(2):
 				var mark=pivot+Vector2(0,-length).rotated(lerpf(-0.55,0.55,float(endpoint)))
@@ -1081,7 +1081,7 @@ func draw_control_zoom() -> void:
 		if drag==id or (pult_t*point).distance_to(get_global_mouse_position())<24: draw_arc(point,10,0,TAU,28,PAPER,1.5,true)
 	if model.vehicle_id()=="steam": draw_steam_panel(rect)
 	var feedback=toast if toast_seconds>0 else ("Крути вентиль по кругу, отпусти — закроется сам. Розжиг — щелчком." if model.vehicle_id()=="steam" else ("Веди шар рычага по кулисе: через N в нужный паз. Пуск — щелчком." if model.vehicle_id()=="motorcar" else ("Двигай ручки вверх и вниз по прорезям, они держат положение." if model.vehicle_id()=="locomotive" else "Веди рукоять по дуге. Пуск — щелчком.")))
-	draw_multiline_string(font,rect.position+Vector2(16,rect.size.y-35),feedback,HORIZONTAL_ALIGNMENT_LEFT,400,15,2,GOLD if toast_seconds>0 else Color("c7c3a0"))
+	draw_multiline_string(font,rect.position+Vector2(16,rect.size.y-35),feedback,HORIZONTAL_ALIGNMENT_LEFT,310,15,2,GOLD if toast_seconds>0 else Color("c7c3a0"))
 
 func show_modal(kind: String) -> void:
 	cancel_drag()
@@ -2049,14 +2049,8 @@ func draw_cab_dash_details(size: Vector2, layout: Dictionary) -> void:
 	draw_line(clock, clock + Vector2(cos(am), sin(am)) * 15, Color("2a2218"), 1.5, true)
 	draw_line(clock, clock + Vector2(cos(ah), sin(ah)) * 10, Color("2a2218"), 2.5, true)
 	draw_circle(clock, 2, Color("a8231c"))
-	# vents beside the pult and hanging cables
-	for side in [-1.0, 1.0]:
-		var vx = pult.position.x - 70.0 if side < 0 else pult.end.x + 20.0
-		for slat in range(6):
-			draw_line(Vector2(vx, top + 80 + slat * 9), Vector2(vx + 50, top + 80 + slat * 9), Color("0a0e0c"), 4.0)
-			draw_line(Vector2(vx, top + 83 + slat * 9), Vector2(vx + 50, top + 83 + slat * 9), Color(1, 1, 1, 0.1), 1.0)
+	# hanging cables
 	draw_polyline(PackedVector2Array([Vector2(size.x * 0.30, top + 6), Vector2(size.x * 0.34, top + 42), Vector2(size.x * 0.38, top + 8)]), Color("0b0e0c"), 4.0, true)
-	draw_polyline(PackedVector2Array([Vector2(size.x * 0.62, top + 6), Vector2(size.x * 0.66, top + 38), Vector2(size.x * 0.70, top + 8)]), Color("0b0e0c"), 4.0, true)
 	if kind == "motorcar": draw_petrol_cab_extras(size, layout)
 	if kind == "steam":
 		# water glass on the right: tube with the level, brass fittings
@@ -2082,40 +2076,44 @@ func draw_petrol_cab_extras(size: Vector2, layout: Dictionary) -> void:
 	var brass = Color("c9a85a")
 	var cx = size.x * 0.5
 	var small = Color("c7c3a0")
-	var base_x = pult.end.x + 28.0
-	# ignition lock plate with a key
-	var lock = Rect2(base_x + 4, top + 60, 84, 60)
+	var radius = clampf((pult.position.x - 70.0) * 0.22, 46.0, 92.0)
+	var gauge_y = top + (size.y - top) * 0.46
+	# switches in the top strip, right of the nameplate: ignition, choke, fuses
+	var strip_x = cx + 190.0
+	var lock = Rect2(strip_x, top + 10, 84, 60)
 	draw_style_box(style(Color("1d2320"), brass, 6), lock)
-	draw_circle(lock.position + Vector2(30, 30), 14, Color("0a0c0b"))
-	draw_circle(lock.position + Vector2(30, 30), 12, Color("3b3f3a"))
-	draw_line(lock.position + Vector2(30, 24), lock.position + Vector2(30, 36), Color("050605"), 3.0)
+	draw_circle(lock.position + Vector2(30, 28), 14, Color("0a0c0b"))
+	draw_circle(lock.position + Vector2(30, 28), 12, Color("3b3f3a"))
+	draw_line(lock.position + Vector2(30, 22), lock.position + Vector2(30, 34), Color("050605"), 3.0)
 	var key_on = bool(model.state.engine)
-	draw_line(lock.position + Vector2(30, 30), lock.position + Vector2(30 + (16 if key_on else 9), 30 - (6 if key_on else 14)), Color("d9c27a"), 4.0, true)
-	draw_circle(lock.position + Vector2(30 + (18 if key_on else 11), 30 - (7 if key_on else 16)), 6, Color("d9c27a"))
+	draw_line(lock.position + Vector2(30, 28), lock.position + Vector2(30 + (16 if key_on else 9), 28 - (6 if key_on else 14)), Color("d9c27a"), 4.0, true)
+	draw_circle(lock.position + Vector2(30 + (18 if key_on else 11), 28 - (7 if key_on else 16)), 6, Color("d9c27a"))
 	draw_string(font, lock.position + Vector2(0, 54), "ЗАЖИГАН.", HORIZONTAL_ALIGNMENT_CENTER, lock.size.x, 10, small)
 	draw_circle(lock.position + Vector2(8, 8), 2.2, brass)
 	draw_circle(lock.position + Vector2(lock.size.x - 8, 8), 2.2, brass)
-	# choke knob on its shaft
-	var choke = Vector2(base_x + 124, top + 82)
-	draw_line(choke, choke + Vector2(0, 34), Color("8d9a98"), 5.0, true)
+	var choke = Vector2(strip_x + 132, top + 24)
+	draw_line(choke, choke + Vector2(0, 30), Color("8d9a98"), 5.0, true)
 	draw_circle(choke, 12, Color("1a1a1a"))
 	draw_circle(choke, 9, Color("2d2d2d"))
 	draw_circle(choke + Vector2(-3, -3), 3, Color(1, 1, 1, 0.3))
-	draw_string(font, choke + Vector2(-30, 48), "ПОДСОС", HORIZONTAL_ALIGNMENT_CENTER, 60, 10, small)
-	# fuse box: six fuses, the third one blown for character
-	var box = Rect2(base_x + 2, top + 132, 124, 40)
+	draw_string(font, choke + Vector2(-30, 46), "ПОДСОС", HORIZONTAL_ALIGNMENT_CENTER, 60, 10, small)
+	var box = Rect2(strip_x + 178, top + 20, 124, 44)
 	draw_style_box(style(Color("20261f"), Color("6c6f66"), 4), box)
 	for fuse in range(6):
 		var colour = [Color("e6b34a"), Color("5cc17f"), Color("e0564a"), Color("5cc17f"), Color("e6b34a"), Color("5cc17f")][fuse]
 		var fx = box.position.x + 9 + fuse * 18
-		draw_rect(Rect2(fx, box.position.y + 7, 12, 18), colour.darkened(0.55) if fuse == 2 else colour)
-		draw_line(Vector2(fx + 6, box.position.y + 10), Vector2(fx + 6, box.position.y + 22), Color("101412"), 1.5)
-	draw_string(font, box.position + Vector2(0, 37), "ПРЕДОХРАНИТЕЛИ", HORIZONTAL_ALIGNMENT_CENTER, box.size.x, 9, small)
-	# two small live gauges: oil pressure follows the revs, temperature warms up and cools down
+		draw_rect(Rect2(fx, box.position.y + 6, 12, 18), colour.darkened(0.55) if fuse == 2 else colour)
+		draw_line(Vector2(fx + 6, box.position.y + 9), Vector2(fx + 6, box.position.y + 21), Color("101412"), 1.5)
+	draw_string(font, box.position + Vector2(0, 38), "ПРЕДОХРАНИТЕЛИ", HORIZONTAL_ALIGNMENT_CENTER, box.size.x, 9, small)
+	# the fuel gauge and the two small live ones stand in one row on the right
 	var running = bool(model.state.engine)
+	var small_r = radius * 0.42
+	var fuel_x = pult.end.x + 36.0 + radius + 8.0
+	var oil_x = fuel_x + radius + 8.0 + 22.0 + small_r
+	var temp_x = oil_x + small_r * 2.0 + 16.0
 	var oil = clampf(0.12 + model.engine_rpm_fraction() * 0.75, 0.0, 1.0) if running else 0.0
-	draw_round_gauge(Vector2(base_x + 28, top + 238), 30.0, oil, "МАСЛО", "%.1f" % (oil * 5.0), [[0.2, Color("e0564a")], [0.9, Color("5cc17f")], [1.0, Color("e6b34a")]], 4)
-	draw_round_gauge(Vector2(base_x + 92, top + 238), 30.0, cab_temp, "ТЕМП.", "%d°" % roundi(20.0 + cab_temp * 100.0), [[0.7, Color("5cc17f")], [0.88, Color("e6b34a")], [1.0, Color("e0564a")]], 4)
+	draw_round_gauge(Vector2(oil_x, gauge_y), small_r, oil, "МАСЛО", "%.1f" % (oil * 5.0), [[0.2, Color("e0564a")], [0.9, Color("5cc17f")], [1.0, Color("e6b34a")]], 4)
+	draw_round_gauge(Vector2(temp_x, gauge_y), small_r, cab_temp, "ТЕМП.", "%d°" % roundi(20.0 + cab_temp * 100.0), [[0.7, Color("5cc17f")], [0.88, Color("e6b34a")], [1.0, Color("e0564a")]], 4)
 	# gear lamps under the nameplate: the engaged gear is lit
 	var labels = ["1", "2", "3", "4", "N", "R"]
 	var gears = [1, 2, 3, 4, 0, 5]
@@ -2141,16 +2139,17 @@ func draw_petrol_cab_extras(size: Vector2, layout: Dictionary) -> void:
 		var wagon_w = 16 + wagon * 14
 		draw_rect(Rect2(vanishing.x - wagon_w * 0.5, wagon_y - 6 - wagon * 2, wagon_w, 8 + wagon * 2), Color("7a4a2a") if wagon == 0 else Color("8a5a34"))
 	draw_colored_polygon(PackedVector2Array([mirror.position + Vector2(10, 0), mirror.position + Vector2(40, 0), mirror.position + Vector2(20, mirror.size.y), mirror.position + Vector2(-8, mirror.size.y)]), Color(1, 1, 1, 0.16))
-	# pedal pads at the bottom, left of the pult: clutch, brake, gas (not controls)
+	# pedal pads under the left gauges: clutch, brake, gas (not controls)
+	var left = pult.position.x * 0.5
 	for pedal in range(3):
-		var px = pult.position.x - 150 + pedal * 50
-		var py = size.y - 66
+		var px = left - 80.0 + pedal * 56.0
+		var py = size.y - 70.0
 		var tilt = 6 if pedal == 2 else 0
-		draw_colored_polygon(PackedVector2Array([Vector2(px, py + tilt), Vector2(px + 38, py + tilt), Vector2(px + 42, size.y), Vector2(px - 4, size.y)]), Color("171b19"))
+		draw_colored_polygon(PackedVector2Array([Vector2(px, py + tilt), Vector2(px + 40, py + tilt), Vector2(px + 44, size.y), Vector2(px - 4, size.y)]), Color("171b19"))
 		for tread in range(5):
 			var ty = py + tilt + 8 + tread * 11
-			draw_line(Vector2(px + 3, ty), Vector2(px + 35, ty), Color(1, 1, 1, 0.12), 2.0)
-		draw_line(Vector2(px, py + tilt), Vector2(px + 38, py + tilt), brass, 2.0)
+			draw_line(Vector2(px + 3, ty), Vector2(px + 37, ty), Color(1, 1, 1, 0.12), 2.0)
+		draw_line(Vector2(px, py + tilt), Vector2(px + 40, py + tilt), brass, 2.0)
 
 func draw_round_gauge(center: Vector2, radius: float, fraction: float, title: String, readout: String, zones: Array, ticks: int = 10, scale_text: Array = []) -> void:
 	draw_circle(center + Vector2(2, 3), radius + 8, Color(0, 0, 0, 0.4))
@@ -2205,7 +2204,7 @@ func draw_cab_gauges(size: Vector2, layout: Dictionary) -> void:
 	var low_bad = [[0.15, Color("e0564a")], [0.35, Color("e6b34a")], [1.0, Color("5cc17f")]]
 	if kind == "motorcar":
 		draw_round_gauge(Vector2(left + radius * 1.1, y), radius, model.engine_rpm() / 6000.0, "ОБОРОТЫ", "%.1f тыс" % (model.engine_rpm() / 1000.0), [[0.7, Color("5cc17f")], [0.88, Color("e6b34a")], [1.0, Color("e0564a")]], 6, [0, 1, 2, 3, 4, 5, 6])
-		draw_round_gauge(Vector2(right, y), radius, amount / float(stats.tank), "БЕНЗИН", "%.2f л" % amount, low_bad, 4, ["0", "", "1/2", "", "П"])
+		draw_round_gauge(Vector2(pult.end.x + 36.0 + radius + 8.0, y), radius, amount / float(stats.tank), "БЕНЗИН", "%.2f л" % amount, low_bad, 4, ["0", "", "1/2", "", "П"])
 	elif kind == "steam":
 		var work = float(model.boiler_cfg().work_pressure_bar) / float(model.boiler_cfg().max_pressure_bar)
 		draw_round_gauge(Vector2(left + radius * 1.1, y), radius, float(model.boiler().pressure), "ДАВЛЕНИЕ", "%.1f бар" % model.pressure_bar(), [[work, Color("e6b34a")], [0.9, Color("5cc17f")], [1.0, Color("e0564a")]], 10, [0, 2, 4, 6, 8, 10])
