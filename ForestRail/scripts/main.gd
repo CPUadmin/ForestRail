@@ -755,6 +755,8 @@ func update_hud() -> void:
 		hint = "Станция «%s». Перетащи груз для этой станции на площадку внизу." % at_station
 	elif model.vehicle_id() == "handcar":
 		hint = "Зажми деревянный хват и веди его по дуге рычага. Ровные полные ходы разгоняют лучше. Красный рычаг — тормоз."
+	elif model.vehicle_id() == "locomotive":
+		hint = "Тяга — зелёный рычаг, тормоз — красный. Направление выбирается на стоянке кнопками «Тяга ←» и «Тяга →»."
 	elif not state.engine:
 		hint = "Запуск: подача 0%, передача Н. Щёлкни тумблер, затем выбери режим и подай тягу."
 	else:
@@ -848,6 +850,12 @@ func toggle_control_zoom() -> void:
 	update_hud()
 	queue_redraw()
 
+# Electric drive has no gearbox or start switch: only brake and traction levers.
+func control_ids() -> Array:
+	if model.vehicle_id() == "handcar": return ["pump", "brake"]
+	if model.vehicle_id() == "locomotive": return ["brake", "throttle"]
+	return ["brake", "throttle", "gear", "start"]
+
 func control_zoom_rect() -> Rect2:
 	return Rect2(36,90,430,320)
 
@@ -861,7 +869,7 @@ func draw_control_zoom() -> void:
 	draw_rect(Rect2(rect.position,Vector2(rect.size.x,42)),INK)
 	draw_string(font,rect.position+Vector2(16,28),"ПУЛЬТ",HORIZONTAL_ALIGNMENT_LEFT,330,19,PAPER)
 	draw_string(font,rect.position+Vector2(370,28),"C ×",HORIZONTAL_ALIGNMENT_LEFT,50,19,GOLD)
-	var ids=["brake","throttle","gear","start"]
+	var ids=control_ids()
 	for i in range(ids.size()):
 		var id=ids[i]
 		var geo=control_geometry(id,true)
@@ -1717,7 +1725,7 @@ func control_geometry(id: String, closeup: bool = false) -> Dictionary:
 	return {"pivot":pivot,"grip":pivot+Vector2(0,-length).rotated(angle),"angle":angle}
 
 func draw_controls(body_transform: Transform2D, show_labels: bool = true) -> void:
-	var ids = ["pump", "brake"] if model.vehicle_id() == "handcar" else ["brake", "throttle", "gear", "start"]
+	var ids = control_ids()
 	if model.vehicle_id() != "handcar":
 		draw_line(Vector2(-1.28,art.deck_y(model.vehicle_id())/ArtV3.PX)*ArtV3.PX,Vector2(-1.28,-1.16)*ArtV3.PX,INK,0.04*ArtV3.PX,true)
 		draw_style_box(style(Color("34443c"),Color("918363"),3),Rect2(Vector2(-1.4,-1.80)*ArtV3.PX,Vector2(1.04,0.64)*ArtV3.PX))
@@ -1761,7 +1769,7 @@ func draw_controls(body_transform: Transform2D, show_labels: bool = true) -> voi
 
 func add_world_hits(id: String, index: int, transform: Transform2D) -> void:
 	if index == 0:
-		var ids = ["pump", "brake"] if model.vehicle_id() == "handcar" else ["brake", "throttle", "gear", "start"]
+		var ids = control_ids()
 		for control_id in ids:
 			grip_hits.append({"id": control_id, "position": transform * lever_geometry(control_id).grip})
 		if id=="handcar":

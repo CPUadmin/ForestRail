@@ -682,6 +682,7 @@ func rescue() -> void:
 	message = "Помощь доставила состав в депо. Груз и покупки сохранены"
 
 func set_gear(value: int) -> bool:
+	if vehicle_id() == "locomotive": return true
 	if float(state.throttle) >= 0.15:
 		return fail("Сначала убавь подачу ниже 15%")
 	state.gear = clampi(value, 0, 2)
@@ -702,6 +703,7 @@ func drive_direction() -> int:
 	return int(state.direction) * int(state.get("reverser", 1))
 
 func start_engine(value: bool) -> bool:
+	if vehicle_id() == "locomotive": return true
 	if value:
 		if int(state.gear) != 0:
 			return fail("Для запуска нужна нейтраль Н")
@@ -785,6 +787,11 @@ func physics_step(dt: float) -> void:
 		output_power=pump_work/dt
 	else:
 		var fleet = state.fleet_by_id[vehicle_id()]
+		if vehicle_id() == "locomotive":
+			# Electric drive has no gearbox or start switch: traction is always
+			# engaged and only the battery charge limits it.
+			state.gear = 1
+			state.engine = float(fleet.fuel) > 0
 		if fleet.fuel <= 0: state.engine = false
 		if state.engine and fleet.fuel > 0:
 			if fleet.fuel <= 0:
@@ -824,7 +831,9 @@ func physics_step(dt: float) -> void:
 		var used=0.0
 		var recovered=0.0
 		if vehicle_id()=="locomotive":
-			used=shaft_work/0.82+(120.0*dt if state.engine else 0.0)
+			# No idle draw: an electric drive without a start switch must not
+			# bleed the battery while parked.
+			used=shaft_work/0.82
 			recovered=0.25*brake_work if float(state.throttle)<0.01 else 0.0
 			recovered=minf(recovered,maxf(0,(float(stats.tank)-before)*3600000.0+used))
 			fleet.fuel=clampf(before+(recovered-used)/3600000.0,0,float(stats.tank))

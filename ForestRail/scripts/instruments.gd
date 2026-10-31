@@ -233,7 +233,7 @@ func draw_status() -> void:
 		value = "%.2f / %.2f кВт·ч" % [amount,stats.tank] if m.vehicle_id()=="locomotive" else "%.2f / %.1f л" % [amount,stats.tank]
 		if m.vehicle_id()=="steam": value = "%.0f кг · %.0f л" % [amount,float(m.state.fleet_by_id.steam.get("water",0))]
 		fraction = amount / maxf(0.001,float(stats.tank))
-	if m.vehicle_id()!="handcar": title+="  ·  "+["Н","I","II"][int(m.state.gear)]
+	if m.vehicle_id() not in ["handcar","locomotive"]: title+="  ·  "+["Н","I","II"][int(m.state.gear)]
 	if m.vehicle_id()=="locomotive" and m.regen_kw>0.01: title="РЕКУПЕРАЦИЯ +%.1f кВт" % m.regen_kw
 	put(title,r.position+Vector2(16,22*f),r.size.x*0.5-16,12,GOLD if m.regen_kw>0.01 else MUTED)
 	put(value,r.position+Vector2(r.size.x*0.48,22*f),r.size.x*0.52-16,14,RED if fraction<=0.15 and m.vehicle_id()!="handcar" else PAPER,HORIZONTAL_ALIGNMENT_RIGHT)

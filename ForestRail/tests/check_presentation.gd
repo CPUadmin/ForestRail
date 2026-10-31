@@ -71,7 +71,7 @@ func run() -> void:
 		game.camera_x = 1040
 		game.rebuild()
 		await shot("loading_" + str(size.y))
-		if game.grip_hits.size() != 4 or game.slot_hits.size() != 6:
+		if game.grip_hits.size() != 2 or game.slot_hits.size() != 6:
 			failures.append("missing input regions " + str(size.y))
 		for hit in game.slot_hits + game.grip_hits:
 			var p = hit.position if hit.has("position") else hit.rect.get_center()

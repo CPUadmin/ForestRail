@@ -157,9 +157,8 @@ func run() -> void:
 	battery = float(m.state.fleet_by_id.locomotive.fuel)
 	for i in range(60): m.physics_step(1.0 / 60)
 	check(is_equal_approx(m.state.fleet_by_id.locomotive.fuel, battery), "stationary brake never creates energy")
-	check(not m.set_gear(2) or m.state.throttle < 0.15, "gear interlock")
 	m.state.throttle = 0.5
-	check(not m.set_gear(2), "reject shift with throttle")
+	check(m.set_gear(2) and m.start_engine(false) and m.state.gear == 1, "electric drive has no gearbox or start switch")
 	var money_before_rescue = int(m.state.money)
 	var cargo_before_rescue = m.state.cargo.size()
 	var refill_before_rescue = m.refill_cost()
