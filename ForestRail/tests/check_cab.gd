@@ -142,6 +142,33 @@ func run() -> void:
 		await mouse(current, false)
 		check(int(game.model.state.gear) == 1, "the knob dragged through the gate selects first gear")
 		await key(KEY_E)
+		# Electric: the direction switch and the emergency stop are real buttons.
+		context = "electric buttons %s " % str(resolution)
+		await prepare("locomotive")
+		game.model.state.brake = 1.0
+		await key(KEY_E)
+		for i in range(6): await frame()
+		var forward_rect = Rect2()
+		var back_rect = Rect2()
+		var emergency_rect = Rect2()
+		for hit in game.cab_hits:
+			if hit.id == "forward": forward_rect = hit.rect
+			elif hit.id == "back": back_rect = hit.rect
+			elif hit.id == "emergency": emergency_rect = hit.rect
+		check(view.encloses(forward_rect) and view.encloses(back_rect) and view.encloses(emergency_rect), "direction and emergency buttons are on screen")
+		await mouse(back_rect.get_center(), true)
+		await mouse(back_rect.get_center(), false)
+		check(int(game.model.state.reverser) == -1, "the back button reverses the traction")
+		await mouse(forward_rect.get_center(), true)
+		await mouse(forward_rect.get_center(), false)
+		check(int(game.model.state.reverser) == 1, "the forward button restores it")
+		game.model.state.brake = 0.0
+		game.model.state.throttle = 0.6
+		await mouse(emergency_rect.get_center(), true)
+		await mouse(emergency_rect.get_center(), false)
+		check(float(game.model.state.brake) == 1.0 and float(game.model.state.throttle) == 0.0, "the emergency stop drops traction and brakes")
+		await key(KEY_E)
+		for i in range(6): await frame()
 		# Steam: the fire door is opened by a click and coal is dragged to it on the dashboard.
 		context = "steam parts %s " % str(resolution)
 		await prepare("steam")

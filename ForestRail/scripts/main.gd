@@ -994,6 +994,17 @@ func draw_steam_panel(rect: Rect2) -> void:
 		draw_rect(piece,Color("1b1713"))
 		draw_rect(piece,GOLD,false,2)
 
+# Clicks on the dashboard buttons: the direction switch (steam, electric) and the
+# emergency stop (electric). The direction rules are the same as the buttons outside.
+func cab_button(id: String) -> void:
+	if id == "forward" or id == "back":
+		if model.set_reverser(1 if id == "forward" else -1): save_game()
+		else: notify(model.message)
+	elif id == "emergency":
+		model.state.throttle = 0.0
+		model.state.brake = 1.0
+		notify("Аварийное торможение: тяга снята, тормоз затянут")
+
 # What is drawn and grabbed on the machine itself: the main organs only. The
 # rest (gearbox, tap, ignition, fire door, coal) live in the pult on C.
 func world_control_ids() -> Array:
@@ -1073,7 +1084,7 @@ func draw_control_zoom() -> void:
 		var shown_gear=lever_pending_gear if drag=="gear" else int(model.state.gear)
 		var label={"brake":"%d%%" % (model.state.brake*100),"throttle":"%d%%" % (model.state.throttle*100),"gear":("%d%%" % (float(model.boiler().feed)*100)) if steam else GEAR_LABELS[shown_gear],"start":("Горит" if model.state.engine else "Разжечь") if steam else ("Вкл." if model.state.engine else "Выкл.")}[id]
 		draw_string(font,rect.position+Vector2(15+100*i,78),title,HORIZONTAL_ALIGNMENT_CENTER,100,16,PAPER)
-		draw_string(font,rect.position+Vector2(15+100*i,168 if id=="start" else 253),label,HORIZONTAL_ALIGNMENT_CENTER,100,16,GOLD)
+		draw_string(font,rect.position+Vector2(15+100*i,168 if id=="start" else (268 if kind=="slider" else 253)),label,HORIZONTAL_ALIGNMENT_CENTER,100,16,GOLD)
 		if kind=="lever":
 			for endpoint in range(2):
 				var mark=pivot+Vector2(0,-length).rotated(lerpf(-0.55,0.55,float(endpoint)))
@@ -1383,6 +1394,12 @@ func _unhandled_input(event: InputEvent) -> void:
 			toggle_cab_view()
 			get_viewport().set_input_as_handled()
 			return
+		if cab_active():
+			for hit in cab_hits:
+				if hit.rect.has_point(mouse):
+					cab_button(hit.id)
+					get_viewport().set_input_as_handled()
+					return
 		var in_closeup = (control_zoom or cab_active()) and pult_screen_rect().has_point(mouse)
 		if in_closeup and not cab_active() and mouse.y<control_zoom_rect().position.y+42:
 			control_zoom=false
@@ -2052,6 +2069,8 @@ func draw_cab_dash_details(size: Vector2, layout: Dictionary) -> void:
 	# hanging cables
 	draw_polyline(PackedVector2Array([Vector2(size.x * 0.30, top + 6), Vector2(size.x * 0.34, top + 42), Vector2(size.x * 0.38, top + 8)]), Color("0b0e0c"), 4.0, true)
 	if kind == "motorcar": draw_petrol_cab_extras(size, layout)
+	if kind in ["steam", "locomotive"]: draw_cab_reverser(size, layout)
+	if kind == "locomotive": draw_electric_cab_extras(size, layout)
 	if kind == "steam":
 		# water glass on the right: tube with the level, brass fittings
 		var tube = Rect2(size.x - 150, top + 70, 16, 120)
@@ -2067,6 +2086,55 @@ func draw_cab_dash_details(size: Vector2, layout: Dictionary) -> void:
 		var ring_at = Vector2(size.x * 0.5 + 224 + sway, top - 60)
 		draw_line(Vector2(cord_top.x, size.y * 0.075), ring_at, Color("a58b57"), 3.0, true)
 		draw_arc(ring_at + Vector2(0, 8), 8, 0, TAU, 16, brass, 3.0, true)
+
+# Direction switch in the top strip of the dashboard: two buttons, the engaged one lit.
+func draw_cab_reverser(size: Vector2, layout: Dictionary) -> void:
+	var top = float(layout.dash_top)
+	var strip_x = size.x * 0.5 + 190.0
+	var brass = Color("c9a85a")
+	var panel = Rect2(strip_x, top + 10, 190, 60)
+	draw_style_box(style(Color("1d2320"), brass, 6), panel)
+	draw_string(font, panel.position + Vector2(0, 54), "НАПРАВЛЕНИЕ", HORIZONTAL_ALIGNMENT_CENTER, panel.size.x, 10, Color("c7c3a0"))
+	var forward = int(model.state.get("reverser", 1)) >= 0
+	for index in range(2):
+		var button = Rect2(panel.position + Vector2(8 + index * 88, 8), Vector2(86, 30))
+		var lit = (index == 1) == forward
+		draw_rect(button, Color("2c3a30") if lit else Color("151b18"))
+		draw_rect(button, brass if lit else Color("4b564e"), false, 2.0)
+		draw_circle(button.position + Vector2(12, 15), 5, Color("5cc17f") if lit else Color("1e3326"))
+		draw_string(font, button.position + Vector2(20, 21), "ВПЕРЁД" if index == 1 else "НАЗАД", HORIZONTAL_ALIGNMENT_CENTER, 62, 13, PAPER if lit else Color("8a8466"))
+		cab_hits.append({"id": "forward" if index == 1 else "back", "rect": button})
+
+# Electric cab: warning plate, regeneration lamps and the emergency stop button, the
+# voltmeter and ammeter live in draw_cab_gauges.
+func draw_electric_cab_extras(size: Vector2, layout: Dictionary) -> void:
+	var top = float(layout.dash_top)
+	var pult: Rect2 = layout.rect
+	var brass = Color("c9a85a")
+	var cx = size.x * 0.5
+	# warning plate with a lightning bolt
+	var tri = Vector2(400, top + 38)
+	draw_colored_polygon(PackedVector2Array([tri + Vector2(0, -22), tri + Vector2(25, 22), tri + Vector2(-25, 22)]), Color("e6c13a"))
+	draw_polyline(PackedVector2Array([tri + Vector2(0, -22), tri + Vector2(25, 22), tri + Vector2(-25, 22), tri + Vector2(0, -22)]), Color("2a2218"), 2.5, true)
+	draw_colored_polygon(PackedVector2Array([tri + Vector2(3, -12), tri + Vector2(-7, 4), tri + Vector2(-1, 4), tri + Vector2(-4, 14), tri + Vector2(7, -2), tri + Vector2(1, -2)]), Color("1a1612"))
+	draw_string(font, tri + Vector2(-60, 40), "ВЫСОКОЕ НАПРЯЖЕНИЕ", HORIZONTAL_ALIGNMENT_CENTER, 120, 9, Color("a9a589"))
+	# regeneration and charge lamps under the nameplate
+	var regen = model.regen_kw > 0.01
+	var lamps = [["РЕКУП.", regen, Color("6cc4e0")], ["ПИТАНИЕ", float(model.state.fleet_by_id.locomotive.fuel) > 0.0, Color("5cc17f")], ["НИЗКИЙ ЗАРЯД", float(model.state.fleet_by_id.locomotive.fuel) / float(model.object_stats("locomotive").tank) < 0.25, Color("e0564a")]]
+	for lamp in range(lamps.size()):
+		var at = Vector2(cx - 60 + lamp * 60, top + 54)
+		draw_circle(at, 9, Color("0c100e"))
+		draw_circle(at, 7, lamps[lamp][2] if lamps[lamp][1] else lamps[lamp][2].darkened(0.78))
+		if lamps[lamp][1]: draw_circle(at, 15, Color(lamps[lamp][2], 0.2))
+		draw_string(font, at + Vector2(-30, 24), lamps[lamp][0], HORIZONTAL_ALIGNMENT_CENTER, 60, 9, Color("a9a589"))
+	# the red mushroom emergency stop: a real button, it drops traction and pulls the brake
+	var button = Vector2(cx + 190 + 190 + 52, top + 38)
+	draw_circle(button, 28, Color("3a1512"))
+	draw_circle(button, 24, Color("c23b2e"))
+	draw_circle(button + Vector2(-8, -9), 8, Color(1, 1, 1, 0.3))
+	draw_arc(button, 28, 0, TAU, 24, brass, 2.5, true)
+	draw_string(font, button + Vector2(-50, 46), "АВАРИЙНЫЙ ТОРМОЗ", HORIZONTAL_ALIGNMENT_CENTER, 100, 9, Color("a9a589"))
+	cab_hits.append({"id": "emergency", "rect": Rect2(button - Vector2(30, 30), Vector2(60, 60))})
 
 # Petrol cab: ignition lock, choke, fuse box, oil and temperature gauges, gear lamps,
 # a rear-view mirror and pedal pads. The two small gauges are live.
@@ -2212,7 +2280,13 @@ func draw_cab_gauges(size: Vector2, layout: Dictionary) -> void:
 		draw_round_gauge(Vector2(right - radius * 0.9, y), radius, water / float(stats.water), "ВОДА", "%.0f л" % water, low_bad, 4, ["0", "", "1/2", "", "П"])
 	else:
 		draw_round_gauge(Vector2(left + radius * 1.1, y), radius, amount / float(stats.tank), "ЗАРЯД", "%d%%" % roundi(amount / float(stats.tank) * 100), low_bad, 10, [0, 25, 50, 75, 100])
-		draw_round_gauge(Vector2(right, y), radius, float(model.state.brake), "ТОРМОЗ", "%d%%" % roundi(float(model.state.brake) * 100), [[0.05, Color("5cc17f")], [0.6, Color("e6b34a")], [1.0, Color("e0564a")]], 10, [0, 25, 50, 75, 100])
+		var charge = amount / float(stats.tank)
+		var volts = clampf(40.0 + 9.0 * charge - 4.0 * float(model.state.throttle), 0.0, 60.0)
+		var speed_share = clampf(absf(float(model.state.v)) / float(stats.speeds[0]), 0.0, 1.0)
+		var amps = float(model.state.throttle) * 260.0 * (1.0 - 0.5 * speed_share) * (1.0 if amount > 0.0 else 0.0) - model.regen_kw * 1000.0 / maxf(volts, 1.0)
+		var first = pult.end.x + 36.0 + radius + 8.0
+		draw_round_gauge(Vector2(first, y), radius, volts / 60.0, "ВОЛЬТМЕТР", "%.0f В" % volts, [[0.7, Color("e0564a")], [0.9, Color("5cc17f")], [1.0, Color("e6b34a")]], 6, [0, 10, 20, 30, 40, 50, 60])
+		draw_round_gauge(Vector2(first + radius * 2.0 + 28.0, y), radius, clampf((amps + 100.0) / 400.0, 0.0, 1.0), "АМПЕРМЕТР", "%.0f А" % amps, [[0.25, Color("78b8d8")], [0.75, Color("5cc17f")], [0.9, Color("e6b34a")], [1.0, Color("e0564a")]], 8, [-100, 0, 100, 200, 300])
 
 func draw_background(size: Vector2) -> void:
 	if textures.has("background"):
