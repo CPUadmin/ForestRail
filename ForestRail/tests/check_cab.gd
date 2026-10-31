@@ -96,6 +96,7 @@ func run() -> void:
 			context = "%s %s " % [kind, str(resolution)]
 			await prepare(kind)
 			check(game.ui.visible and not game.cab_active(), "outside the cab the usual screen is shown")
+			await shot("outside_%s_%d" % [kind, resolution.y])
 			await key(KEY_E)
 			for i in range(10): await frame()
 			check(game.cab_active() and not game.ui.visible, "E opens the cab and covers the rest of the screen")
@@ -109,6 +110,12 @@ func run() -> void:
 			check(game.cab_exit_rect.size.x > 0 and view.encloses(game.cab_exit_rect), "exit button is on screen")
 			check(game.cab_sides.size() == 2 and game.cab_sides[0].visible and game.cab_sides[1].visible, "both side windows show in the cab")
 			for window in game.cab_sides: check(view.encloses(Rect2(window.position, window.size)), "side window is on screen")
+			game.model.state.v = 4.0
+			game.cab_jolt = 1.0
+			for i in range(8): await frame()
+			check(game.needle_state.size() >= 2, "gauge needles keep their own spring state")
+			check(is_finite(game.cab_shake().x) and is_finite(game.cab_shake().y), "cab shake is a finite offset")
+			game.model.state.v = 0.0
 			await shot("cab_%s_%d" % [kind, resolution.y])
 			# The brake is pulled with the mouse on the dashboard: the lever follows, drop keeps it.
 			var brake_at = grip("brake")

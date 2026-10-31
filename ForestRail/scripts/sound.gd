@@ -46,9 +46,9 @@ func play(name: String, gain: float = 1.0) -> void:
 			voice.play()
 			return
 
-func update(model, paused: bool, in_menu: bool, dt: float) -> void:
+func update(model, paused: bool, in_menu: bool, dt: float, in_cab: bool = false) -> void:
 	var master = float(settings.get("master", 0.65))
-	forest.volume_db = linear_to_db(maxf(0.0001, master * float(settings.get("forest", 0.6)) * 0.25))
+	forest.volume_db = linear_to_db(maxf(0.0001, master * float(settings.get("forest", 0.6)) * (0.1 if in_cab else 0.25)))
 	if not forest.playing:
 		forest.play()
 	music.volume_db = linear_to_db(maxf(0.0001, master * float(settings.get("music", 0.25)) * 0.18))
@@ -64,14 +64,14 @@ func update(model, paused: bool, in_menu: bool, dt: float) -> void:
 		return
 	if model.state.engine:
 		engine.pitch_scale = 0.7 + float(model.state.throttle) * 0.55 + absf(float(model.state.v)) * 0.02
-		engine.volume_db = linear_to_db(maxf(0.0001, master * float(settings.get("mechanisms", 0.7)) * (0.05 + 0.12 * float(model.state.throttle))))
+		engine.volume_db = linear_to_db(maxf(0.0001, master * float(settings.get("mechanisms", 0.7)) * (0.05 + 0.12 * float(model.state.throttle)) * (1.5 if in_cab else 1.0)))
 		if not engine.playing:
 			engine.play()
 	else:
 		engine.stop()
 	if model.rail_distance - last_rail > 5.5:
 		last_rail = model.rail_distance
-		play("rail_clack", 0.35)
+		play("rail_clack", 0.5 if in_cab else 0.35)
 	brake_cooldown -= dt
 	if float(model.state.brake) > 0.15 and absf(float(model.state.v)) > 0.5 and brake_cooldown <= 0:
 		play("brake", minf(0.25, float(model.state.brake) * 0.2))

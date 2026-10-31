@@ -67,6 +67,11 @@ var cab_exit_rect = Rect2()
 var cab_sides: Array = []
 # Visual-only engine temperature of the petrol car, 0..1: warms up while it runs.
 var cab_temp = 0.05
+# Cab liveliness: a jolt at every rail joint, spring-driven needles, frame time.
+var cab_jolt = 0.0
+var cab_joint = -999999
+var needle_state: Dictionary = {}
+var cab_dt = 0.016
 var drag = ""
 var drag_item = ""
 var drag_total = 0.0
@@ -927,8 +932,11 @@ func draw_steam_cab_props(bucket: Rect2, fire: Rect2, door_button: Rect2, boiler
 		var lx = bucket.position.x + 24 + fposmod(lump * 23.0, bucket.size.x - 48)
 		draw_circle(Vector2(lx, bucket.position.y + 26 - 2.0 * stock * (lump % 3)), 4.0 + (lump % 3), Color("141517") if lump % 2 == 0 else Color("2c2e33"))
 	if drag == "coal": draw_arc(bucket.get_center(), 54, 0, TAU, 28, GOLD, 2.0, true)
-	# firebox door: an iron arch with the fire behind it
+	# firebox door: an iron arch with the fire behind it; the fire lights the dashboard
 	var heat = float(boiler.heat)
+	if heat > 0.05:
+		var flicker = 0.7 + 0.3 * sin(time * 9.0) * sin(time * 3.7)
+		for ring in range(5): draw_circle(fire.get_center(), 60.0 + ring * 38.0, Color(1.0, 0.5, 0.12, 0.05 * heat * flicker))
 	var door_open = bool(boiler.door)
 	draw_rect(fire, Color("0a0b0b"))
 	if heat > 0.02:
@@ -1221,6 +1229,15 @@ func _process(dt: float) -> void:
 	time += dt
 	if screen != "game" or model.vehicle_id() == "handcar": cab_view = false
 	cab_blend = move_toward(cab_blend, 1.0 if cab_view else 0.0, dt * 4.0)
+	cab_dt = minf(dt, 0.033)
+	cab_jolt = move_toward(cab_jolt, 0.0, dt * 4.0)
+	if cab_active() and not model.state.is_empty():
+		var joint = floori(model.render_s() * float(model.state.direction) / 12.0)
+		if joint != cab_joint:
+			if cab_joint != -999999 and absf(float(model.state.v)) > 0.3: cab_jolt = minf(1.0, 0.35 + absf(float(model.state.v)) * 0.06)
+			cab_joint = joint
+	else:
+		cab_joint = -999999
 	if screen == "game" and not model.state.is_empty() and model.vehicle_id() == "motorcar":
 		var running = bool(model.state.engine)
 		var heat_target = (0.30 + 0.42 * clampf(model.engine_rpm_fraction() * 0.8 + float(model.state.throttle) * 0.2, 0.0, 1.0)) if running else 0.05
@@ -1264,7 +1281,7 @@ func _process(dt: float) -> void:
 			model.message = ""
 	while not model.events.is_empty():
 		sound.play(str(model.events.pop_front()), 0.6)
-	sound.update(model, paused, screen == "menu", dt)
+	sound.update(model, paused, screen == "menu", dt, cab_active())
 	if art_world != null: art_world.update_view()
 	queue_redraw()
 	if smoke_frames >= 0:
@@ -1686,6 +1703,25 @@ func pult_screen_rect() -> Rect2:
 	if cab_active(): return cab_layout(get_viewport_rect().size).rect
 	return control_zoom_rect() if control_zoom else Rect2()
 
+func cab_shake() -> Vector2:
+	var speed = absf(float(model.state.v))
+	var vibrating = bool(model.state.engine) and model.vehicle_id() != "locomotive"
+	var tremble = Vector2(sin(time * 61.0), sin(time * 53.0 + 1.3)) * ((0.5 + 0.7 * float(model.state.throttle)) if vibrating else 0.0)
+	var clack = Vector2(0.0, sin(time * 38.0) * cab_jolt * 3.4)
+	var sway = Vector2(sin(time * 1.3) * minf(speed * 0.18, 2.0), 0.0)
+	return tremble + clack + sway
+
+# Needles are springs: they overshoot a little and settle, and tremble while the
+# machine runs, instead of jumping to the value.
+func cab_needle(key: String, target: float) -> float:
+	var state = needle_state.get(key, {"x": target, "v": 0.0})
+	var accel = (target - float(state.x)) * 90.0 - float(state.v) * 11.0
+	state.v = float(state.v) + accel * cab_dt
+	state.x = float(state.x) + float(state.v) * cab_dt
+	needle_state[key] = state
+	var tremble = sin(time * 37.0 + key.length()) * 0.004 if bool(model.state.engine) and model.vehicle_id() != "locomotive" and key in ["СКОРОСТЬ", "ОБОРОТЫ", "ДАВЛЕНИЕ"] else 0.0
+	return clampf(float(state.x) + tremble, -0.05, 1.05)
+
 func cab_hash(i: int, salt: float = 0.0) -> float:
 	return fposmod(sin(float(i) * 12.9898 + salt * 78.233) * 43758.5453, 1.0)
 
@@ -1700,8 +1736,12 @@ func draw_cab_scene(size: Vector2) -> void:
 	var top = float(layout.dash_top)
 	draw_set_transform_matrix(Transform2D.IDENTITY)
 	var view = Rect2(0, 0, size.x, top)
+	# The view and the machine's nose shake with the track and the engine; the frame
+	# and the dashboard stay put, so the controls keep their places under the mouse.
+	draw_set_transform_matrix(Transform2D(0.0, Vector2.ONE, 0.0, cab_shake()))
 	var look = draw_cab_forward(view)
 	draw_cab_nose(view, look)
+	draw_set_transform_matrix(Transform2D.IDENTITY)
 	draw_cab_frame(size, top)
 	draw_cab_dash_details(size, layout)
 	draw_cab_gauges(size, layout)
@@ -1951,6 +1991,8 @@ func draw_cab_frame(size: Vector2, top: float) -> void:
 	var green = Color("2f4a3b")
 	var dark = Color("1f2f27")
 	var brass = Color("c9a85a")
+	var running_engine = bool(model.state.engine) and model.vehicle_id() != "locomotive"
+	var lamp_flicker = 1.0 - (0.22 * (0.5 + 0.5 * sin(time * 27.0)) if running_engine else 0.0)
 	var roof = size.y * 0.075
 	draw_polygon(PackedVector2Array([Vector2(0, 0), Vector2(size.x, 0), Vector2(size.x, roof), Vector2(0, roof)]), PackedColorArray([dark, dark, green, green]))
 	for plank in range(1, 24):
@@ -1980,7 +2022,7 @@ func draw_cab_frame(size: Vector2, top: float) -> void:
 		for bolt in [frame.position, Vector2(frame.end.x, frame.position.y), Vector2(frame.position.x, frame.end.y), frame.end]:
 			draw_circle(bolt, 3.5, brass)
 	# a brass lantern on a hook at the left pillar, under the side window
-	var hook = Vector2(pillar * 0.4, size.y * 0.29)
+	var hook = Vector2(pillar * 0.4 + sin(time * 1.8) * minf(absf(float(model.state.v)), 6.0) * 0.7, size.y * 0.29)
 	draw_line(Vector2(hook.x, roof), hook, brass, 2.0)
 	draw_rect(Rect2(hook.x - 12, hook.y, 24, 34), Color("a98a4a"))
 	draw_rect(Rect2(hook.x - 8, hook.y + 5, 16, 24), Color("ffe9a6") if bool(model.state.engine) else Color("6f6a52"))
@@ -1991,7 +2033,7 @@ func draw_cab_frame(size: Vector2, top: float) -> void:
 		draw_line(Vector2(p.x, roof), p, Color("6a5a3a"), 3.0)
 		draw_circle(p + Vector2(0, 9), 11, brass)
 		draw_circle(p + Vector2(0, 11), 7, Color("fff1c4"))
-		for ring in range(5): draw_circle(p + Vector2(0, 11), 20.0 + ring * 16.0, Color(1.0, 0.9, 0.55, 0.06 - ring * 0.01))
+		for ring in range(5): draw_circle(p + Vector2(0, 11), 20.0 + ring * 16.0, Color(1.0, 0.9, 0.55, (0.06 - ring * 0.01) * lamp_flicker))
 	# centre post, curtains, window rubber
 	var post = Rect2(size.x * 0.5 - 9, roof, 18, top - roof)
 	draw_rect(post, green)
@@ -2220,6 +2262,7 @@ func draw_petrol_cab_extras(size: Vector2, layout: Dictionary) -> void:
 		draw_line(Vector2(px, py + tilt), Vector2(px + 40, py + tilt), brass, 2.0)
 
 func draw_round_gauge(center: Vector2, radius: float, fraction: float, title: String, readout: String, zones: Array, ticks: int = 10, scale_text: Array = []) -> void:
+	fraction = cab_needle(title, fraction)
 	draw_circle(center + Vector2(2, 3), radius + 8, Color(0, 0, 0, 0.4))
 	draw_circle(center, radius + 8, Color("a98a4a"))
 	draw_arc(center, radius + 8, PI * 1.1, PI * 1.6, 12, Color("e6cf8b"), 2.0, true)
@@ -2756,7 +2799,7 @@ func control_geometry(id: String, closeup: bool = false) -> Dictionary:
 	var kind=control_kind(id)
 	if kind=="slider":
 		var slot_pivot=art.vec(Geometry.body(model.vehicle_id()).control_anchors_m[id])*ArtV3.PX
-		var slot_length=0.5*ArtV3.PX
+		var slot_length=0.40*ArtV3.PX
 		if closeup:
 			slot_pivot=control_zoom_rect().position+Vector2(65+100*["brake","throttle","gear","start"].find(id),230)
 			slot_length=124.0
