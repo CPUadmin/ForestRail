@@ -170,7 +170,7 @@ func run() -> void:
 			for i in range(6): await frame()
 			var buttons=game.ui.find_children("*","Button",true,false)
 			for b in buttons:
-				if b.text=="Пульт [C]":
+				if b.text=="Пульт [E]":
 					var point=b.get_global_rect().get_center()
 					await mouse(point,true);await mouse(point,false)
 			check(game.control_zoom,"pult opens with mouse "+id+str(resolution))

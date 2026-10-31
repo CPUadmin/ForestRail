@@ -698,7 +698,7 @@ func build_hud(size: Vector2) -> void:
 	pause_row.add_theme_constant_override("separation",10)
 	ui.add_child(pause_row)
 	map_button = add_button(pause_row, "Карта [M]", toggle_map)
-	if model.vehicle_id()!="handcar": add_button(pause_row,"Пульт [C]",toggle_control_zoom)
+	if model.vehicle_id()!="handcar": add_button(pause_row,"Пульт [E]",toggle_control_zoom)
 	add_button(pause_row, "Пауза", pause_game)
 	for button in pause_row.get_children():
 		for state_name in ["normal","hover","pressed","disabled","focus"]:
@@ -767,7 +767,7 @@ func update_hud() -> void:
 	elif model.vehicle_id() == "handcar":
 		hint = "Зажми деревянный хват и веди его по дуге рычага. Ровные полные ходы разгоняют лучше. Красный рычаг — тормоз."
 	elif model.vehicle_id() == "steam":
-		if not state.engine: hint = "Пульт [C]: открой дверцу, перетащи уголь из ведра в топку, закрой дверцу и нажми «Розжиг»."
+		if not state.engine: hint = "Пульт [E]: открой дверцу, перетащи уголь из ведра в топку, закрой дверцу и нажми «Розжиг»."
 		elif not model.steam_ready(): hint = "Давление растёт: жди %d бар. Вода в кране должна быть открыта." % int(model.boiler_cfg().work_pressure_bar)
 		else: hint = "Вентиль — колесо: крути по кругу, отпустишь — закроется сам. Тормоз — красный рычаг."
 	elif model.vehicle_id() == "locomotive":
@@ -1179,7 +1179,7 @@ func _physics_process(dt: float) -> void:
 			save_game()
 
 func _input(event: InputEvent) -> void:
-	if event is InputEventKey and event.pressed and not event.echo and (event.physical_keycode==KEY_C or event.keycode==KEY_C) and screen=="game" and not paused:
+	if event is InputEventKey and event.pressed and not event.echo and (event.physical_keycode in [KEY_C,KEY_E] or event.keycode in [KEY_C,KEY_E]) and screen=="game" and not paused:
 		toggle_control_zoom()
 		get_viewport().set_input_as_handled()
 		return

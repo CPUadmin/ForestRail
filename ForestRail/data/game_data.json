@@ -162,7 +162,10 @@
         "lug_below": 0.18,
         "lug_min": 0.45,
         "shift_cut_s": 0.35,
-        "stop_speed_mps": 0.3
+        "stop_speed_mps": 0.3,
+        "stall_below": 0.12,
+        "stall_seconds": 1.2,
+        "engine_brake_n": 140
       },
       "rank": 2,
       "max_wagons": 2,

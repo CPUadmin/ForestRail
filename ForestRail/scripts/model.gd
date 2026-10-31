@@ -27,6 +27,7 @@ var valve_held = false
 # Distance travelled in the last physics step, for drawing between steps.
 var last_movement = 0.0
 var shift_cut = 0.0
+var stall_clock = 0.0
 var motor_energy: Dictionary = {}
 var loading_cache: Dictionary = {}
 var events: Array = []
@@ -770,6 +771,26 @@ func engine_rpm() -> float:
 	var cfg = vehicle_base().engine
 	return lerpf(float(cfg.idle_rpm), float(cfg.max_rpm), engine_rpm_fraction())
 
+# Engine braking: with the pedal released and a gear in, the engine drags the car in
+# proportion to its speed. Neutral and a stopped engine do not.
+func engine_brake_force() -> float:
+	if vehicle_id() != "motorcar" or not state.engine or int(state.gear) == 0 or float(state.throttle) > 0.05: return 0.0
+	return float(vehicle_base().engine.engine_brake_n) * engine_rpm_fraction()
+
+# Too high a gear at walking pace under throttle stalls the engine after a moment.
+func petrol_stall_check(gear: int, stats: Dictionary, dt: float) -> void:
+	var cfg = vehicle_base().engine
+	var ratio = absf(float(state.v)) / float(stats.speeds[gear])
+	if gear >= 2 and float(state.throttle) > 0.3 and ratio < float(cfg.stall_below):
+		stall_clock += dt
+	else:
+		stall_clock = maxf(0.0, stall_clock - dt * 2.0)
+	if stall_clock >= float(cfg.stall_seconds):
+		stall_clock = 0.0
+		state.engine = false
+		events.append("gear")
+		message = "Двигатель заглох: передача слишком высокая для этого хода. Нейтраль, пуск, потом пониже"
+
 # High gears pull weakly at low engine speed: the engine lugs.
 func petrol_lug(gear: int, stats: Dictionary) -> float:
 	if vehicle_id() != "motorcar" or gear < 2: return 1.0
@@ -992,11 +1013,12 @@ func physics_step(dt: float) -> void:
 				var gear = int(state.gear) - 1
 				var reverse_gear = vehicle_id() == "motorcar" and gear == 4
 				if reverse_gear: gear = 0
+				if vehicle_id() == "motorcar" and not reverse_gear: petrol_stall_check(gear, stats, dt)
 				var traction = float(stats.traction[gear]) * maxf(0, 1 - pow(absf(float(state.v)) / float(stats.speeds[gear]), 2)) * charge_traction_factor() * petrol_lug(gear, stats)
 				if shift_cut > 0.0: traction = 0.0
 				var adhesion = 0.35 * float(stats.mass) * G * cos(route.slope(float(state.s)))
 				drive = float(drive_direction()) * (-1.0 if reverse_gear else 1.0) * float(state.throttle) * minf(traction, adhesion)
-	var brake = float(state.brake) * max_brake
+	var brake = float(state.brake) * max_brake + engine_brake_force()
 	var old_v = float(state.v)
 	var new_v = old_v
 	var movement=0.0

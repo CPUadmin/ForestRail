@@ -110,6 +110,36 @@ func run() -> void:
 	var current = m.serialize()
 	current.gear = 5
 	check(round_trip.restore(current) and round_trip.state.gear == 5, "reverse survives save and load")
+	# Stalling: high gear from a standstill under throttle kills the engine, low gear does not.
+	var stall = setup()
+	stall.set_gear(4)
+	stall.state.throttle = 1.0
+	for i in range(240): stall.physics_step(1.0 / 60)
+	check(not stall.state.engine and stall.message.contains("заглох"), "fourth gear from a standstill stalls the engine")
+	var fine = setup()
+	fine.set_gear(1)
+	fine.state.throttle = 1.0
+	for i in range(240): fine.physics_step(1.0 / 60)
+	check(fine.state.engine and float(fine.state.v) > 0.5, "first gear pulls away without stalling")
+	stall.state.throttle = 0.0
+	stall.set_gear(0)
+	check(stall.start_engine(true), "a stalled engine restarts from neutral")
+	# Engine braking: a gear in slows the car more than neutral, only with the pedal released.
+	var drag_gear = setup()
+	drag_gear.set_gear(2)
+	drag_gear.state.v = 3.0
+	drag_gear.state.s = 150.0
+	drag_gear.state.throttle = 0.0
+	var drag_neutral = setup()
+	drag_neutral.set_gear(0)
+	drag_neutral.state.v = 3.0
+	drag_neutral.state.s = 150.0
+	drag_neutral.state.throttle = 0.0
+	for i in range(120):
+		drag_gear.physics_step(1.0 / 60)
+		drag_neutral.physics_step(1.0 / 60)
+	check(float(drag_gear.state.v) < float(drag_neutral.state.v) - 0.05, "engine braking slows the car in gear")
+	check(drag_gear.engine_brake_force() > 0.0 and drag_neutral.engine_brake_force() == 0.0, "no engine braking in neutral")
 	check(m.object_stats("steam").traction.size() == 2, "other vehicles keep their tables")
 	print("GEARBOX CHECKS ", checks, "; FAILURES ", failures)
 	get_tree().quit(0 if failures.is_empty() else 1)
