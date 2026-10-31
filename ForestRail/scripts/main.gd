@@ -8,6 +8,8 @@ const ArtWorld = preload("res://scripts/art_world.gd")
 const Geometry = preload("res://scripts/world_geometry.gd")
 const Instruments = preload("res://scripts/instruments.gd")
 const PAPER = Color("f5ecd6")
+const MUTED_INK = Color("5c6b62")
+const CARD_EDGE = Color("dccfae")
 const INK = Color("29383b")
 const GREEN = Color("466c51")
 const GOLD = Color("bb964f")
@@ -256,11 +258,11 @@ func setup_theme() -> void:
 	theme.set_color("font_color", "Label", INK)
 	theme.set_color("font_color", "Button", PAPER)
 	theme.set_color("font_hover_color", "Button", Color.WHITE)
-	theme.set_color("font_disabled_color", "Button", Color("a6a58e"))
+	theme.set_color("font_disabled_color", "Button", Color("a9b5a8"))
 	theme.set_stylebox("normal", "Button", style(GREEN, GREEN, 8))
 	theme.set_stylebox("hover", "Button", style(Color("5b8060"), GOLD, 8))
 	theme.set_stylebox("pressed", "Button", style(INK, GOLD, 8))
-	theme.set_stylebox("disabled", "Button", style(Color("d7d2ba"), Color("c9c0a3"), 8))
+	theme.set_stylebox("disabled", "Button", style(Color(0.16, 0.24, 0.2, 0.55), Color(0.62, 0.68, 0.58, 0.25), 8))
 	theme.set_stylebox("focus", "Button", style(Color(0, 0, 0, 0), GOLD, 8))
 	theme.set_stylebox("panel", "PanelContainer", style(PAPER))
 	ui.theme = theme
@@ -276,10 +278,15 @@ func add_label(parent: Node, text: String, size: int = 20, color: Color = INK) -
 	parent.add_child(label)
 	return label
 
-func add_button(parent: Node, text: String, action: Callable, disabled: bool = false) -> Button:
+# selected marks the current choice in a group (tab, vehicle, direction): it is
+# inert like a disabled button but must read as active, not unavailable.
+func add_button(parent: Node, text: String, action: Callable, disabled: bool = false, selected: bool = false) -> Button:
 	var button = Button.new()
 	button.text = text
-	button.disabled = disabled
+	button.disabled = disabled or selected
+	if selected:
+		button.add_theme_stylebox_override("disabled", style(INK, GOLD, 8))
+		button.add_theme_color_override("font_disabled_color", Color("e2c27a"))
 	button.custom_minimum_size.y = 44
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
@@ -288,6 +295,19 @@ func add_button(parent: Node, text: String, action: Callable, disabled: bool = f
 		action.call())
 	parent.add_child(button)
 	return button
+
+# A bordered block inside a paper panel; the accent edge marks the current choice.
+func card(parent: Node, edge: Color = CARD_EDGE) -> VBoxContainer:
+	var panel = PanelContainer.new()
+	var box = style(Color("fbf6ea"), edge, 10).duplicate()
+	box.set_content_margin_all(14)
+	if edge != CARD_EDGE: box.border_width_left = 5
+	panel.add_theme_stylebox_override("panel", box)
+	parent.add_child(panel)
+	var content = VBoxContainer.new()
+	content.add_theme_constant_override("separation", 6)
+	panel.add_child(content)
+	return content
 
 func panel_at(parent: Control, rect: Rect2, scroll: bool = false) -> VBoxContainer:
 	var panel = PanelContainer.new()
@@ -337,23 +357,49 @@ func rebuild() -> void:
 		build_modal(size)
 	queue_redraw()
 
+func menu_layout_scale(size: Vector2) -> float:
+	return clampf(size.y / 900.0, 0.75, 1.15)
+
 func build_menu(size: Vector2) -> void:
-	positioned_label("ЛЕСНАЯ ЖЕЛЕЗНАЯ ДОРОГА", Rect2(80, 85, 1000, 40), 20, GOLD)
-	var title = positioned_label("Лесная\nколея", Rect2(76, 142, 900, 220), 86)
-	title.add_theme_font_size_override("font_size", 86)
-	positioned_label("Начни с рычага. Верни поезда в Дальний бор.", Rect2(82, 360, 740, 60), 23)
-	var box = panel_at(ui, Rect2(80, 440, 400, minf(430, size.y - 465)), true)
-	add_button(box, "Продолжить", continue_game, not saves.has_any())
-	add_button(box, "Новая игра", func():
-		if saves.has_any():
-			confirm("Начать новую карьеру? Текущая останется в резервной копии.", func(): begin_new())
+	var k = menu_layout_scale(size)
+	positioned_label("ЛЕСНАЯ ЖЕЛЕЗНАЯ ДОРОГА", Rect2(86, 92 * k, 700, 32), 17, Color("e2c27a"))
+	for i in range(2):
+		var line = positioned_label(["Лесная", "колея"][i], Rect2(80, (140 + i * 104) * k, 900, 120 * k), 96, PAPER)
+		line.add_theme_font_size_override("font_size", int(96 * k))
+		line.autowrap_mode = TextServer.AUTOWRAP_OFF
+	positioned_label("Начни с рычага. Верни поезда в Дальний бор.", Rect2(86, 378 * k, 740, 40), 22, Color(PAPER, 0.82))
+	var box = VBoxContainer.new()
+	box.position = Vector2(86, 452 * k)
+	box.size = Vector2(330, 0)
+	box.add_theme_constant_override("separation", int(6 * k))
+	ui.add_child(box)
+	var has_save = saves.has_any()
+	if has_save: menu_button(box, "Продолжить", continue_game, true)
+	menu_button(box, "Новая игра", func():
+		if has_save:
+			confirm("Начать новую карьеру? Текущая будет сохранена в файл %s рядом с сохранениями." % SaveGame.PREVIOUS_CAREER, func(): begin_new())
 		else:
-			begin_new())
-	add_button(box, "Настройки", func(): show_modal("settings"))
-	add_button(box, "Как играть", func(): show_modal("help"))
-	add_button(box, "Об игре", func(): show_modal("credits"))
-	add_button(box, "Выход", func(): get_tree().quit())
-	positioned_label("01  /  ОТ РУЧНОЙ ДРЕЗИНЫ ДО ЭЛЕКТРОВОЗА", Rect2(580, size.y - 60, size.x - 620, 40), 17)
+			begin_new(), not has_save)
+	menu_button(box, "Настройки", func(): show_modal("settings"))
+	menu_button(box, "Как играть", func(): show_modal("help"))
+	menu_button(box, "Об игре", func(): show_modal("credits"))
+	menu_button(box, "Выход", func(): get_tree().quit())
+	positioned_label("От ручной дрезины до электровоза  ·  версия %s" % ProjectSettings.get_setting("application/config/version"), Rect2(86, size.y - 52, 700, 30), 15, Color(PAPER, 0.55))
+
+# Menu entries are a plain list on the scrim; only the main action is filled.
+func menu_button(parent: Node, text: String, action: Callable, primary: bool = false) -> Button:
+	var button = add_button(parent, text, action)
+	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	button.custom_minimum_size.y = 46
+	if not primary:
+		var ghost = style(Color(0, 0, 0, 0), Color(0, 0, 0, 0), 8)
+		button.add_theme_stylebox_override("normal", ghost)
+		button.add_theme_stylebox_override("hover", style(Color(1, 1, 1, 0.08), Color(0.89, 0.76, 0.48, 0.5), 8))
+		button.add_theme_stylebox_override("pressed", style(Color(0, 0, 0, 0.25), Color(0.89, 0.76, 0.48, 0.5), 8))
+		button.add_theme_color_override("font_color", Color(PAPER, 0.88))
+	else:
+		button.add_theme_stylebox_override("normal", style(Color("3f6b4c"), Color("e2c27a"), 8))
+	return button
 
 func begin_new(seed_number: int = -1) -> void:
 	if not saves.archive_career():
@@ -416,7 +462,7 @@ func build_depot(size: Vector2) -> void:
 	tabs.add_theme_constant_override("v_separation",8)
 	right.add_child(tabs)
 	for name in ["Гараж", "Состав", "Улучшения", "Рейсы"]:
-		add_button(tabs, name, func(): tab = name; rebuild(), tab == name)
+		add_button(tabs, name, func(): tab = name; rebuild(), false, tab == name)
 	add_label(right, tab, 28)
 	if not model.state.active.is_empty():
 		add_label(right, "Активный рейс: " + str(model.state.active.title), 23)
@@ -433,17 +479,18 @@ func build_depot(size: Vector2) -> void:
 			var owned = model.state.fleet_by_id.has(id)
 			var base = model.vehicle_base(id)
 			var label = str(base.name) if id != "locomotive" else "Электролокомотив"
-			add_label(right, label, 24)
-			add_label(right, {"handcar": "Ручной рычаг · без топлива · до 4 мест", "motorcar": "Бензиновый двигатель · бак 2 л · один вагон", "locomotive": "Электротяга · батарея 0,6 кВт·ч · до трёх вагонов"}[id], 18)
+			var c = card(right, GOLD if model.vehicle_id() == id else CARD_EDGE)
+			add_label(c, label, 23)
+			add_label(c, {"handcar": "Ручной рычаг · без топлива · до 4 мест", "motorcar": "Бензиновый двигатель · бак 2 л · один вагон", "locomotive": "Электротяга · батарея 0,6 кВт·ч · до трёх вагонов"}[id], 17, MUTED_INK)
 			if owned:
-				add_button(right, "Выбрана" if model.vehicle_id() == id else "Выбрать", func():
+				add_button(c, "Выбрана" if model.vehicle_id() == id else "Выбрать", func():
 					if model.select_vehicle(id):
 						selected_object = id
 						save_game()
 						rebuild()
-					else: notify(model.message), model.vehicle_id() == id)
+					else: notify(model.message), false, model.vehicle_id() == id)
 			else:
-				add_button(right, "Купить · %d монет" % base.cost, func():
+				add_button(c, "Купить · %d монет" % base.cost, func():
 					confirm("Купить %s за %d? Останется %d монет. Предыдущая машина останется в гараже." % [label, base.cost, maxi(0, int(model.state.money) - int(base.cost))], func():
 						if model.buy_vehicle(id):
 							selected_object = id
@@ -454,8 +501,10 @@ func build_depot(size: Vector2) -> void:
 		add_label(right, "Выбери конкретные вагоны. Их улучшения сохраняются при перестановке.")
 		for id in model.state.wagons_by_id:
 			var stats = model.object_stats(id)
-			add_label(right, "%s  ·  %d мест  ·  %d кг" % [id, stats.slots, stats.mass], 22)
-			add_button(right, "Отцепить " + id if id in model.state.consist_ids else "Прицепить " + id, func():
+			var coupled = id in model.state.consist_ids
+			var c = card(right, GOLD if coupled else CARD_EDGE)
+			add_label(c, "%s  ·  %d мест  ·  %d кг%s" % [id, stats.slots, stats.mass, "  ·  в составе" if coupled else ""], 21)
+			add_button(c, "Отцепить " + id if id in model.state.consist_ids else "Прицепить " + id, func():
 				if model.toggle_wagon(id): save_game(); rebuild()
 				else: notify(model.message))
 		if not model.state.wagons_by_id.has("W03"):
@@ -492,7 +541,7 @@ func build_upgrades(right: VBoxContainer) -> void:
 	if not selected_object in objects:
 		selected_object = model.vehicle_id()
 	for id in objects:
-		add_button(row, "Машина" if not id.begins_with("W") else id, func(): selected_object = id; rebuild(), id == selected_object)
+		add_button(row, "Машина" if not id.begins_with("W") else id, func(): selected_object = id; rebuild(), false, id == selected_object)
 	var before = model.object_stats(selected_object)
 	add_label(right, "Выбран: " + (selected_object if selected_object.begins_with("W") else vehicle_display_name()), 22)
 	add_label(right, "%d мест · %d кг · тормоз %d Н" % [before.slots, before.mass, before.brake], 18)
@@ -505,18 +554,19 @@ func build_upgrades(right: VBoxContainer) -> void:
 		var name = str(branch.name)
 		if selected_object == "locomotive":
 			name = {"locomotive_engine": "Электромотор", "locomotive_gearbox": "Контроллер тяги", "locomotive_tank": "Аккумулятор"}.get(branch.id, name)
-		add_label(right, "%s  ·  %d / 2" % [name, lv], 23)
+		var c = card(right, GREEN if lv >= 2 else CARD_EDGE)
+		add_label(c, "%s  ·  %s" % [name, ["○ ○", "● ○", "● ●"][lv]], 22)
 		if lv < 2:
 			var preview = upgrade_preview(selected_object, branch)
-			add_label(right, preview, 18)
+			add_label(c, preview, 17, MUTED_INK)
 			var cost = int(branch.level_costs[lv])
-			add_button(right, "Улучшить до %s · %d монет" % ["I" if lv == 0 else "II", cost], func():
+			add_button(c, "Улучшить до %s · %d монет" % ["I" if lv == 0 else "II", cost], func():
 				var id = selected_object
 				confirm("%s: %s\nЦена %d. Останется %d монет." % [id, preview, cost, maxi(0, int(model.state.money) - cost)], func():
 					if model.upgrade(id, branch.id): save_game(); rebuild()
 					else: notify(model.message)))
 		else:
-			add_label(right, "Максимальный уровень", 17, GREEN)
+			add_label(c, "Максимальный уровень", 17, GREEN)
 
 func upgrade_preview(id: String, branch: Dictionary) -> String:
 	var object = model.object_state(id)
@@ -535,19 +585,22 @@ func upgrade_preview(id: String, branch: Dictionary) -> String:
 func build_missions(right: VBoxContainer) -> void:
 	var mission = model.current_mission()
 	if not mission.is_empty():
-		add_label(right, "%s · %s" % [mission.id, mission.title], 25)
-		add_label(right, mission_description(mission), 19)
+		var c = card(right, GOLD)
+		add_label(c, "ОСНОВНОЙ РЕЙС  ·  %s" % mission.id, 15, Color("9a7a3c"))
+		add_label(c, str(mission.title), 24)
+		add_label(c, mission_description(mission), 17, MUTED_INK)
 		var problem = model.mission_error(mission)
 		if problem != "":
-			add_label(right, problem, 19, RED)
-		add_button(right, "К погрузке →", func(): take_mission(mission), problem != "")
+			add_label(c, problem, 17, RED)
+		add_button(c, "К погрузке →", func(): take_mission(mission), problem != "")
 	else:
 		add_label(right, "Линия работает. Выбирай следующую перевозку.", 23)
-	add_label(right, "Свободные рейсы", 24)
+	add_label(right, "Свободные рейсы", 22)
 	for offer in model.free_offers():
-		add_label(right, str(offer.title), 20)
-		add_label(right, mission_description(offer), 17)
-		add_button(right, "Взять · %d монет" % offer.reward, func(): take_mission(offer))
+		var c = card(right)
+		add_label(c, str(offer.title), 19)
+		add_label(c, mission_description(offer), 16, MUTED_INK)
+		add_button(c, "Взять · %d монет" % offer.reward, func(): take_mission(offer))
 
 func mission_description(mission: Dictionary) -> String:
 	var stops: Array = []
@@ -698,10 +751,10 @@ func update_hud() -> void:
 			if model.vehicle_id()!="handcar":
 				add_button(action_bar, "Тяга ←", func():
 					if model.set_reverser(-int(state.direction)): save_game(); last_action_key = ""
-					else: notify(model.message), model.drive_direction() < 0)
+					else: notify(model.message), false, model.drive_direction() < 0)
 				add_button(action_bar, "Тяга →", func():
 					if model.set_reverser(int(state.direction)): save_game(); last_action_key = ""
-					else: notify(model.message), model.drive_direction() > 0)
+					else: notify(model.message), false, model.drive_direction() > 0)
 			if stop_index >= 0:
 				add_button(action_bar, "Развернуть", func():
 					if model.turn(): save_game(); notify("Состав развёрнут"); last_action_key = ""
@@ -1221,7 +1274,10 @@ func _draw() -> void:
 	cargo_visuals.clear()
 	body_hits.clear()
 	if screen == "menu":
-		draw_rect(Rect2(0, 0, size.x * 0.55, size.y), Color(0.06, 0.13, 0.1, 0.72))
+		var scrim = Color(0.03, 0.08, 0.06, 0.9)
+		draw_rect(Rect2(0, 0, size.x * 0.22, size.y), scrim)
+		ArtWorld.horizontal_gradient(self, Rect2(size.x * 0.22, 0, size.x * 0.4, size.y), scrim, Color(scrim, 0.0))
+		draw_line(Vector2(88, 128 * menu_layout_scale(size)), Vector2(148, 128 * menu_layout_scale(size)), Color("e2c27a"), 3)
 		draw_menu_train(size)
 	else:
 		draw_train()

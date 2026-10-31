@@ -12,6 +12,9 @@ var stations
 var foreground
 var scenery
 var lake_layer: Sprite2D
+var haze
+var ground_shade
+var light
 
 func _ready() -> void:
 	z_index = -10
@@ -31,6 +34,9 @@ func _ready() -> void:
 		part.z_index = strips.size()
 		add_child(part)
 		strips[name] = part
+	# Same z as the far forest but added later: aerial haze sits between the
+	# distant planes and the near forest, which gives the scene its depth.
+	haze = paint_layer(1, draw_haze)
 	for name in ["soil", "ballast", "grass", "rail"]:
 		var part = MeshInstance2D.new()
 		part.material = load(art.ROOT + "materials/" + name + ".tres")
@@ -57,6 +63,57 @@ func _ready() -> void:
 	foreground.z_index = 9
 	foreground.painter = draw_foreground
 	add_child(foreground)
+	ground_shade = paint_layer(7, draw_ground_shade)
+	light = paint_layer(10, draw_light)
+
+func paint_layer(z: int, painter: Callable) -> PaintLayer:
+	var layer = PaintLayer.new()
+	layer.z_index = z
+	layer.painter = painter
+	add_child(layer)
+	return layer
+
+func rail_y() -> float:
+	var size = game.get_viewport_rect().size
+	return size.y * 0.75 - 5 if game.screen == "menu" else game.rail_baseline()
+
+static func vertical_gradient(canvas: CanvasItem, rect: Rect2, top: Color, bottom: Color) -> void:
+	canvas.draw_polygon(PackedVector2Array([rect.position, Vector2(rect.end.x, rect.position.y), rect.end, Vector2(rect.position.x, rect.end.y)]), PackedColorArray([top, top, bottom, bottom]))
+
+static func horizontal_gradient(canvas: CanvasItem, rect: Rect2, left: Color, right: Color) -> void:
+	canvas.draw_polygon(PackedVector2Array([rect.position, Vector2(rect.end.x, rect.position.y), rect.end, Vector2(rect.position.x, rect.end.y)]), PackedColorArray([left, right, right, left]))
+
+static func glow(canvas: CanvasItem, center: Vector2, radii: Vector2, color: Color) -> void:
+	var edge = Color(color, 0.0)
+	for i in range(40):
+		var a = Vector2(cos(i * TAU / 40), sin(i * TAU / 40)) * radii
+		var b = Vector2(cos((i + 1) * TAU / 40), sin((i + 1) * TAU / 40)) * radii
+		canvas.draw_polygon(PackedVector2Array([center, center + a, center + b]), PackedColorArray([color, edge, edge]))
+
+func draw_haze(canvas: Node2D) -> void:
+	var size = game.get_viewport_rect().size
+	var y = rail_y()
+	var mist = Color(0.84, 0.9, 0.86)
+	# Warm sunlight behind the treeline, then a cool mist that thickens toward the horizon.
+	glow(canvas, Vector2(size.x * 0.8, y - size.y * 0.42), Vector2(size.x * 0.45, size.y * 0.32), Color(1.0, 0.93, 0.74, 0.32))
+	vertical_gradient(canvas, Rect2(0, y - size.y * 0.36, size.x, size.y * 0.24), Color(mist, 0.0), Color(mist, 0.32))
+	vertical_gradient(canvas, Rect2(0, y - size.y * 0.12, size.x, size.y * 0.12), Color(mist, 0.32), Color(mist, 0.12))
+
+# Below the embankment the ground fades to a dark base for the bottom HUD
+# instead of ending in a flat brown band.
+func draw_ground_shade(canvas: Node2D) -> void:
+	var size = game.get_viewport_rect().size
+	var y = rail_y()
+	var shade = Color("17201a")
+	vertical_gradient(canvas, Rect2(0, y + 70, size.x, 130), Color(shade, 0.0), Color(shade, 0.78))
+	canvas.draw_rect(Rect2(0, y + 200, size.x, maxf(0, size.y - y - 200)), Color(shade, 0.78))
+
+func draw_light(canvas: Node2D) -> void:
+	var size = game.get_viewport_rect().size
+	var edge = Color(0.05, 0.09, 0.06, 0.38)
+	var clear = Color(edge, 0.0)
+	horizontal_gradient(canvas, Rect2(0, 0, size.x * 0.2, size.y), edge, clear)
+	horizontal_gradient(canvas, Rect2(size.x * 0.8, 0, size.x * 0.2, size.y), clear, edge)
 
 func mesh_strip(points: Array, uv_points: Array, tint: Color) -> ArrayMesh:
 	var vertices = PackedVector3Array()
@@ -123,16 +180,15 @@ func update_view() -> void:
 	scenery.visible=not in_menu
 	scenery.queue_redraw()
 	foreground.visible = true
-	stations.queue_redraw()
-	foreground.queue_redraw()
+	for layer in [stations, foreground, haze, ground_shade, light]:
+		layer.queue_redraw()
 	queue_redraw()
 
 func _draw() -> void:
 	if art == null: return
 	var size = game.get_viewport_rect().size
 	draw_texture_rect(art.textures["parallax/sky"], Rect2(Vector2.ZERO, size), false)
-	var rail_y = size.y * 0.75 - 5 if game.screen == "menu" else game.rail_baseline()
-	draw_rect(Rect2(0, rail_y - 5, size.x, size.y), Color("63533b"))
+	draw_rect(Rect2(0, rail_y() - 5, size.x, size.y), Color("3b3326"))
 
 func draw_stations(canvas: Node2D) -> void:
 	var size = game.get_viewport_rect().size
@@ -149,8 +205,11 @@ func draw_stations(canvas: Node2D) -> void:
 		var height = art.textures[name].get_height()*art.scale_for(name)
 		var plaque = Rect2(center+Vector2(-150,-height-48)*sc,Vector2(300,42)*sc)
 		if game.screen=="game": plaque.position.y=maxf(plaque.position.y,game.hud_top_clearance())
-		canvas.draw_style_box(game.style(game.PAPER, game.GOLD, 5), plaque)
-		canvas.draw_string(ThemeDB.fallback_font, plaque.position+Vector2(10,28)*sc, game.model.data.stations[i].name,HORIZONTAL_ALIGNMENT_CENTER,280*sc,int(20*sc*float(game.settings.text_scale)),game.INK)
+		# Enamel station board: dark green field, brass rim and an inner keyline.
+		canvas.draw_rect(Rect2(plaque.position + Vector2(4, 6), plaque.size), Color(0, 0, 0, 0.25))
+		canvas.draw_style_box(game.style(Color("234232"), Color("e2c27a"), 6), plaque)
+		canvas.draw_rect(plaque.grow(-4 * sc), Color(0.96, 0.93, 0.84, 0.45), false, 1.0)
+		canvas.draw_string(ThemeDB.fallback_font, plaque.position+Vector2(10,28)*sc, game.model.data.stations[i].name,HORIZONTAL_ALIGNMENT_CENTER,280*sc,int(20*sc*float(game.settings.text_scale)),game.PAPER)
 		if i == 0 and game.model.state.finale:
 			canvas.draw_texture_rect(game.textures.final_flags,Rect2(center+Vector2(-170,-290),Vector2(320,130)),false)
 	# The sleepers stay aligned to the same tangent as the rail strips.
