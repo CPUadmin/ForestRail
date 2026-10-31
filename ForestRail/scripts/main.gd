@@ -1279,11 +1279,13 @@ func transfer_cargo(id: String, target: String, from: Vector2) -> bool:
 
 func dock_rect() -> Rect2:
 	var size = get_viewport_rect().size
-	return Rect2(36,size.y-330,size.x-72,144)
+	var hud = instruments.hud_top() if instruments != null and is_instance_valid(instruments) else size.y-174
+	return Rect2(36,hud-156,size.x-72,144)
 
 func rail_baseline() -> float:
 	var height = get_viewport_rect().size.y
-	return minf(height*0.63,height-350) if screen=="game" else height*0.63
+	# The compact bottom strip leaves room to set the track lower in the frame.
+	return minf(height*0.66,dock_rect().position.y-20) if screen=="game" else height*0.63
 
 func view_scale() -> float:
 	if screen != "depot": return zoom_level

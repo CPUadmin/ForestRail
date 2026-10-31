@@ -28,6 +28,46 @@ func key(code: Key, physical: bool = false, echo: bool = false) -> void:
 	else: event.keycode=code
 	game._input(event)
 
+func map_button(point: Vector2, index: MouseButton, pressed: bool, double: bool = false) -> void:
+	var event = InputEventMouseButton.new()
+	event.position=point
+	event.global_position=point
+	event.button_index=index
+	event.pressed=pressed
+	event.double_click=double
+	event.button_mask=MOUSE_BUTTON_MASK_LEFT if pressed and index==MOUSE_BUTTON_LEFT else 0
+	get_tree().root.push_input(event,true)
+	await get_tree().process_frame
+
+func map_zoom_checks() -> void:
+	var view_node=null
+	for child in game.overlay.get_children():
+		if child.get("full_map")==true: view_node=child
+	check(view_node!=null,"full map view exists")
+	if view_node==null: return
+	await get_tree().process_frame
+	var total=float(game.model.route.station_s[-1])
+	var area=view_node.map_area()
+	var centre=area.get_center()
+	await map_button(centre,MOUSE_BUTTON_WHEEL_UP,true)
+	var view=view_node.map_view()
+	check(view.y-view.x<total*0.9,"wheel zooms the map")
+	var anchor_before=view_node.map_s_at(centre.x)
+	await map_button(Vector2(area.position.x+10,centre.y),MOUSE_BUTTON_LEFT,true)
+	var drag=InputEventMouseMotion.new()
+	drag.position=Vector2(area.position.x+110,centre.y)
+	drag.global_position=drag.position
+	drag.relative=Vector2(100,0)
+	drag.button_mask=MOUSE_BUTTON_MASK_LEFT
+	get_tree().root.push_input(drag,true)
+	await get_tree().process_frame
+	await map_button(drag.position,MOUSE_BUTTON_LEFT,false)
+	check(view_node.map_s_at(centre.x)<anchor_before or view_node.map_view().x==0,"drag pans the zoomed map")
+	await map_button(centre,MOUSE_BUTTON_LEFT,true,true)
+	await map_button(centre,MOUSE_BUTTON_LEFT,false)
+	check(view_node.map_view()==Vector2(0,total),"double click shows the whole line")
+	check(game.modal_kind=="map" and game.paused,"map stays open and paused while browsing")
+
 func run() -> void:
 	DirAccess.make_dir_recursive_absolute(OUT)
 	game = load("res://main.tscn").instantiate()
@@ -92,6 +132,7 @@ func run() -> void:
 		get_tree().root.push_input(event,true)
 		await get_tree().process_frame
 	check(game.modal_kind=="map","minimap click opens full map through GUI")
+	await map_zoom_checks()
 	game.close_modal()
 	game.model.state.s=game.model.route.station_s[1]
 	game.model.state.v=0
