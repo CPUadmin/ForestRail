@@ -111,6 +111,19 @@ func arc_drag(id: String, value: float) -> void:
 	await motion(target,target-point)
 	await button(target,false)
 
+func gate_drag(gear: int) -> void:
+	var point=grip("gear",true)
+	await button(point,true)
+	var rect=game.gate_rect(true)
+	var here=game.gate_pos
+	var slot=game.gate_slot_pos(gear)
+	var current=game.gate_local(rect,here)
+	for waypoint in [Vector2(here.x,0),Vector2(slot.x,0),slot]:
+		var target=game.gate_local(rect,waypoint)
+		await motion(target,target-current)
+		current=target
+	await button(current,false)
+
 func grip(id: String, closeup: bool = false) -> Vector2:
 	for hit in game.grip_hits:
 		if hit.id==id and bool(hit.get("closeup",false))==closeup: return hit.position
@@ -154,7 +167,7 @@ func run() -> void:
 		if id.ends_with("station_house"): check(height>=3.2 and height<=3.5,"station height")
 		if id.ends_with("depot"): check(height>=3.9 and height<=4.5,"depot height")
 	prepare("motorcar",5)
-	for control in ["brake","throttle","gear","start"]:
+	for control in ["brake","throttle"]:
 		var g = game.lever_geometry(control)
 		check(absf(g.pivot.distance_to(g.grip)/96-float(Geometry.data().controls[control+"_length_m"]))<0.001,"physical handle length "+control)
 	prepare("handcar",0)
@@ -222,7 +235,7 @@ func run() -> void:
 				check(box.size.x>20 and box.size.y>20,"visible load "+str(item.id))
 				var expected = game.art.cargo_size(sprite,float(game.visual_layout[sprite][2])/float(game.visual_layout[sprite][3]))
 				check((box.size-Vector2.ONE*8).distance_to(expected*zoom)<1,"cargo dimensions at zoom "+str(zoom))
-			var controls = game.control_ids()
+			var controls = game.world_control_ids()
 			for id in controls:
 				var point = grip(id)
 				await button(point,true)
@@ -250,7 +263,7 @@ func run() -> void:
 	check(game.model.state.engine,"closeup starts engine through mouse")
 	# Since preview.9 the levers follow their visible arc (LEVER_CONTROLS_RU.md),
 	# so the drags go along the arc instead of straight up or down.
-	await arc_drag("gear",0.4)
+	await gate_drag(1)
 	check(game.model.state.gear==1,"closeup selects first gear")
 	await arc_drag("throttle",0.5)
 	check(absf(game.model.state.throttle-0.5)<0.001,"closeup throttle follows drag")

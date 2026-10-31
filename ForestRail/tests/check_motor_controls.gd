@@ -56,6 +56,29 @@ func pull(id: String,value: float) -> void:
 	await mouse(target,false)
 	check(game.drag=="","release clears capture "+id)
 
+# Drags the petrol gear knob through the neutral channel into a slot.
+func pull_gear(gear: int) -> void:
+	var point=Vector2.ZERO
+	for hit in game.grip_hits:
+		if hit.id=="gear" and hit.get("closeup",false): point=hit.position
+	check(point!=Vector2.ZERO,"visible closeup grip gear")
+	await mouse(point,true)
+	check(game.drag=="gear","real mouse captures gear")
+	var rect=game.gate_rect(true)
+	var here=game.gate_pos
+	var slot=game.gate_slot_pos(gear)
+	var current=game.gate_local(rect,here)
+	for waypoint in [Vector2(here.x,0),Vector2(slot.x,0),slot]:
+		var target=game.gate_local(rect,waypoint)
+		var e=InputEventMouseMotion.new()
+		e.position=target;e.relative=target-current;e.button_mask=MOUSE_BUTTON_MASK_LEFT
+		get_tree().root.push_input(e,true)
+		await frame()
+		current=target
+	check(game.control_geometry("gear",true).grip.distance_to(current)<0.01,"knob follows the mouse through the gate")
+	await mouse(current,false)
+	check(game.drag=="","release clears capture gear")
+
 func energy_checks() -> void:
 	for id in ["motorcar","locomotive"]:
 		var m=fixture(id)
@@ -163,10 +186,10 @@ func run() -> void:
 				await pull("start",1)
 				check(not game.model.state.engine and game.toast.contains("0%"),"nonzero throttle startup rejected with reason")
 				await pull("throttle",0)
-				await pull("gear",0.4)
+				await pull_gear(1)
 				await pull("start",1)
 				check(not game.model.state.engine and game.toast.contains("нейтраль"),"startup in gear rejected with reason")
-				await pull("gear",0.2)
+				await pull_gear(0)
 				await pull("start",1)
 				check(game.model.state.engine,"mouse starts at neutral and zero throttle")
 				await pull("start",0)
@@ -179,13 +202,13 @@ func run() -> void:
 				get_tree().root.push_input(slip,true)
 				await mouse(slip.position,false)
 				check(game.model.state.engine,"dragging away cancels switch click")
-				await pull("gear",0.4)
+				await pull_gear(1)
 				check(game.model.state.gear==1,"gear has fixed detent")
 				game.model.state.v=2
-				await pull("gear",1)
+				await pull_gear(4)
 				check(game.model.state.gear==4 and game.model.state.v==2,"upshift while moving with zero throttle")
 				await pull("throttle",0.8)
-				await pull("gear",0.4)
+				await pull_gear(1)
 				check(game.model.state.gear==4 and game.toast.contains("15%"),"loaded shift rejected with nearby feedback")
 			await pull("brake",0.8)
 			var value=game.model.state.brake

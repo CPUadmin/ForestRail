@@ -134,13 +134,27 @@ func put(text: String, at: Vector2, width: float, font_size: int = 18, color: Co
 		pixels -= 1
 	draw_string(font,at,text,align,width,pixels,color)
 
-func panel(rect: Rect2, color: Color = PANEL) -> void:
+func panel(rect: Rect2, color: Color = PANEL, accent: Color = Color.TRANSPARENT) -> void:
 	var box = StyleBoxFlat.new()
 	box.bg_color = color
-	box.border_color = Color("5d7561")
+	box.border_color = Color("5d7561") if accent.a == 0.0 else Color(accent, 0.55)
 	box.set_border_width_all(1)
 	box.set_corner_radius_all(12)
 	draw_style_box(box,rect)
+	if accent.a > 0.0:
+		draw_style_box(game.style(accent,Color.TRANSPARENT,3),Rect2(rect.position+Vector2(0,14),Vector2(4,rect.size.y-28)))
+
+# Fuel, charge and pressure bars: green while healthy, amber when low, red when almost empty.
+func level_color(fraction: float) -> Color:
+	if fraction <= 0.15: return Color("e0564a")
+	if fraction <= 0.35: return Color("e6b34a")
+	return Color("5cc17f")
+
+func slope_color(percent: float) -> Color:
+	if percent >= 4.0: return Color("e8825a")
+	if percent >= 1.5: return Color("e6c25a")
+	if percent <= -1.5: return Color("78b8d8")
+	return MUTED
 
 func bar(rect: Rect2, fraction: float, color: Color) -> void:
 	draw_style_box(game.style(Color("13251f"),Color.TRANSPARENT,4),rect)
@@ -156,31 +170,47 @@ func _draw() -> void:
 
 func draw_speedometer() -> void:
 	var r=Rect2(22,hud_top(),210,hud_height())
-	panel(r)
+	panel(r,Color("1a2a2e"),Color("d9b45a"))
 	var f=r.size.y/100.0
-	var center=r.position+Vector2(62,58*f)
-	var radius=36.0*f
+	var center=r.position+Vector2(66,56*f)
+	var radius=34.0*f
 	var maximum=dial_maximum()
 	var current=absf(float(game.model.state.v))*3.6
+	var nominal=nominal_speed()/maximum
 	var start=deg_to_rad(150)
 	var span=deg_to_rad(240)
-	draw_arc(center,radius,start,start+span,48,Color("53705b"),4,true)
-	draw_arc(center,radius,start+span*nominal_speed()/maximum,start+span,16,RED,4,true)
-	for i in range(11):
-		var angle=start+span*i/10.0
+	# Brass bezel, dark face, then coloured zones: calm, getting fast, over the limit.
+	draw_circle(center+Vector2(1.5,2.5),radius+9,Color(0,0,0,0.35))
+	draw_circle(center,radius+9,Color("a98a4a"))
+	draw_circle(center,radius+7,Color("2a2218"))
+	draw_circle(center,radius+5,Color("0f1a1c"))
+	draw_arc(center,radius-1,start,start+span*nominal*0.72,24,Color("5cc17f"),5,true)
+	draw_arc(center,radius-1,start+span*nominal*0.72,start+span*nominal,12,Color("e6b34a"),5,true)
+	draw_arc(center,radius-1,start+span*nominal,start+span,16,Color("e0564a"),5,true)
+	for i in range(21):
+		var angle=start+span*i/20.0
 		var radial=Vector2(cos(angle),sin(angle))
-		draw_line(center+radial*(radius-(7 if i%5==0 else 4)),center+radial*radius,PAPER if i%5==0 else MUTED,2,true)
+		var major=i%2==0
+		draw_line(center+radial*(radius-(10 if major else 6)),center+radial*(radius-4),PAPER if major else MUTED,2 if major else 1,true)
 	var needle=start+span*clampf(current/maximum,0,1)
-	draw_line(center,center+Vector2(cos(needle),sin(needle))*(radius-6),GOLD,3,true)
-	draw_circle(center,4,GOLD)
-	put("0",center+Vector2(-radius-6,radius*0.75+4),20,11,MUTED,HORIZONTAL_ALIGNMENT_CENTER)
-	put(str(roundi(maximum)),center+Vector2(radius-14,radius*0.75+4),30,11,MUTED,HORIZONTAL_ALIGNMENT_CENTER)
-	# Digital readout beside the dial rather than under the needle.
-	put("%.1f" % current,r.position+Vector2(116,52*f),86,30,RED if current>nominal_speed()+0.5 else PAPER,HORIZONTAL_ALIGNMENT_CENTER)
-	put("км/ч",r.position+Vector2(116,76*f),86,12,MUTED,HORIZONTAL_ALIGNMENT_CENTER)
+	var direction=Vector2(cos(needle),sin(needle))
+	draw_line(center+Vector2(1,1.5),center+direction*(radius-3)+Vector2(1,1.5),Color(0,0,0,0.45),3,true)
+	draw_line(center-direction*7,center+direction*(radius-3),Color("f3ead2"),3,true)
+	draw_line(center+direction*(radius-12),center+direction*(radius-3),Color("e0564a"),3,true)
+	draw_circle(center,5,Color("c9af73"))
+	draw_circle(center,2,Color("1a1612"))
+	put("0",center+Vector2(-radius-4,radius*0.75+8),20,11,MUTED,HORIZONTAL_ALIGNMENT_CENTER)
+	put(str(roundi(maximum)),center+Vector2(radius-16,radius*0.75+8),30,11,MUTED,HORIZONTAL_ALIGNMENT_CENTER)
+	# Digital readout beside the dial; its colour follows the zone the needle is in.
+	var digits=Color("5cc17f")
+	if current>nominal_speed()+0.5: digits=Color("e0564a")
+	elif current>nominal_speed()*0.72: digits=Color("e6b34a")
+	put("%.1f" % current,r.position+Vector2(124,52*f),78,30,digits,HORIZONTAL_ALIGNMENT_CENTER)
+	put("км/ч",r.position+Vector2(124,76*f),78,12,MUTED,HORIZONTAL_ALIGNMENT_CENTER)
+
 func draw_minimap() -> void:
 	var r = mini_rect()
-	panel(r)
+	panel(r,Color("1b2d30"),Color("5fb3b0"))
 	var m = game.model
 	var destination = m.next_destination()
 	var target = game.station_number(destination)
@@ -209,8 +239,8 @@ func draw_minimap() -> void:
 	# Train from tail to head, then the direction arrow at the head.
 	var tail=m.body_s(m.body_ids().size()-1)
 	var head_point=profile_point(here,area,from_s,to_s)
-	draw_line(profile_point(tail,area,from_s,to_s)+Vector2(0,-6),head_point+Vector2(0,-6),PAPER,5,true)
-	draw_colored_polygon(PackedVector2Array([head_point+Vector2(10*drive,-13),head_point+Vector2(-9*drive,-20),head_point+Vector2(-9*drive,-6)]),PAPER)
+	draw_line(profile_point(tail,area,from_s,to_s)+Vector2(0,-6),head_point+Vector2(0,-6),Color("f0c75e"),5,true)
+	draw_colored_polygon(PackedVector2Array([head_point+Vector2(10*drive,-13),head_point+Vector2(-9*drive,-20),head_point+Vector2(-9*drive,-6)]),Color("f0c75e"))
 	var climb=climb_ahead(WINDOW_AHEAD_M)
 	var ahead="Впереди без крутых подъёмов"
 	if not climb.is_empty(): ahead="Подъём +%.1f%% — сейчас" % climb.grade if climb.distance<10 else "Подъём +%.1f%% через %d м" % [climb.grade,climb.distance]
@@ -219,7 +249,8 @@ func draw_minimap() -> void:
 func draw_status() -> void:
 	var r = Rect2(size.x-status_width()-22,hud_top(),status_width(),hud_height())
 	var f=r.size.y/100.0
-	panel(r)
+	var accent={"handcar":Color("8fc46a"),"steam":Color("e8825a"),"motorcar":Color("e6b34a"),"locomotive":Color("6cc4e0")}.get(game.model.vehicle_id(),GOLD)
+	panel(r,Color("2a2a22") if game.model.vehicle_id()=="motorcar" else Color("1f2f30"),accent)
 	var m = game.model
 	var stats = m.object_stats(m.vehicle_id())
 	var amount = float(m.state.fleet_by_id[m.vehicle_id()].fuel)
@@ -240,17 +271,19 @@ func draw_status() -> void:
 			fraction = float(m.boiler().pressure)
 	if m.vehicle_id()=="motorcar": title+="  ·  %s  ·  %.1fк" % [{0:"N",1:"1",2:"2",3:"3",4:"4",5:"R"}[int(m.state.gear)],m.engine_rpm()/1000.0]
 	if m.vehicle_id()=="locomotive" and m.regen_kw>0.01: title="РЕКУПЕРАЦИЯ +%.1f кВт" % m.regen_kw
-	put(title,r.position+Vector2(16,22*f),r.size.x*0.5-16,12,GOLD if m.regen_kw>0.01 else MUTED)
-	put(value,r.position+Vector2(r.size.x*0.48,22*f),r.size.x*0.52-16,14,RED if fraction<=0.15 and m.vehicle_id()!="handcar" else PAPER,HORIZONTAL_ALIGNMENT_RIGHT)
-	bar(Rect2(r.position+Vector2(16,30*f),Vector2(r.size.x-32,6)),fraction,RED if fraction<=0.15 and m.vehicle_id()!="handcar" else GREEN)
+	var level=level_color(fraction) if m.vehicle_id()!="handcar" else Color("8fc46a")
+	put(title,r.position+Vector2(16,22*f),r.size.x*0.5-16,12,Color("6cc4e0") if m.regen_kw>0.01 else accent)
+	put(value,r.position+Vector2(r.size.x*0.48,22*f),r.size.x*0.52-16,14,level if fraction<=0.35 and m.vehicle_id()!="handcar" else PAPER,HORIZONTAL_ALIGNMENT_RIGHT)
+	bar(Rect2(r.position+Vector2(16,30*f),Vector2(r.size.x-32,6)),fraction,level)
 	var dry_mass = 0.0
 	for id in m.body_ids(): dry_mass += float(m.object_stats(id).mass)
 	var half=r.size.x*0.5-24
 	# The speed limit lives on the speedometer's red arc, gear in the title.
 	put("Состав  %d кг" % m.train_mass(),r.position+Vector2(16,62*f),half,15)
 	put("Груз  %d кг" % (m.train_mass()-dry_mass),r.position+Vector2(r.size.x*0.5+8,62*f),half,15)
-	put("Уклон  %+.1f%%" % (tan(m.route.slope(float(m.state.s)))*100),r.position+Vector2(16,88*f),half,14,MUTED)
-	put("Тормоз  %d%%" % roundi(float(m.state.brake)*100),r.position+Vector2(r.size.x*0.5+8,88*f),half,14,RED if m.state.brake>0.9 else MUTED)
+	var grade=tan(m.route.slope(float(m.state.s)))*100
+	put("Уклон  %+.1f%%" % grade,r.position+Vector2(16,88*f),half,14,slope_color(grade))
+	put("Тормоз  %d%%" % roundi(float(m.state.brake)*100),r.position+Vector2(r.size.x*0.5+8,88*f),half,14,Color("e0564a") if m.state.brake>0.9 else (Color("e6b34a") if m.state.brake>0.05 else MUTED))
 
 func map_area() -> Rect2:
 	return Rect2(90,size.y*0.24,size.x-180,size.y*0.2)
