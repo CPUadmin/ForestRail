@@ -10,6 +10,14 @@ var game
 var full_map = false
 var selected_station = -1
 var station_hits: Array = []
+var profile_key: Array = []
+var profile_low = 0.0
+var profile_high = 1.0
+# Track heights are small; a floor on the range keeps metre-high humps from
+# filling the whole band, and the map states the resulting exaggeration.
+const PROFILE_MIN_RANGE_M = 4.0
+const WINDOW_BEHIND_M = 100.0
+const WINDOW_AHEAD_M = 400.0
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP if full_map else Control.MOUSE_FILTER_IGNORE
@@ -35,6 +43,74 @@ func status_width() -> float:
 
 func permanent_panel_height() -> float:
 	return 46+152
+
+# Height range of the saved route; same samples the wheels use (TZ 3.1 N7.1).
+func ensure_profile() -> void:
+	var route=game.model.route
+	var key=[route.seed_value,route.points.size()]
+	if key==profile_key: return
+	profile_key=key
+	var total=float(route.station_s[-1])
+	profile_low=INF
+	profile_high=-INF
+	for i in range(241):
+		var h=route.sample(total*i/240.0).y
+		profile_low=minf(profile_low,h)
+		profile_high=maxf(profile_high,h)
+	var middle=(profile_low+profile_high)*0.5
+	var half=maxf(PROFILE_MIN_RANGE_M,profile_high-profile_low)*0.5
+	profile_low=middle-half
+	profile_high=middle+half
+
+func profile_y(s: float, area: Rect2) -> float:
+	ensure_profile()
+	var fraction=clampf((game.model.route.sample(s).y-profile_low)/(profile_high-profile_low),0,1)
+	return area.position.y+(1.0-fraction)*area.size.y
+
+# Point of the profile for distance s when the area shows [from_s, to_s].
+func profile_point(s: float, area: Rect2, from_s: float, to_s: float) -> Vector2:
+	var fraction=clampf((s-from_s)/maxf(1,to_s-from_s),0,1)
+	return Vector2(area.position.x+area.size.x*fraction,profile_y(s,area))
+
+func vertical_exaggeration(area: Rect2, from_s: float, to_s: float) -> float:
+	ensure_profile()
+	return (area.size.y/(profile_high-profile_low))/(area.size.x/maxf(1,to_s-from_s))
+
+# Line, traveled part and a vertical fill gradient down to floor_y.
+func draw_profile(area: Rect2, from_s: float, to_s: float, floor_y: float, samples: int, width: float) -> void:
+	var here=float(game.model.state.s)
+	var line=PackedVector2Array()
+	var traveled=PackedVector2Array()
+	for i in range(samples+1):
+		var s=lerpf(from_s,to_s,i/float(samples))
+		var p=profile_point(s,area,from_s,to_s)
+		line.append(p)
+		if s<=here: traveled.append(p)
+	if here>=from_s and here<=to_s: traveled.append(profile_point(here,area,from_s,to_s))
+	var top=Color(0.36,0.55,0.4,0.45)
+	var bottom=Color(top,0.0)
+	for i in range(line.size()-1):
+		var a=line[i]
+		var b=line[i+1]
+		draw_polygon(PackedVector2Array([a,b,Vector2(b.x,floor_y),Vector2(a.x,floor_y)]),PackedColorArray([top,top,bottom,bottom]))
+	draw_polyline(line,Color("13271f"),width+6,true)
+	draw_polyline(line,Color("8fae8f"),width,true)
+	if traveled.size()>1: draw_polyline(traveled,GOLD,width,true)
+
+# First climb steeper than 1.5 % within the window ahead, in travel direction.
+func climb_ahead(limit_m: float) -> Dictionary:
+	var m=game.model
+	var drive=m.drive_direction()
+	var here=float(m.state.s)
+	for step in range(0,int(limit_m),5):
+		var s=here+drive*step
+		if s<0 or s>float(m.route.station_s[-1]): break
+		var grade=tan(m.route.slope(s))*100.0*drive
+		if grade>1.5:
+			var peak=grade
+			for extra in range(5,80,5): peak=maxf(peak,tan(m.route.slope(s+drive*extra))*100.0*drive)
+			return {"distance":step,"grade":peak}
+	return {}
 
 func put(text: String, at: Vector2, width: float, font_size: int = 18, color: Color = PAPER, align: int = HORIZONTAL_ALIGNMENT_LEFT) -> void:
 	var font = ThemeDB.fallback_font
@@ -96,22 +172,35 @@ func draw_minimap() -> void:
 	var target = game.station_number(destination)
 	put("ДАЛЕЕ · "+m.station_name(destination),r.position+Vector2(18,27),r.size.x-140,18)
 	put("Карта [M] ↗",r.position+Vector2(r.size.x-130,27),112,14,GOLD,HORIZONTAL_ALIGNMENT_RIGHT)
-	var left = r.position.x+24
-	var right = r.end.x-24
-	var y = r.position.y+76
-	draw_line(Vector2(left,y),Vector2(right,y),Color("57735d"),4,true)
-	var length = float(m.route.station_s[-1])
-	var train_x = lerpf(left,right,clampf(float(m.state.s)/length,0,1))
-	draw_line(Vector2(left,y),Vector2(train_x,y),GOLD,4,true)
+	# The strip shows the stretch around the train, mostly ahead of it; A stays
+	# on the left and F on the right in both directions (TZ 3.1 N7.1).
+	var drive=m.drive_direction()
+	var here=float(m.state.s)
+	var total=float(m.route.station_s[-1])
+	var from_s=here-(WINDOW_BEHIND_M if drive>0 else WINDOW_AHEAD_M)
+	var to_s=here+(WINDOW_AHEAD_M if drive>0 else WINDOW_BEHIND_M)
+	if from_s<0: to_s-=from_s;from_s=0.0
+	if to_s>total: from_s=maxf(0,from_s-(to_s-total));to_s=total
+	var area=Rect2(r.position.x+24,r.position.y+48,r.size.x-48,40)
+	draw_profile(area,from_s,to_s,area.end.y+14,100,3)
 	for i in range(m.route.station_s.size()):
-		var x = lerpf(left,right,float(m.route.station_s[i])/length)
-		draw_circle(Vector2(x,y),8 if i==target else 5,GOLD if i==target else MUTED)
-		put(str(i+1),Vector2(x-12,y+27),24,12,MUTED,HORIZONTAL_ALIGNMENT_CENTER)
-	var drive = m.drive_direction()
-	draw_colored_polygon(PackedVector2Array([Vector2(train_x+10*drive,y-17),Vector2(train_x-9*drive,y-24),Vector2(train_x-9*drive,y-10)]),PAPER)
-	put("1 · Лесная",Vector2(left,r.end.y-16),r.size.x*0.38,13,MUTED)
-	put("%d м до станции" % absf(float(m.route.station_s[target])-float(m.state.s)),Vector2(left+r.size.x*0.25,r.end.y-16),r.size.x*0.48,15,PAPER,HORIZONTAL_ALIGNMENT_CENTER)
-	put("Дальний бор · 6",Vector2(r.end.x-r.size.x*0.32-24,r.end.y-16),r.size.x*0.32,13,MUTED,HORIZONTAL_ALIGNMENT_RIGHT)
+		var station_s=float(m.route.station_s[i])
+		if station_s<from_s or station_s>to_s: continue
+		var p=profile_point(station_s,area,from_s,to_s)
+		draw_line(p,Vector2(p.x,area.end.y+14),Color(MUTED,0.4),1)
+		draw_circle(p,7 if i==target else 5,GOLD if i==target else PAPER)
+		draw_circle(p,2.5,PANEL)
+		put("%d · %s" % [i+1,m.data.stations[i].name],Vector2(clampf(p.x-90,area.position.x,area.end.x-180),area.end.y+30),180,12,GOLD if i==target else MUTED,HORIZONTAL_ALIGNMENT_CENTER)
+	# Train from tail to head, then the direction arrow at the head.
+	var tail=m.body_s(m.body_ids().size()-1)
+	var head_point=profile_point(here,area,from_s,to_s)
+	draw_line(profile_point(tail,area,from_s,to_s)+Vector2(0,-6),head_point+Vector2(0,-6),PAPER,5,true)
+	draw_colored_polygon(PackedVector2Array([head_point+Vector2(10*drive,-13),head_point+Vector2(-9*drive,-20),head_point+Vector2(-9*drive,-6)]),PAPER)
+	var climb=climb_ahead(WINDOW_AHEAD_M)
+	var ahead="Впереди без крутых подъёмов"
+	if not climb.is_empty(): ahead="Подъём +%.1f%% — сейчас" % climb.grade if climb.distance<10 else "Подъём +%.1f%% через %d м" % [climb.grade,climb.distance]
+	put(ahead,Vector2(area.position.x,r.end.y-14),r.size.x*0.45,14,GOLD if not climb.is_empty() else MUTED)
+	put("%d м до станции" % absf(float(m.route.station_s[target])-here),Vector2(r.end.x-r.size.x*0.45-24,r.end.y-14),r.size.x*0.45,14,PAPER,HORIZONTAL_ALIGNMENT_RIGHT)
 
 func draw_status() -> void:
 	var r = Rect2(size.x-status_width()-22,size.y-174,status_width(),152)
@@ -145,45 +234,51 @@ func draw_status() -> void:
 	elif m.vehicle_id()!="handcar": detail += "  ·  "+["Н","I","II"][int(m.state.gear)]
 	put(detail,r.position+Vector2(16,132),r.size.x-32,14,GOLD)
 
+func map_area() -> Rect2:
+	return Rect2(90,size.y*0.24,size.x-180,size.y*0.2)
+
 func map_point(s: float) -> Vector2:
-	var fraction = clampf(s/float(game.model.route.station_s[-1]),0,1)
-	return Vector2(90+(size.x-180)*fraction,size.y*0.37+sin(fraction*TAU-0.4)*size.y*0.075)
+	return profile_point(s,map_area(),0,float(game.model.route.station_s[-1]))
+
+# Small conifers under the profile; positions are fixed per index.
+func draw_map_forest(total: float, floor_y: float) -> void:
+	for j in range(110):
+		var s=fposmod(sin(j*12.9898)*43758.5453,1.0)*total
+		var p=map_point(s)
+		var depth=26+fposmod(sin(j*78.233)*12345.678,1.0)*maxf(10,floor_y-p.y-30)
+		var h=11+fposmod(sin(j*3.7)*9631.1,1.0)*10
+		var foot=p+Vector2(0,depth)
+		draw_colored_polygon(PackedVector2Array([foot+Vector2(0,-h),foot+Vector2(-h*0.42,0),foot+Vector2(h*0.42,0)]),Color("21402f") if j%3 else Color("2c5139"))
 
 func draw_full_map() -> void:
 	draw_rect(Rect2(Vector2.ZERO,size),Color(0.04,0.09,0.07,0.92))
 	panel(Rect2(22,22,size.x-44,size.y-44))
 	put("КАРТА · ЛЕСНАЯ ЛИНИЯ",Vector2(50,67),size.x-350,27)
-	put("Белый указатель — состав · выбери станцию · поезд на паузе",Vector2(50,99),size.x-100,16,MUTED)
 	var m = game.model
 	var total = float(m.route.station_s[-1])
-	var route_line = PackedVector2Array()
-	var traveled_line = PackedVector2Array([map_point(0)])
-	for i in range(201):
-		var s = total*i/200.0
-		var p = map_point(s)
-		route_line.append(p)
-		if s>0 and s<float(m.state.s): traveled_line.append(p)
-	traveled_line.append(map_point(float(m.state.s)))
-	draw_polyline(route_line,Color("13271f"),13,true)
-	draw_polyline(route_line,Color("79937a"),5,true)
-	if float(m.state.s)>0: draw_polyline(traveled_line,GOLD,5,true)
+	var area=map_area()
+	var floor_y=area.end.y+90
+	put("Профиль пути · высота увеличена ×%d · белый указатель — состав · выбери станцию" % roundi(vertical_exaggeration(area,0,total)),Vector2(50,99),size.x-100,16,MUTED)
+	draw_profile(area,0,total,floor_y,240,5)
+	draw_map_forest(total,floor_y)
 	station_hits.clear()
 	var target = game.station_number(m.next_destination())
 	if selected_station<0: selected_station=target
 	for i in range(m.data.stations.size()):
 		var p = map_point(m.route.station_s[i])
 		station_hits.append(p)
+		draw_line(p,Vector2(p.x,floor_y),Color(MUTED,0.3),1)
 		draw_circle(p,14,GOLD if i==target else GREEN)
 		draw_circle(p,7,PANEL)
 		if i==selected_station: draw_arc(p,21,0,TAU,40,PAPER,2,true)
-		var label_y = p.y-48 if i%2==0 else p.y+54
+		var label_y = p.y-48 if i%2==0 else floor_y+30
 		var label_x = clampf(p.x-115,40,size.x-270)
 		put("%d · %s" % [i+1,m.data.stations[i].name],Vector2(label_x,label_y),230,18,GOLD if i==target else PAPER,HORIZONTAL_ALIGNMENT_CENTER)
 		put("%.0f м" % float(m.route.station_s[i]),Vector2(label_x,label_y+24),230,13,MUTED,HORIZONTAL_ALIGNMENT_CENTER)
 	var here = map_point(float(m.state.s))
 	var direction = m.drive_direction()
 	draw_colored_polygon(PackedVector2Array([here+Vector2(13*direction,-27),here+Vector2(-12*direction,-35),here+Vector2(-12*direction,-19)]),PAPER)
-	var r = Rect2(50,size.y*0.58,size.x-100,size.y*0.42-78)
+	var r = Rect2(50,size.y-78-200,size.x-100,200)
 	panel(r,Color("172d25"))
 	var station = m.data.stations[selected_station]
 	put(station.name,r.position+Vector2(22,36),r.size.x*0.48,25)
