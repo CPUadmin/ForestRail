@@ -84,6 +84,25 @@ func run() -> void:
 			for i in range(8): await get_tree().process_frame
 			await RenderingServer.frame_post_draw
 			get_tree().root.get_texture().get_image().save_png(output_dir.path_join("depot_%s_%d.png" % [place, size.y]))
+	# B1.2c: the workshop shows the improvable parts on the machine, a click on one picks its card
+	game.tab = "Улучшения"
+	game.selected_object = game.model.vehicle_id()
+	game.workshop_branch = ""
+	game.rebuild()
+	for i in range(6): await get_tree().process_frame
+	await RenderingServer.frame_post_draw
+	check(game.workshop_hits.size() == 4, "the handcar shows four improvable parts on the machine (%d)" % game.workshop_hits.size())
+	if game.workshop_hits.size() == 4:
+		var click = InputEventMouseButton.new()
+		click.button_index = MOUSE_BUTTON_LEFT
+		click.pressed = true
+		click.position = game.workshop_hits[2].position
+		var wanted = str(game.workshop_hits[2].branch)
+		game._unhandled_input(click)
+		check(game.workshop_branch == wanted, "a click on a part picks its card (%s)" % wanted)
+		for i in range(6): await get_tree().process_frame
+		await RenderingServer.frame_post_draw
+		get_tree().root.get_texture().get_image().save_png(output_dir.path_join("workshop_%d.png" % get_tree().root.size.y))
 	var tiles = 0
 	for node in game.ui.find_children("*", "Button", true, false): if node.tooltip_text in ["Гараж", "Состав", "Мастерская", "Доска заказов"]: tiles += 1
 	check(tiles == 4, "four pictured places in the depot (%d)" % tiles)

@@ -48,6 +48,8 @@ var screen = "menu"
 var tab = "Рейсы"
 var selected_object = "handcar"
 var pole_press_rel = 0.0
+var workshop_hits: Array = []   # B1.2c: the parts of the machine in the workshop that can be pointed at
+var workshop_branch = ""
 var paused = false
 var modal_kind = ""
 # Every key here is read by the game; the settings menu (N9) edits exactly these.
@@ -816,19 +818,21 @@ func build_depot(size: Vector2) -> void:
 	else:
 		build_missions(right)
 	var info_top = depot_header_bottom + 24
-	positioned_label(vehicle_display_name(), Rect2(44, info_top + 7, left_width - 20, 70), 32)
-	var stats = model.object_stats(model.vehicle_id())
-	var details = "%d кг  ·  %d мест" % [model.train_mass(), model.capacity()]
-	if model.vehicle_id() == "pole":
-		details += "\nШест · без топлива\nГрунт решает: глина вязнет, камни скользят"
-	elif model.vehicle_id() == "handcar":
-		details += "\nРучной привод · без топлива\nМаховик сохраняет накат"
-	else:
-		details += "\nПередачи R / N / 1–4 · до %.0f км/ч\n" % model.top_speed_kmh() + energy_text() + "\n" + forecast_line(model.current_mission())
-	var details_y = maxf(info_top + 88, info_top + 7 + line_height(32) + 6)
-	var details_lines = wrapped_lines(details, left_width - 20, 19)
-	positioned_label(details, Rect2(46, details_y, left_width - 20, maxf(105, details_lines * line_height(19))), 19)
-	depot_info_rect = Rect2(22, info_top, left_width - 28, maxf(195, details_y + details_lines * line_height(19) + 12 - info_top))
+	depot_info_rect = Rect2()
+	if tab != "Улучшения":
+		positioned_label(vehicle_display_name(), Rect2(44, info_top + 7, left_width - 20, 70), 32)
+		var stats = model.object_stats(model.vehicle_id())
+		var details = "%d кг  ·  %d мест" % [model.train_mass(), model.capacity()]
+		if model.vehicle_id() == "pole":
+			details += "\nШест · без топлива\nГрунт решает: глина вязнет, камни скользят"
+		elif model.vehicle_id() == "handcar":
+			details += "\nРучной привод · без топлива\nМаховик сохраняет накат"
+		else:
+			details += "\nПередачи R / N / 1–4 · до %.0f км/ч\n" % model.top_speed_kmh() + energy_text() + "\n" + forecast_line(model.current_mission())
+		var details_y = maxf(info_top + 88, info_top + 7 + line_height(32) + 6)
+		var details_lines = wrapped_lines(details, left_width - 20, 19)
+		positioned_label(details, Rect2(46, details_y, left_width - 20, maxf(105, details_lines * line_height(19))), 19)
+		depot_info_rect = Rect2(22, info_top, left_width - 28, maxf(195, details_y + details_lines * line_height(19) + 12 - info_top))
 	var service = HBoxContainer.new()
 	service.position = Vector2(44, size.y - 150)
 	service.size = Vector2(left_width - 25, 50)
@@ -955,14 +959,17 @@ func build_upgrades(right: VBoxContainer) -> void:
 	add_label(right, "%d мест · %d кг · тормоз %d Н" % [before.slots, before.mass, before.brake], 18)
 	if selected_object.begins_with("W"):
 		add_label(right, "Качение: %.4f · защита посуды: %d%%" % [before.rolling, roundi((1.0 - float(before.shock)) * 100)], 18)
+	var branches: Array = []
 	for branch in model.data.upgrade_catalog:
 		if branch.target_type != ("wagon" if selected_object.begins_with("W") else selected_object):
 			continue
+		if str(branch.id) == workshop_branch: branches.push_front(branch)
+		else: branches.append(branch)
+	if not branches.is_empty(): add_label(right, "Укажи деталь на машине слева или выбери здесь.", 16, MUTED_INK)
+	for branch in branches:
 		var lv = int(model.object_state(selected_object).levels.get(branch.id, 0))
-		var name = str(branch.name)
-		if selected_object == "locomotive":
-			name = {"locomotive_engine": "Электромотор", "locomotive_gearbox": "Контроллер тяги", "locomotive_tank": "Аккумулятор"}.get(branch.id, name)
-		var c = card(right, GREEN if lv >= 2 else CARD_EDGE)
+		var name = upgrade_branch_name(selected_object, branch)
+		var c = card(right, GOLD if str(branch.id) == workshop_branch else (GREEN if lv >= 2 else CARD_EDGE))
 		add_label(c, "%s  ·  %s" % [name, ["○ ○", "● ○", "● ●"][lv]], 22)
 		if lv < 2:
 			var preview = upgrade_preview(selected_object, branch)
@@ -975,6 +982,56 @@ func build_upgrades(right: VBoxContainer) -> void:
 					else: notify(model.message)))
 		else:
 			add_label(c, "Максимальный уровень", 17, GREEN)
+
+func upgrade_branch_name(id: String, branch: Dictionary) -> String:
+	if id == "locomotive":
+		return {"locomotive_engine": "Электромотор", "locomotive_gearbox": "Контроллер тяги", "locomotive_tank": "Аккумулятор"}.get(branch.id, str(branch.name))
+	return str(branch.name)
+
+# Where a part sits on the machine, in metres along the body from its centre and above the rail.
+func workshop_spot_place(part: String, length: float, axles: Array) -> Vector2:
+	var rear = float(axles[0]) if axles.size() > 0 else -length * 0.3
+	var front = float(axles[axles.size() - 1]) if axles.size() > 1 else length * 0.3
+	match part:
+		"bearings": return Vector2(rear, 0.12)
+		"brakes": return Vector2(front, 0.12)
+		"lever": return Vector2(0.0, 1.35)
+		"platform": return Vector2(0.0, 0.5)
+		"engine": return Vector2(length * 0.25, 0.95)
+		"gearbox": return Vector2(-length * 0.02, 0.95)
+		"tank": return Vector2(-length * 0.30, 0.95)
+		"suspension": return Vector2(length * 0.22, 0.42)
+	return Vector2(0.0, 0.8)
+
+# B1.2c: pulsing markers on the machine, one for each part that can be improved, with its level.
+func draw_workshop_spots(id: String, transform: Transform2D) -> void:
+	var spec = Geometry.body(id)
+	var length = float(spec.length_m)
+	var centre = float(spec.region_px[0]) + float(spec.region_px[2]) * 0.5
+	var axles: Array = []
+	for axle in spec.axles_px: axles.append((float(axle[0]) - centre) / float(spec.region_px[2]) * length)
+	var radius = float(spec.wheel_diameter_m) * 0.5
+	var target = "wagon" if id.begins_with("W") else id
+	draw_set_transform_matrix(Transform2D.IDENTITY)
+	var spot_index = 0
+	for branch in model.data.upgrade_catalog:
+		if branch.target_type != target: continue
+		spot_index += 1
+		var part = str(branch.id).get_slice("_", 1)
+		var place = workshop_spot_place(part, length, axles)
+		var pos = transform * (Vector2(place.x, -(place.y - radius)) * ArtV3.PX)
+		var level = int(model.object_state(id).levels.get(branch.id, 0))
+		var picked = str(branch.id) == workshop_branch
+		var pulse = 0.5 + 0.5 * sin(time * 3.0 + place.x)
+		draw_circle(pos, 13.0, Color(INK, 0.9))
+		draw_arc(pos, 15.0 + 2.5 * pulse, 0, TAU, 28, GOLD if picked else Color(PAPER, 0.85), 2.2 if picked else 1.6, true)
+		for k in range(2):
+			draw_circle(pos + Vector2(-5.0 + 10.0 * float(k), 0), 3.4, GOLD if k < level else Color(PAPER, 0.35))
+		var label = upgrade_branch_name(id, branch)
+		var width = 150.0
+		draw_string(font, pos + Vector2(-width * 0.5, -24.0 if spot_index % 2 == 1 else 36.0), label, HORIZONTAL_ALIGNMENT_CENTER, width, 15, GOLD if picked else PAPER)
+		workshop_hits.append({"branch": str(branch.id), "position": pos})
+	draw_set_transform_matrix(Transform2D.IDENTITY)
 
 func upgrade_preview(id: String, branch: Dictionary) -> String:
 	var object = model.object_state(id)
@@ -1839,6 +1896,13 @@ func _unhandled_input(event: InputEvent) -> void:
 		if event.button_index != MOUSE_BUTTON_LEFT: return
 		var mouse = event.position
 		if screen == "depot":
+			for hit in workshop_hits:
+				if mouse.distance_to(hit.position) < 26:
+					workshop_branch = str(hit.branch)
+					tab = "Улучшения"
+					sound.play("ui_click", 0.5)
+					rebuild()
+					return
 			for hit in coupler_hits:
 				if hit.position.distance_to(mouse) < 22: start_shunting(hit.id, hit.attach); return
 			for hit in body_hits:
@@ -2109,7 +2173,8 @@ func cab_active() -> bool:
 
 func view_scale() -> float:
 	if screen != "depot": return zoom_level
-	return minf(0.94, (get_viewport_rect().size.x * 0.46 - 150) / (ArtV3.PX * depot_span_m()))
+	# the workshop shows the machine bigger, as far as the train still fits
+	return minf(1.9 if tab == "Улучшения" else 0.94, (get_viewport_rect().size.x * 0.46 - 150) / (ArtV3.PX * depot_span_m()))
 
 func _draw() -> void:
 	if art == null: return
@@ -2117,6 +2182,7 @@ func _draw() -> void:
 	if art_world == null: draw_background(size)
 	grip_hits.clear()
 	ice_hits.clear()
+	workshop_hits.clear()
 	steam_hits.clear()
 	cab_hits.clear()
 	slot_hits.clear()
@@ -2972,6 +3038,7 @@ func draw_train() -> void:
 		var world_bounds = Rect2(transform*local_bounds.position,Vector2.ZERO)
 		for corner in [local_bounds.end,Vector2(local_bounds.end.x,local_bounds.position.y),Vector2(local_bounds.position.x,local_bounds.end.y)]: world_bounds=world_bounds.expand(transform*corner)
 		body_hits.append({"id":ids[i],"rect":world_bounds.grow(6)})
+		if screen == "depot" and tab == "Улучшения" and selected_object == ids[i] and model.state.active.is_empty(): draw_workshop_spots(ids[i], transform)
 		if screen == "depot" and selected_object == ids[i]:
 			draw_line(p + Vector2(-art.body_width(ids[i])*0.46,14)*scale_value,p+Vector2(art.body_width(ids[i])*0.46,14)*scale_value,GOLD,3,true)
 		if screen == "game":
