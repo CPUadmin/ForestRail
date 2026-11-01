@@ -1783,15 +1783,15 @@ func _process(dt: float) -> void:
 	if screen != "menu" and not model.state.is_empty():
 		var target_s = model.render_s()
 		if screen == "depot": target_s = 0
-		# The camera keeps following while a cab lever is held; lever input is read in
+		# The camera keeps following while a cab lever, the sail or the pole is held; lever input is read in
 		# the machine's own frame, so the grip stays under the cursor instead of the
 		# train driving away from a frozen camera.
-		if drag in ["","pump","brake","throttle","gear","start","coal"]:
+		if drag in ["","pump","brake","throttle","gear","start","coal","sail","pole"]:
 			camera_s = lerpf(camera_s, target_s, 1 - exp(-dt * 6))
 			camera_y = lerpf(camera_y, model.route.sample(camera_s).y, 1 - exp(-dt * 4))
 		var target_x = get_viewport_rect().size.x * (0.31 if screen == "depot" else (0.65 if model.state.direction > 0 else 0.35))
 		if screen == "depot" and not model.state.consist_ids.is_empty(): target_x = get_viewport_rect().size.x * 0.46 - 136
-		if drag in ["","pump","brake","throttle","gear","start","coal"]: camera_x = lerpf(camera_x if camera_x > 0 else target_x, target_x, 1 - exp(-dt * 3))
+		if drag in ["","pump","brake","throttle","gear","start","coal","sail","pole"]: camera_x = lerpf(camera_x if camera_x > 0 else target_x, target_x, 1 - exp(-dt * 3))
 		refresh_seconds += dt
 		if refresh_seconds >= 0.08:
 			refresh_seconds = 0

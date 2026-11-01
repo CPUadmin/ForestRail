@@ -77,6 +77,12 @@ func run() -> void:
 		game._input(still)
 		check(is_equal_approx(float(game.model.sail_trim), after_back), "a car running away from the camera does not move the sail by itself (%.3f vs %.3f, drag %s)" % [float(game.model.sail_trim), after_back, game.drag])
 		check(game.model.sail_held, "the sail is in the hand while the button is held")
+		# the camera keeps following the car while the sail is held (it used to freeze, and the car ran away)
+		var camera_before = float(game.camera_s)
+		game.model.state.s = float(game.model.state.s) + 30.0
+		for i in range(40): game._process(0.016)
+		check(float(game.camera_s) > camera_before + 10.0, "the camera follows the car while the sail is held (%.1f to %.1f)" % [camera_before, float(game.camera_s)])
+		game.model.state.s = float(game.model.state.s) - 30.0
 		# let go away from the cleat: the sail flogs
 		var away = InputEventMouseButton.new()
 		away.button_index = MOUSE_BUTTON_LEFT
