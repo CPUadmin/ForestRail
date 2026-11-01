@@ -45,6 +45,8 @@ for suite in args.suite.split(','):
         command.append('--cab-output='+str(reports/'cab_view'))
     if suite == 'check_petrol_view':
         command.append(str(reports/'petrol_view'))
+    if suite == 'check_depot_entry':
+        command.append(str(reports/'depot_view'))
     if suite == 'check_pneumatic_view':
         command.append(str(reports/'pneumatic_view'))
     if suite == 'check_pole_view':

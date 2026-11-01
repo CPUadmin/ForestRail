@@ -753,13 +753,12 @@ func build_depot(size: Vector2) -> void:
 	var left_width = size.x * 0.46
 	var panel_rect = Rect2(left_width + 30, depot_header_bottom + 28, size.x - left_width - 70, size.y - depot_header_bottom - 58)
 	var right = panel_at(ui, panel_rect, true)
-	var tabs = GridContainer.new()
-	tabs.columns=2
-	tabs.add_theme_constant_override("h_separation",8)
-	tabs.add_theme_constant_override("v_separation",8)
-	right.add_child(tabs)
-	for name in ["Гараж", "Состав", "Улучшения", "Рейсы"]:
-		add_button(tabs, name, func(): tab = name; rebuild(), false, tab == name)
+	# B1.2b: the four places of the depot are pictures to choose from, not a row of words
+	var tiles = HBoxContainer.new()
+	tiles.add_theme_constant_override("separation", 8)
+	right.add_child(tiles)
+	for entry in [["Гараж", "Гараж", "garage"], ["Состав", "Состав", "wagons"], ["Улучшения", "Мастерская", "bench"], ["Рейсы", "Доска заказов", "board"]]:
+		depot_tile(tiles, entry[0], entry[1], entry[2])
 	add_label(right, tab, 28)
 	if not model.state.active.is_empty():
 		add_label(right, "Активный рейс: " + str(model.state.active.title), 23)
@@ -841,6 +840,107 @@ func build_depot(size: Vector2) -> void:
 		else: notify(model.message), model.human_powered() or refill <= 0)
 	add_button(service, "Улучшить", func(): selected_object = model.vehicle_id(); tab = "Улучшения"; rebuild())
 	positioned_label("Нажми на машину или вагон, чтобы выбрать его улучшения.", Rect2(46, size.y - 83, left_width - 30, 60), 17)
+
+# A big picture button for one place of the depot: the picture and its name are drawn on top of an
+# ordinary button, which keeps the click, the hover and the keyboard focus.
+func depot_tile(parent: Node, tab_name: String, caption: String, icon: String) -> Button:
+	var selected = tab == tab_name
+	var button = Button.new()
+	button.custom_minimum_size = Vector2(0, 96.0 * float(settings.text_scale))
+	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	button.tooltip_text = caption
+	button.disabled = selected
+	for state in ["normal", "hover", "pressed", "focus", "disabled"]:
+		var edge = GOLD if (selected or state == "hover") else CARD_EDGE
+		button.add_theme_stylebox_override(state, style(INK if selected else Color("33463f"), edge, 8))
+	button.pressed.connect(func():
+		sound.play("ui_click", 0.5)
+		tab = tab_name
+		rebuild())
+	var picture = Control.new()
+	picture.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	picture.set_anchors_preset(Control.PRESET_FULL_RECT)
+	picture.draw.connect(func(): draw_depot_icon(picture, icon, caption, selected, button.is_hovered()))
+	button.mouse_entered.connect(picture.queue_redraw)
+	button.mouse_exited.connect(picture.queue_redraw)
+	button.add_child(picture)
+	parent.add_child(button)
+	return button
+
+func draw_depot_icon(canvas: Control, icon: String, caption: String, selected: bool, hovered: bool) -> void:
+	var size = canvas.size
+	var color = GOLD if selected else (Color("fff2c8") if hovered else PAPER)
+	var dark = Color("1a2622")
+	var unit = minf(size.x, size.y) / 96.0
+	var centre = Vector2(size.x * 0.5, size.y * 0.40)
+	var line = maxf(1.5, 2.2 * unit)
+	if icon == "bench":
+		# a gear and a spanner
+		var gear = centre + Vector2(-10, 2) * unit
+		for i in range(8):
+			var a = TAU * float(i) / 8.0
+			canvas.draw_line(gear + Vector2.from_angle(a) * 12.0 * unit, gear + Vector2.from_angle(a) * 17.0 * unit, color, 5.0 * unit)
+		canvas.draw_arc(gear, 12.0 * unit, 0, TAU, 28, color, line * 1.4, true)
+		canvas.draw_circle(gear, 4.5 * unit, color)
+		canvas.draw_line(centre + Vector2(4, 22) * unit, centre + Vector2(26, -8) * unit, color, 5.0 * unit)
+		canvas.draw_arc(centre + Vector2(27, -10) * unit, 7.0 * unit, deg_to_rad(40), deg_to_rad(320), 16, color, 4.0 * unit, true)
+	elif icon == "board":
+		var board = Rect2(centre + Vector2(-26, -20) * unit, Vector2(52, 40) * unit)
+		canvas.draw_rect(board, color, false, line * 1.4)
+		for note in [Rect2(-20, -14, 14, 15), Rect2(-2, -15, 14, 12), Rect2(-12, 4, 18, 11), Rect2(14, -12, 9, 22)]:
+			canvas.draw_rect(Rect2(centre + note.position * unit, note.size * unit), color)
+			canvas.draw_circle(centre + (note.position + Vector2(note.size.x * 0.5, 2.0)) * unit, 1.6 * unit, dark)
+	elif icon == "garage":
+		canvas.draw_rect(Rect2(centre + Vector2(-26, -4) * unit, Vector2(40, 16) * unit), color)
+		canvas.draw_rect(Rect2(centre + Vector2(-26, -20) * unit, Vector2(16, 16) * unit), color)
+		canvas.draw_rect(Rect2(centre + Vector2(6, -16) * unit, Vector2(7, 12) * unit), color)
+		canvas.draw_rect(Rect2(centre + Vector2(-23, -16) * unit, Vector2(10, 7) * unit), dark)
+		for x in [-17.0, 4.0]:
+			canvas.draw_circle(centre + Vector2(x, 15) * unit, 7.0 * unit, color)
+			canvas.draw_circle(centre + Vector2(x, 15) * unit, 2.5 * unit, dark)
+	elif icon == "wagons":
+		for x in [-30.0, 3.0]:
+			canvas.draw_rect(Rect2(centre + Vector2(x, -6) * unit, Vector2(27, 14) * unit), color)
+			canvas.draw_circle(centre + Vector2(x + 6, 14) * unit, 5.0 * unit, color)
+			canvas.draw_circle(centre + Vector2(x + 21, 14) * unit, 5.0 * unit, color)
+		canvas.draw_line(centre + Vector2(-3, 2) * unit, centre + Vector2(3, 2) * unit, color, line * 1.6)
+	var caption_size = int(round(15.0 * float(settings.text_scale)))
+	canvas.draw_string(font, Vector2(0, size.y - 11.0 * unit), caption, HORIZONTAL_ALIGNMENT_CENTER, size.x, caption_size, color)
+
+# The inside of the depot behind the machine: a plank wall in lamplight, rafters, hanging lamps.
+func draw_depot_interior(size: Vector2) -> void:
+	var floor_y = rail_baseline()
+	var bands = 24
+	for i in range(bands):
+		var t = float(i) / float(bands - 1)
+		draw_rect(Rect2(0, floor_y * float(i) / float(bands), size.x, floor_y / float(bands) + 1.0), Color("1b1510").lerp(Color("4d3924"), t))
+	var x = 0.0
+	var plank = 0
+	while x < size.x:
+		var width = 58.0 + 10.0 * float((plank * 7) % 3)
+		draw_rect(Rect2(x, 0, 2.0, floor_y), Color(0, 0, 0, 0.30))
+		draw_rect(Rect2(x + 2.0, 0, width - 2.0, floor_y), Color(1.0, 0.85, 0.6, 0.015 * float((plank * 5) % 4)))
+		x += width
+		plank += 1
+	# rafters and a crossbeam
+	draw_rect(Rect2(0, 0, size.x, 42), Color("110c08"))
+	draw_rect(Rect2(0, 42, size.x, 5), Color(0, 0, 0, 0.35))
+	for beam_x in [0.12, 0.38, 0.64, 0.90]:
+		var bx = size.x * beam_x
+		draw_colored_polygon(PackedVector2Array([Vector2(bx - 8, 47), Vector2(bx + 8, 47), Vector2(bx + 44, 140), Vector2(bx + 30, 140)]), Color("1f160f"))
+		draw_colored_polygon(PackedVector2Array([Vector2(bx - 8, 47), Vector2(bx + 8, 47), Vector2(bx - 44, 140), Vector2(bx - 30, 140)]), Color("1f160f"))
+	# hanging lamps with a warm pool of light, hung below the info box so that they are seen
+	var lamp_y = maxf(depot_info_rect.end.y + 38.0, 240.0)
+	for lamp_x in [0.12, 0.36]:
+		var lx = size.x * lamp_x
+		draw_line(Vector2(lx, 47), Vector2(lx, lamp_y - 22), Color("0c0906"), 3.0)
+		draw_colored_polygon(PackedVector2Array([Vector2(lx - 10, lamp_y - 22), Vector2(lx + 10, lamp_y - 22), Vector2(lx + 22, lamp_y), Vector2(lx - 22, lamp_y)]), Color("2a2a22"))
+		for k in range(8):
+			draw_circle(Vector2(lx, lamp_y + 4.0), 170.0 - 19.0 * float(k), Color(1.0, 0.76, 0.38, 0.03))
+		draw_circle(Vector2(lx, lamp_y + 2.0), 8.0, Color("ffe9b0"))
+	# the floor line and a shadow under the wall
+	draw_rect(Rect2(0, floor_y - 10, size.x, 10), Color(0, 0, 0, 0.30))
 
 func build_upgrades(right: VBoxContainer) -> void:
 	var row = HBoxContainer.new()
@@ -1127,7 +1227,7 @@ func vehicle_summary(id: String) -> String:
 	var base = model.vehicle_base(id)
 	var places = "%d места на платформе" % int(base.deck_slots) if int(base.deck_slots) > 0 else "без мест на кузове"
 	var wagons = "вагонов: до %d" % int(base.get("max_wagons", 0)) if int(base.get("max_wagons", 0)) > 0 else "без вагонов"
-	var energy = {"handcar": "без топлива", "steam": "уголь и вода", "motorcar": "бензин", "pneumatic": "сжатый воздух", "locomotive": "аккумулятор"}.get(id, "")
+	var energy = {"handcar": "без топлива", "steam": "уголь и вода", "motorcar": "бензин", "pneumatic": "сжатый воздух", "pole": "мускулы и шест", "locomotive": "аккумулятор"}.get(id, "")
 	return "%s · %s · %s" % [places, wagons, energy]
 
 func station_number(id: String) -> int:
@@ -2038,6 +2138,7 @@ func _draw() -> void:
 
 		draw_menu_train(size)
 	else:
+		if screen == "depot": draw_depot_interior(size)
 		draw_train()
 		if screen == "depot":
 			draw_style_box(style(Color(0.08,0.15,0.12,0.88),Color(0.5,0.57,0.39,0.45),8),Rect2(22,12,size.x-44,depot_header_bottom-12))

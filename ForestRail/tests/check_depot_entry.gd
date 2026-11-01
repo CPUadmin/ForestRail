@@ -6,6 +6,7 @@ const Fixtures = preload("res://tests/fixtures.gd")
 var game
 var checks = 0
 var failures: Array = []
+var output_dir = "user://qa_depot_entry"
 
 func _ready() -> void:
 	call_deferred("run")
@@ -28,6 +29,9 @@ func run_frames(seconds: float) -> void:
 	for i in range(int(seconds / 0.016)): game._process(0.016)
 
 func run() -> void:
+	var args = Array(OS.get_cmdline_user_args()).filter(func(arg): return not arg.begins_with("--"))
+	if not args.is_empty(): output_dir = args[0]
+	DirAccess.make_dir_recursive_absolute(output_dir)
 	game = load("res://main.tscn").instantiate()
 	get_tree().root.add_child(game)
 	game.test_mode = true
@@ -69,5 +73,19 @@ func run() -> void:
 	run_frames(0.6)
 	check(game.screen == "depot", "a key press skips the rolling and the depot opens sooner")
 	run_frames(0.7)
+	# the inside of the depot: pictured places to choose from, and a look at each size and place
+	check(game.screen == "depot", "the depot is open for the pictures")
+	for size in [Vector2i(1600, 900), Vector2i(1280, 720)]:
+		get_tree().root.size = size
+		await get_tree().create_timer(0.2).timeout
+		for place in ["Гараж", "Состав", "Улучшения", "Рейсы"]:
+			game.tab = place
+			game.rebuild()
+			for i in range(8): await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_tree().root.get_texture().get_image().save_png(output_dir.path_join("depot_%s_%d.png" % [place, size.y]))
+	var tiles = 0
+	for node in game.ui.find_children("*", "Button", true, false): if node.tooltip_text in ["Гараж", "Состав", "Мастерская", "Доска заказов"]: tiles += 1
+	check(tiles == 4, "four pictured places in the depot (%d)" % tiles)
 	print("DEPOT ENTRY CHECKS ", checks, "; FAILURES ", failures)
 	get_tree().quit(0 if failures.is_empty() else 1)
