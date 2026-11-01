@@ -66,7 +66,7 @@ func shot(name: String) -> void:
 	get_tree().root.get_texture().get_image().save_png(out_dir.path_join(name+".png"))
 
 func prepare(vehicle: String, chapter: int) -> void:
-	game.control_zoom=false
+	game.cab_view=false
 	game.paused=false
 	game.model.new_game(42)
 	game.model.state.money = 10000
@@ -106,7 +106,7 @@ func key(value: int) -> void:
 func arc_drag(id: String, value: float) -> void:
 	var point=grip(id,true)
 	var geo=game.control_geometry(id,true)
-	var target=geo.pivot+Vector2(0,-geo.pivot.distance_to(geo.grip)).rotated(lerpf(-0.55,0.55,value))
+	var target=game.pult_t*(geo.pivot+Vector2(0,-geo.pivot.distance_to(geo.grip)).rotated(lerpf(-0.55,0.55,value)))
 	await button(point,true)
 	await motion(target,target-point)
 	await button(target,false)
@@ -117,9 +117,9 @@ func gate_drag(gear: int) -> void:
 	var rect=game.gate_rect(true)
 	var here=game.gate_pos
 	var slot=game.gate_slot_pos(gear)
-	var current=game.gate_local(rect,here)
+	var current=game.pult_t*game.gate_local(rect,here)
 	for waypoint in [Vector2(here.x,0),Vector2(slot.x,0),slot]:
-		var target=game.gate_local(rect,waypoint)
+		var target=game.pult_t*game.gate_local(rect,waypoint)
 		await motion(target,target-current)
 		current=target
 	await button(current,false)
@@ -248,8 +248,9 @@ func run() -> void:
 	game.camera_y=game.model.route.sample(game.camera_s).y
 	game.camera_x=900
 	await frame()
-	await key(KEY_C)
-	check(game.control_zoom,"C opens closeup")
+	await key(KEY_E)
+	for i in range(8): await frame()
+	check(game.cab_active(),"E opens the cab")
 	await shot("control_closeup")
 	for id in ["brake","throttle","gear","start"]:
 		var point=grip(id,true)
@@ -270,7 +271,7 @@ func run() -> void:
 	await arc_drag("brake",0.0)
 	check(game.model.state.brake==0,"closeup releases brake")
 	await key(KEY_ESCAPE)
-	check(not game.control_zoom and not game.paused,"Escape closes closeup")
+	check(not game.cab_view and not game.paused,"Escape closes the cab")
 	var report = {"checks":checks,"failures":failures,"actual_dimensions":measurements,"max_wheel_contact_error_px":max_contact_error,"max_coupling_gap_variation_px":max_coupling_error,"terrain_s":terrain,"human_novice_trial":"not performed","P3_P4_physics":"not implemented by P2"}
 	var file = FileAccess.open(out_dir.path_join("geometry_results.json"),FileAccess.WRITE)
 	file.store_string(JSON.stringify(report,"\t"));file.close()

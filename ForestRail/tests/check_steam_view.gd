@@ -52,11 +52,14 @@ func run() -> void:
 		game.model.depart() if game.model.state.phase == "loading" else null
 		await shot("steam_fire_%d" % size.y)
 		game.model.set_door(false)
-		game.control_zoom = true
+		game.cab_view = true
+		game.update_pult_transform()
+		for i in range(8): await get_tree().process_frame
 		game.queue_redraw()
 		await shot("steam_pult_%d" % size.y)
-		check(Rect2(Vector2.ZERO, Vector2(size)).encloses(game.control_zoom_rect()), "steam pult fits %d" % size.y)
+		check(game.get_viewport_rect().encloses(game.pult_screen_rect()), "steam pult fits %d" % size.y)
 		check(game.steam_hits.size() == 2, "steam pult has bucket and door %d" % size.y)
-		game.control_zoom = false
+		game.cab_view = false
+		game.update_pult_transform()
 	print("STEAM VIEW CHECKS ", checks, "; FAILURES ", failures)
 	get_tree().quit(0 if failures.is_empty() else 1)

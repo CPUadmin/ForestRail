@@ -51,11 +51,14 @@ func run() -> void:
 		game.model.set_gear(2)
 		game.model.state.throttle = 0.6
 		await shot("petrol_on_%d" % size.y)
-		game.control_zoom = true
+		game.cab_view = true
+		game.update_pult_transform()
+		for i in range(8): await get_tree().process_frame
 		game.queue_redraw()
 		await shot("petrol_pult_%d" % size.y)
-		check(Rect2(Vector2.ZERO, Vector2(size)).encloses(game.control_zoom_rect()), "petrol pult fits %d" % size.y)
+		check(game.get_viewport_rect().encloses(game.pult_screen_rect()), "petrol pult fits %d" % size.y)
 		check(game.control_ids() == ["brake", "throttle", "gear", "start"], "petrol pult has four controls %d" % size.y)
-		game.control_zoom = false
+		game.cab_view = false
+		game.update_pult_transform()
 	print("PETROL VIEW CHECKS ", checks, "; FAILURES ", failures)
 	get_tree().quit(0 if failures.is_empty() else 1)

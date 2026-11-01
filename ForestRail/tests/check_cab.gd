@@ -199,5 +199,31 @@ func run() -> void:
 		await mouse(fire_centre, false)
 		check(float(game.model.state.fleet_by_id.steam.fuel) < coal_before and float(game.model.boiler().firebox) > 0.0, "coal dropped on the firebox goes in")
 		await key(KEY_E)
+	# B3.1 / B3.2: no pult any more; the cab goes down by itself at a platform and comes back when the train moves off
+	context = "auto "
+	await prepare("motorcar")
+	for button in game.ui.find_children("*", "Button", true, false): check(not button.text.begins_with("Пульт"), "no pult button in the header")
+	check(not game.settings.keys.has("pult"), "no pult key in the settings")
+	await key(KEY_E)
+	for i in range(4): await frame()
+	check(game.cab_active(), "E raises the cab")
+	game.model.state.s = float(game.model.route.station_s[1])
+	game.model.state.v = 0.0
+	game.model.state.brake = 1.0
+	for i in range(4): await frame()
+	check(not game.cab_view and game.cab_resume, "stopping at a platform lowers the cab")
+	game.model.state.brake = 0.0
+	game.model.state.v = 2.0
+	game.model.state.s += 40.0
+	for i in range(4): await frame()
+	check(game.cab_view and not game.cab_resume, "moving off raises the cab again")
+	await key(KEY_E)
+	game.model.state.s = float(game.model.route.station_s[2])
+	game.model.state.v = 0.0
+	game.model.state.brake = 1.0
+	for i in range(4): await frame()
+	await key(KEY_E)
+	for i in range(4): await frame()
+	check(game.cab_view, "the cab raised by hand at a platform stays")
 	print("CAB CHECKS ", checks, "; FAILURES ", failures)
 	get_tree().quit(0 if failures.is_empty() else 1)

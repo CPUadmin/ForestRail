@@ -36,7 +36,7 @@ func click_button(parent: Node,text: String) -> bool:
 	return false
 
 func fixture(id: String) -> void:
-	game.cancel_drag();game.modal_kind="";game.paused=false;game.control_zoom=false;game.toast_seconds=0
+	game.cancel_drag();game.modal_kind="";game.paused=false; game.toast_seconds=0
 	game.model.new_game(42);game.model.state.money=10000
 	if id!="handcar": Fixtures.equip(game.model,id)
 	game.model.accept_mission(game.model.free_offers()[0])
@@ -74,7 +74,7 @@ func run() -> void:
 				check(game.hud.get_global_rect().end.x<=game.map_button.get_global_rect().position.x,"route heading and buttons do not overlap")
 				for b in game.ui.find_children("*","Button",true,false):
 					if b.is_visible_in_tree(): check(viewport.encloses(b.get_global_rect()),"visible HUD button remains inside window")
-					if b.text in ["Карта [M]","Пульт [C]","Пауза"]: check(b.size.y<=46,"actual header buttons fit declared panel height")
+					if b.text in ["Карта [M]","Кабина [E]","Пауза"]: check(b.size.y<=46,"actual header buttons fit declared panel height")
 				var state=JSON.stringify(game.model.serialize())
 				await frame(3)
 				check(JSON.stringify(game.model.serialize())==state,"redrawing does not change model")
@@ -85,11 +85,12 @@ func run() -> void:
 				check(await click_button(game.overlay,"Закрыть [M / Esc]"),"map has mouse close action")
 				check(game.modal_kind=="" and not game.paused,"mouse closes map and resumes")
 				if id!="handcar":
-					check(await click_button(game.ui,"Пульт [C]"),"mouse opens pult at every text scale")
-					check(game.control_zoom,"pult actually opened")
-					check(viewport.encloses(game.control_zoom_rect()),"pult stays inside window")
-					await click(game.control_zoom_rect().position+Vector2(390,20))
-					check(not game.control_zoom,"mouse closes pult")
+					check(await click_button(game.ui,"Кабина [E]"),"mouse opens the cab at every text scale")
+					await frame(3)
+					check(game.cab_active(),"the cab actually opened")
+					check(viewport.encloses(game.pult_screen_rect()),"the cab's controls stay inside the window")
+					game.toggle_cab_view()
+					check(not game.cab_active(),"the cab closes")
 				cases.append({"window":str(resolution),"text_scale":scale,"vehicle":id,"hud_fraction":ratio})
 			# Scrolling screens must keep their navigation available at 150%.
 			fixture("handcar");game.model.rescue();game.model.cancel_mission();game.screen="depot";game.tab="Рейсы";game.rebuild()

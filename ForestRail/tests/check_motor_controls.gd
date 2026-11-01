@@ -50,10 +50,11 @@ func pull(id: String,value: float) -> void:
 		if game.control_kind(id)=="slider": target=geo.pivot+Vector2(0,-float(geo.length)*value)
 		else: target=geo.pivot+Vector2(0,-geo.pivot.distance_to(geo.grip)).rotated(lerpf(-0.55,0.55,value))
 		var e=InputEventMouseMotion.new()
-		e.position=target;e.relative=target-point;e.button_mask=MOUSE_BUTTON_MASK_LEFT
+		e.position=game.pult_t*target;e.relative=game.pult_t*target-point;e.button_mask=MOUSE_BUTTON_MASK_LEFT
 		get_tree().root.push_input(e,true)
 		await frame()
 		check(game.control_geometry(id,true).grip.distance_to(target)<0.01,"grip follows mouse arc "+id)
+		target=game.pult_t*target
 	await mouse(target,false)
 	check(game.drag=="","release clears capture "+id)
 
@@ -72,12 +73,12 @@ func pull_gear(gear: int) -> void:
 	for waypoint in [Vector2(here.x,0),Vector2(slot.x,0),slot]:
 		var target=game.gate_local(rect,waypoint)
 		var e=InputEventMouseMotion.new()
-		e.position=target;e.relative=target-current;e.button_mask=MOUSE_BUTTON_MASK_LEFT
+		e.position=game.pult_t*target;e.relative=game.pult_t.basis_xform(target-current);e.button_mask=MOUSE_BUTTON_MASK_LEFT
 		get_tree().root.push_input(e,true)
 		await frame()
 		current=target
 	check(game.control_geometry("gear",true).grip.distance_to(current)<0.01,"knob follows the mouse through the gate")
-	await mouse(current,false)
+	await mouse(game.pult_t*current,false)
 	check(game.drag=="","release clears capture gear")
 
 func energy_checks() -> void:
@@ -128,7 +129,7 @@ func world_controls() -> void:
 			for zoom in [0.75,1.0,1.5]:
 				context="world "+id+" facing="+str(facing)+" zoom="+str(zoom)+" "
 				game.model=fixture(id);game.model.state.direction=facing
-				game.control_zoom=false;game.zoom_level=zoom;game.rebuild()
+				game.cab_view=false;game.zoom_level=zoom;game.rebuild()
 				game.camera_s=100;game.camera_x=1040
 				await frame()
 				var point=Vector2.ZERO
@@ -171,11 +172,12 @@ func run() -> void:
 			for i in range(6): await frame()
 			var buttons=game.ui.find_children("*","Button",true,false)
 			for b in buttons:
-				if b.text=="Пульт [C]":
+				if b.text=="Кабина [E]":
 					var point=b.get_global_rect().get_center()
 					await mouse(point,true);await mouse(point,false)
-			check(game.control_zoom,"pult opens with mouse "+id+str(resolution))
-			check(Rect2(Vector2.ZERO,Vector2(resolution)).encloses(game.control_zoom_rect()),"pult fits window")
+			for i in range(8): await frame()
+			check(game.cab_active(),"the cab opens with mouse "+id+str(resolution))
+			check(game.get_viewport_rect().encloses(game.pult_screen_rect()),"the cab's controls fit the window")
 			await pull("throttle",0.5)
 			check(game.model.state.throttle>0.4,"throttle persists after release")
 			if id=="locomotive":
@@ -196,7 +198,7 @@ func run() -> void:
 				await pull("start",0)
 				check(not game.model.state.engine,"second click turns engine off")
 				await pull("start",1)
-				var switch_point=game.control_geometry("start",true).grip
+				var switch_point=game.pult_t*game.control_geometry("start",true).grip
 				await mouse(switch_point,true)
 				var slip=InputEventMouseMotion.new()
 				slip.position=switch_point+Vector2(25,0);slip.relative=Vector2(25,0);slip.button_mask=MOUSE_BUTTON_MASK_LEFT
@@ -216,7 +218,8 @@ func run() -> void:
 			await frame()
 			check(value>0.5 and game.model.state.brake==value,"brake stays after release without simultaneous holds")
 			get_tree().root.get_texture().get_image().save_png(out_dir.path_join(id+"_"+str(resolution.x)+".png"))
-			game.control_zoom=false
+			game.cab_view=false
+			game.update_pult_transform()
 	await world_controls()
 	var result={"checks":checks,"failures":failures,"input":"actual Viewport.push_input; fixtures set only initial state and gear test speed"}
 	var file=FileAccess.open(out_dir.path_join("motor_results.json"),FileAccess.WRITE)

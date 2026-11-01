@@ -71,10 +71,13 @@ func run() -> void:
 			check(float(spots[0]) < before - 0.2 and absf(float(spots[1]) - other) < 0.0001, "a click chips a quarter off that place only (%.2f -> %.2f)" % [before, float(spots[0])])
 		game.model.state.engine = false
 		game.model.state.throttle = 0.0
-		game.control_zoom = true
+		game.cab_view = true
+		game.update_pult_transform()
+		for i in range(8): await get_tree().process_frame
 		game.queue_redraw()
 		await shot("pneumatic_pult_%d" % size.y)
-		check(Rect2(Vector2.ZERO, Vector2(size)).encloses(game.control_zoom_rect()), "pneumatic pult fits %d" % size.y)
-		game.control_zoom = false
+		check(game.get_viewport_rect().encloses(game.pult_screen_rect()), "pneumatic pult fits %d" % size.y)
+		game.cab_view = false
+		game.update_pult_transform()
 	print("PNEUMATIC VIEW CHECKS ", checks, "; FAILURES ", failures)
 	get_tree().quit(0 if failures.is_empty() else 1)

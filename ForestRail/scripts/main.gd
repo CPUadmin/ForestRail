@@ -59,7 +59,7 @@ var modal_kind = ""
 const DEFAULT_SETTINGS = {"master": 0.65, "mechanisms": 0.7, "forest": 0.6, "music": 0.25, "interface": 0.8,
 	"sensitivity": 1.0, "text_scale": 1.0, "fullscreen": false, "borderless": false, "window_size": 1,
 	"vsync": true, "fps_cap": 0, "msaa": 0, "instrument_hz": 30, "reduce_motion": false, "cab_shake": 1.0,
-	"autosave": 60, "keys": {"map": KEY_M, "pult": KEY_C, "cab": KEY_E, "ice": KEY_I, "brake": KEY_SPACE}}
+	"autosave": 60, "keys": {"map": KEY_M, "cab": KEY_E, "ice": KEY_I, "brake": KEY_SPACE}}
 const WINDOW_SIZES = [Vector2i(1280, 720), Vector2i(1600, 900), Vector2i(1920, 1080)]
 const SETTINGS_TABS = ["Звук", "Графика", "Управление", "Игра", "Доступность", "Служебное"]
 var settings = DEFAULT_SETTINGS.duplicate(true)
@@ -80,11 +80,15 @@ var depot_anim_zoom = 1.0
 var depot_exit_action = Callable()
 var animate_in_tests = false
 var fade_rect: ColorRect = null
-var control_zoom = false
 # Cab view (E): the camera closes in on the cab and every control of the machine is
 # drawn and grabbed in the world at human scale. cab_blend animates 0..1.
 var cab_view = false
 var cab_blend = 0.0
+# B3.1: arriving at a platform in the cab lowers it so that the platform and the load are in view;
+# moving off again raises it back. Pressing E by hand cancels the automatic return.
+var cab_resume = false
+var mini_button: Button   # the invisible button over the minimap; the cab dashboard has its own gauges there
+var was_docked = false
 var cab_hits: Array = []
 # The pult drawn full size inside the cab scene is the same pult scaled and moved:
 # pult_t maps its own coordinates to the screen (identity for the panel on C).
@@ -466,7 +470,6 @@ func build_settings(box: VBoxContainer) -> void:
 		settings_slider(box, "sensitivity", "Чувствительность ручной дрезины", 0.5, 2, 0.05)
 		add_label(box, "Клавиши (Esc всегда пауза):", 20)
 		settings_key(box, "map", "Карта")
-		settings_key(box, "pult", "Пульт")
 		settings_key(box, "cab", "Кабина")
 		settings_key(box, "ice", "Сбить иней (пневматический)")
 		settings_key(box, "brake", "Тормоз: затянуть или отпустить")
@@ -1183,7 +1186,7 @@ func build_hud(size: Vector2) -> void:
 	instruments.game = self
 	instruments.size = size
 	ui.add_child(instruments)
-	var mini_button = Button.new()
+	mini_button = Button.new()
 	mini_button.position = instruments.mini_rect().position
 	mini_button.size = instruments.mini_rect().size
 	mini_button.flat = true
@@ -1201,7 +1204,6 @@ func build_hud(size: Vector2) -> void:
 	pause_row.add_theme_constant_override("separation",10)
 	ui.add_child(pause_row)
 	map_button = add_button(pause_row, "Карта [%s]" % key_name("map"), toggle_map)
-	if not model.human_powered(): add_button(pause_row,"Пульт [%s]" % key_name("pult"),toggle_control_zoom)
 	if not model.human_powered(): add_button(pause_row,"Кабина [%s]" % key_name("cab"),toggle_cab_view)
 	add_button(pause_row, "Пауза", pause_game)
 	for button in pause_row.get_children():
@@ -1295,8 +1297,9 @@ func update_hud() -> void:
 	if model.vehicle_id() == "locomotive" and model.regen_kw > 0.01:
 		hint = "Рекуперация: +%.1f кВт. Часть энергии торможения возвращается в аккумулятор." % model.regen_kw
 	var interaction=station_state()
-	order_label.visible=not control_zoom and state.phase=="loading"
-	hint_label.visible=not control_zoom and (state.phase=="loading" or (drag!="" and state.tutorial and not interaction.visible))
+	if mini_button != null and is_instance_valid(mini_button): mini_button.visible = not cab_active()
+	order_label.visible=not cab_active() and state.phase=="loading"
+	hint_label.visible=not cab_active() and (state.phase=="loading" or (drag!="" and state.tutorial and not interaction.visible))
 	action_bar.position.y=168 if state.phase=="loading" else 70
 	hint_label.text = hint if state.phase=="loading" else (interaction.reason if interaction.visible else (hint if state.tutorial else ""))
 	update_cargo_actions(interaction)
@@ -1332,7 +1335,7 @@ func update_hud() -> void:
 			add_button(action_bar, "Сохранить", func(): save_game(); notify("Сохранено"))
 		for child in action_bar.get_children():
 			if child is Button: child.size_flags_horizontal=Control.SIZE_SHRINK_BEGIN
-	action_bar.visible=not control_zoom and action_bar.get_child_count()>0 and (state.phase=="loading" or model.stopped())
+	action_bar.visible=not cab_active() and action_bar.get_child_count()>0 and (state.phase=="loading" or model.stopped())
 
 func energy_text() -> String:
 	if model.vehicle_id() == "handcar": return "Ручной привод · %d Вт" % roundi(model.output_power)
@@ -1427,15 +1430,8 @@ func toggle_cab_view() -> void:
 	if screen != "game" or paused or model.human_powered(): return
 	cancel_drag()
 	cab_view = not cab_view
-	if cab_view: control_zoom = false
+	cab_resume = false
 	update_pult_transform()
-	update_hud()
-	queue_redraw()
-
-func toggle_control_zoom() -> void:
-	if screen!="game" or paused or model.human_powered(): return
-	cancel_drag()
-	control_zoom = not control_zoom
 	update_hud()
 	queue_redraw()
 
@@ -1586,11 +1582,6 @@ func control_zoom_transform() -> Transform2D:
 func draw_control_zoom() -> void:
 	var rect = control_zoom_rect()
 	draw_set_transform_matrix(pult_t)
-	if not cab_active():
-		draw_style_box(style(INK,GOLD,8),rect)
-		draw_rect(Rect2(rect.position,Vector2(rect.size.x,42)),INK)
-		draw_string(font,rect.position+Vector2(16,28),"ПУЛЬТ",HORIZONTAL_ALIGNMENT_LEFT,330,19,PAPER)
-		draw_string(font,rect.position+Vector2(370,28),"C ×",HORIZONTAL_ALIGNMENT_LEFT,50,19,GOLD)
 	var ids=control_ids()
 	for i in range(ids.size()):
 		var id=ids[i]
@@ -1640,7 +1631,6 @@ func draw_control_zoom() -> void:
 func show_modal(kind: String) -> void:
 	cancel_drag()
 	cab_view = false
-	control_zoom=false
 	if screen != "menu": paused = true
 	if kind == "settings":
 		settings_backup = settings.duplicate(true)
@@ -1717,7 +1707,7 @@ func build_modal(size: Vector2) -> void:
 		build_settings(box)
 	elif modal_kind == "help":
 		add_label(box, "Как играть", 32)
-		add_label(box, "1. В депо выбери рейс и нажми «К погрузке». Перетащи каждый предмет с площадки в свободное место на машине или вагоне. Когда всё погружено, просто тронься: дай ход, и рейс начался (кнопка «Отправиться» тоже есть).\n\n2. Тормоз ставить на станции не нужно: остановился на платформе, и состав стоит сам, он отпустится, когда дашь ход. В пути тормоз красной рукоятью, веди её по дуге к 0%. На ручной дрезине веди любой конец деревянного рычага по его дуге. На спуске можно катиться по инерции.\n\n3. Перед станцией плавно переведи тормоз к 100%. Остановись в пределах платформы, затяни тормоз до 100% и перетащи нужные грузы на площадку. У каждого предмета указана станция.\n\n4. После последней доставки убери подачу, разверни пустой состав кнопкой на станции и вернись в Лесную. Деньги выдаются в домашнем депо.\n\n5. Парк растёт так: ручная дрезина → паровоз (500) → бензиновая машина (1000) → электровоз (3000). У трёх последних нет мест на кузове: груз едет в вагонах. Первый вагон W01 входит в покупку, W02 и W03 покупаются отдельно. Не хватает денег — бери свободные рейсы: сильная машина платит за них больше. Скорости: ручная 25, паровоз 50, электровоз 75, бензиновая 100 км/ч. «Творческий режим» из меню: всё открыто, деньги и топливо без ограничений, любые рейсы.\n\n6. Паровоз: разожги котёл тумблером (режим Н, регулятор 0%), выбери отсечку 1 и открой регулятор. Он тратит уголь и воду. Бензиновая машина запускается так же и тратит бензин. Электровоз тратит заряд; ниже 75% заряда тяга слабеет, торможение возвращает часть энергии. Пополнение платное: в депо и на станции Дальний бор (там в полтора раза дороже), воду можно набрать ещё на Тихой заводи. Остановись у платформы, затяни тормоз и нажми «Заправить» в панели станции. Бака хватает примерно на один рейс туда и обратно: смотри строку «Рейс: нужно… есть…» в депо и на карте.\n\n7. Вагоны в депо стоят на пути. Щёлкни по сцепке между составом и вагоном: хвостовой вагон отъедет, ближайший стоящий подкатится и сцепится. Улучшения следуют за ID вагона. Для финального рейса нужны шесть мест.\n\nЗадний ход: остановись, затяни тормоз и выбери стрелку направления. На ручной дрезине направление задаётся усилием на рычаге с отпущенным тормозом. Обратное усилие сначала замедляет движение. В мёртвой точке потяни край платформы, чтобы подтолкнуть машину. Состав при этом сохраняет положение и груз.\n\nКолесо мыши — приблизить машину. Esc — пауза. Карта, пульт и кабина открываются клавишами из настроек (по умолчанию M, C, E). При потере фокуса игра останавливается. Если застрял или кончилась энергия, вызови помощь депо из паузы.", 20)
+		add_label(box, "1. В депо выбери рейс и нажми «К погрузке». Перетащи каждый предмет с площадки в свободное место на машине или вагоне. Когда всё погружено, просто тронься: дай ход, и рейс начался (кнопка «Отправиться» тоже есть).\n\n2. Тормоз ставить на станции не нужно: остановился на платформе, и состав стоит сам, он отпустится, когда дашь ход. В пути тормоз красной рукоятью, веди её по дуге к 0%. На ручной дрезине веди любой конец деревянного рычага по его дуге. На спуске можно катиться по инерции.\n\n3. Перед станцией плавно переведи тормоз к 100%. Остановись в пределах платформы, затяни тормоз до 100% и перетащи нужные грузы на площадку. У каждого предмета указана станция.\n\n4. После последней доставки убери подачу, разверни пустой состав кнопкой на станции и вернись в Лесную. Деньги выдаются в домашнем депо.\n\n5. Парк растёт так: ручная дрезина → паровоз (500) → бензиновая машина (1000) → электровоз (3000). У трёх последних нет мест на кузове: груз едет в вагонах. Первый вагон W01 входит в покупку, W02 и W03 покупаются отдельно. Не хватает денег — бери свободные рейсы: сильная машина платит за них больше. Скорости: ручная 25, паровоз 50, электровоз 75, бензиновая 100 км/ч. «Творческий режим» из меню: всё открыто, деньги и топливо без ограничений, любые рейсы.\n\n6. Паровоз: разожги котёл тумблером (режим Н, регулятор 0%), выбери отсечку 1 и открой регулятор. Он тратит уголь и воду. Бензиновая машина запускается так же и тратит бензин. Электровоз тратит заряд; ниже 75% заряда тяга слабеет, торможение возвращает часть энергии. Пополнение платное: в депо и на станции Дальний бор (там в полтора раза дороже), воду можно набрать ещё на Тихой заводи. Остановись у платформы, затяни тормоз и нажми «Заправить» в панели станции. Бака хватает примерно на один рейс туда и обратно: смотри строку «Рейс: нужно… есть…» в депо и на карте.\n\n7. Вагоны в депо стоят на пути. Щёлкни по сцепке между составом и вагоном: хвостовой вагон отъедет, ближайший стоящий подкатится и сцепится. Улучшения следуют за ID вагона. Для финального рейса нужны шесть мест.\n\nЗадний ход: остановись, затяни тормоз и выбери стрелку направления. На ручной дрезине направление задаётся усилием на рычаге с отпущенным тормозом. Обратное усилие сначала замедляет движение. В мёртвой точке потяни край платформы, чтобы подтолкнуть машину. Состав при этом сохраняет положение и груз.\n\nКолесо мыши — приблизить машину. Esc — пауза. Карта и кабина открываются клавишами из настроек (по умолчанию M и E). В кабине все органы и приборы машины; на станции кабина сама опускается, чтобы был виден груз, а когда тронешься, поднимается снова. При потере фокуса игра останавливается. Если застрял или кончилась энергия, вызови помощь депо из паузы.", 20)
 		if screen != "menu":
 			add_button(box, "Подсказки: " + ("вкл." if model.state.tutorial else "выкл."), func(): model.state.tutorial = not model.state.tutorial; save_game(); rebuild())
 		add_button(box, "Понятно", close_modal)
@@ -1756,6 +1746,20 @@ func _process(dt: float) -> void:
 	time += dt
 	if depot_anim != "": advance_depot_anim(dt)
 	if screen != "game" or model.human_powered(): cab_view = false
+	if screen == "game" and not paused and not model.human_powered() and not model.state.is_empty():
+		var docked = model.state.phase == "loading" or (model.state.phase == "route" and model.station_index() >= 0 and model.stopped())
+		if docked and not was_docked and cab_view:
+			cab_view = false
+			cab_resume = true
+			cancel_drag()
+			update_pult_transform()
+			update_hud()
+		elif cab_resume and not docked and model.state.phase == "route" and absf(float(model.state.v)) > 0.5:
+			cab_view = true
+			cab_resume = false
+			update_pult_transform()
+			update_hud()
+		was_docked = docked
 	cab_blend = move_toward(cab_blend, 1.0 if cab_view else 0.0, dt * 4.0)
 	cab_dt = minf(dt, 0.033)
 	cab_jolt = move_toward(cab_jolt, 0.0, dt * 4.0)
@@ -1911,10 +1915,6 @@ func _input(event: InputEvent) -> void:
 		chip_all_ice()
 		get_viewport().set_input_as_handled()
 		return
-	if event is InputEventKey and event.pressed and not event.echo and key_is(event,"pult") and screen=="game" and not paused:
-		toggle_control_zoom()
-		get_viewport().set_input_as_handled()
-		return
 	if event is InputEventKey and event.pressed and not event.echo and key_is(event,"cab") and screen=="game" and not paused:
 		toggle_cab_view()
 		get_viewport().set_input_as_handled()
@@ -1926,11 +1926,6 @@ func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
 		if cab_view:
 			toggle_cab_view()
-			get_viewport().set_input_as_handled()
-			return
-		if control_zoom:
-			cancel_drag()
-			control_zoom=false
 			get_viewport().set_input_as_handled()
 			return
 		if modal_kind == "": pause_game()
@@ -2054,11 +2049,7 @@ func _unhandled_input(event: InputEvent) -> void:
 					cab_button(hit.id)
 					get_viewport().set_input_as_handled()
 					return
-		var in_closeup = (control_zoom or cab_active()) and pult_screen_rect().has_point(mouse)
-		if in_closeup and not cab_active() and mouse.y<control_zoom_rect().position.y+42:
-			control_zoom=false
-			get_viewport().set_input_as_handled()
-			return
+		var in_closeup = cab_active() and pult_screen_rect().has_point(mouse)
 		if in_closeup and model.vehicle_id()=="steam":
 			for hit in steam_hits:
 				if not hit.rect.has_point(mouse): continue
@@ -2207,7 +2198,7 @@ func world_point(s: float) -> Vector2:
 	return Vector2(head_x + (p.x - cam.x) * scale_value, rail_baseline() - (p.y - camera_y) * scale_value)
 
 func dock_visible() -> bool:
-	return screen=="game" and (station_state().visible or drag=="cargo")
+	return screen=="game" and not cab_active() and (station_state().visible or drag=="cargo")
 
 func station_state() -> Dictionary:
 	var result=model.station_interaction()
@@ -2374,12 +2365,10 @@ func _draw() -> void:
 				draw_arc(sail_cleat_point, 34.0 + 4.0 * pulse, 0, TAU, 28, GOLD, 2.4, true)
 				draw_string(font, sail_cleat_point + Vector2(-34, 52), "утка: отпусти тут", HORIZONTAL_ALIGNMENT_LEFT, 120, 14, GOLD)
 			draw_cargo_feedback()
-			if control_zoom and not model.human_powered(): draw_control_zoom()
 			draw_tooltip()
-	if toast_seconds > 0 and modal_kind != "confirm" and not control_zoom:
+	if toast_seconds > 0 and modal_kind != "confirm":
 		var width = minf(1100, size.x - 100)
 		var rect = Rect2((size.x - width) / 2, 184 if screen=="game" else size.y - 65, width, 44)
-		if control_zoom: rect=Rect2(480,195,size.x-500,44)
 		draw_style_box(style(INK, GOLD, 8), rect)
 		draw_string(font, rect.position + Vector2(18, 29), toast, HORIZONTAL_ALIGNMENT_LEFT, rect.size.x - 30, 19, PAPER)
 
@@ -2420,7 +2409,7 @@ func update_cab_sides() -> void:
 
 func pult_screen_rect() -> Rect2:
 	if cab_active(): return cab_layout(get_viewport_rect().size).rect
-	return control_zoom_rect() if control_zoom else Rect2()
+	return Rect2()
 
 func cab_shake() -> Vector2:
 	var speed = absf(float(model.state.v))
@@ -3746,7 +3735,7 @@ func update_charge_warning() -> void:
 		charge_band=band
 
 func draw_tooltip() -> void:
-	if drag != "" or control_zoom: return
+	if drag != "": return
 	var mouse = get_global_mouse_position()
 	var text = ""
 	for hit in grip_hits:
