@@ -40,7 +40,7 @@ func _init() -> void:
 
 # line_version 1 is the original 1.7 km line (what the tests use unless they ask), 2 the long
 # line of about 6.8 km that the game gives to a new career (N7.3).
-func new_game(world_seed: int = 42, line_version: int = 1) -> void:
+func new_game(world_seed: int = 42, line_version: int = 1, mode: String = "career") -> void:
 	loading_cache.clear()
 	route.generate(world_seed, data.stations, line_version)
 	state = {"version": 2, "fleet_by_id": {"handcar": {"levels": {}, "fuel": 0.0, "consist": []}},
@@ -56,6 +56,26 @@ func new_game(world_seed: int = 42, line_version: int = 1) -> void:
 	pump_angle = 0.0
 	stationary_seconds=0.25
 	stationary_station=0
+	if mode == "creative": setup_creative()
+
+# Creative mode (sandbox): every machine and wagon is in the garage, money and fuel do not
+# run out, any order can be taken any number of times, and nothing is saved as progress.
+const CREATIVE_MONEY = 99999999
+
+func creative() -> bool:
+	return str(state.get("mode", "career")) == "creative"
+
+func setup_creative() -> void:
+	state.mode = "creative"
+	state.money = CREATIVE_MONEY
+	for id in ["steam", "motorcar", "locomotive"]:
+		buy_vehicle(id)
+	while next_wagon_id() != "":
+		if not buy_wagon(): break
+	select_vehicle("handcar")
+	state.money = CREATIVE_MONEY
+	state.tutorial = false
+	message = ""
 
 func station_interaction() -> Dictionary:
 	return StationInteraction.evaluate(self)
@@ -349,7 +369,7 @@ func refuel() -> bool:
 			return true
 		return fail("Здесь нет заправки для этой машины")
 	var missing = maxf(0, float(stats.tank) - float(fleet.fuel))
-	var price = float(vehicle_base().get("refill_price", 0)) * float(services.fuel)
+	var price = 0.0 if creative() else float(vehicle_base().get("refill_price", 0)) * float(services.fuel)
 	if missing <= 0.0001 or price <= 0:
 		fleet.fuel = float(stats.tank)
 		return true
@@ -365,6 +385,7 @@ func refuel() -> bool:
 	return true
 
 func refill_cost() -> int:
+	if creative(): return 0
 	var stats = object_stats(vehicle_id())
 	var offer = service_offer()
 	var multiplier = float(offer.services.get("fuel", 1.0)) if not offer.is_empty() else 1.0
@@ -454,7 +475,7 @@ func mission_count(mission: Dictionary) -> int:
 func mission_error(mission: Dictionary) -> String:
 	if mission.is_empty():
 		return "Карьера завершена. Выбирай свободный рейс"
-	if rank(vehicle_id()) < rank(str(mission.tier)):
+	if rank(vehicle_id()) < rank(str(mission.tier)) and not creative():
 		return "Нужна техника не слабее: " + str(vehicle_base(mission.tier).name)
 	if capacity() < 1:
 		return "Нужно хотя бы одно свободное место для груза"
@@ -509,9 +530,9 @@ func accept_mission(mission: Dictionary) -> bool:
 	if not mission.get("free", false): mission = scaled_mission(mission)
 	if not depot_editable():
 		return fail("Сначала закончи или отмени активный рейс")
-	if mission.get("id", "") in state.paid_ids:
+	if mission.get("id", "") in state.paid_ids and not creative():
 		return fail("Этот рейс уже оплачен")
-	if not mission.get("free", false) and mission.get("id", "") != current_mission().get("id", ""):
+	if not mission.get("free", false) and mission.get("id", "") != current_mission().get("id", "") and not creative():
 		return fail("Основные рейсы открываются последовательно")
 	var problem = mission_error(mission)
 	if problem != "":
@@ -767,17 +788,18 @@ func settle() -> bool:
 	var reward = int(state.active.pending_reward)
 	state.money += reward
 	state.stats.earned += reward
-	state.paid_ids.append(id)
+	if not creative(): state.paid_ids.append(id)
 	state.active.paid = true
-	if not state.active.get("free", false):
+	if not state.active.get("free", false) and not creative():
 		state.completed_ids.append(id)
 		state.chapter = mini(int(state.chapter) + 1, 10)
-	if state.active.get("final", false):
+	if state.active.get("final", false) and not creative():
 		state.finale = true
 		events.append("finale")
 	else:
 		events.append("coins")
-	state.last_result = {"title": state.active.title, "reward": reward, "final": state.active.get("final", false),"left_on_warehouse":state.active.get("warehouse_cargo",[]).size()}
+	if creative(): state.money = CREATIVE_MONEY
+	state.last_result = {"title": state.active.title, "reward": reward, "final": state.active.get("final", false) and not creative(),"left_on_warehouse":state.active.get("warehouse_cargo",[]).size()}
 	state.active = {}
 	state.cargo = []
 	drop_temporary_wagon()
@@ -1359,6 +1381,7 @@ func validate_save(saved: Dictionary) -> bool:
 			return false
 	if not numeric(saved.version) or int(saved.version) != 2 or not saved.route is Dictionary or not saved.fleet_by_id is Dictionary or not saved.wagons_by_id is Dictionary or not saved.cargo is Array:
 		return false
+	if saved.has("mode") and str(saved.mode) not in ["career", "creative"]: return false
 	if not saved.active is Dictionary or not saved.stats is Dictionary or not saved.consist_ids is Array or not saved.paid_ids is Array or not saved.completed_ids is Array or not saved.visited_stations is Array:
 		return false
 	for key in ["money", "chapter", "s", "v", "direction", "brake", "throttle", "gear", "offer_serial"]:

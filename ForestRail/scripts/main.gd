@@ -149,7 +149,7 @@ func _ready() -> void:
 		for arg in qa_args:
 			if arg.begins_with("--qa-suite="):
 				var suite = arg.trim_prefix("--qa-suite=")
-				if suite not in ["check_model", "check_physics", "check_interaction", "drive_campaign", "check_presentation", "check_handcar_revision", "check_art_v3", "check_instruments", "check_station_service", "check_world_geometry", "check_mechanism", "check_mechanism_bench", "check_handcar_drive", "check_handcar_input", "check_motor_controls", "check_loading_selection", "check_layout_p7", "check_steam", "check_steam_view", "check_gearbox", "check_petrol_view", "check_skins", "check_perf", "check_cab", "check_sound", "check_forecast", "check_line_v2", "check_speeds", "check_forecast_long", "drive_long", "check_forecast_view", "check_soak_p8", "check_save_p8"]: get_tree().quit(2); return
+				if suite not in ["check_model", "check_physics", "check_interaction", "drive_campaign", "check_presentation", "check_handcar_revision", "check_art_v3", "check_instruments", "check_station_service", "check_world_geometry", "check_mechanism", "check_mechanism_bench", "check_handcar_drive", "check_handcar_input", "check_motor_controls", "check_loading_selection", "check_layout_p7", "check_steam", "check_steam_view", "check_gearbox", "check_petrol_view", "check_skins", "check_perf", "check_cab", "check_sound", "check_forecast", "check_line_v2", "check_speeds", "check_creative", "check_forecast_long", "drive_long", "check_forecast_view", "check_soak_p8", "check_save_p8"]: get_tree().quit(2); return
 				get_tree().root.set_meta("qa_running", true)
 				set_process(false)
 				set_physics_process(false)
@@ -439,6 +439,11 @@ func build_menu(size: Vector2) -> void:
 			confirm("Начать новую карьеру? Текущая будет сохранена в файл %s рядом с сохранениями." % SaveGame.PREVIOUS_CAREER, func(): begin_new())
 		else:
 			begin_new(), not has_save)
+	menu_button(box, "Творческий режим", func():
+		if has_save:
+			confirm("Начать творческий режим? Текущая карьера будет сохранена в файл %s рядом с сохранениями." % SaveGame.PREVIOUS_CAREER, func(): begin_new(-1, true))
+		else:
+			begin_new(-1, true))
 	menu_button(box, "Настройки", func(): show_modal("settings"))
 	menu_button(box, "Как играть", func(): show_modal("help"))
 	menu_button(box, "Об игре", func(): show_modal("credits"))
@@ -462,13 +467,13 @@ func menu_button(parent: Node, text: String, action: Callable, primary: bool = f
 		button.add_theme_stylebox_override("normal", style(Color("3f6b4c"), Color("e2c27a"), 8))
 	return button
 
-func begin_new(seed_number: int = -1) -> void:
+func begin_new(seed_number: int = -1, creative_mode: bool = false) -> void:
 	if not saves.archive_career():
 		notify(saves.error)
 		return
 	if seed_number < 0:
 		seed_number = int(Time.get_unix_time_from_system()) % 100000
-	model.new_game(seed_number, 2)
+	model.new_game(seed_number, 2, "creative" if creative_mode else "career")
 	selected_object = "handcar"
 	screen = "depot"
 	tab = "Рейсы"
@@ -524,7 +529,7 @@ func build_depot(size: Vector2) -> void:
 	var money_y = maxf(87, 30 + line_height(32) + 6)
 	depot_header_bottom = maxf(127, money_y + line_height(20) + 8)
 	positioned_label("ДЕПО  /  ЛЕСНАЯ", Rect2(44, 30, 1000, 50), 32)
-	positioned_label("%d монет  ·  %d / 10 основных рейсов" % [model.state.money, model.state.chapter], Rect2(46, money_y, 1000, 45), 20)
+	positioned_label("Творческий режим  ·  деньги и топливо без ограничений" if model.creative() else "%d монет  ·  %d / 10 основных рейсов" % [model.state.money, model.state.chapter], Rect2(46, money_y, 1000, 45), 20)
 	var menu_row = HBoxContainer.new()
 	menu_row.position = Vector2(size.x - 285, 28)
 	menu_row.size = Vector2(245, 50)
@@ -669,6 +674,24 @@ func upgrade_preview(id: String, branch: Dictionary) -> String:
 	return "\n".join(parts)
 
 func build_missions(right: VBoxContainer) -> void:
+	if model.creative():
+		# Sandbox: every order of the career is open at any time, and as often as you like.
+		add_label(right, "Любые рейсы, любые машины", 22)
+		for index in range(model.data.missions.size()):
+			var open_mission = model.scaled_mission(model.data.missions[index])
+			var open_card = card(right, GOLD if index == 0 else CARD_EDGE)
+			add_label(open_card, "%s  ·  %s" % [open_mission.id, str(open_mission.title)], 20)
+			add_label(open_card, mission_description(open_mission), 16, MUTED_INK)
+			var open_problem = model.mission_error(open_mission)
+			if open_problem != "": add_label(open_card, open_problem, 16, RED)
+			add_button(open_card, "К погрузке →", func(): take_mission(open_mission), open_problem != "")
+		add_label(right, "Свободные рейсы", 22)
+		for offer in model.free_offers():
+			var offer_card = card(right)
+			add_label(offer_card, str(offer.title), 19)
+			add_label(offer_card, mission_description(offer), 16, MUTED_INK)
+			add_button(offer_card, "Взять", func(): take_mission(offer))
+		return
 	var mission = model.current_mission()
 	if not mission.is_empty():
 		var c = card(right, GOLD)

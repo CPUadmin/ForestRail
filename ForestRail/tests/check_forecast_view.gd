@@ -59,5 +59,10 @@ func run() -> void:
 	await frame(4)
 	check(game.model.route.version == 2 and game.screen == "depot" and float(game.model.route.station_x[5]) == 6800.0, "a new career starts on the long line")
 	check(int(game.model.current_mission().reward) == 360, "and the first order pays for it")
+	# creative mode from the menu path
+	game.begin_new(8, true)
+	await frame(4)
+	check(game.model.creative() and game.screen == "depot" and int(game.model.state.money) > 1000000, "the creative mode starts from the same place as a career")
+	await shot("creative_depot")
 	print("FORECAST VIEW CHECKS ", checks, "; FAILURES ", failures)
 	get_tree().quit(0 if failures.is_empty() else 1)
