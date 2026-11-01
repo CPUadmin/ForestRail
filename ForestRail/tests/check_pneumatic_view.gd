@@ -55,6 +55,20 @@ func run() -> void:
 		game.model.state.throttle = 0.8
 		game.queue_redraw()
 		await shot("pneumatic_frost_%d" % size.y)
+		# B1.3: clicking the frost of a pipe chips that place only
+		game.queue_redraw()
+		await shot("pneumatic_ice_click_%d" % size.y)
+		check(game.ice_hits.size() == 4, "four frosted places are clickable (%d)" % game.ice_hits.size())
+		if game.ice_hits.size() == 4:
+			var before = float(game.model.state.fleet_by_id.pneumatic.ice_spots[0])
+			var other = float(game.model.state.fleet_by_id.pneumatic.ice_spots[1])
+			var click = InputEventMouseButton.new()
+			click.button_index = MOUSE_BUTTON_LEFT
+			click.pressed = true
+			click.position = game.ice_hits[0].position
+			game._unhandled_input(click)
+			var spots = game.model.state.fleet_by_id.pneumatic.ice_spots
+			check(float(spots[0]) < before - 0.2 and absf(float(spots[1]) - other) < 0.0001, "a click chips a quarter off that place only (%.2f -> %.2f)" % [before, float(spots[0])])
 		game.model.state.engine = false
 		game.model.state.throttle = 0.0
 		game.control_zoom = true

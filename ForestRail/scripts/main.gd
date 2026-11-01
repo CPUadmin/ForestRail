@@ -108,6 +108,7 @@ var pump_target_point = Vector2.ZERO
 var pump_grip_side = 1.0
 var push_cursor = Vector2.ZERO
 var grip_hits: Array = []
+var ice_hits: Array = []   # the four frosted places on the pneumatic train's pipes (B1.3)
 var steam_hits: Array = []
 var slot_hits: Array = []
 var cargo_hits: Array = []
@@ -1044,7 +1045,7 @@ func update_hud() -> void:
 		elif not model.steam_ready(): hint = "Давление растёт: жди %d бар. Вода в кране должна быть открыта." % int(model.boiler_cfg().work_pressure_bar)
 		else: hint = "Вентиль — колесо: крути по кругу, отпустишь — закроется сам. Тормоз — красный рычаг."
 	elif model.vehicle_id() == "pneumatic":
-		hint = "Вентиль — зелёный рычаг, тормоз — красный. Трубки обмерзают: сбивай иней клавишей %s. Воздух набирается у компрессора станции." % key_name("ice")
+		hint = "Вентиль — зелёный рычаг, тормоз — красный. Трубки обмерзают: кликай по белому инею на трубках (или клавиша %s сбивает всё сразу). Воздух набирается у компрессора станции." % key_name("ice")
 	elif model.vehicle_id() == "locomotive":
 		hint = "Тяга — зелёный рычаг, тормоз — красный. Направление выбирается на стоянке кнопками «Тяга ←» и «Тяга →»."
 	elif not state.engine:
@@ -1091,7 +1092,7 @@ func update_hud() -> void:
 					else: notify(model.message), model.can_turn() != "")
 			if stop_index == 0:
 				add_button(action_bar, "В депо", func(): model.back_to_depot(); screen = "depot"; save_game(); rebuild())
-			if model.vehicle_id() == "pneumatic": add_button(action_bar, "Сбить иней [%s]" % key_name("ice"), chip_all_ice)
+			if model.vehicle_id() == "pneumatic": add_button(action_bar, "Сбить весь иней [%s]" % key_name("ice"), chip_all_ice)
 			add_button(action_bar, "Сохранить", func(): save_game(); notify("Сохранено"))
 		for child in action_bar.get_children():
 			if child is Button: child.size_flags_horizontal=Control.SIZE_SHRINK_BEGIN
@@ -1700,6 +1701,14 @@ func _unhandled_input(event: InputEvent) -> void:
 					Input.set_default_cursor_shape(Input.CURSOR_DRAG)
 				get_viewport().set_input_as_handled()
 				return
+		if model.vehicle_id() == "pneumatic" and not in_closeup:
+			# B1.3: a click on the white frost of a pipe knocks a quarter of the ice off that place
+			var ice_radius = 0.18 * ArtV3.PX * view_scale()
+			for hit in ice_hits:
+				if mouse.distance_to(hit.position) < ice_radius and model.chip_ice(int(hit.spot)):
+					notify("Иней сбит: %d%%" % roundi(model.frost() * 100.0))
+					get_viewport().set_input_as_handled()
+					return
 		for hit in grip_hits:
 			if in_closeup!=bool(hit.get("closeup",false)): continue
 			var d = mouse.distance_to(hit.position)
@@ -1936,6 +1945,7 @@ func _draw() -> void:
 	var size = get_viewport_rect().size
 	if art_world == null: draw_background(size)
 	grip_hits.clear()
+	ice_hits.clear()
 	steam_hits.clear()
 	cab_hits.clear()
 	slot_hits.clear()
@@ -3206,6 +3216,9 @@ func add_world_hits(id: String, index: int, transform: Transform2D) -> void:
 			grip_hits.append({"id": control_id, "position": transform * lever_geometry(control_id).grip})
 		if id=="handcar":
 			grip_hits.append({"id":"pump","side":-1.0,"position":transform*(model.handcar.pose().grip_left*ArtV3.PX)})
+		if id=="pneumatic":
+			for i in range(ArtV3.FROST_SPOTS.size()):
+				ice_hits.append({"spot": i, "position": transform * art.steam_point(ArtV3.FROST_SPOTS[i].x, ArtV3.FROST_SPOTS[i].y)})
 	for slot in model.slots():
 		if slot.owner != id: continue
 		var p = transform * slot_local(id, int(slot.index))

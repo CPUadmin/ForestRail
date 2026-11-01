@@ -432,6 +432,7 @@ func draw_pneumatic_overlay(canvas: Node2D, model) -> void:
 		if amount < 0.03: continue
 		var at = steam_point(FROST_SPOTS[i].x, FROST_SPOTS[i].y)
 		canvas.draw_circle(at, (0.05 + 0.07 * amount) * PX, Color(0.85, 0.94, 1.0, 0.28 + 0.5 * amount))
+		if amount > 0.2: canvas.draw_arc(at, (0.12 + 0.02 * sin(Time.get_ticks_msec() / 260.0)) * PX, 0, TAU, 24, Color(0.75, 0.92, 1.0, 0.35 + 0.35 * amount), 1.5, true)
 		for k in range(5):
 			var crystal = Vector2.from_angle(float(k) * 1.26 + float(i)) * (0.04 + 0.05 * amount) * PX
 			canvas.draw_circle(at + crystal, (0.012 + 0.016 * amount) * PX, Color(1.0, 1.0, 1.0, 0.35 + 0.5 * amount))
