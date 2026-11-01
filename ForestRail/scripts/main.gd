@@ -59,7 +59,7 @@ var modal_kind = ""
 const DEFAULT_SETTINGS = {"master": 0.65, "mechanisms": 0.7, "forest": 0.6, "music": 0.25, "interface": 0.8,
 	"sensitivity": 1.0, "text_scale": 1.0, "fullscreen": false, "borderless": false, "window_size": 1,
 	"vsync": true, "fps_cap": 0, "msaa": 0, "instrument_hz": 30, "reduce_motion": false, "cab_shake": 1.0,
-	"autosave": 60, "keys": {"map": KEY_M, "cab": KEY_E, "ice": KEY_I, "brake": KEY_SPACE}}
+	"autosave": 60, "night_light": 0.0, "weather": 0, "keys": {"map": KEY_M, "cab": KEY_E, "ice": KEY_I, "brake": KEY_SPACE}}
 const WINDOW_SIZES = [Vector2i(1280, 720), Vector2i(1600, 900), Vector2i(1920, 1080)]
 const SETTINGS_TABS = ["Звук", "Графика", "Управление", "Игра", "Доступность", "Служебное"]
 var settings = DEFAULT_SETTINGS.duplicate(true)
@@ -316,6 +316,8 @@ func apply_settings() -> void:
 	settings.msaa = int(settings.msaa) if int(settings.msaa) in [0, 2, 4] else 0
 	settings.instrument_hz = 60 if int(settings.instrument_hz) >= 60 else 30
 	settings.autosave = int(settings.autosave) if int(settings.autosave) in [0, 30, 60, 120, 300] else 60
+	settings.night_light = clampf(float(settings.night_light), 0.0, 1.0)
+	settings.weather = int(settings.weather) if int(settings.weather) in [0, 1, 2] else 0
 	# Hot keys: valid, never Escape (it always pauses), never twice; otherwise back to the defaults.
 	var keys: Dictionary = settings.keys
 	var seen: Array = []
@@ -466,6 +468,8 @@ func build_settings(box: VBoxContainer) -> void:
 		settings_choice(box, "fps_cap", "Ограничение кадров", [[0, "Без ограничения"], [30, "30"], [60, "60"], [120, "120"], [144, "144"]])
 		settings_choice(box, "msaa", "Сглаживание краёв", [[0, "Выкл."], [2, "2×"], [4, "4×"]])
 		settings_choice(box, "instrument_hz", "Частота обновления приборов", [[30, "30 Гц"], [60, "60 Гц"]])
+		settings_slider(box, "night_light", "Яркость ночи (0 тёмная, 1 светлее)", 0.0, 1.0, 0.1)
+		settings_choice(box, "weather", "Погода", [[0, "Обычная"], [1, "Реже и слабее"], [2, "Без осадков и тумана"]])
 	elif settings_tab == "Управление":
 		settings_slider(box, "sensitivity", "Чувствительность ручной дрезины", 0.5, 2, 0.05)
 		add_label(box, "Клавиши (Esc всегда пауза):", 20)
@@ -1260,7 +1264,7 @@ func update_hud() -> void:
 	var returning = not state.active.is_empty() and state.active.phase == "return"
 	var stop_index = model.station_index()
 	var at_station = model.station_name(model.data.stations[stop_index].id) if stop_index >= 0 else ""
-	hud.text = "%s · %d м · %s · %s" % [model.journey_heading(),absf(target_s-float(state.s)),model.clock_text(),model.weather_name()]
+	hud.text = "%s · %d м · %s · %s" % [model.journey_heading(),absf(target_s-float(state.s)),model.clock_text(),model.weather_name() if int(settings.weather) != 2 else "ясно"]
 	order_label.text=order
 	var hint = ""
 	if state.phase == "loading":
@@ -2194,6 +2198,18 @@ func finish_drag(mouse: Vector2) -> void:
 		if not model.start_engine(not model.state.engine): notify(model.message)
 	cancel_drag()
 
+# The weather as the player's settings show it: normal, weaker, or none.
+func shown_weather() -> Dictionary:
+	var w = model.weather()
+	match int(settings.weather):
+		1: return {"cloud": float(w.cloud) * 0.7, "rain": float(w.rain) * 0.4, "fog": float(w.fog) * 0.4}
+		2: return {"cloud": 0.0, "rain": 0.0, "fog": 0.0}
+	return w
+
+# Darkness of the night over the glass and the world; the setting makes it lighter.
+func night_shade() -> float:
+	return 0.62 * model.night_amount() * (1.0 - 0.5 * float(settings.night_light))
+
 func world_point(s: float) -> Vector2:
 	var size = get_viewport_rect().size
 	var p = model.route.sample(s)
@@ -2460,9 +2476,9 @@ func draw_cab_scene(size: Vector2) -> void:
 	# B4.1: the glass at night and at dawn
 	var night = model.night_amount()
 	if model.twilight() > 0.01: draw_rect(view, Color(1.0, 0.5, 0.25, 0.16 * minf(1.0, model.twilight())))
-	art_world.draw_weather(self, view, model.weather(), time, bool(settings.reduce_motion))
+	art_world.draw_weather(self, view, shown_weather(), time, bool(settings.reduce_motion))
 	if night > 0.01:
-		draw_rect(view, Color(0.02, 0.04, 0.12, 0.6 * night))
+		draw_rect(view, Color(0.02, 0.04, 0.12, night_shade() * 0.97))
 		if night > 0.25:
 			var beam = Color(1.0, 0.88, 0.55, 0.22 * clampf((night - 0.25) / 0.5, 0.0, 1.0))
 			draw_polygon(PackedVector2Array([Vector2(view.size.x * 0.5, view.size.y), Vector2(view.size.x * 0.28, view.size.y * 0.62), Vector2(view.size.x * 0.72, view.size.y * 0.62)]), PackedColorArray([beam, Color(beam, 0.0), Color(beam, 0.0)]))

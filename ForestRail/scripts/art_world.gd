@@ -115,8 +115,8 @@ func draw_day_night(canvas: Node2D, size: Vector2) -> void:
 	var night = model.night_amount()
 	var tw = minf(1.0, model.twilight())
 	if tw > 0.01: canvas.draw_rect(Rect2(Vector2.ZERO, size), Color(1.0, 0.5, 0.25, 0.16 * tw))
-	if night > 0.01: canvas.draw_rect(Rect2(Vector2.ZERO, size), Color(0.02, 0.04, 0.12, 0.62 * night))
-	draw_weather(canvas, Rect2(Vector2.ZERO, size), model.weather(), Time.get_ticks_msec() / 1000.0, bool(game.settings.reduce_motion))
+	if night > 0.01: canvas.draw_rect(Rect2(Vector2.ZERO, size), Color(0.02, 0.04, 0.12, game.night_shade()))
+	draw_weather(canvas, Rect2(Vector2.ZERO, size), game.shown_weather(), Time.get_ticks_msec() / 1000.0, bool(game.settings.reduce_motion))
 	if night < 0.25: return
 	var sc = game.view_scale()
 	var lit = clampf((night - 0.25) / 0.5, 0.0, 1.0)
