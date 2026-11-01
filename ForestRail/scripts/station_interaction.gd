@@ -40,15 +40,15 @@ static func evaluate(model) -> Dictionary:
 		elif item.slot!="": eligible.append(item.id)
 	var target = stop_position(model,nearest)
 	var stationary = absf(float(model.state.v))<=STOP_SPEED
-	var secured = float(model.state.brake)>=BRAKE
-	var elapsed = model.stationary_seconds if model.stationary_station==nearest and in_zone and stationary and secured else 0.0
-	var can_transfer = in_zone and stationary and secured and elapsed>=DWELL-0.00001 and model.state.phase!="depot"
+	# B1.1: the platform holds a standing train by itself (see Model.update_auto_hold), so the red
+	# brake is not a condition of loading any more.
+	var elapsed = model.stationary_seconds if model.stationary_station==nearest and in_zone and stationary else 0.0
+	var can_transfer = in_zone and stationary and elapsed>=DWELL-0.00001 and model.state.phase!="depot"
 	var phase = "ready"
 	var reason = ""
 	if not visible: phase="approaching";reason="Подъедь к станции"
 	elif not in_zone: phase="position_required";reason="Подвинь состав %s на %.1f м к отметке остановки" % ["→" if target>float(model.state.s) else "←",absf(target-float(model.state.s))]
 	elif not stationary: phase="stop_required";reason="Остановись для разгрузки"
-	elif not secured: phase="brake_required";reason="Затяни красный тормоз до конца"
 	elif not can_transfer: phase="stop_required";reason="Дождись полной остановки (0,25 с)"
 	elif not model.state.active.is_empty() and model.state.active.get("phase","")=="return":
 		phase="return_home";reason="Все доставки выполнены. Вернись в Лесную. К выплате: %d монет" % model.state.active.pending_reward

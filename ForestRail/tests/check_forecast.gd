@@ -50,7 +50,10 @@ func run() -> void:
 	var money = int(m.state.money)
 	check(m.refuel() and money - int(m.state.money) == cost and is_equal_approx(float(m.state.fleet_by_id.motorcar.fuel), float(m.object_stats("motorcar").tank)), "refuelling at the far station fills the tank for that price")
 	m.state.brake = 0.0
-	check(m.service_offer().is_empty(), "no service while the brake is off")
+	check(not m.service_offer().is_empty(), "the platform serves a standing train without the brake (B1.1)")
+	m.state.v = 0.5
+	check(m.service_offer().is_empty(), "no service while the train is moving")
+	m.state.v = 0.0
 	var s = fresh("steam")
 	s.state.fleet_by_id.steam.water = 100.0
 	var coal = float(s.state.fleet_by_id.steam.fuel)

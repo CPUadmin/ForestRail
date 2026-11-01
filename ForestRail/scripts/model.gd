@@ -21,6 +21,9 @@ var pump_angle = 0.0
 var handcar = HandcarMechanism.new()
 var hand_drive = HandcarDrive.new()
 var pole = Pole.new()
+# B1.1: the brake was set by the platform itself, not by the player
+var auto_brake = false
+var hold_armed = false   # the train has been moving since it last held itself
 # Flight off a crest (N14): height above the rail (0 on it) and the ballistic height and speed.
 var air_z = 0.0
 var air_fly = false
@@ -98,13 +101,49 @@ func service_stop(index: int) -> float:
 
 func update_station_dwell(dt: float) -> void:
 	var interaction = station_interaction()
-	if interaction.in_zone and absf(float(state.v))<=StationInteraction.STOP_SPEED and float(state.brake)>=StationInteraction.BRAKE:
+	if interaction.in_zone and absf(float(state.v))<=StationInteraction.STOP_SPEED:
 		if stationary_station!=int(interaction.station_index): stationary_seconds=0.0
 		stationary_station=int(interaction.station_index)
 		stationary_seconds=minf(1,stationary_seconds+dt)
 	else:
 		stationary_seconds=0.0
 		stationary_station=-1
+
+# B1.1: what the player is asking the machine to do right now: open the throttle (a petrol car
+# also needs a gear), grip the handcar lever, or lean on a planted pole.
+func drive_command() -> bool:
+	if state.is_empty(): return false
+	match vehicle_id():
+		"handcar": return hand_drive.held
+		"pole": return pole.planted() and absf(pole.effort_target) > 0.05
+		"motorcar": return float(state.throttle) > 0.02 and int(state.gear) > 0 and bool(state.engine)
+		_: return float(state.throttle) > 0.02
+
+# Driving off from the loading platform is the departure: no button, no brake to release.
+func try_depart_by_driving() -> bool:
+	if state.phase != "loading" or not depart(): return false
+	state.brake = 0.0
+	auto_brake = false
+	return true
+
+# A train that has come to rest on a platform holds itself; it lets go as soon as the player asks for
+# traction. If the player takes the brake lever himself, the lever decides.
+func update_auto_hold() -> void:
+	if state.phase != "route": return
+	if absf(float(state.v)) > 0.3: hold_armed = true
+	var driving = drive_command()
+	if auto_brake:
+		if float(state.brake) < 0.9: auto_brake = false
+		elif driving:
+			state.brake = 0.0
+			auto_brake = false
+		return
+	if driving or not hold_armed or float(state.brake) >= 0.95: return
+	if absf(float(state.v)) > StationInteraction.STOP_SPEED: return
+	if station_interaction().in_zone:
+		state.brake = 1.0
+		auto_brake = true
+		hold_armed = false
 
 func reset_input() -> void:
 	hand_drive.release()
@@ -373,7 +412,7 @@ func service_offer() -> Dictionary:
 func refuel() -> bool:
 	var offer = service_offer()
 	if offer.is_empty():
-		return fail("Заправка есть в домашнем депо и на станциях с услугой: остановись у платформы и затяни тормоз")
+		return fail("Заправка есть в домашнем депо и на станциях с услугой: остановись у платформы")
 	var services: Dictionary = offer.services
 	var fleet = state.fleet_by_id[vehicle_id()]
 	var stats = object_stats(vehicle_id())
@@ -1197,7 +1236,9 @@ func pole_aim(place_m: float) -> void:
 	if vehicle_id() == "pole": pole.set_aim(place_m)
 
 func pole_plant() -> bool:
-	if vehicle_id() != "pole" or state.phase != "route": return false
+	if vehicle_id() != "pole": return false
+	if state.phase == "loading" and not try_depart_by_driving(): return false
+	if state.phase != "route": return false
 	pole.build(int(route.seed_value), float(route.length_m), route.station_s)
 	return pole.plant(float(state.s), int(state.direction))
 
@@ -1215,9 +1256,12 @@ func physics_step(dt: float) -> void:
 	if state.phase == "depot" or state.phase == "loading":
 		# The boiler can be prepared while the wagons are being loaded.
 		if state.phase == "loading" and vehicle_id() == "steam": steam_step(dt, state.fleet_by_id.steam)
-		reset_input()
-		pole.reset()
-		return
+		if state.phase == "loading" and drive_command() and try_depart_by_driving():
+			pass
+		else:
+			reset_input()
+			pole.reset()
+			return
 	state.stats.seconds += dt
 	shift_cut = maxf(0.0, shift_cut - dt)
 	var ids = body_ids()
@@ -1337,6 +1381,7 @@ func physics_step(dt: float) -> void:
 	last_movement = movement
 	state.s+=movement
 	update_air(dt, float(state.s) - movement)
+	update_auto_hold()
 	state.stats.distance += absf(movement)
 	rail_distance += absf(movement)
 	# Bound the head so that every trailing body remains on the shared curve.

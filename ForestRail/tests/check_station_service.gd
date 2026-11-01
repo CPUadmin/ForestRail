@@ -135,10 +135,10 @@ func run() -> void:
 	game.model.state.brake=0.94
 	game.model.state.tutorial=false
 	await shot("01_brake94")
-	check(game.dock_visible() and game.station_state().phase=="brake_required","brake 94 leaves panel visible with precise reason")
-	check(game.hint_label.text.contains("тормоз"),"required instruction remains without tutorial")
+	check(game.dock_visible() and game.station_state().can_transfer,"without the brake the platform still lets the cargo through (B1.1)")
+	check(not game.hint_label.text.contains("Затяни"),"no instruction asks to set the brake")
 	await button(source_rect("M01_0").get_center(),true)
-	check(game.drag=="" and game.toast.contains("тормоз"),"94 percent cannot transfer")
+	check(game.drag=="cargo","with the brake at 94% the cargo can be picked up (B1.1)")
 	await button(source_rect("M01_0").get_center(),false)
 	game.model.state.brake=1
 	game.model.state.v=0.2
