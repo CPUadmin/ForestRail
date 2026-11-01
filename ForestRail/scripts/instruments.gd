@@ -14,6 +14,10 @@ var station_hits: Array = []
 var profile_key: Array = []
 var profile_low = 0.0
 var profile_high = 1.0
+# The minimap shows the stretch around the train with the height range of that stretch, not of the
+# whole line, so that a hill on a 6.8 km line is still a hill on a 500 m strip.
+var window_range: Array = []
+const WINDOW_MIN_RANGE_M = 10.0
 # Track heights are small; a floor on the range keeps metre-high humps from
 # filling the whole band, and the map states the resulting exaggeration.
 const PROFILE_MIN_RANGE_M = 4.0
@@ -87,7 +91,12 @@ func ensure_profile() -> void:
 
 func profile_y(s: float, area: Rect2) -> float:
 	ensure_profile()
-	var fraction=clampf((game.model.route.sample(s).y-profile_low)/(profile_high-profile_low),0,1)
+	var low=profile_low
+	var high=profile_high
+	if not window_range.is_empty():
+		low=float(window_range[0])
+		high=float(window_range[1])
+	var fraction=clampf((game.model.route.sample(s).y-low)/(high-low),0,1)
 	return area.position.y+(1.0-fraction)*area.size.y
 
 # Point of the profile for distance s when the area shows [from_s, to_s].
@@ -97,7 +106,21 @@ func profile_point(s: float, area: Rect2, from_s: float, to_s: float) -> Vector2
 
 func vertical_exaggeration(area: Rect2, from_s: float, to_s: float) -> float:
 	ensure_profile()
-	return (area.size.y/(profile_high-profile_low))/(area.size.x/maxf(1,to_s-from_s))
+	var span=profile_high-profile_low
+	if not window_range.is_empty(): span=float(window_range[1])-float(window_range[0])
+	return (area.size.y/span)/(area.size.x/maxf(1,to_s-from_s))
+
+# Height range of the stretch [from_s, to_s], at least WINDOW_MIN_RANGE_M, centred on its middle.
+func stretch_range(from_s: float, to_s: float) -> Array:
+	var low=INF
+	var high=-INF
+	for i in range(61):
+		var h=game.model.route.sample(lerpf(from_s,to_s,i/60.0)).y
+		low=minf(low,h)
+		high=maxf(high,h)
+	var middle=(low+high)*0.5
+	var half=maxf(WINDOW_MIN_RANGE_M,high-low)*0.5
+	return [middle-half,middle+half]
 
 # Line, traveled part and a vertical fill gradient down to floor_y.
 func draw_profile(area: Rect2, from_s: float, to_s: float, floor_y: float, samples: int, width: float) -> void:
@@ -239,6 +262,7 @@ func draw_minimap() -> void:
 	if to_s>total: from_s=maxf(0,from_s-(to_s-total));to_s=total
 	# Rows: title with the climb ahead, profile, station names.
 	var area=Rect2(r.position.x+24,r.position.y+38*f,r.size.x-48,30*f)
+	window_range=stretch_range(from_s,to_s)
 	draw_profile(area,from_s,to_s,area.end.y+8,100,3)
 	for i in range(m.route.station_s.size()):
 		var station_s=float(m.route.station_s[i])
@@ -257,6 +281,7 @@ func draw_minimap() -> void:
 	var ahead="Впереди без крутых подъёмов"
 	if not climb.is_empty(): ahead="Подъём +%.1f%% — сейчас" % climb.grade if climb.distance<10 else "Подъём +%.1f%% через %d м" % [climb.grade,climb.distance]
 	put(ahead,Vector2(r.position.x+r.size.x*0.55,24*f+r.position.y),r.size.x*0.45-18,14,GOLD if not climb.is_empty() else MUTED,HORIZONTAL_ALIGNMENT_RIGHT)
+	window_range=[]
 
 func draw_status() -> void:
 	var r = Rect2(size.x-status_width()-22,hud_top(),status_width(),hud_height())

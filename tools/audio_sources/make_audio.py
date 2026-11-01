@@ -323,10 +323,16 @@ def make_electric():
 
 
 def make_rail_ticks():
-    """One hit of one axle on a rail joint (B1.4): the double clack of a whole truck is built from these in the game."""
-    for name, ring, decay in [("rail_tick_a.wav", 1250, 30.0), ("rail_tick_b.wav", 1080, 26.0), ("rail_tick_c.wav", 1180, 34.0)]:
+    """One hit of one axle on a rail joint (B1.4). No pitched ring (it sounded like a xylophone):
+    a short noise click, a dull rattle of the steel, a low thump of the sleeper and the ballast."""
+    for name, lo, hi, thump, damp in [("rail_tick_a.wav", 900, 4200, 78, 40.0), ("rail_tick_b.wav", 700, 3600, 92, 46.0), ("rail_tick_c.wav", 1100, 5200, 70, 36.0)]:
+        t = tt(0.22)
+        click = band(noise(0.22), lo, hi) * np.exp(-t * 95)
+        snap = band(noise(0.22), 3200, 12000) * np.exp(-t * 260) * 0.45
+        rattle = band(noise(0.22), 250, 1400) * np.exp(-t * 32) * 0.5
+        low = np.sin(2 * np.pi * (thump + 30 * np.exp(-t * 60)) * t) * np.exp(-t * damp) * 0.9
         buf = np.zeros(int(0.3 * SR))
-        put(buf, impact(0.25, ring, 1.0, decay), 0.0)
+        put(buf, click * 0.8 + snap + rattle + low, 0.0)
         write(name, buf, peak=0.8)
 
 
