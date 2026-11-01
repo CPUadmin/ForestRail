@@ -212,7 +212,6 @@
     {
       "id": "pneumatic",
       "name": "Пневматический поезд",
-      "hidden": true,
       "cost": 1800,
       "mass_kg": 900,
       "deck_slots": 0,

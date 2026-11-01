@@ -33,7 +33,7 @@ func run() -> void:
 	Fixtures.equip(m, "pneumatic")
 	var stats = m.object_stats("pneumatic")
 	check(m.vehicle_id() == "pneumatic" and is_equal_approx(float(stats.tank), 150.0), "a pneumatic train of 150 bar")
-	check("pneumatic" not in Model.VEHICLE_IDS and bool(m.vehicle_base("pneumatic").get("hidden", false)), "it is hidden from the player for now")
+	check("pneumatic" in Model.VEHICLE_IDS and not bool(m.vehicle_base("pneumatic").get("hidden", false)), "it is in the garage list of the game")
 	check(is_equal_approx(float(m.state.fleet_by_id.pneumatic.fuel), 150.0) and m.max_wagons("pneumatic") == 2 and m.rank("pneumatic") == 2, "bought with a full tank, two wagons, the rank of the petrol one")
 	check(m.top_speed_kmh("pneumatic") == 60.0, "stated top speed 60 km/h")
 	# pressure and frost shape the pull

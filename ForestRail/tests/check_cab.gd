@@ -56,7 +56,7 @@ func prepare(kind: String) -> void:
 	var m = Model.new()
 	m.new_game(42)
 	m.state.money = 10000
-	m.state.chapter = {"steam": 2, "motorcar": 5, "locomotive": 9}[kind]
+	m.state.chapter = {"steam": 2, "motorcar": 5, "pneumatic": 5, "locomotive": 9}[kind]
 	Fixtures.equip(m, kind)
 	m.state.phase = "route"
 	m.state.s = 100.0
@@ -92,7 +92,7 @@ func run() -> void:
 		get_tree().root.size = resolution
 		await get_tree().create_timer(0.2).timeout
 		var view = Rect2(Vector2.ZERO, game.get_viewport_rect().size)
-		for kind in ["steam", "motorcar", "locomotive"]:
+		for kind in ["steam", "motorcar", "pneumatic", "locomotive"]:
 			context = "%s %s " % [kind, str(resolution)]
 			await prepare(kind)
 			check(game.ui.visible and not game.cab_active(), "outside the cab the usual screen is shown")

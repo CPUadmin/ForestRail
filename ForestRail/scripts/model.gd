@@ -6,10 +6,10 @@ const HandcarMechanism = preload("res://scripts/handcar_mechanism.gd")
 const HandcarDrive = preload("res://scripts/handcar_drive.gd")
 const G = 9.81
 const BUFFER_SAFE_SPEED = 1.0
-const VEHICLE_IDS = ["handcar", "steam", "motorcar", "locomotive"]
+const VEHICLE_IDS = ["handcar", "steam", "motorcar", "pneumatic", "locomotive"]
 const WAGON_IDS = ["W01", "W02", "W03"]
 # Classes that exist in the data but are not shown to the player yet (no view, no cab).
-const HIDDEN_VEHICLE_IDS = ["pneumatic"]
+const HIDDEN_VEHICLE_IDS = []
 # Holds cargo migrated from an old petrol deck until it is unloaded (ECONOMY_v3_2_RU.md).
 const TEMP_WAGON = "WT"
 var data: Dictionary
@@ -70,7 +70,7 @@ func creative() -> bool:
 func setup_creative() -> void:
 	state.mode = "creative"
 	state.money = CREATIVE_MONEY
-	for id in ["steam", "motorcar", "locomotive"]:
+	for id in ["steam", "motorcar", "pneumatic", "locomotive"]:
 		buy_vehicle(id)
 	while next_wagon_id() != "":
 		if not buy_wagon(): break

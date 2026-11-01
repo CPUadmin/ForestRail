@@ -53,7 +53,7 @@ var modal_kind = ""
 const DEFAULT_SETTINGS = {"master": 0.65, "mechanisms": 0.7, "forest": 0.6, "music": 0.25, "interface": 0.8,
 	"sensitivity": 1.0, "text_scale": 1.0, "fullscreen": false, "borderless": false, "window_size": 1,
 	"vsync": true, "fps_cap": 0, "msaa": 0, "instrument_hz": 30, "reduce_motion": false, "cab_shake": 1.0,
-	"autosave": 60, "keys": {"map": KEY_M, "pult": KEY_C, "cab": KEY_E}}
+	"autosave": 60, "keys": {"map": KEY_M, "pult": KEY_C, "cab": KEY_E, "ice": KEY_I}}
 const WINDOW_SIZES = [Vector2i(1280, 720), Vector2i(1600, 900), Vector2i(1920, 1080)]
 const SETTINGS_TABS = ["Звук", "Графика", "Управление", "Игра", "Доступность", "Служебное"]
 var settings = DEFAULT_SETTINGS.duplicate(true)
@@ -330,6 +330,13 @@ func apply_window_size() -> void:
 func key_name(action: String) -> String:
 	return OS.get_keycode_string(int(settings.keys[action]))
 
+# Frost on the pipes of the pneumatic train: one press knocks a quarter off every frosted spot.
+func chip_all_ice() -> void:
+	var chipped = 0
+	for spot in range(4):
+		if model.chip_ice(spot): chipped += 1
+	if chipped > 0: notify("Иней сбит: %d%%" % roundi(model.frost() * 100.0))
+
 func key_is(event: InputEvent, action: String) -> bool:
 	var code = int(settings.keys[action])
 	return event is InputEventKey and (event.physical_keycode == code or event.keycode == code)
@@ -439,6 +446,7 @@ func build_settings(box: VBoxContainer) -> void:
 		settings_key(box, "map", "Карта")
 		settings_key(box, "pult", "Пульт")
 		settings_key(box, "cab", "Кабина")
+		settings_key(box, "ice", "Сбить иней (пневматический)")
 	elif settings_tab == "Игра":
 		settings_choice(box, "autosave", "Автосохранение раз в", [[0, "Выкл."], [30, "30 с"], [60, "60 с"], [120, "2 мин"], [300, "5 мин"]])
 		if screen != "menu" and not model.state.is_empty():
@@ -810,7 +818,7 @@ func build_depot(size: Vector2) -> void:
 	service.size = Vector2(left_width - 25, 50)
 	ui.add_child(service)
 	var refill = model.refill_cost() if model.vehicle_id() != "handcar" else 0
-	var refill_text = ("Зарядить" if model.vehicle_id() == "locomotive" else "Заправить") + (" · %d монет" % refill if refill > 0 else " · полон")
+	var refill_text = ({"locomotive": "Зарядить", "pneumatic": "Накачать"}.get(model.vehicle_id(), "Заправить")) + (" · %d монет" % refill if refill > 0 else " · полон")
 	add_button(service, refill_text, func():
 		if model.refuel(): save_game(); rebuild(); notify(model.message if model.message != "" else "Запас пополнен"); model.message = ""
 		else: notify(model.message), model.vehicle_id() == "handcar" or refill <= 0)
@@ -1025,6 +1033,8 @@ func update_hud() -> void:
 		if not state.engine: hint = "Кабина [E]: открой дверцу, перетащи уголь из ведра в топку, закрой дверцу и нажми «Розжиг»."
 		elif not model.steam_ready(): hint = "Давление растёт: жди %d бар. Вода в кране должна быть открыта." % int(model.boiler_cfg().work_pressure_bar)
 		else: hint = "Вентиль — колесо: крути по кругу, отпустишь — закроется сам. Тормоз — красный рычаг."
+	elif model.vehicle_id() == "pneumatic":
+		hint = "Вентиль — зелёный рычаг, тормоз — красный. Трубки обмерзают: сбивай иней клавишей %s. Воздух набирается у компрессора станции." % key_name("ice")
 	elif model.vehicle_id() == "locomotive":
 		hint = "Тяга — зелёный рычаг, тормоз — красный. Направление выбирается на стоянке кнопками «Тяга ←» и «Тяга →»."
 	elif not state.engine:
@@ -1071,6 +1081,7 @@ func update_hud() -> void:
 					else: notify(model.message), model.can_turn() != "")
 			if stop_index == 0:
 				add_button(action_bar, "В депо", func(): model.back_to_depot(); screen = "depot"; save_game(); rebuild())
+			if model.vehicle_id() == "pneumatic": add_button(action_bar, "Сбить иней [%s]" % key_name("ice"), chip_all_ice)
 			add_button(action_bar, "Сохранить", func(): save_game(); notify("Сохранено"))
 		for child in action_bar.get_children():
 			if child is Button: child.size_flags_horizontal=Control.SIZE_SHRINK_BEGIN
@@ -1085,6 +1096,8 @@ func energy_text() -> String:
 	if model.vehicle_id() == "steam":
 		var fleet = model.state.fleet_by_id.steam
 		return "Давление %.1f бар · топка %.1f кг · ведро %.0f / %.0f кг · вода %.0f / %.0f л" % [model.pressure_bar(), float(model.boiler().firebox), amount, cap, float(fleet.get("water", 0)), float(model.object_stats("steam").water)]
+	if model.vehicle_id() == "pneumatic":
+		return "Давление %.0f / %.0f бар · иней %d%%" % [amount, cap, roundi(model.frost() * 100.0)]
 	return "Бензин %.2f / %.1f л" % [amount, cap]
 
 func vehicle_display_name() -> String:
@@ -1094,7 +1107,7 @@ func vehicle_summary(id: String) -> String:
 	var base = model.vehicle_base(id)
 	var places = "%d места на платформе" % int(base.deck_slots) if int(base.deck_slots) > 0 else "без мест на кузове"
 	var wagons = "вагонов: до %d" % int(base.get("max_wagons", 0)) if int(base.get("max_wagons", 0)) > 0 else "без вагонов"
-	var energy = {"handcar": "без топлива", "steam": "уголь и вода", "motorcar": "бензин", "locomotive": "аккумулятор"}.get(id, "")
+	var energy = {"handcar": "без топлива", "steam": "уголь и вода", "motorcar": "бензин", "pneumatic": "сжатый воздух", "locomotive": "аккумулятор"}.get(id, "")
 	return "%s · %s · %s" % [places, wagons, energy]
 
 func station_number(id: String) -> int:
@@ -1135,7 +1148,7 @@ func toggle_control_zoom() -> void:
 # Electric drive has no gearbox or start switch: only brake and traction levers.
 func control_ids() -> Array:
 	if model.vehicle_id() == "handcar": return ["pump", "brake"]
-	if model.vehicle_id() == "locomotive": return ["brake", "throttle"]
+	if model.vehicle_id() in ["locomotive", "pneumatic"]: return ["brake", "throttle"]
 	return ["brake", "throttle", "gear", "start"]
 
 func steam_fire_rect(rect: Rect2) -> Rect2:
@@ -1314,7 +1327,7 @@ func draw_control_zoom() -> void:
 			draw_set_transform_matrix(pult_t)
 		grip_hits.append({"id":id,"position":pult_t*point,"closeup":true})
 		var steam=model.vehicle_id()=="steam"
-		var title={"brake":"Тормоз","throttle":{"locomotive":"Тяга","steam":"Вентиль"}.get(model.vehicle_id(),"Газ"),"gear":"Вода" if steam else "Передача","start":"Розжиг" if steam else "Пуск"}[id]
+		var title={"brake":"Тормоз","throttle":{"locomotive":"Тяга","steam":"Вентиль","pneumatic":"Вентиль"}.get(model.vehicle_id(),"Газ"),"gear":"Вода" if steam else "Передача","start":"Розжиг" if steam else "Пуск"}[id]
 		var shown_gear=lever_pending_gear if drag=="gear" else int(model.state.gear)
 		var label={"brake":"%d%%" % (model.state.brake*100),"throttle":"%d%%" % (model.state.throttle*100),"gear":("%d%%" % (float(model.boiler().feed)*100)) if steam else GEAR_LABELS[shown_gear],"start":("Горит" if model.state.engine else "Разжечь") if steam else ("Вкл." if model.state.engine else "Выкл.")}[id]
 		draw_string(font,rect.position+Vector2(15+100*i,78),title,HORIZONTAL_ALIGNMENT_CENTER,100,16,PAPER)
@@ -1521,6 +1534,10 @@ func _physics_process(dt: float) -> void:
 func _input(event: InputEvent) -> void:
 	if awaiting_key != "" and event is InputEventKey and event.pressed and not event.echo:
 		bind_key(event.keycode)
+		get_viewport().set_input_as_handled()
+		return
+	if key_is(event,"ice") and event.pressed and not event.echo and screen=="game" and not paused and model.vehicle_id()=="pneumatic":
+		chip_all_ice()
 		get_viewport().set_input_as_handled()
 		return
 	if event is InputEventKey and event.pressed and not event.echo and key_is(event,"pult") and screen=="game" and not paused:
@@ -1797,7 +1814,7 @@ func update_cargo_actions(interaction: Dictionary) -> void:
 		var cost=model.refill_cost()
 		var water_short=float(model.object_stats(model.vehicle_id()).water)>0 and offer.services.has("water") and float(model.state.fleet_by_id[model.vehicle_id()].get("water",0))<float(model.object_stats(model.vehicle_id()).water)-0.0001
 		var label=""
-		if offer.services.has("fuel"): label=("Зарядить" if model.vehicle_id()=="locomotive" else "Заправить")+(" · %d монет" % cost if cost>0 else " · полон")
+		if model.fuel_service_mult(offer.services)>=0.0: label=({"locomotive":"Зарядить","pneumatic":"Накачать"}.get(model.vehicle_id(),"Заправить"))+(" · %d монет" % cost if cost>0 else " · полон")
 		if water_short: label+=(" + " if label!="" else "")+"вода"
 		if label!="":
 			var service_button=add_button(cargo_actions,label,use_station_service,cost<=0 and not water_short)
@@ -2338,7 +2355,7 @@ func draw_cab_dash_details(size: Vector2, layout: Dictionary) -> void:
 	# nameplate
 	var plate = Rect2(size.x * 0.5 - 150, top + 12, 300, 26)
 	draw_style_box(style(Color("2a2218"), brass, 4), plate)
-	var title = {"steam": "ЛЕСНАЯ КОЛЕЯ · ПАРОВОЗ", "motorcar": "ЛЕСНАЯ КОЛЕЯ · БЕНЗИНОВАЯ", "locomotive": "ЛЕСНАЯ КОЛЕЯ · ЭЛЕКТРОВОЗ"}.get(kind, "ЛЕСНАЯ КОЛЕЯ")
+	var title = {"steam": "ЛЕСНАЯ КОЛЕЯ · ПАРОВОЗ", "motorcar": "ЛЕСНАЯ КОЛЕЯ · БЕНЗИНОВАЯ", "locomotive": "ЛЕСНАЯ КОЛЕЯ · ЭЛЕКТРОВОЗ", "pneumatic": "ЛЕСНАЯ КОЛЕЯ · ПНЕВМОВОЗ"}.get(kind, "ЛЕСНАЯ КОЛЕЯ")
 	draw_string(font, plate.position + Vector2(0, 19), title, HORIZONTAL_ALIGNMENT_CENTER, plate.size.x, 14, Color("e6cf8b"))
 	draw_circle(plate.position + Vector2(8, 13), 2.5, brass)
 	draw_circle(plate.position + Vector2(plate.size.x - 8, 13), 2.5, brass)
@@ -2369,7 +2386,7 @@ func draw_cab_dash_details(size: Vector2, layout: Dictionary) -> void:
 	# hanging cables
 	draw_polyline(PackedVector2Array([Vector2(size.x * 0.30, top + 6), Vector2(size.x * 0.34, top + 42), Vector2(size.x * 0.38, top + 8)]), Color("0b0e0c"), 4.0, true)
 	if kind == "motorcar": draw_petrol_cab_extras(size, layout)
-	if kind in ["steam", "locomotive"]: draw_cab_reverser(size, layout)
+	if kind in ["steam", "locomotive", "pneumatic"]: draw_cab_reverser(size, layout)
 	if kind == "locomotive": draw_electric_cab_extras(size, layout)
 	if kind == "steam":
 		# water glass on the right: tube with the level, brass fittings
@@ -2574,6 +2591,9 @@ func draw_cab_gauges(size: Vector2, layout: Dictionary) -> void:
 	if kind == "motorcar":
 		draw_round_gauge(Vector2(left + radius * 1.1, y), radius, model.engine_rpm() / 6000.0, "ОБОРОТЫ", "%.1f тыс" % (model.engine_rpm() / 1000.0), [[0.7, Color("5cc17f")], [0.88, Color("e6b34a")], [1.0, Color("e0564a")]], 6, [0, 1, 2, 3, 4, 5, 6])
 		draw_round_gauge(Vector2(pult.end.x + 36.0 + radius + 8.0, y), radius, amount / float(stats.tank), "БЕНЗИН", "%.2f л" % amount, low_bad, 4, ["0", "", "1/2", "", "П"])
+	elif kind == "pneumatic":
+		draw_round_gauge(Vector2(left + radius * 1.1, y), radius, amount / float(stats.tank), "ДАВЛЕНИЕ", "%.0f бар" % amount, [[0.4, Color("e0564a")], [0.7, Color("e6b34a")], [1.0, Color("5cc17f")]], 10, [0, 30, 60, 90, 120, 150])
+		draw_round_gauge(Vector2(right - radius * 0.9, y), radius, model.frost(), "ИНЕЙ", "%d%%" % roundi(model.frost() * 100.0), [[0.3, Color("5cc17f")], [0.6, Color("e6b34a")], [1.0, Color("e0564a")]], 4, ["0", "", "1/2", "", "П"])
 	elif kind == "steam":
 		var work = float(model.boiler_cfg().work_pressure_bar) / float(model.boiler_cfg().max_pressure_bar)
 		draw_round_gauge(Vector2(left + radius * 1.1, y), radius, float(model.boiler().pressure), "ДАВЛЕНИЕ", "%.1f бар" % model.pressure_bar(), [[work, Color("e6b34a")], [0.9, Color("5cc17f")], [1.0, Color("e0564a")]], 10, [0, 2, 4, 6, 8, 10])

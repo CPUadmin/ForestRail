@@ -149,7 +149,7 @@ func update(model, paused: bool, in_menu: bool, dt: float, in_cab: bool = false)
 		play("pump", 0.35)
 		last_pump = 0.45
 	var engine_on = bool(model.state.engine)
-	for name in ["steam_hiss", "fire_crackle"]: if kind != "steam": run_loop(name, 0.0, false)
+	for name in ["steam_hiss", "fire_crackle"]: if kind != "steam" and not (kind == "pneumatic" and name == "steam_hiss"): run_loop(name, 0.0, false)
 	for name in ["petrol_idle", "petrol_run"]: if kind != "motorcar": run_loop(name, 0.0, false)
 	for name in ["electric_hum", "electric_whine"]: if kind != "locomotive": run_loop(name, 0.0, false)
 	if kind == "steam":
@@ -166,6 +166,14 @@ func update(model, paused: bool, in_menu: bool, dt: float, in_cab: bool = false)
 		if bool(boiler.venting) and blow_timer <= 0.0:
 			play("steam_blow", 0.5 * loud)
 			blow_timer = 2.4
+	elif kind == "pneumatic":
+		# A quiet hiss by the valve and a puff of air for every beat, thinned at speed.
+		var air = float(model.state.fleet_by_id.pneumatic.fuel) / 150.0
+		if model.rail_distance - last_chuff >= maxf(CHUFF_SPACING * 1.4, speed / 7.0):
+			last_chuff = model.rail_distance
+			if throttle > 0.03 and air > 0.02 and speed > 0.05:
+				play("steam_chuff", (0.12 + 0.25 * throttle) * loud, randf_range(1.15, 1.3))
+		run_loop("steam_hiss", machine * 0.1 * minf(1.0, air * 2.0) * (0.2 + throttle) * loud, air > 0.02)
 	elif kind == "motorcar":
 		if engine_on and not engine_was_on: petrol_delay = 2.0; play("petrol_start", 0.6 * loud)
 		if engine_was_on and not engine_on and last_throttle > 0.3 and last_gear > 0: play("petrol_stall", 0.55 * loud)

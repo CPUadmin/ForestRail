@@ -261,7 +261,7 @@ func draw_minimap() -> void:
 func draw_status() -> void:
 	var r = Rect2(size.x-status_width()-22,hud_top(),status_width(),hud_height())
 	var f=r.size.y/100.0
-	var accent={"handcar":Color("8fc46a"),"steam":Color("e8825a"),"motorcar":Color("e6b34a"),"locomotive":Color("6cc4e0")}.get(game.model.vehicle_id(),GOLD)
+	var accent={"handcar":Color("8fc46a"),"steam":Color("e8825a"),"motorcar":Color("e6b34a"),"locomotive":Color("6cc4e0"),"pneumatic":Color("9fd6e8")}.get(game.model.vehicle_id(),GOLD)
 	panel(r,Color("2a2a22") if game.model.vehicle_id()=="motorcar" else Color("1f2f30"),accent)
 	var m = game.model
 	var stats = m.object_stats(m.vehicle_id())
@@ -274,8 +274,9 @@ func draw_status() -> void:
 		value = "%d / %d Вт" % [roundi(m.output_power),roundi(stats.power)]
 		fraction = m.output_power / float(stats.power)
 	else:
-		title = {"locomotive":"АККУМУЛЯТОР","steam":"УГОЛЬ · ВОДА"}.get(m.vehicle_id(),"БЕНЗИН")
-		value = "%.2f / %.2f кВт·ч" % [amount,stats.tank] if m.vehicle_id()=="locomotive" else "%.2f / %.1f л" % [amount,stats.tank]
+		title = {"locomotive":"АККУМУЛЯТОР","steam":"УГОЛЬ · ВОДА","pneumatic":"ВОЗДУХ"}.get(m.vehicle_id(),"БЕНЗИН")
+		value = "%.2f / %.2f кВт·ч" % [amount,stats.tank] if m.vehicle_id()=="locomotive" else ("%.0f / %.0f бар" % [amount,stats.tank] if m.vehicle_id()=="pneumatic" else "%.2f / %.1f л" % [amount,stats.tank])
+		if m.vehicle_id()=="pneumatic": title="ВОЗДУХ  ·  иней %d%%" % roundi(m.frost()*100.0)
 		fraction = amount / maxf(0.001,float(stats.tank))
 		if m.vehicle_id()=="steam":
 			title = "ПАР  ·  %.1f бар" % m.pressure_bar()

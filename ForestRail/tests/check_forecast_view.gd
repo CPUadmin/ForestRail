@@ -64,5 +64,21 @@ func run() -> void:
 	await frame(4)
 	check(game.model.creative() and game.screen == "depot" and int(game.model.state.money) > 1000000, "the creative mode starts from the same place as a career")
 	await shot("creative_depot")
+	check(game.model.state.fleet_by_id.has("pneumatic") and "pneumatic" in game.model.VEHICLE_IDS, "the creative garage has the pneumatic train")
+	game.model.select_vehicle("pneumatic")
+	game.model.state.fleet_by_id.pneumatic.ice_spots = [1.0, 1.0, 1.0, 1.0]
+	game.screen = "game"
+	game.paused = false
+	game.rebuild()
+	await frame(3)
+	var press_i = InputEventKey.new()
+	press_i.keycode = KEY_I
+	press_i.physical_keycode = KEY_I
+	press_i.pressed = true
+	get_tree().root.push_input(press_i, true)
+	await frame(2)
+	check(is_equal_approx(game.model.frost(), 0.75), "the ice key knocks a quarter off every spot (%.2f)" % game.model.frost())
+	game.screen = "depot"
+	game.rebuild()
 	print("FORECAST VIEW CHECKS ", checks, "; FAILURES ", failures)
 	get_tree().quit(0 if failures.is_empty() else 1)
