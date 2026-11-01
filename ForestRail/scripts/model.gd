@@ -21,6 +21,12 @@ var pump_angle = 0.0
 var handcar = HandcarMechanism.new()
 var hand_drive = HandcarDrive.new()
 var pole = Pole.new()
+# Flight off a crest (N14): height above the rail (0 on it) and the ballistic height and speed.
+var air_z = 0.0
+var air_fly = false
+var air_y = 0.0
+var air_vy = 0.0
+var last_landing = 0.0
 var pump_work = 0.0
 var output_power = 0.0
 var acceleration = 0.0
@@ -57,6 +63,9 @@ func new_game(world_seed: int = 42, line_version: int = 1, mode: String = "caree
 	reset_input()
 	handcar = HandcarMechanism.new()
 	hand_drive = HandcarDrive.new()
+	pole = Pole.new()
+	air_z = 0.0
+	air_fly = false
 	pump_angle = 0.0
 	stationary_seconds=0.25
 	stationary_station=0
@@ -1259,6 +1268,11 @@ func physics_step(dt: float) -> void:
 				drive = float(drive_direction()) * (-1.0 if reverse_gear else 1.0) * float(state.throttle) * minf(traction, adhesion)
 	var drag = drag_coefficient()
 	var brake = float(state.brake) * max_brake + engine_brake_force()
+	if air_fly and not human_powered():
+		# The wheels are off the rail: no drive, no brake, no rolling friction.
+		drive = 0.0
+		brake = 0.0
+		rolling = 0.0
 	var old_v = float(state.v)
 	var new_v = old_v
 	var movement=0.0
@@ -1322,6 +1336,7 @@ func physics_step(dt: float) -> void:
 	state.v=new_v
 	last_movement = movement
 	state.s+=movement
+	update_air(dt, float(state.s) - movement)
 	state.stats.distance += absf(movement)
 	rail_distance += absf(movement)
 	# Bound the head so that every trailing body remains on the shared curve.
@@ -1347,6 +1362,48 @@ func physics_step(dt: float) -> void:
 				item.health = maxf(0, float(item.health) - dt * (absf(acceleration) - 1.2) * 0.1 * float(object_stats(owner).shock))
 	if not state.active.is_empty() and state.active.phase == "return" and station_index() == 0 and stopped():
 		settle()
+
+# The train is not fastened to the rail. On a convex crest the rail falls away under it; when
+# v^2 * curvature is more than gravity across the rail, the wheels lift and the train flies a true
+# ballistic hop (absolute height under gravity against the rail's height), then lands: a hard
+# landing hurts fragile cargo and bounces a little. Concave places only press it down.
+func update_air(dt: float, old_s: float) -> void:
+	if human_powered(): return
+	var s = float(state.s)
+	var rail_y = route.sample(s).y
+	var rail_dy = (rail_y - route.sample(old_s).y) / dt
+	if not air_fly:
+		var convex = -(route.slope(s + 1.5) - route.slope(s - 1.5)) / 3.0
+		if float(state.v) * float(state.v) * convex - G * cos(route.slope(s)) <= 0.0:
+			air_z = 0.0
+			return
+		air_fly = true
+		air_y = rail_y
+		air_vy = rail_dy
+	air_vy -= G * dt
+	air_y += air_vy * dt
+	var z = air_y - rail_y
+	if z > 0.0:
+		air_z = z
+		return
+	var impact = -(air_vy - rail_dy)
+	air_z = 0.0
+	air_fly = false
+	if impact > 0.4:
+		last_landing = impact
+		events.append("land")
+		landing_impact(impact)
+		if impact > 1.2:
+			air_fly = true
+			air_y = rail_y
+			air_vy = rail_dy + 0.3 * impact
+
+func landing_impact(impact: float) -> void:
+	if impact <= 1.0: return
+	for item in state.cargo:
+		if item.type == "fragile" and item.slot != "" and not item.delivered:
+			var owner = str(item.slot).split(":")[0]
+			item.health = maxf(0, float(item.health) - minf(1.0, (impact - 1.0) * 0.25) * float(object_stats(owner).shock))
 
 func buffer_impact(speed: float) -> bool:
 	if speed<=BUFFER_SAFE_SPEED: return false
@@ -1412,6 +1469,9 @@ func restore(saved: Dictionary) -> bool:
 	pump_angle = float(state.get("pump_angle", 0))
 	handcar = HandcarMechanism.new()
 	hand_drive = HandcarDrive.new()
+	pole = Pole.new()
+	air_z = 0.0
+	air_fly = false
 	if state.has("handcar_phase"):
 		handcar.set_phase(float(state.handcar_phase))
 	else:

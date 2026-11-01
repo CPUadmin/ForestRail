@@ -14,6 +14,13 @@ var station_s: Array = []
 var station_x: Array = []
 var version = 1
 var used_fallback = false
+# Springboard knolls (N14): small short swells in the rail on the long line, one in the flattest
+# place of each leg. The grade layer (points) stays smooth; the knolls are added on sampling.
+# Each one is [x_start, length_m, height_m]. At about 76 km/h a train leaves the rail on one.
+const KNOLL_LENGTH = 14.0
+const KNOLL_HEIGHT = 0.26
+const KNOLL_EDGE_M = 160.0
+var knolls: Array = []
 
 # Fuel and water tanks grow with the line so that one tank still means about one
 # round trip to the far station (N10).
@@ -106,6 +113,38 @@ func generate_long(world_seed: int, stations: Array, limits: Array) -> void:
 	length_m = float(points[-1][2])
 	for x in station_x:
 		station_s.append(distance_at_x(float(x)))
+	knolls = place_knolls(world_seed, xs)
+
+# One knoll per leg, in the flattest place at least KNOLL_EDGE_M from the platforms; a leg with
+# no such place (grade over 2%) gets none. The same seed gives the same places.
+func place_knolls(world_seed: int, xs: Array) -> Array:
+	var result: Array = []
+	var rng = RandomNumberGenerator.new()
+	rng.seed = world_seed + 99
+	for leg in range(xs.size() - 1):
+		var low = float(xs[leg]) + KNOLL_EDGE_M
+		var high = float(xs[leg + 1]) - KNOLL_EDGE_M - KNOLL_LENGTH
+		var best_x = -1.0
+		var best_grade = 1.0
+		var x = low + float(rng.randi_range(0, 20))
+		while x < high:
+			var worst = 0.0
+			for k in range(int(KNOLL_LENGTH)):
+				var i = int(x) + k + 40
+				if i + 1 >= points.size(): break
+				worst = maxf(worst, absf(float(points[i + 1][1]) - float(points[i][1])))
+			if worst < best_grade:
+				best_grade = worst
+				best_x = x
+			x += 12.0
+		if best_x >= 0.0 and best_grade < 0.02: result.append([best_x, KNOLL_LENGTH, KNOLL_HEIGHT])
+	return result
+
+func knoll_y(x: float) -> float:
+	for knoll in knolls:
+		var u = (x - float(knoll[0])) / float(knoll[1])
+		if u > 0.0 and u < 1.0: return float(knoll[2]) * 0.5 * (1.0 - cos(TAU * u))
+	return 0.0
 
 func _stretch(start: float, finish: float, h0: float, h1: float, amplitude: float, waves: float, sign_y: float) -> Array:
 	var span = finish - start - 44.0
@@ -150,7 +189,8 @@ func sample(s: float) -> Vector2:
 	var a = points[lo]
 	var b = points[hi]
 	var t = (s - float(a[2])) / maxf(0.001, float(b[2]) - float(a[2]))
-	return Vector2(lerpf(float(a[0]), float(b[0]), t), lerpf(float(a[1]), float(b[1]), t))
+	var x = lerpf(float(a[0]), float(b[0]), t)
+	return Vector2(x, lerpf(float(a[1]), float(b[1]), t) + knoll_y(x))
 
 func slope(s: float) -> float:
 	var a = sample(s - 0.5)
@@ -163,6 +203,7 @@ func restore(saved: Dictionary, stations: Array) -> void:
 	length_m = float(points[-1][2])
 	version = int(saved.get("generator_version", 1))
 	used_fallback = bool(saved.get("used_fallback", false))
+	knolls = saved.get("knolls", []).duplicate(true)
 	station_s.clear()
 	station_x.clear()
 	for i in range(stations.size()):
@@ -171,4 +212,4 @@ func restore(saved: Dictionary, stations: Array) -> void:
 		station_s.append(distance_at_x(x))
 
 func serialize() -> Dictionary:
-	return {"seed": seed_value, "generator_version": version, "points": points, "station_x": station_x, "used_fallback": used_fallback}
+	return {"seed": seed_value, "generator_version": version, "points": points, "station_x": station_x, "used_fallback": used_fallback, "knolls": knolls}
