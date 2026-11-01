@@ -1260,7 +1260,7 @@ func update_hud() -> void:
 	var returning = not state.active.is_empty() and state.active.phase == "return"
 	var stop_index = model.station_index()
 	var at_station = model.station_name(model.data.stations[stop_index].id) if stop_index >= 0 else ""
-	hud.text = "%s · %d м · %s" % [model.journey_heading(),absf(target_s-float(state.s)),model.clock_text()]
+	hud.text = "%s · %d м · %s · %s" % [model.journey_heading(),absf(target_s-float(state.s)),model.clock_text(),model.weather_name()]
 	order_label.text=order
 	var hint = ""
 	if state.phase == "loading":
@@ -2460,6 +2460,7 @@ func draw_cab_scene(size: Vector2) -> void:
 	# B4.1: the glass at night and at dawn
 	var night = model.night_amount()
 	if model.twilight() > 0.01: draw_rect(view, Color(1.0, 0.5, 0.25, 0.16 * minf(1.0, model.twilight())))
+	art_world.draw_weather(self, view, model.weather(), time, bool(settings.reduce_motion))
 	if night > 0.01:
 		draw_rect(view, Color(0.02, 0.04, 0.12, 0.6 * night))
 		if night > 0.25:

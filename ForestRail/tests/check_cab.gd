@@ -255,5 +255,51 @@ func run() -> void:
 	game.model.state.stats.seconds = 11.5 * 60.0
 	for i in range(6): await frame()
 	await shot("dusk_outside_motorcar")
+	# B4.2: the weather is the same for the same career and the same time, starts clear, and has all its kinds
+	context = "weather "
+	var w1 = Model.new()
+	w1.new_game(42)
+	var w2 = Model.new()
+	w2.new_game(42)
+	var w3 = Model.new()
+	w3.new_game(77)
+	check(str(w1.weather_at(500.0)) == str(w2.weather_at(500.0)), "the same career gives the same weather")
+	var different = false
+	for k in range(40): different = different or str(w1.weather_at(100.0 * k)) != str(w3.weather_at(100.0 * k))
+	check(different, "another career has other weather")
+	check(float(w1.weather_at(0.0).cloud) == 0.0 and float(w1.weather_at(0.0).rain) == 0.0 and float(w1.weather_at(0.0).fog) == 0.0, "a new career starts in clear weather")
+	var rainy = 0
+	var foggy = 0
+	var cloudy = 0
+	var samples = 0
+	var rain_at = -1.0
+	var fog_at = -1.0
+	for k in range(0, 40 * 1440, 60):
+		var w = w1.weather_at(float(k))
+		samples += 1
+		if float(w.rain) > 0.35: rainy += 1
+		if float(w.fog) > 0.4: foggy += 1
+		if float(w.cloud) > 0.45: cloudy += 1
+		if float(w.rain) > 0.7 and rain_at < 0.0: rain_at = float(k)
+		if float(w.fog) > 0.6 and fog_at < 0.0: fog_at = float(k)
+		check(float(w.cloud) >= 0.0 and float(w.cloud) <= 1.0 and float(w.rain) >= 0.0 and float(w.rain) <= 1.0 and float(w.fog) >= 0.0 and float(w.fog) <= 1.0, "weather stays in 0..1")
+	check(float(rainy) / samples > 0.03 and float(rainy) / samples < 0.4, "it rains sometimes but not always (%.0f%% of the time)" % (100.0 * rainy / samples))
+	check(float(cloudy) / samples > 0.1 and float(cloudy) / samples < 0.7, "clouds come and go (%.0f%%)" % (100.0 * cloudy / samples))
+	check(foggy > 0 and rain_at >= 0.0 and fog_at >= 0.0, "there is fog and heavy rain in forty days (fog %d samples)" % foggy)
+	await prepare("motorcar")
+	game.model.state.engine = true
+	if rain_at >= 0.0:
+		game.model.state.stats.seconds = rain_at
+		for i in range(8): await frame()
+		check(game.model.weather_name() == "дождь", "the hud names the rain")
+		await shot("rain_outside_motorcar")
+		await key(KEY_E)
+		for i in range(8): await frame()
+		await shot("rain_cab_motorcar")
+		await key(KEY_E)
+	if fog_at >= 0.0:
+		game.model.state.stats.seconds = fog_at
+		for i in range(8): await frame()
+		await shot("fog_outside_motorcar")
 	print("CAB CHECKS ", checks, "; FAILURES ", failures)
 	get_tree().quit(0 if failures.is_empty() else 1)

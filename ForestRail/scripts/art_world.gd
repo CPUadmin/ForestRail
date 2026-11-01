@@ -116,6 +116,7 @@ func draw_day_night(canvas: Node2D, size: Vector2) -> void:
 	var tw = minf(1.0, model.twilight())
 	if tw > 0.01: canvas.draw_rect(Rect2(Vector2.ZERO, size), Color(1.0, 0.5, 0.25, 0.16 * tw))
 	if night > 0.01: canvas.draw_rect(Rect2(Vector2.ZERO, size), Color(0.02, 0.04, 0.12, 0.62 * night))
+	draw_weather(canvas, Rect2(Vector2.ZERO, size), model.weather(), Time.get_ticks_msec() / 1000.0, bool(game.settings.reduce_motion))
 	if night < 0.25: return
 	var sc = game.view_scale()
 	var lit = clampf((night - 0.25) / 0.5, 0.0, 1.0)
@@ -131,6 +132,27 @@ func draw_day_night(canvas: Node2D, size: Vector2) -> void:
 	var fade = Color(beam, 0.0)
 	canvas.draw_polygon(PackedVector2Array([front, front + Vector2(dir * far, -2.2 * art.PX * sc), front + Vector2(dir * far, 2.6 * art.PX * sc)]), PackedColorArray([beam, fade, fade]))
 	glow(canvas, front, Vector2(0.7, 0.5) * art.PX * sc, Color(1.0, 0.9, 0.6, 0.6 * lit))
+
+# B4.2: clouds, rain and fog over a rectangle of the screen (the world, or the glass of the cab).
+func draw_weather(canvas: CanvasItem, rect: Rect2, weather: Dictionary, time: float, calm: bool = false) -> void:
+	var cloud = float(weather.cloud)
+	var rain = float(weather.rain)
+	var fog = float(weather.fog)
+	if cloud > 0.02: canvas.draw_rect(rect, Color(0.55, 0.6, 0.65, 0.2 * cloud))
+	if fog > 0.02:
+		vertical_gradient(canvas, Rect2(rect.position, Vector2(rect.size.x, rect.size.y)), Color(0.82, 0.86, 0.86, 0.35 * fog), Color(0.82, 0.86, 0.86, 0.62 * fog))
+	if rain > 0.05:
+		canvas.draw_rect(rect, Color(0.12, 0.16, 0.22, 0.2 * rain))
+		var drops = int(110.0 * rain)
+		var length = rect.size.y * 0.035
+		for i in range(drops):
+			var seed_x = fposmod(float(i) * 0.6180339 + 0.13, 1.0)
+			var seed_y = fposmod(float(i) * 0.3819660 + 0.71, 1.0)
+			var speed = 0.0 if calm else (0.9 + 0.5 * fposmod(float(i) * 0.137, 1.0))
+			var y = fposmod(seed_y + time * speed, 1.0)
+			var x = fposmod(seed_x + y * 0.12, 1.0)
+			var at = rect.position + Vector2(x * rect.size.x, y * rect.size.y)
+			canvas.draw_line(at, at + Vector2(length * 0.2, length), Color(0.78, 0.85, 0.92, 0.38), 1.2)
 
 func draw_light(canvas: Node2D) -> void:
 	var size = game.get_viewport_rect().size

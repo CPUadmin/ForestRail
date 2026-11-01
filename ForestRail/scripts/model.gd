@@ -1012,6 +1012,42 @@ func twilight() -> float:
 	var h = world_hours()
 	return clampf(1.0 - absf(h - 6.5) / 1.5, 0.0, 1.0) + clampf(1.0 - absf(h - 19.5) / 1.5, 0.0, 1.0)
 
+# --- B4.2: the weather. Value noise over the game time, the same for the same career (seed) and for a
+# save; it starts clear, so that a new player meets the forest in good weather first.
+const WEATHER_SEGMENT_DAYS = 0.3
+
+func weather_knot(channel: int, index: int) -> float:
+	var rng = RandomNumberGenerator.new()
+	rng.seed = int(route.seed_value) * 7919 + channel * 104729 + index * 15485863
+	return rng.randf()
+
+func weather_noise(channel: int, days: float) -> float:
+	var x = days / WEATHER_SEGMENT_DAYS
+	var i = floori(x)
+	return lerpf(weather_knot(channel, i), weather_knot(channel, i + 1), smoothstep(0.0, 1.0, x - float(i)))
+
+func weather_at(seconds: float) -> Dictionary:
+	var days = (DAY_START_HOUR / 24.0) + seconds / DAY_SECONDS
+	var early = smoothstep(0.05, 0.4, seconds / DAY_SECONDS)
+	var n = weather_noise(1, days)
+	var cloud = smoothstep(0.35, 0.8, n) * early
+	var rain = smoothstep(0.7, 0.88, n) * early
+	var hour = fposmod(days * 24.0, 24.0)
+	var morning = 1.0 if hour >= 4.0 and hour <= 10.0 else 0.55
+	var fog = smoothstep(0.68, 0.9, weather_noise(2, days)) * morning * early
+	return {"cloud": cloud, "rain": rain, "fog": fog}
+
+func weather() -> Dictionary:
+	if state.is_empty(): return {"cloud": 0.0, "rain": 0.0, "fog": 0.0}
+	return weather_at(float(state.stats.seconds))
+
+func weather_name() -> String:
+	var w = weather()
+	if float(w.rain) > 0.35: return "дождь"
+	if float(w.fog) > 0.4: return "туман"
+	if float(w.cloud) > 0.45: return "облачно"
+	return "ясно"
+
 func clock_text() -> String:
 	var h = world_hours()
 	return "%02d:%02d" % [int(h), int(fposmod(h, 1.0) * 60.0)]
