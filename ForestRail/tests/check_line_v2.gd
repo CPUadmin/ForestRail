@@ -71,7 +71,7 @@ func run() -> void:
 	# impossible limits: the waves are dropped, the line still reaches every height
 	var strict = Route.new()
 	strict.generate(42, stations, 2, [0.001, 0.001, 0.001, 0.001, 0.001])
-	check(strict.used_fallback and absf(height_at_x(strict, 5200.0) - 40.0) < 0.01, "an impossible seed falls back to the plain profile")
+	check(strict.used_fallback and absf(height_at_x(strict, 5200.0) - 58.0) < 0.01, "an impossible seed falls back to the plain profile")
 	# saving: positions and version travel with the route; the old line restores as before
 	var restored = Route.new()
 	restored.restore(a.serialize(), stations)

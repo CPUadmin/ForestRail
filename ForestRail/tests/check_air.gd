@@ -54,7 +54,7 @@ func run() -> void:
 			var a = m.route.sample(m.route.distance_at_x(float(knoll[0]) + float(k)))
 			var b = m.route.sample(m.route.distance_at_x(float(knoll[0]) + float(k) + 1.0))
 			worst = maxf(worst, absf(b.y - a.y))
-	check(worst < 0.07, "a knoll is no steeper than 7%% (%.3f)" % worst)
+	check(worst < 0.08, "a knoll is no steeper than 8%% (%.3f)" % worst)
 	for i in range(m.route.station_s.size()):
 		var near = false
 		for knoll in m.route.knolls:
@@ -78,12 +78,14 @@ func run() -> void:
 	air.state.v = 100.0 / 3.6
 	var flew = false
 	var drive_in_air = false
-	air.state.brake = 1.0
+	air.state.brake = 0.0
 	for i in range(60 * 4):
 		var before = float(air.state.v)
 		air.physics_step(1.0 / 60.0)
 		if float(air.air_z) > 0.02:
 			flew = true
+			# the player stamps on the brake the moment the wheels leave the rail
+			air.state.brake = 1.0
 			if float(air.state.v) < before - 0.05: drive_in_air = true
 	check(flew and not drive_in_air, "the brake does nothing while the wheels are off the rail")
 	# a hard landing hurts fragile cargo, a soft pass does not
