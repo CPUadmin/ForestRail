@@ -4,7 +4,7 @@ const ROOT = "res://assets/art_v3/"
 # The steam engine body is drawn by tools/make_steam_art.py; the fire glow,
 # needle, smoke and rods are drawn live in draw_steam_overlay / draw_steam_motion.
 const BODY = {"handcar": "vehicles/handcar_body", "steam": "vehicles/steam_locomotive_body", "motorcar": "vehicles/petrol_motorcar_body", "locomotive": "vehicles/battery_locomotive_body", "pneumatic": "vehicles/pneumatic_body"}
-const LARGE_WHEELS = ["locomotive", "steam"]
+const LARGE_WHEELS = ["locomotive", "steam", "pneumatic"]
 const Geometry = preload("res://scripts/world_geometry.gd")
 const Mechanism = preload("res://scripts/handcar_mechanism.gd")
 const PX = Geometry.PX
@@ -54,7 +54,8 @@ func _init(skins_path: String = "") -> void:
 	for kind in Geometry.data().bodies:
 		var spec = Geometry.body(kind)
 		var id = "vehicles/freight_wagon_body" if kind=="wagon" else BODY[kind]
-		# The pneumatic train borrows the steam locomotive picture until it has its own.
+		# The pneumatic train (tools/make_pneumatic_art.py) has no manifest entry of its own;
+		# it takes the steam body's entry as a template for the fields that are overwritten below.
 		var meta = assets["vehicles/steam_locomotive_body" if kind == "pneumatic" else id].duplicate(true)
 		meta.file = "../art_p2/"+spec.file
 		meta.region_px = spec.region_px
@@ -286,6 +287,7 @@ func draw_vehicle(canvas: Node2D, id: String, distance: float, facing: int, oute
 		canvas.draw_colored_polygon(bolt,Color("ddc37b"))
 	var p = mechanism_pose(model) if id=="handcar" and pose_override.is_empty() else pose_override
 	if id=="steam": draw_steam_overlay(canvas, model)
+	if id=="pneumatic": draw_pneumatic_overlay(canvas, model)
 	if id=="motorcar": draw_petrol_overlay(canvas, model)
 	var wheel_id = skin_wheel.get(id, "vehicles/steam_wheel" if id == "steam" else "vehicles/petrol_wheel" if id == "motorcar" else ("vehicles/wheel_large" if id in LARGE_WHEELS else "vehicles/wheel_small"))
 	var radius = PX * (0.55 if id in LARGE_WHEELS else 0.42) * 0.5
@@ -295,7 +297,7 @@ func draw_vehicle(canvas: Node2D, id: String, distance: float, facing: int, oute
 		canvas.draw_set_transform_matrix(outer * Transform2D(wheel_angle, position))
 		if id not in ["steam", "motorcar"]: canvas.draw_circle(Vector2(0, -radius * 0.72), 1.8, Color("c9af73"))
 		canvas.draw_set_transform_matrix(outer)
-	if id == "steam": draw_steam_motion(canvas, distance, facing, outer)
+	if id == "steam" or id == "pneumatic": draw_steam_motion(canvas, distance, facing, outer, id)
 	if id == "motorcar": draw_side_rod(canvas, id, distance, facing, outer)
 	if id == "handcar": draw_mechanism(canvas, model, outer,p)
 
@@ -369,11 +371,40 @@ func draw_steam_overlay(canvas: Node2D, model) -> void:
 		var puff = steam_point(origin.x - age * 1.4, origin.y + age * 0.7)
 		canvas.draw_circle(puff, (0.10 + age * 0.22) * PX, Color(0.86, 0.86, 0.82, (0.35 + 0.35 * throttle) * (1.0 - age)))
 
+# Live parts of the pneumatic train on top of the painted body (tools/make_pneumatic_art.py):
+# the manometer needle, frost on the four pipe places (the same places the model counts) and
+# the puffs of spent air at the working cylinder.
+const FROST_SPOTS = [Vector2(1.36, 0.62), Vector2(1.28, 0.93), Vector2(1.20, 1.20), Vector2(0.40, 1.82)]
+
+func draw_pneumatic_overlay(canvas: Node2D, model) -> void:
+	if model == null or model.state.is_empty() or not model.state.fleet_by_id.has("pneumatic"): return
+	var fleet = model.state.fleet_by_id.pneumatic
+	var center = steam_point(-0.30, 1.88)
+	var needle = deg_to_rad(150.0) + deg_to_rad(240.0) * clampf(float(fleet.get("fuel", 0.0)) / 150.0, 0.0, 1.0)
+	canvas.draw_line(center, center + Vector2.from_angle(needle) * 0.075 * PX, Color("a8231c"), 2.0, true)
+	canvas.draw_circle(center, 2.0, Color("2a2a2a"))
+	var spots: Array = fleet.get("ice_spots", [])
+	for i in range(mini(spots.size(), FROST_SPOTS.size())):
+		var amount = clampf(float(spots[i]), 0.0, 1.0)
+		if amount < 0.03: continue
+		var at = steam_point(FROST_SPOTS[i].x, FROST_SPOTS[i].y)
+		canvas.draw_circle(at, (0.05 + 0.07 * amount) * PX, Color(0.85, 0.94, 1.0, 0.28 + 0.5 * amount))
+		for k in range(5):
+			var crystal = Vector2.from_angle(float(k) * 1.26 + float(i)) * (0.04 + 0.05 * amount) * PX
+			canvas.draw_circle(at + crystal, (0.012 + 0.016 * amount) * PX, Color(1.0, 1.0, 1.0, 0.35 + 0.5 * amount))
+	if not model.state.get("engine", false): return
+	var throttle = clampf(float(model.state.get("throttle", 0.0)), 0.0, 1.0)
+	if throttle < 0.03: return
+	var t = Time.get_ticks_msec() / 1000.0
+	for i in range(5):
+		var age = fposmod(t * (1.2 + 1.2 * throttle) + i / 5.0, 1.0)
+		canvas.draw_circle(steam_point(1.48 + age * 0.35, 0.28 - age * 0.10 + 0.04 * sin(t * 9.0 + i)), (0.025 + age * 0.07) * PX, Color(0.9, 0.96, 1.0, (0.25 + 0.3 * throttle) * (1.0 - age)))
+
 # Coupling rod, main rod, crosshead and piston rod follow the wheel angle.
-func draw_steam_motion(canvas: Node2D, distance: float, facing: int, outer: Transform2D) -> void:
+func draw_steam_motion(canvas: Node2D, distance: float, facing: int, outer: Transform2D, id: String = "steam") -> void:
 	var radius = PX * 0.55 * 0.5
 	var angle = fposmod(distance * PX / radius * facing, TAU)
-	var positions = wheel_positions("steam")
+	var positions = wheel_positions(id)
 	var pins: Array = []
 	for position in positions: pins.append(position + Vector2(0, -radius * 0.5).rotated(angle))
 	canvas.draw_set_transform_matrix(outer)
