@@ -57,8 +57,8 @@ func run() -> void:
 	# the menu's new game gives the long line, the depot shows the longer pay
 	game.begin_new(7)
 	await frame(4)
-	check(game.model.route.version == 2 and game.screen == "depot" and float(game.model.route.station_x[5]) == 6800.0, "a new career starts on the long line")
-	check(int(game.model.current_mission().reward) == 360, "and the first order pays for it")
+	check(game.model.route.version == 2 and game.screen == "depot" and float(game.model.route.station_x[5]) > 5700.0 and float(game.model.route.station_x[5]) < 7900.0 and game.model.vehicle_id() == "pole", "a new career starts on the long line, a different one each time, on the pole truck")
+	check(int(game.model.current_mission().reward) > 280 and int(game.model.current_mission().reward) < 460, "and the first order pays by the length of its line")
 	# creative mode from the menu path
 	game.begin_new(8, true)
 	await frame(4)

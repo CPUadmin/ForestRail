@@ -76,14 +76,15 @@ func _init() -> void:
 
 # line_version 1 is the original 1.7 km line (what the tests use unless they ask), 2 the long
 # line of about 6.8 km that the game gives to a new career (N7.3).
-func new_game(world_seed: int = 42, line_version: int = 1, mode: String = "career", spread: bool = false) -> void:
+# starter: the free machine of a new career (the tests keep the handcar, the game starts on the pole truck).
+func new_game(world_seed: int = 42, line_version: int = 1, mode: String = "career", spread: bool = false, starter: String = "handcar") -> void:
 	loading_cache.clear()
 	route.generate(world_seed, data.stations, line_version, [], spread)
-	state = {"version": 2, "fleet_by_id": {"handcar": {"levels": {}, "fuel": 0.0, "consist": []}},
-		"wagons_by_id": {}, "selected_vehicle_id": "handcar", "consist_ids": [],
+	state = {"version": 2, "fleet_by_id": {starter: {"levels": {}, "fuel": 0.0, "consist": []}},
+		"wagons_by_id": {}, "selected_vehicle_id": starter, "consist_ids": [],
 		"money": 0, "chapter": 0, "completed_ids": [], "paid_ids": [], "active": {},
 		"cargo": [], "s": 0.0, "v": 0.0, "direction": 1, "brake": 1.0, "throttle": 0.0,
-		"gear": 0, "gearbox": 4, "engine": false, "phase": "depot", "finale": false, "reverser": 1,
+		"gear": 0, "gearbox": 5, "engine": false, "phase": "depot", "finale": false, "reverser": 1,
 		"visited_stations": ["A"], "tutorial": true,
 		"stats": {"distance": 0.0, "deliveries": 0, "earned": 0, "rescues": 0, "seconds": 0.0}, "offer_serial": 0}
 	reset_input()
@@ -107,11 +108,12 @@ func creative() -> bool:
 func setup_creative() -> void:
 	state.mode = "creative"
 	state.money = CREATIVE_MONEY
-	for id in ["pole", "sail", "steam", "motorcar", "pneumatic", "locomotive"]:
-		buy_vehicle(id)
+	var home = vehicle_id()
+	for id in VEHICLE_IDS:
+		if not state.fleet_by_id.has(id): buy_vehicle(id)
 	while next_wagon_id() != "":
 		if not buy_wagon(): break
-	select_vehicle("handcar")
+	select_vehicle(home)
 	state.money = CREATIVE_MONEY
 	state.tutorial = false
 	message = ""
@@ -944,11 +946,11 @@ func set_gear(value: int) -> bool:
 	if vehicle_id() in ["locomotive", "steam"]: return true
 	if float(state.throttle) >= 0.15:
 		return fail("Сначала убавь подачу ниже 15%")
-	var wanted = clampi(value, 0, 5 if vehicle_id() == "motorcar" else 2)
+	var wanted = clampi(value, 0, 6 if vehicle_id() == "motorcar" else 2)
 	if vehicle_id() == "motorcar":
 		var cfg = vehicle_base().engine
 		var moving = absf(float(state.v)) > float(cfg.stop_speed_mps)
-		if wanted != int(state.gear) and (wanted == 5 or int(state.gear) == 5) and moving:
+		if wanted != int(state.gear) and (wanted == 6 or int(state.gear) == 6) and moving:
 			return fail("Задняя передача включается только после остановки")
 		if wanted != int(state.gear) and wanted != 0 and moving: shift_cut = float(cfg.shift_cut_s)
 	state.gear = wanted
@@ -1010,7 +1012,7 @@ func heat_rate(fleet: Dictionary) -> float:
 	if vehicle_id() == "motorcar":
 		if not state.engine: return 0.0
 		var gear = int(state.gear)
-		var low_gear = 1.0 + 0.1 * float(4 - gear) if gear >= 1 and gear <= 4 else (1.3 if gear == 5 else 1.0)
+		var low_gear = 1.0 + 0.1 * maxf(0.0, float(4 - gear)) if gear >= 1 and gear <= 5 else (1.3 if gear == 6 else 1.0)
 		return 0.035 * (0.1 + 0.9 * throttle) * low_gear
 	# electric: the current heats it (squared), regeneration heats it too
 	var cfg = vehicle_base()
@@ -1036,7 +1038,7 @@ func thermal_factor() -> float:
 	if vehicle_id() == "motorcar" and temp < 0.2: cold = lerpf(0.8, 1.0, clampf((temp - TEMP_AMBIENT) / (0.2 - TEMP_AMBIENT), 0.0, 1.0))
 	return hot * cold
 
-# --- Petrol gearbox (N5): gears 1-4, N, R(=5) ---
+# --- Petrol gearbox: forward gears 1-5, N (0), R (=6). The fifth is an overdrive, B3.6 ---
 
 # Engine fraction 0..1 between idle and the rev limit.
 # Drawing runs at the display rate, the model steps at 60 Hz. Positions for the
@@ -1128,7 +1130,7 @@ func engine_rpm_fraction() -> float:
 	var gear = int(state.gear)
 	var thr = float(state.throttle)
 	if gear == 0: return thr
-	var idx = 0 if gear == 5 else gear - 1
+	var idx = 0 if gear == 6 else gear - 1
 	var ratio = absf(float(state.v)) / float(object_stats("motorcar").speeds[idx])
 	return clampf(maxf(ratio, thr * 0.3), 0.0, 1.0)
 
@@ -1498,7 +1500,7 @@ func physics_step(dt: float) -> void:
 				state.engine = false
 			if int(state.gear) > 0:
 				var gear = int(state.gear) - 1
-				var reverse_gear = vehicle_id() == "motorcar" and gear == 4
+				var reverse_gear = vehicle_id() == "motorcar" and gear == 5
 				if reverse_gear: gear = 0
 				if vehicle_id() == "motorcar" and not reverse_gear: petrol_stall_check(gear, stats, dt)
 				var traction = float(stats.traction[gear]) * maxf(0, 1 - pow(absf(float(state.v)) / float(stats.speeds[gear]), 2)) * charge_traction_factor() * petrol_lug(gear, stats) * pneumatic_factor() * thermal_factor()
@@ -1719,9 +1721,13 @@ func restore(saved: Dictionary) -> bool:
 		handcar.seek_rocker(lerpf(float(handcar.limits.minimum.angle),float(handcar.limits.maximum.angle),clampf((pump_angle+deg_to_rad(28))/deg_to_rad(56),0,1)))
 	state.reverser = int(state.get("reverser", 1))
 	# Saves from before the four-gear box used Н/1/2; the old high gear is now 4.
-	if int(state.get("gearbox", 0)) != 4:
-		if vehicle_id() == "motorcar": state.gear = {0: 0, 1: 1, 2: 4}.get(int(state.gear), 0)
-		state.gearbox = 4
+	var box = int(state.get("gearbox", 0))
+	if box != 5:
+		if vehicle_id() == "motorcar":
+			# the four-gear box had reverse as 5, now it is 6; the three-gear one had N/1/2 only
+			if box == 4: state.gear = 6 if int(state.gear) == 5 else int(state.gear)
+			else: state.gear = {0: 0, 1: 1, 2: 4}.get(int(state.gear), 0)
+		state.gearbox = 5
 	migrate_boiler()
 	migrate_deck_cargo()
 	drop_temporary_wagon()
@@ -1779,7 +1785,7 @@ func validate_save(saved: Dictionary) -> bool:
 		return false
 	for key in ["money", "chapter", "s", "v", "direction", "brake", "throttle", "gear", "offer_serial"]:
 		if not numeric(saved[key]): return false
-	if saved.money < 0 or saved.chapter < 0 or saved.chapter > 10 or saved.brake < 0 or saved.brake > 1 or saved.throttle < 0 or saved.throttle > 1 or saved.gear < 0 or saved.gear > 5:
+	if saved.money < 0 or saved.chapter < 0 or saved.chapter > 10 or saved.brake < 0 or saved.brake > 1 or saved.throttle < 0 or saved.throttle > 1 or saved.gear < 0 or saved.gear > 6:
 		return false
 	if not saved.route.has_all(["points", "seed", "generator_version"]) or not saved.route.points is Array or saved.route.points.size() < 1700:
 		return false

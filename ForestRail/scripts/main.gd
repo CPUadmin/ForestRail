@@ -116,10 +116,10 @@ var gate_pos = Vector2(1, 0)
 var wheel_last = 0.0
 var wheel_acc = 0.0
 const WHEEL_SWEEP = PI * 1.5
-const GATE_SLOTS = {1: Vector2(0, -1), 2: Vector2(0, 1), 3: Vector2(1, -1), 4: Vector2(1, 1), 5: Vector2(2, 1), 0: Vector2(1, 0)}
-# Petrol gearbox on the lever arc: R, N, 1, 2, 3, 4 (gear numbers as in the model).
-const GEAR_ORDER = [5, 0, 1, 2, 3, 4]
-const GEAR_LABELS = {0: "N", 1: "1", 2: "2", 3: "3", 4: "4", 5: "R"}
+const GATE_SLOTS = {1: Vector2(0, -1), 2: Vector2(0, 1), 3: Vector2(1, -1), 4: Vector2(1, 1), 5: Vector2(2, -1), 6: Vector2(2, 1), 0: Vector2(1, 0)}
+# Petrol gearbox on the lever arc: R, N, 1, 2, 3, 4, 5 (gear numbers as in the model, R is 6).
+const GEAR_ORDER = [6, 0, 1, 2, 3, 4, 5]
+const GEAR_LABELS = {0: "N", 1: "1", 2: "2", 3: "3", 4: "4", 5: "5", 6: "R"}
 var lever_travel = 0.0
 var lever_click_origin = Vector2.ZERO
 var pump_grab_offset = Vector2.ZERO
@@ -699,8 +699,8 @@ func begin_new(seed_number: int = -1, creative_mode: bool = false) -> void:
 		return
 	if seed_number < 0:
 		seed_number = int(Time.get_unix_time_from_system()) % 100000
-	model.new_game(seed_number, 2, "creative" if creative_mode else "career", true)
-	selected_object = "handcar"
+	model.new_game(seed_number, 2, "creative" if creative_mode else "career", true, "pole")
+	selected_object = model.vehicle_id()
 	screen = "depot"
 	tab = "Рейсы"
 	paused = false
@@ -841,7 +841,7 @@ func build_depot(size: Vector2) -> void:
 		elif model.vehicle_id() == "handcar":
 			details += "\nРучной привод · без топлива\nМаховик сохраняет накат"
 		else:
-			details += "\nПередачи R / N / 1–4 · до %.0f км/ч\n" % model.top_speed_kmh() + energy_text() + "\n" + forecast_line(model.current_mission())
+			details += "\nПередачи R / N / 1–5 · до %.0f км/ч\n" % model.top_speed_kmh() + energy_text() + "\n" + forecast_line(model.current_mission())
 		var details_y = maxf(info_top + 88, info_top + 7 + line_height(32) + 6)
 		var details_lines = wrapped_lines(details, left_width - 20, 19)
 		positioned_label(details, Rect2(46, details_y, left_width - 20, maxf(105, details_lines * line_height(19))), 19)
@@ -2955,12 +2955,12 @@ func draw_petrol_cab_extras(size: Vector2, layout: Dictionary) -> void:
 	draw_round_gauge(Vector2(oil_x, gauge_y), small_r, oil, "МАСЛО", "%.1f" % (oil * 5.0), [[0.2, Color("e0564a")], [0.9, Color("5cc17f")], [1.0, Color("e6b34a")]], 4)
 	draw_round_gauge(Vector2(temp_x, gauge_y), small_r, cab_temp, "ТЕМП.", "%d°" % roundi(20.0 + cab_temp * 100.0), [[0.7, Color("5cc17f")], [0.85, Color("e6b34a")], [1.0, Color("e0564a")]], 4)
 	# gear lamps under the nameplate: the engaged gear is lit
-	var labels = ["1", "2", "3", "4", "N", "R"]
-	var gears = [1, 2, 3, 4, 0, 5]
-	for lamp in range(6):
-		var at = Vector2(cx - 70 + lamp * 28, top + 54)
+	var labels = ["1", "2", "3", "4", "5", "N", "R"]
+	var gears = [1, 2, 3, 4, 5, 0, 6]
+	for lamp in range(7):
+		var at = Vector2(cx - 84 + lamp * 28, top + 54)
 		var lit = int(model.state.gear) == gears[lamp]
-		var lamp_colour = Color("e0564a") if lamp == 5 else (Color("e6b34a") if lamp == 4 else Color("5cc17f"))
+		var lamp_colour = Color("e0564a") if lamp == 6 else (Color("e6b34a") if lamp == 5 else Color("5cc17f"))
 		draw_circle(at, 9, Color("0c100e"))
 		draw_circle(at, 7, lamp_colour if lit else lamp_colour.darkened(0.78))
 		if lit: draw_circle(at, 15, Color(lamp_colour, 0.2))
@@ -3437,14 +3437,13 @@ func gate_move(pos: Vector2, delta: Vector2) -> Vector2:
 		if absf(p.y) > 0.1:
 			if absf(p.x - column) > 0.22: p.y = clampf(p.y, -0.1, 0.1)
 			else: p.x = float(column)
-	if roundi(p.x) == 2 and p.y < -0.1: p.y = -0.1
 	return p
 
 func gate_gear(pos: Vector2, previous: int) -> int:
 	var column = roundi(pos.x)
 	if absf(pos.y) <= 0.15: return 0
-	if pos.y <= -0.85: return {0: 1, 1: 3}.get(column, 0)
-	if pos.y >= 0.85: return {0: 2, 1: 4, 2: 5}.get(column, 0)
+	if pos.y <= -0.85: return {0: 1, 1: 3, 2: 5}.get(column, 0)
+	if pos.y >= 0.85: return {0: 2, 1: 4, 2: 6}.get(column, 0)
 	return previous
 
 func draw_gate(rect: Rect2, knob: Vector2, active: bool) -> void:
@@ -3455,14 +3454,14 @@ func draw_gate(rect: Rect2, knob: Vector2, active: bool) -> void:
 	var right = gate_local(rect, Vector2(2, 0))
 	draw_line(left, right, Color("5e6b62"), width + 2, true)
 	for column in range(3):
-		var top = gate_local(rect, Vector2(column, -1 if column < 2 else 0))
+		var top = gate_local(rect, Vector2(column, -1))
 		draw_line(top, gate_local(rect, Vector2(column, 1)), Color("5e6b62"), width + 2, true)
 	draw_line(left, right, channel, width, true)
 	for column in range(3):
-		var top = gate_local(rect, Vector2(column, -1 if column < 2 else 0))
+		var top = gate_local(rect, Vector2(column, -1))
 		draw_line(top, gate_local(rect, Vector2(column, 1)), channel, width, true)
 	var small = clampi(int(rect.size.x * 0.17), 11, 16)
-	var labels = [[Vector2(0, -1), "1", PAPER], [Vector2(0, 1), "2", PAPER], [Vector2(1, -1), "3", PAPER], [Vector2(1, 1), "4", PAPER], [Vector2(2, 1), "R", RED], [Vector2(1.52, 0), "N", GOLD]]
+	var labels = [[Vector2(0, -1), "1", PAPER], [Vector2(0, 1), "2", PAPER], [Vector2(1, -1), "3", PAPER], [Vector2(1, 1), "4", PAPER], [Vector2(2, -1), "5", PAPER], [Vector2(2, 1), "R", RED], [Vector2(1.52, 0), "N", GOLD]]
 	for item in labels:
 		var at = gate_local(rect, item[0])
 		var offset = Vector2(-small * 0.4, -small * 0.9) if item[0].y < 0 else (Vector2(-small * 0.4, small * 1.35) if item[0].y > 0 else Vector2(-small * 0.3, -small * 0.55))
@@ -3563,7 +3562,7 @@ func control_geometry(id: String, closeup: bool = false) -> Dictionary:
 		pivot=control_zoom_rect().position+Vector2(65+100*["brake","throttle","gear","start"].find(id),225)
 		length=42.0 if id=="start" else 78.0
 	var value=float(model.state.get(id,0))
-	if id=="gear": value=float(model.boiler().feed) if model.vehicle_id()=="steam" else float(GEAR_ORDER.find(lever_pending_gear if drag=="gear" else int(model.state.gear)))/5.0
+	if id=="gear": value=float(model.boiler().feed) if model.vehicle_id()=="steam" else float(GEAR_ORDER.find(lever_pending_gear if drag=="gear" else int(model.state.gear)))/6.0
 	var angle=lerpf(-0.55,0.55,value)
 	if id=="start": angle=0.0 if model.state.engine else PI
 	return {"pivot":pivot,"grip":pivot+Vector2(0,-length).rotated(angle),"angle":angle}

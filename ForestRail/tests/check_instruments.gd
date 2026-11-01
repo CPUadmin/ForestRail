@@ -163,7 +163,7 @@ func run() -> void:
 	game.model.accept_mission(game.model.current_mission())
 	game.screen="game"
 	game.rebuild()
-	check(game.instruments.dial_maximum()==110,"petrol dial adapts to 100 km/h")
+	check(game.instruments.dial_maximum()==140,"petrol dial adapts to 120 km/h")
 	game.model.state.fleet_by_id.motorcar.fuel=0.12
 	await shot("petrol_low_fuel")
 	game.model.rescue()

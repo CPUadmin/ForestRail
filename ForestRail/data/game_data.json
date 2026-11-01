@@ -113,7 +113,7 @@
     {
       "id": "handcar",
       "name": "Ручная дрезина",
-      "cost": 0,
+      "cost": 150,
       "mass_kg": 180,
       "deck_slots": 2,
       "default_wagons": 0,
@@ -123,13 +123,13 @@
       "brake_n": 700,
       "top_speed_kmh": 25,
       "drag": 0.31,
-      "free_reward_multiplier": 1.0,
+      "free_reward_multiplier": 0.9,
       "free_reach": "C"
     },
     {
       "id": "pole",
       "name": "Шестовая дрезина",
-      "cost": 150,
+      "cost": 0,
       "mass_kg": 140,
       "deck_slots": 2,
       "default_wagons": 0,
@@ -139,7 +139,7 @@
       "brake_n": 500,
       "top_speed_kmh": 28,
       "drag": 0.1,
-      "free_reward_multiplier": 0.9,
+      "free_reward_multiplier": 1.0,
       "free_reach": "C"
     },
     {
@@ -234,8 +234,8 @@
         7.0,
         33.0
       ],
-      "drag": 0.35,
-      "top_speed_kmh": 100,
+      "drag": 0.3,
+      "top_speed_kmh": 120,
       "gears": [
         [
           1200,
@@ -252,7 +252,8 @@
         [
           1000,
           33.0
-        ]
+        ],
+        [900, 42.0]
       ],
       "engine": {
         "idle_rpm": 800,

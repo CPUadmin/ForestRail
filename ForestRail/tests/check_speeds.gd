@@ -49,7 +49,7 @@ func run_class(kind: String, seconds: float, marks: Array) -> Dictionary:
 			var gears = m.vehicle_base().gears
 			var g = int(m.state.gear)
 			var want = 1 if g == 0 else g
-			if g >= 1 and g < 4 and float(m.state.v) > float(gears[g - 1][1]) * 0.85: want = g + 1
+			if g >= 1 and g < 5 and float(m.state.v) > float(gears[g - 1][1]) * 0.85: want = g + 1
 			if want != g:
 				m.state.throttle = 0.0
 				m.set_gear(want)
@@ -78,7 +78,7 @@ func run() -> void:
 		print("SPEEDS ", kind, " peak ", snappedf(peak_kmh, 0.1), " km/h (stated ", stated, "); 10 m/s at ", snappedf(float(results[kind].reached.get(10.0, -1.0)), 0.1), " s")
 		check(absf(peak_kmh - stated) <= 2.0, "%s reaches its stated %.0f km/h (got %.1f)" % [kind, stated, peak_kmh])
 	var m = Model.new()
-	check(m.top_speed_kmh("handcar") == 25.0 and m.top_speed_kmh("steam") == 50.0 and m.top_speed_kmh("motorcar") == 100.0 and m.top_speed_kmh("locomotive") == 75.0, "the owner's top speeds are in the data: 25 / 50 / 100 / 75")
+	check(m.top_speed_kmh("handcar") == 25.0 and m.top_speed_kmh("pole") == 28.0 and m.top_speed_kmh("steam") == 50.0 and m.top_speed_kmh("motorcar") == 120.0 and m.top_speed_kmh("locomotive") == 75.0, "the owner's top speeds are in the data: handcar 25, pole 28, steam 50, petrol 120, electric 75")
 	var steam_t = float(results.steam.reached.get(10.0, 999.0))
 	var petrol_t = float(results.motorcar.reached.get(10.0, 999.0))
 	var electric_t = float(results.locomotive.reached.get(10.0, 999.0))

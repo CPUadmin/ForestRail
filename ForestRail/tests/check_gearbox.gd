@@ -43,8 +43,8 @@ func cruise(gear: int, speed: float, seconds: float) -> Dictionary:
 func run() -> void:
 	var m = setup()
 	var stats = m.object_stats("motorcar")
-	check(stats.traction.size() == 4 and stats.speeds.size() == 4, "four forward gears")
-	for i in range(3):
+	check(stats.traction.size() == 5 and stats.speeds.size() == 5, "five forward gears")
+	for i in range(4):
 		check(stats.speeds[i] < stats.speeds[i + 1] and stats.traction[i] > stats.traction[i + 1], "gear %d is stronger and slower than %d" % [i + 1, i + 2])
 	# Gear selection rules.
 	check(m.state.gear == 0 and not m.state.engine == false or true, "starts in neutral")
@@ -54,11 +54,11 @@ func run() -> void:
 	check(not m.set_gear(2) and m.state.gear == 3, "shift rejected under throttle")
 	m.state.throttle = 0.0
 	m.state.v = 2.0
-	check(not m.set_gear(5) and m.state.gear == 3, "reverse is refused while moving")
+	check(not m.set_gear(6) and m.state.gear == 3, "reverse is refused while moving")
 	check(m.set_gear(4) and m.shift_cut > 0.0, "shifting while moving cuts torque briefly")
 	m.state.v = 0.0
 	m.state.brake = 1.0
-	check(m.set_gear(5) and m.state.gear == 5, "reverse engages at standstill")
+	check(m.set_gear(6) and m.state.gear == 6, "reverse engages at standstill")
 	check(m.set_gear(0) and m.state.gear == 0, "neutral from reverse")
 	# Neutral has no traction: the engine just revs.
 	m.state.brake = 0.0
@@ -71,7 +71,7 @@ func run() -> void:
 	var r = setup()
 	r.state.s = 800.0
 	r.state.brake = 1.0
-	r.set_gear(5)
+	r.set_gear(6)
 	r.state.brake = 0.0
 	r.state.throttle = 1.0
 	for i in range(600): r.physics_step(1.0 / 60)
@@ -107,11 +107,11 @@ func run() -> void:
 	old.erase("gearbox")
 	old.selected_vehicle_id = "motorcar"
 	var legacy = Model.new()
-	check(legacy.restore(old) and legacy.state.gear == 4 and legacy.state.gearbox == 4, "old high gear becomes fourth")
+	check(legacy.restore(old) and legacy.state.gear == 4 and legacy.state.gearbox == 5, "old high gear becomes fourth")
 	var round_trip = Model.new()
 	var current = m.serialize()
-	current.gear = 5
-	check(round_trip.restore(current) and round_trip.state.gear == 5, "reverse survives save and load")
+	current.gear = 6
+	check(round_trip.restore(current) and round_trip.state.gear == 6, "reverse survives save and load")
 	# Stalling: high gear from a standstill under throttle kills the engine, low gear does not.
 	var stall = setup()
 	stall.set_gear(4)
