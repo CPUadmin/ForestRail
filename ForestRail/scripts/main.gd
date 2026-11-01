@@ -65,6 +65,14 @@ var camera_s = 0.0
 var camera_y = 0.0
 var camera_x = 0.0
 var zoom_level = 1.0
+# B1.2a: driving into the depot is a short scene, not a button that swaps the screen
+const DEPOT_MOVE_S = 1.6
+const DEPOT_FADE_S = 0.5
+var depot_anim = ""            # "", "in" (rolling in and fading out), "out" (fading in inside)
+var depot_anim_t = 0.0
+var depot_anim_from = 0.0
+var depot_anim_zoom = 1.0
+var fade_rect: ColorRect = null
 var control_zoom = false
 # Cab view (E): the camera closes in on the cab and every control of the machine is
 # drawn and grabbed in the world at human scale. cab_blend animates 0..1.
@@ -163,7 +171,7 @@ func _ready() -> void:
 				# Tests and debugging runs are silent: nobody listens to the clicks and the engine.
 				AudioServer.set_bus_mute(0, true)
 				var suite = arg.trim_prefix("--qa-suite=")
-				if suite not in ["check_model", "check_physics", "check_interaction", "drive_campaign", "check_presentation", "check_handcar_revision", "check_art_v3", "check_instruments", "check_station_service", "check_world_geometry", "check_mechanism", "check_mechanism_bench", "check_handcar_drive", "check_handcar_input", "check_motor_controls", "check_loading_selection", "check_layout_p7", "check_steam", "check_steam_view", "check_gearbox", "check_petrol_view", "check_skins", "check_perf", "check_cab", "check_sound", "check_forecast", "check_line_v2", "check_speeds", "check_creative", "check_settings", "check_pneumatic", "check_pneumatic_view", "check_pole", "check_pole_view", "check_air", "check_loading_flow", "check_forecast_long", "drive_long", "check_forecast_view", "check_soak_p8", "check_save_p8"]: get_tree().quit(2); return
+				if suite not in ["check_model", "check_physics", "check_interaction", "drive_campaign", "check_presentation", "check_handcar_revision", "check_art_v3", "check_instruments", "check_station_service", "check_world_geometry", "check_mechanism", "check_mechanism_bench", "check_handcar_drive", "check_handcar_input", "check_motor_controls", "check_loading_selection", "check_layout_p7", "check_steam", "check_steam_view", "check_gearbox", "check_petrol_view", "check_skins", "check_perf", "check_cab", "check_sound", "check_forecast", "check_line_v2", "check_speeds", "check_creative", "check_settings", "check_pneumatic", "check_pneumatic_view", "check_pole", "check_pole_view", "check_air", "check_loading_flow", "check_depot_entry", "check_forecast_long", "drive_long", "check_forecast_view", "check_soak_p8", "check_save_p8"]: get_tree().quit(2); return
 				get_tree().root.set_meta("qa_running", true)
 				set_process(false)
 				set_physics_process(false)
@@ -1073,7 +1081,7 @@ func update_hud() -> void:
 			add_button(action_bar, "Отправиться →", func():
 				if model.depart(): save_game(); rebuild()
 				else: notify(model.message), not model.all_loaded())
-			add_button(action_bar, "Вернуться в депо", func(): model.back_to_depot(); screen = "depot"; save_game(); rebuild())
+			add_button(action_bar, "Заехать в депо →", start_depot_entry)
 			var plan=model.loading_preview()
 			var choice_label=add_label(action_bar,"Везём %d / %d · %d кг · %d монет" % [plan.loaded,plan.capacity,plan.mass_kg,plan.reward],19,PAPER)
 			choice_label.add_theme_stylebox_override("normal",style(INK,Color("5d7561"),6))
@@ -1091,7 +1099,7 @@ func update_hud() -> void:
 					if model.turn(): save_game(); notify("Состав развёрнут"); last_action_key = ""
 					else: notify(model.message), model.can_turn() != "")
 			if stop_index == 0:
-				add_button(action_bar, "В депо", func(): model.back_to_depot(); screen = "depot"; save_game(); rebuild())
+				add_button(action_bar, "Заехать в депо →", start_depot_entry)
 			if model.vehicle_id() == "pneumatic": add_button(action_bar, "Сбить весь иней [%s]" % key_name("ice"), chip_all_ice)
 			add_button(action_bar, "Сохранить", func(): save_game(); notify("Сохранено"))
 		for child in action_bar.get_children():
@@ -1472,6 +1480,7 @@ func cancel_drag() -> void:
 
 func _process(dt: float) -> void:
 	time += dt
+	if depot_anim != "": advance_depot_anim(dt)
 	if screen != "game" or model.human_powered(): cab_view = false
 	cab_blend = move_toward(cab_blend, 1.0 if cab_view else 0.0, dt * 4.0)
 	cab_dt = minf(dt, 0.033)
@@ -1550,7 +1559,69 @@ func _physics_process(dt: float) -> void:
 			autosave = 0
 			save_game()
 
+# --- Entering the depot (B1.2a): the train rolls to its mark, the view closes in, the screen fades to
+# black, the depot opens and fades in. Any key or click skips the rolling part.
+func start_depot_entry() -> void:
+	if depot_anim != "" or screen != "game" or model.state.phase == "depot": return
+	if not model.stopped():
+		notify("Остановись у платформы, чтобы заехать в депо")
+		return
+	if model.station_index() != 0:
+		notify(model.message if model.message != "" else "Заехать в депо можно на станции Лесная")
+		return
+	cancel_drag()
+	depot_anim = "in"
+	depot_anim_t = 0.0
+	depot_anim_from = float(model.state.s)
+	depot_anim_zoom = zoom_level
+	if fade_rect == null:
+		var layer = CanvasLayer.new()
+		layer.layer = 50
+		add_child(layer)
+		fade_rect = ColorRect.new()
+		fade_rect.color = Color(0, 0, 0, 0)
+		fade_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		fade_rect.set_anchors_preset(Control.PRESET_FULL_RECT)
+		layer.add_child(fade_rect)
+	sound.play("gear", 0.5, 0.7)
+
+func skip_depot_anim() -> void:
+	if depot_anim == "in": depot_anim_t = maxf(depot_anim_t, DEPOT_MOVE_S)
+	elif depot_anim == "out": depot_anim_t = DEPOT_FADE_S
+
+func advance_depot_anim(dt: float) -> void:
+	depot_anim_t += dt
+	if depot_anim == "in":
+		var mark = float(model.service_stop(0))
+		var move = clampf(depot_anim_t / DEPOT_MOVE_S, 0.0, 1.0)
+		model.state.s = lerpf(depot_anim_from, mark, smoothstep(0.0, 1.0, move))
+		model.state.v = 0.0
+		model.state.brake = 1.0
+		zoom_level = lerpf(depot_anim_zoom, minf(1.5, depot_anim_zoom * 1.25), smoothstep(0.0, 1.0, move))
+		if fade_rect != null: fade_rect.color.a = clampf((depot_anim_t - DEPOT_MOVE_S) / DEPOT_FADE_S, 0.0, 1.0)
+		if depot_anim_t >= DEPOT_MOVE_S + DEPOT_FADE_S:
+			zoom_level = depot_anim_zoom
+			if model.back_to_depot():
+				screen = "depot"
+				save_game()
+				rebuild()
+				depot_anim = "out"
+				depot_anim_t = 0.0
+			else:
+				notify(model.message)
+				depot_anim = ""
+				if fade_rect != null: fade_rect.color.a = 0.0
+	elif depot_anim == "out":
+		if fade_rect != null: fade_rect.color.a = 1.0 - clampf(depot_anim_t / DEPOT_FADE_S, 0.0, 1.0)
+		if depot_anim_t >= DEPOT_FADE_S:
+			depot_anim = ""
+			if fade_rect != null: fade_rect.color.a = 0.0
+
 func _input(event: InputEvent) -> void:
+	if depot_anim != "" and ((event is InputEventKey and event.pressed and not event.echo) or (event is InputEventMouseButton and event.pressed)):
+		skip_depot_anim()
+		get_viewport().set_input_as_handled()
+		return
 	if awaiting_key != "" and event is InputEventKey and event.pressed and not event.echo:
 		bind_key(event.keycode)
 		get_viewport().set_input_as_handled()
