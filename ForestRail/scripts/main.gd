@@ -1622,10 +1622,11 @@ func draw_control_zoom() -> void:
 		if kind=="lever":
 			for endpoint in range(2):
 				var mark=pivot+Vector2(0,-length).rotated(lerpf(-0.55,0.55,float(endpoint)))
-				draw_string(font,mark+Vector2(-17,-12),["0","100"][endpoint],HORIZONTAL_ALIGNMENT_CENTER,34,13,PAPER)
+				# the ends of neighbouring levers stand close: "100" is set higher than "0" so that they never touch
+				draw_string(font,mark+Vector2(-17,-27 if endpoint==1 else -12),["0","100"][endpoint],HORIZONTAL_ALIGNMENT_CENTER,34,13,PAPER)
 		if drag==id or (pult_t*point).distance_to(get_global_mouse_position())<24: draw_arc(point,10,0,TAU,28,PAPER,1.5,true)
 	if model.vehicle_id()=="steam": draw_steam_panel(rect)
-	var feedback=toast if toast_seconds>0 else ("Крути вентиль по кругу, отпусти — закроется сам. Розжиг — щелчком." if model.vehicle_id()=="steam" else ("Веди шар рычага по кулисе: через N в нужный паз. Пуск — щелчком." if model.vehicle_id()=="motorcar" else ("Двигай ручки вверх и вниз по прорезям, они держат положение." if model.vehicle_id()=="locomotive" else "Веди рукоять по дуге. Пуск — щелчком.")))
+	var feedback=toast if toast_seconds>0 else ("Крути вентиль по кругу, отпусти — закроется сам. Розжиг — щелчком." if model.vehicle_id()=="steam" else ("Веди шар рычага по кулисе: через N в нужный паз. Пуск — щелчком." if model.vehicle_id()=="motorcar" else ("Двигай ручки вверх и вниз по прорезям, они держат положение." if model.vehicle_id()=="locomotive" else "Веди рукоять по дуге: вентиль открывает воздух, тормоз держит состав.")))
 	draw_multiline_string(font,rect.position+Vector2(16,rect.size.y-35),feedback,HORIZONTAL_ALIGNMENT_LEFT,310,15,2,GOLD if toast_seconds>0 else Color("c7c3a0"))
 
 func show_modal(kind: String) -> void:
@@ -2821,6 +2822,7 @@ func draw_cab_dash_details(size: Vector2, layout: Dictionary) -> void:
 	if kind == "motorcar": draw_petrol_cab_extras(size, layout)
 	if kind in ["steam", "locomotive", "pneumatic"]: draw_cab_reverser(size, layout)
 	if kind == "locomotive": draw_electric_cab_extras(size, layout)
+	if kind == "pneumatic": draw_pneumatic_cab_extras(size, layout)
 	if kind == "steam":
 		# water glass on the right: tube with the level, brass fittings
 		var tube = Rect2(size.x - 150, top + 70, 16, 120)
@@ -2885,6 +2887,19 @@ func draw_electric_cab_extras(size: Vector2, layout: Dictionary) -> void:
 	draw_arc(button, 28, 0, TAU, 24, brass, 2.5, true)
 	draw_string(font, button + Vector2(-50, 46), "АВАРИЙНЫЙ ТОРМОЗ", HORIZONTAL_ALIGNMENT_CENTER, 100, 9, Color("a9a589"))
 	cab_hits.append({"id": "emergency", "rect": Rect2(button - Vector2(30, 30), Vector2(60, 60))})
+
+# Pneumatic cab: lamps for low reserve air and for frost on the pipes, under the nameplate.
+func draw_pneumatic_cab_extras(size: Vector2, layout: Dictionary) -> void:
+	var top = float(layout.dash_top)
+	var cx = size.x * 0.5
+	var low_air = float(model.state.fleet_by_id.pneumatic.fuel) / maxf(0.001, float(model.object_stats("pneumatic").tank)) < 0.25
+	var lamps = [["ВОЗДУХ", float(model.state.fleet_by_id.pneumatic.fuel) > 0.0, Color("6cc4e0")], ["НИЗКОЕ ДАВЛ.", low_air, Color("e0564a")], ["ИНЕЙ", model.frost() > 0.35, Color("e6b34a")]]
+	for lamp in range(lamps.size()):
+		var at = Vector2(cx - 60 + lamp * 60, top + 54)
+		draw_circle(at, 9, Color("0c100e"))
+		draw_circle(at, 7, lamps[lamp][2] if lamps[lamp][1] else lamps[lamp][2].darkened(0.78))
+		if lamps[lamp][1]: draw_circle(at, 15, Color(lamps[lamp][2], 0.2))
+		draw_string(font, at + Vector2(-30, 24), lamps[lamp][0], HORIZONTAL_ALIGNMENT_CENTER, 60, 9, Color("a9a589"))
 
 # Petrol cab: ignition lock, choke, fuse box, oil and temperature gauges, gear lamps,
 # a rear-view mirror and pedal pads. The two small gauges are live.
