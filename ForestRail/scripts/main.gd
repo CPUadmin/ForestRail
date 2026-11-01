@@ -159,6 +159,8 @@ func _ready() -> void:
 	if not get_tree().root.has_meta("qa_running"):
 		for arg in qa_args:
 			if arg.begins_with("--qa-suite="):
+				# Tests and debugging runs are silent: nobody listens to the clicks and the engine.
+				AudioServer.set_bus_mute(0, true)
 				var suite = arg.trim_prefix("--qa-suite=")
 				if suite not in ["check_model", "check_physics", "check_interaction", "drive_campaign", "check_presentation", "check_handcar_revision", "check_art_v3", "check_instruments", "check_station_service", "check_world_geometry", "check_mechanism", "check_mechanism_bench", "check_handcar_drive", "check_handcar_input", "check_motor_controls", "check_loading_selection", "check_layout_p7", "check_steam", "check_steam_view", "check_gearbox", "check_petrol_view", "check_skins", "check_perf", "check_cab", "check_sound", "check_forecast", "check_line_v2", "check_speeds", "check_creative", "check_settings", "check_pneumatic", "check_pneumatic_view", "check_pole", "check_pole_view", "check_air", "check_forecast_long", "drive_long", "check_forecast_view", "check_soak_p8", "check_save_p8"]: get_tree().quit(2); return
 				get_tree().root.set_meta("qa_running", true)
@@ -211,7 +213,10 @@ func _ready() -> void:
 			saves.directory = arg.trim_prefix("--qa-dir=")
 			DirAccess.make_dir_recursive_absolute(saves.directory)
 			test_mode = true
+	# A debug build (run from the editor) is silent; the exported game keeps its sound.
+	if OS.is_debug_build(): AudioServer.set_bus_mute(0, true)
 	for arg in args:
+		if arg.begins_with("--qa-") or arg.begins_with("--screenshot="): AudioServer.set_bus_mute(0, true)
 		if arg.begins_with("--screenshot="):
 			screenshot_path = arg.trim_prefix("--screenshot=")
 			smoke_frames = 40

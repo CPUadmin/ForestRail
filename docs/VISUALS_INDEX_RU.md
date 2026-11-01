@@ -8,79 +8,79 @@
 
 Меню с лесом и домашним депо. Ориентир света и материалов.
 
-![Главное меню](../outputs/ForestRail_DevSpec_v3/images/01_main_menu.png)
+![Главное меню](reference/devspec_v3/images/01_main_menu.png)
 
 ## 2. Депо «Лесная» — сборка
 
 Мастерская с выбранной дрезиной и отдельными ветками её улучшений.
 
-![Депо «Лесная» — сборка](../outputs/ForestRail_DevSpec_v3/images/02_depot.png)
+![Депо «Лесная» — сборка](reference/devspec_v3/images/02_depot.png)
 
 ## 3. Выбор загрузки
 
 Выбор загрузки: свободные места, масса и ожидаемая оплата. Числа иллюстративные.
 
-![Выбор загрузки](../outputs/ForestRail_DevSpec_v3/images/03_loading.png)
+![Выбор загрузки](reference/devspec_v3/images/03_loading.png)
 
 ## 4. Сосновый разъезд
 
 Первая небольшая станция: домик, сосны, короткая площадка.
 
-![Сосновый разъезд](../outputs/ForestRail_DevSpec_v3/images/04_pine_junction.png)
+![Сосновый разъезд](reference/devspec_v3/images/04_pine_junction.png)
 
 ## 5. Лесопилка
 
 Тяжёлые грузы, брёвна, навес и погрузочное оборудование.
 
-![Лесопилка](../outputs/ForestRail_DevSpec_v3/images/05_sawmill.png)
+![Лесопилка](reference/devspec_v3/images/05_sawmill.png)
 
 ## 6. Тихая заводь
 
 Водная низина, берёзы, причал и лёгкий туман.
 
-![Тихая заводь](../outputs/ForestRail_DevSpec_v3/images/06_quiet_backwater.png)
+![Тихая заводь](reference/devspec_v3/images/06_quiet_backwater.png)
 
 ## 7. Верхний бор
 
 Остановка после подъёма, скалы и обзор долины.
 
-![Верхний бор](../outputs/ForestRail_DevSpec_v3/images/07_upper_forest.png)
+![Верхний бор](reference/devspec_v3/images/07_upper_forest.png)
 
 ## 8. Дальний бор
 
 Дальняя станция и длинный состав, вечерний свет.
 
-![Дальний бор](../outputs/ForestRail_DevSpec_v3/images/08_far_forest.png)
+![Дальний бор](reference/devspec_v3/images/08_far_forest.png)
 
 ## 9. Поездка через лес
 
 Боковой вид во время поездки, компактные приборы и карта.
 
-![Поездка через лес](../outputs/ForestRail_DevSpec_v3/images/09_forest_route.png)
+![Поездка через лес](reference/devspec_v3/images/09_forest_route.png)
 
 ## 10. Ночная стоянка
 
 Возможное последующее обновление: ночная стоянка и тёплые фонари.
 
-![Ночная стоянка](../outputs/ForestRail_DevSpec_v3/images/10_night_stop.png)
+![Ночная стоянка](reference/devspec_v3/images/10_night_stop.png)
 
 ## 11. Карта линии
 
 Названия и порядок шести станций. Нарисованные высоты не задают генератор.
 
-![Карта линии](../outputs/ForestRail_DevSpec_v3/images/11_route_map.png)
+![Карта линии](reference/devspec_v3/images/11_route_map.png)
 
 ## 12. Улучшение конкретного вагона
 
 Выбранный вагон W02 и его собственные улучшения.
 
-![Улучшение конкретного вагона](../outputs/ForestRail_DevSpec_v3/images/12_wagon_upgrades.png)
+![Улучшение конкретного вагона](reference/devspec_v3/images/12_wagon_upgrades.png)
 
 ## 13. Промежуточная техника
 
 Шесть вариантов машины рядом; перечень ниже.
 
-![Промежуточная техника](../outputs/ForestRail_DevSpec_v3/images/13_vehicle_lineup.png)
+![Промежуточная техника](reference/devspec_v3/images/13_vehicle_lineup.png)
 
 ## Техника на последнем листе
 

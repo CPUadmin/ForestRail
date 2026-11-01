@@ -81,29 +81,29 @@
 ## Скриншоты из игры
 
 ### Прибытие до разгрузки
-![Прибытие и противоречивое сообщение](../outputs/ForestRail_DevSpec_v3/evidence/01_arrival_before_unload.png)
+![Прибытие и противоречивое сообщение](reference/devspec_v3/evidence/01_arrival_before_unload.png)
 
 ### Сброс на видимую платформу
-![Груз не доставлен после сброса на платформу](../outputs/ForestRail_DevSpec_v3/evidence/02_world_platform_drop.png)
+![Груз не доставлен после сброса на платформу](reference/devspec_v3/evidence/02_world_platform_drop.png)
 
 ### Работающий сброс в нижнюю панель
-![Первый предмет доставлен через панель](../outputs/ForestRail_DevSpec_v3/evidence/03_panel_drop.png)
+![Первый предмет доставлен через панель](reference/devspec_v3/evidence/03_panel_drop.png)
 
 ### Неподвижная машина с тормозом 94%
-![Панель разгрузки исчезла](../outputs/ForestRail_DevSpec_v3/evidence/04_stopped_brake94.png)
+![Панель разгрузки исчезла](reference/devspec_v3/evidence/04_stopped_brake94.png)
 
 ### Камера 1.5
-![Здание меньше дрезины при приближении](../outputs/ForestRail_DevSpec_v3/evidence/06_scale_1.5.png)
+![Здание меньше дрезины при приближении](reference/devspec_v3/evidence/06_scale_1.5.png)
 
-Пользовательские исходные кадры: [крупный план](../outputs/ForestRail_DevSpec_v3/evidence/user_controls.png), [весь экран](../outputs/ForestRail_DevSpec_v3/evidence/user_fullscreen.png).
+Пользовательские исходные кадры: [крупный план](reference/devspec_v3/evidence/user_controls.png), [весь экран](reference/devspec_v3/evidence/user_fullscreen.png).
 
 ## Файлы для воспроизведения
 
-- [audit_results.json](../outputs/ForestRail_DevSpec_v3/evidence/audit_results.json) — численные результаты.
-- [runtime.log](../outputs/ForestRail_DevSpec_v3/evidence/runtime.log) — вывод запуска Godot.
-- [check_model.log](../outputs/ForestRail_DevSpec_v3/evidence/check_model.log), [check_physics.log](../outputs/ForestRail_DevSpec_v3/evidence/check_physics.log) — исходные проверки.
-- [audit.gd](../outputs/ForestRail_DevSpec_v3/evidence/audit.gd) — сценарий UI и физических проб.
-- [run_audit.py](../outputs/ForestRail_DevSpec_v3/evidence/run_audit.py) — запуск на машине автора; пути к Godot и проекту нужно адаптировать на другом компьютере.
+- [audit_results.json](reference/devspec_v3/evidence/audit_results.json) — численные результаты.
+- [runtime.log](reference/devspec_v3/evidence/runtime.log) — вывод запуска Godot.
+- [check_model.log](reference/devspec_v3/evidence/check_model.log), [check_physics.log](reference/devspec_v3/evidence/check_physics.log) — исходные проверки.
+- [audit.gd](reference/devspec_v3/evidence/audit.gd) — сценарий UI и физических проб.
+- [run_audit.py](reference/devspec_v3/evidence/run_audit.py) — запуск на машине автора; пути к Godot и проекту нужно адаптировать на другом компьютере.
 - В рабочем проекте исходные проверочные файлы находятся в work/audit_v3. Это диагностический стенд, а не код исправлений.
 
 Первый запуск обёртки завершился ошибкой вывода Unicode-стрелки в консоль Windows уже после успешной работы Godot и записи отчёта. Вывод обёртки исправлен, запуск повторён. Игровые результаты сохранены независимо от печати в консоль.

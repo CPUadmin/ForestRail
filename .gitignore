@@ -28,3 +28,12 @@ qa/v3_p8/
 qa/lever_controls/
 qa/handcar30/
 qa/update_check_20261031/
+
+# Local scratch areas and generated files
+outputs/
+work/
+__pycache__/
+*.pyc
+*.tmp
+ForestRail/.godot/
+.claude/
