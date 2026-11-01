@@ -72,21 +72,25 @@ func run() -> void:
 	check(warned > 1.0 and warned < 3.0, "a coming gust is announced a couple of seconds ahead (%.1f s)" % warned)
 	# the sail: a tail wind with the sail open pulls, with the sail edge-on does not
 	fixed_wind(m, 6.0, 0.0)
+	m.sail_held = true
 	m.set_sail_trim(1.0)
 	var open_run = run_seconds(m, 20.0)
 	check(open_run.v > 2.0 and open_run.v < 8.0, "a 6 m/s tail wind with the sail open moves the car, slower than the wind (%.1f m/s)" % open_run.v)
 	var edge = sail_game()
 	fixed_wind(edge, 6.0, 0.0)
+	edge.sail_held = true
 	edge.set_sail_trim(0.0)
 	var edge_run = run_seconds(edge, 20.0)
 	check(edge_run.v < open_run.v * 0.35, "the sail edge-on pulls much less (%.1f against %.1f)" % [edge_run.v, open_run.v])
 	# a side wind: a half-open sail pulls the best, wide open is worse
 	var beam = sail_game()
 	fixed_wind(beam, 0.0, 8.0)
+	beam.sail_held = true
 	beam.set_sail_trim(0.45)
 	var beam_run = run_seconds(beam, 30.0)
 	var beam_wide = sail_game()
 	fixed_wind(beam_wide, 0.0, 8.0)
+	beam_wide.sail_held = true
 	beam_wide.set_sail_trim(1.0)
 	var wide_run = run_seconds(beam_wide, 30.0)
 	check(beam_run.top > wide_run.top + 0.8 and beam_run.top < 12.0, "on a beam wind the half-open sail beats the wide one (%.1f against %.1f m/s)" % [beam_run.top, wide_run.top])
@@ -94,15 +98,18 @@ func run() -> void:
 	# a calm and a head wind
 	var calm = sail_game()
 	fixed_wind(calm, 0.0, 0.0)
+	calm.sail_held = true
 	calm.set_sail_trim(0.7)
 	check(run_seconds(calm, 20.0).v < 0.05, "in a calm the car stands")
 	var head = sail_game()
 	fixed_wind(head, -6.0, 0.0)
+	head.sail_held = true
 	head.set_sail_trim(0.7)
 	check(run_seconds(head, 20.0).v < 0.3, "dead against the wind the car does not go")
 	# the brake still holds it
 	var held = sail_game()
 	fixed_wind(held, 6.0, 0.0)
+	held.sail_held = true
 	held.set_sail_trim(1.0)
 	held.state.brake = 1.0
 	check(run_seconds(held, 10.0).v < 0.5, "the brake holds the car against the wind")
@@ -110,8 +117,47 @@ func run() -> void:
 	var back = sail_game()
 	fixed_wind(back, 6.0, 0.0)
 	back.state.direction = -1
+	back.sail_held = true
 	back.set_sail_trim(1.0)
 	check(run_seconds(back, 10.0).v < 0.3, "turned round, the same wind is a head wind")
+	# holding, as with the handcar lever: a sail nobody holds does not pull, a held one does,
+	# one made fast on the cleat goes on pulling without the hand
+	var free = sail_game()
+	fixed_wind(free, 6.0, 0.0)
+	free.set_sail_trim(1.0)
+	check(not free.sail_engaged() and run_seconds(free, 15.0).v < 0.1, "a sail nobody holds gives no pull in a good wind")
+	var cleated = sail_game()
+	fixed_wind(cleated, 6.0, 0.0)
+	cleated.sail_grab()
+	cleated.set_sail_trim(1.0)
+	cleated.sail_cleat()
+	check(cleated.sail_cleated and not cleated.sail_held, "made fast on the cleat the hand is free")
+	var cleated_run = run_seconds(cleated, 15.0)
+	check(cleated_run.v > 1.5, "a sail on the cleat goes on pulling (%.1f m/s)" % cleated_run.v)
+	cleated.sail_grab()
+	check(cleated.sail_held and not cleated.sail_cleated, "taking the sail in the hand frees the cleat")
+	cleated.sail_release()
+	check(not cleated.sail_engaged(), "letting go lets it flog")
+	# a gust the hand cannot hold tears the sheet away; the cleat holds longer and goes at a harder pull
+	var gust = sail_game()
+	fixed_wind(gust, 11.0, 0.0)
+	gust.sail_grab()
+	gust.set_sail_trim(1.0)
+	run_seconds(gust, 3.0)
+	check(not gust.sail_held, "a hard gust pulls the sheet out of the hand")
+	var easy = sail_game()
+	fixed_wind(easy, 11.0, 0.0)
+	easy.sail_grab()
+	easy.set_sail_trim(0.3)
+	run_seconds(easy, 3.0)
+	check(easy.sail_held, "easing the sail in the gust keeps the hold")
+	var tough = sail_game()
+	fixed_wind(tough, 20.0, 0.0)
+	tough.sail_grab()
+	tough.set_sail_trim(1.0)
+	tough.sail_cleat()
+	run_seconds(tough, 3.0)
+	check(not tough.sail_cleated, "even the cleat gives way to a storm")
 	# trim is clamped, and nothing else has a sail
 	m.set_sail_trim(3.0)
 	check(is_equal_approx(m.sail_trim, 1.0), "the trim stays in 0..1")

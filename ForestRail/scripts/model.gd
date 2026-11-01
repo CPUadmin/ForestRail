@@ -26,6 +26,13 @@ var pole = Pole.new()
 # the numbers of the last step for the hud and the picture.
 var wind = Wind.new()
 var sail_trim = 0.6
+# Holding (as with the handcar lever): the sail pulls only while the hand holds the free corner or the
+# sheet is made fast on the cleat; let go and it flogs like a flag and pulls nothing.
+const SAIL_GRIP_N = 220.0
+const SAIL_CLEAT_N = 320.0
+var sail_held = false
+var sail_cleated = false
+var sail_over = 0.0
 var sail_info: Dictionary = {}
 # B1.1: the brake was set by the platform itself, not by the player
 var auto_brake = false
@@ -132,7 +139,7 @@ func drive_command() -> bool:
 	match vehicle_id():
 		"handcar": return hand_drive.held
 		"pole": return pole.planted() and absf(pole.effort_target) > 0.05
-		"sail": return sail_trim > 0.35
+		"sail": return sail_trim > 0.35 and sail_engaged()
 		"motorcar": return float(state.throttle) > 0.02 and int(state.gear) > 0 and bool(state.engine)
 		_: return float(state.throttle) > 0.02
 
@@ -164,6 +171,7 @@ func update_auto_hold() -> void:
 
 func reset_input() -> void:
 	hand_drive.release()
+	sail_held = false
 	pump_work = 0.0
 	output_power = 0.0
 
@@ -1279,6 +1287,27 @@ func wind_here(s: float = -9999.0) -> Vector2:
 func set_sail_trim(value: float) -> void:
 	if vehicle_id() == "sail": sail_trim = clampf(value, 0.0, 1.0)
 
+func sail_engaged() -> bool:
+	return sail_held or sail_cleated
+
+# Take the free corner of the sail in the hand (off the cleat if it was made fast there).
+func sail_grab() -> void:
+	if vehicle_id() != "sail": return
+	sail_held = true
+	sail_cleated = false
+	sail_over = 0.0
+
+func sail_release() -> void:
+	sail_held = false
+
+# Make the sheet fast on the cleat: the trim stays, the hand is free.
+func sail_cleat() -> void:
+	if vehicle_id() != "sail" or not sail_held: return
+	sail_cleated = true
+	sail_held = false
+	sail_over = 0.0
+	events.append("gear")
+
 # How well the trim suits the angle of the apparent wind: 1 is perfect, 0 is no pull.
 func sail_quality(beta: float, trim: float) -> float:
 	var best = 1.0
@@ -1294,7 +1323,7 @@ func sail_pull(beta: float) -> float:
 	return -0.15
 
 # The force of the sail along the route (route frame), and the numbers for the hud and the picture.
-func sail_step() -> float:
+func sail_step(dt: float = 1.0 / 60.0) -> float:
 	wind_ready()
 	var w = wind_here()
 	var forward_speed = float(state.v) * float(int(state.direction))
@@ -1304,8 +1333,22 @@ func sail_step() -> float:
 	var beta = atan2(absf(uc), ua)
 	var quality = sail_quality(beta, sail_trim)
 	var area = 6.0
-	var force = 0.5 * 1.2 * area * apparent * apparent * sail_pull(beta) * (quality if sail_pull(beta) > 0.0 else 1.0)
-	sail_info = {"wind": w, "apparent": apparent, "beta": beta, "quality": quality, "force": force, "trim": sail_trim, "gust": wind.gust_ahead(float(state.s), float(state.stats.seconds))}
+	var pulled = 0.5 * 1.2 * area * apparent * apparent * sail_pull(beta) * (quality if sail_pull(beta) > 0.0 else 1.0)
+	var engaged = sail_engaged()
+	# a sail nobody holds flogs and gives no pull, only a little drag against the way the car goes
+	var force = pulled if engaged else -0.05 * 0.5 * 1.2 * area * forward_speed * absf(forward_speed)
+	# a gust the hand cannot hold tears the sheet away; the cleat gives way to a harder pull
+	var limit = SAIL_GRIP_N if sail_held else SAIL_CLEAT_N
+	if engaged and absf(pulled) > limit:
+		sail_over += dt
+		if sail_over > (0.8 if sail_held else 0.4):
+			sail_held = false
+			sail_cleated = false
+			sail_over = 0.0
+			events.append("land")
+	else:
+		sail_over = maxf(0.0, sail_over - dt)
+	sail_info = {"wind": w, "apparent": apparent, "beta": beta, "quality": quality, "force": force, "pulled": pulled, "engaged": sail_engaged(), "held": sail_held, "cleated": sail_cleated, "trim": sail_trim, "gust": wind.gust_ahead(float(state.s), float(state.stats.seconds))}
 	return force * float(int(state.direction))
 
 # --- Pole truck (N12): the controls only aim, drop, lift and lean on a real pole ---
@@ -1376,7 +1419,7 @@ func physics_step(dt: float) -> void:
 			state.engine = float(fleet.fuel) > 0
 		if vehicle_id() == "steam": drive = steam_step(dt, fleet)
 		elif vehicle_id() == "sail":
-			drive = sail_step()
+			drive = sail_step(dt)
 		elif vehicle_id() == "pole":
 			pole.build(int(route.seed_value), float(route.length_m), route.station_s)
 			drive = pole.step(dt, float(state.s), float(state.v), int(state.direction))

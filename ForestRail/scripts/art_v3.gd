@@ -386,7 +386,9 @@ func sail_point(x: float, y: float) -> Vector2:
 
 func sail_geometry(model) -> Dictionary:
 	var fwd = float(int(model.state.direction)) if not model.state.is_empty() else 1.0
-	var trim = float(model.sail_trim)
+	var time = Time.get_ticks_msec() / 1000.0
+	# a sail that nobody holds flogs: the boom swings about on its own
+	var trim = float(model.sail_trim) if model.sail_engaged() else 0.5 + 0.42 * sin(time * 5.7) * sin(time * 2.3)
 	var boom = SAIL_BOOM * cos(trim * PI * 0.5)
 	return {"fwd": fwd, "mast_x": SAIL_MAST_X * fwd, "boom_end_x": (SAIL_MAST_X * fwd) - fwd * boom, "foot_y": SAIL_FOOT_Y, "top_y": SAIL_TOP_Y, "boom": boom}
 
@@ -398,6 +400,9 @@ func draw_sail_overlay(canvas: Node2D, model) -> void:
 	var info: Dictionary = model.sail_info
 	var quality = float(info.quality) if not info.is_empty() else 1.0
 	var pull = clampf(float(info.force) / 220.0, -0.3, 1.0) if not info.is_empty() else 0.0
+	if not model.sail_engaged():
+		quality = 0.1
+		pull = 0.0
 	var ripple = (1.0 - quality) * 0.16 + 0.015
 	var mast_x = float(g.mast_x)
 	var wood = Color("7a5530")
@@ -450,7 +455,12 @@ func draw_sail_overlay(canvas: Node2D, model) -> void:
 	else:
 		canvas.draw_line(sail_point(mast_x, g.foot_y), sail_point(mast_x, g.top_y), Color(0.93, 0.89, 0.8), 0.035 * PX, true)
 	# the sheet from the boom end down to the sailor's hand, with a sag
-	var sailor_hand = sail_point(-0.78 * fwd, 1.12)
+	var cleat_point = sail_point(-0.14 * fwd, 0.66)
+	var sailor_hand = cleat_point if model.sail_cleated else sail_point(-0.78 * fwd, 1.12)
+	# the cleat: a brass horn on the deck, where the sheet is made fast
+	canvas.draw_line(cleat_point + Vector2(-0.07, 0.0) * PX, cleat_point + Vector2(0.07, 0.0) * PX, Color("c9a24e"), 0.035 * PX, true)
+	canvas.draw_line(cleat_point + Vector2(-0.07, 0.0) * PX, cleat_point + Vector2(-0.09, -0.06) * PX, Color("c9a24e"), 0.03 * PX, true)
+	canvas.draw_line(cleat_point + Vector2(0.07, 0.0) * PX, cleat_point + Vector2(0.09, -0.06) * PX, Color("c9a24e"), 0.03 * PX, true)
 	var sag = sail_point((float(g.boom_end_x) - 0.78 * fwd) * 0.5, 0.95)
 	var sheet = PackedVector2Array()
 	for k in range(13):

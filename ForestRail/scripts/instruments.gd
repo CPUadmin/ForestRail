@@ -297,10 +297,11 @@ func draw_status() -> void:
 	if m.vehicle_id()=="sail":
 		var info = m.sail_info
 		var wind_speed = info.wind.length() if not info.is_empty() else 0.0
-		title = "ПАРУС  ·  ветер %.1f м/с" % wind_speed
+		var hold_text = "свободен" if info.is_empty() or not bool(info.get("engaged", false)) else ("в руке" if bool(info.get("held", false)) else "на утке")
+		title = "ПАРУС · " + hold_text
 		var gust = float(info.get("gust", -1.0)) if not info.is_empty() else -1.0
-		if gust >= 0.0: title += "  ·  порыв через %.0f с" % gust
-		value = "тяга %d Н" % roundi(float(info.get("force", 0.0))) if not info.is_empty() else "тяга 0 Н"
+		if gust >= 0.0: title += " · порыв %.0f с" % gust
+		value = "ветер %.1f м/с · %d Н" % [wind_speed, roundi(float(info.get("force", 0.0)))] if not info.is_empty() else "ветер 0 · 0 Н"
 		fraction = float(info.get("quality", 0.0)) if not info.is_empty() else 0.0
 	elif m.vehicle_id()=="pole":
 		title = "ШЕСТ  ·  " + ("упор: " + str(m.pole_ground_at(float(m.pole.tip_s)).name) if m.pole.planted() else "в руках")

@@ -76,7 +76,27 @@ func run() -> void:
 		still.relative = Vector2.ZERO
 		game._input(still)
 		check(is_equal_approx(float(game.model.sail_trim), after_back), "a car running away from the camera does not move the sail by itself (%.3f vs %.3f, drag %s)" % [float(game.model.sail_trim), after_back, game.drag])
-		game.cancel_drag()
+		check(game.model.sail_held, "the sail is in the hand while the button is held")
+		# let go away from the cleat: the sail flogs
+		var away = InputEventMouseButton.new()
+		away.button_index = MOUSE_BUTTON_LEFT
+		away.pressed = false
+		away.position = grab + Vector2(300, -200)
+		game._input(away)
+		check(not game.model.sail_engaged() and game.drag == "", "let go in the air: nobody holds the sail")
+		# take it again and let go over the cleat: the sheet is made fast
+		game._unhandled_input(click)
+		check(game.model.sail_held, "taken again")
+		if game.sail_cleat_point != Vector2.ZERO:
+			var at_cleat = InputEventMouseButton.new()
+			at_cleat.button_index = MOUSE_BUTTON_LEFT
+			at_cleat.pressed = false
+			at_cleat.position = game.sail_cleat_point
+			game._input(at_cleat)
+			check(game.model.sail_cleated and not game.model.sail_held, "let go over the cleat: the sheet is fast")
+			await shot("sail_cleated_%d" % size.y)
+		game.model.sail_release()
+		game.model.sail_cleated = false
 		game.model.state.v = 0.0
 		game.model.state.s = 3000.0
 	print("SAIL VIEW CHECKS ", checks, "; FAILURES ", failures)

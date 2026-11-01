@@ -48,6 +48,7 @@ var screen = "menu"
 var tab = "Рейсы"
 var selected_object = "handcar"
 var pole_press_rel = 0.0
+var sail_cleat_point = Vector2.ZERO   # the screen place of the cleat, where the sheet is made fast
 var sail_hold = 0.0   # how far behind the mast the boom end is held, metres
 var sail_rect = Rect2()   # where the sail can be taken (B6.4)
 var workshop_hits: Array = []   # B1.2c: the parts of the machine in the workshop that can be pointed at
@@ -1270,7 +1271,7 @@ func update_hud() -> void:
 	elif stop_index >= 0 and model.stopped():
 		hint = "Станция «%s». Перетащи груз для этой станции на площадку внизу." % at_station
 	elif model.vehicle_id() == "sail":
-		hint = "Тяни нижний угол паруса (гик) мышью: к мачте — парус раскрыт, назад — ребром. Попутный ветер — раскрой, боковой — наполовину. Тормоз — красный рычаг у носа или клавиша %s."  % key_name("brake")
+		hint = "Зажми нижний угол паруса мышью и держи: к мачте — парус раскрыт, назад — ребром. Отпустил — парус полощет и не тянет; отпусти над утёй у кормы (медная скоба) — шкот закреплён. Попутный ветер — раскрой, боковой — наполовину. Тормоз — красный рычаг у носа или клавиша %s."  % key_name("brake")
 	elif model.vehicle_id() == "pole":
 		hint = "Веди мышью — шест следует за ней. Щелчок втыкает его; держи и тяни мышь назад — едешь, вперёд — встаёшь на шест. Отпустил — шест поднят. Красный рычаг — тормоз."
 	elif model.vehicle_id() == "handcar":
@@ -2146,7 +2147,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		if model.vehicle_id() == "sail" and model.state.phase == "route" and not in_closeup and not paused and sail_rect.has_point(mouse):
 			drag = "sail"
 			Input.set_default_cursor_shape(Input.CURSOR_DRAG)
-			# the hand holds the free end of the boom where it is; only the motion of the mouse moves it
+			# the hand takes the free end of the boom and holds it where it is; only the motion of the mouse moves it
+			model.sail_grab()
 			sail_hold = ArtV3.SAIL_BOOM * cos(float(model.sail_trim) * PI * 0.5)
 			get_viewport().set_input_as_handled()
 			return
@@ -2177,6 +2179,10 @@ func finish_drag(mouse: Vector2) -> void:
 		if target != "invalid":
 			transfer_cargo(drag_item,target,mouse)
 		else: notify("Перенеси груз в выделенную зону разгрузки или свободное место")
+	elif drag == "sail":
+		# let go over the cleat and the sheet is made fast; anywhere else and the sail flogs, free
+		if sail_cleat_point != Vector2.ZERO and mouse.distance_to(sail_cleat_point) < 46.0: model.sail_cleat()
+		else: model.sail_release()
 	elif drag == "pole":
 		model.pole_lift()
 	elif drag == "coal":
@@ -2323,6 +2329,7 @@ func _draw() -> void:
 	grip_hits.clear()
 	ice_hits.clear()
 	sail_rect = Rect2()
+	sail_cleat_point = Vector2.ZERO
 	workshop_hits.clear()
 	steam_hits.clear()
 	cab_hits.clear()
@@ -2361,6 +2368,11 @@ func _draw() -> void:
 			if info.size!=Vector2.ZERO:
 				draw_style_box(style(Color(0.08,0.15,0.12,0.87),Color("526c59"),6),info.grow(7))
 			if dock_visible(): draw_loading_dock(size)
+			if drag == "sail" and sail_cleat_point != Vector2.ZERO:
+				# while the sail is in the hand: let go over the cleat to make the sheet fast
+				var pulse = 0.5 + 0.5 * sin(time * 6.0)
+				draw_arc(sail_cleat_point, 34.0 + 4.0 * pulse, 0, TAU, 28, GOLD, 2.4, true)
+				draw_string(font, sail_cleat_point + Vector2(-34, 52), "утка: отпусти тут", HORIZONTAL_ALIGNMENT_LEFT, 120, 14, GOLD)
 			draw_cargo_feedback()
 			if control_zoom and not model.human_powered(): draw_control_zoom()
 			draw_tooltip()
@@ -3608,6 +3620,7 @@ func add_world_hits(id: String, index: int, transform: Transform2D) -> void:
 			var a = transform * art.sail_point(float(geo.mast_x) + 0.2 * float(geo.fwd), 1.0)
 			var b = transform * art.sail_point(float(geo.mast_x) - 1.8 * float(geo.fwd), 3.8)
 			sail_rect = Rect2(a, Vector2.ZERO).expand(b).grow(10.0)
+			sail_cleat_point = transform * art.sail_point(-0.14 * float(geo.fwd), 0.66)
 		if id=="pneumatic":
 			for i in range(ArtV3.FROST_SPOTS.size()):
 				ice_hits.append({"spot": i, "position": transform * art.steam_point(ArtV3.FROST_SPOTS[i].x, ArtV3.FROST_SPOTS[i].y)})
