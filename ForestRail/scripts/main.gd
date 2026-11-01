@@ -1260,7 +1260,7 @@ func update_hud() -> void:
 	var returning = not state.active.is_empty() and state.active.phase == "return"
 	var stop_index = model.station_index()
 	var at_station = model.station_name(model.data.stations[stop_index].id) if stop_index >= 0 else ""
-	hud.text = "%s · %d м" % [model.journey_heading(),absf(target_s-float(state.s))]
+	hud.text = "%s · %d м · %s" % [model.journey_heading(),absf(target_s-float(state.s)),model.clock_text()]
 	order_label.text=order
 	var hint = ""
 	if state.phase == "loading":
@@ -2410,6 +2410,9 @@ func update_cab_sides() -> void:
 			var rect = cab_window_rect(size, top, window.side)
 			window.position = rect.position
 			window.size = rect.size
+			# the side windows follow the time of day
+			var dark = model.night_amount()
+			window.modulate = Color(lerpf(1.0, 0.36, dark), lerpf(1.0, 0.4, dark), lerpf(1.0, 0.55, dark))
 			window.queue_redraw()
 
 func pult_screen_rect() -> Rect2:
@@ -2454,6 +2457,14 @@ func draw_cab_scene(size: Vector2) -> void:
 	draw_set_transform_matrix(Transform2D(0.0, Vector2.ONE, 0.0, cab_shake()))
 	var look = draw_cab_forward(view)
 	draw_cab_nose(view, look)
+	# B4.1: the glass at night and at dawn
+	var night = model.night_amount()
+	if model.twilight() > 0.01: draw_rect(view, Color(1.0, 0.5, 0.25, 0.16 * minf(1.0, model.twilight())))
+	if night > 0.01:
+		draw_rect(view, Color(0.02, 0.04, 0.12, 0.6 * night))
+		if night > 0.25:
+			var beam = Color(1.0, 0.88, 0.55, 0.22 * clampf((night - 0.25) / 0.5, 0.0, 1.0))
+			draw_polygon(PackedVector2Array([Vector2(view.size.x * 0.5, view.size.y), Vector2(view.size.x * 0.28, view.size.y * 0.62), Vector2(view.size.x * 0.72, view.size.y * 0.62)]), PackedColorArray([beam, Color(beam, 0.0), Color(beam, 0.0)]))
 	draw_set_transform_matrix(Transform2D.IDENTITY)
 	draw_cab_frame(size, top)
 	draw_cab_dash_details(size, layout)
@@ -2814,8 +2825,8 @@ func draw_cab_dash_details(size: Vector2, layout: Dictionary) -> void:
 	for hour in range(12):
 		var a = TAU * hour / 12.0 - PI / 2
 		draw_line(clock + Vector2(cos(a), sin(a)) * 15, clock + Vector2(cos(a), sin(a)) * 18, Color("2a2218"), 1.5)
-	var minutes = fposmod(float(model.state.stats.seconds) / 60.0, 60.0)
-	var hours = fposmod(float(model.state.stats.seconds) / 3600.0 + 9.0, 12.0)
+	var minutes = fposmod(model.world_hours() * 60.0, 60.0)
+	var hours = fposmod(model.world_hours(), 12.0)
 	var am = TAU * minutes / 60.0 - PI / 2
 	var ah = TAU * hours / 12.0 - PI / 2
 	draw_line(clock, clock + Vector2(cos(am), sin(am)) * 15, Color("2a2218"), 1.5, true)

@@ -108,8 +108,33 @@ func draw_ground_shade(canvas: Node2D) -> void:
 	vertical_gradient(canvas, Rect2(0, y + 70, size.x, 130), Color(shade, 0.0), Color(shade, 0.78))
 	canvas.draw_rect(Rect2(0, y + 200, size.x, maxf(0, size.y - y - 200)), Color(shade, 0.78))
 
+# B4.1: night and twilight over the world, then the lights of the machine and of the stations on top of it.
+func draw_day_night(canvas: Node2D, size: Vector2) -> void:
+	var model = game.model
+	if model == null or model.state.is_empty() or game.screen != "game": return
+	var night = model.night_amount()
+	var tw = minf(1.0, model.twilight())
+	if tw > 0.01: canvas.draw_rect(Rect2(Vector2.ZERO, size), Color(1.0, 0.5, 0.25, 0.16 * tw))
+	if night > 0.01: canvas.draw_rect(Rect2(Vector2.ZERO, size), Color(0.02, 0.04, 0.12, 0.62 * night))
+	if night < 0.25: return
+	var sc = game.view_scale()
+	var lit = clampf((night - 0.25) / 0.5, 0.0, 1.0)
+	# windows of the stations
+	for i in range(model.data.stations.size()):
+		var at = game.world_point(float(model.route.station_s[i])) + Vector2(0, -1.6 * art.PX * sc)
+		glow(canvas, at, Vector2(1.5, 0.9) * art.PX * sc, Color(1.0, 0.8, 0.45, 0.5 * lit))
+	# the headlamp of the lead machine: a warm cone ahead
+	var dir = float(int(model.state.direction))
+	var front = game.world_point(float(model.state.s)) + Vector2(dir * 1.9 * art.PX * sc, -0.9 * art.PX * sc)
+	var far = 11.0 * art.PX * sc
+	var beam = Color(1.0, 0.88, 0.55, 0.36 * lit)
+	var fade = Color(beam, 0.0)
+	canvas.draw_polygon(PackedVector2Array([front, front + Vector2(dir * far, -2.2 * art.PX * sc), front + Vector2(dir * far, 2.6 * art.PX * sc)]), PackedColorArray([beam, fade, fade]))
+	glow(canvas, front, Vector2(0.7, 0.5) * art.PX * sc, Color(1.0, 0.9, 0.6, 0.6 * lit))
+
 func draw_light(canvas: Node2D) -> void:
 	var size = game.get_viewport_rect().size
+	draw_day_night(canvas, size)
 	var edge = Color(0.05, 0.09, 0.06, 0.38)
 	var clear = Color(edge, 0.0)
 	horizontal_gradient(canvas, Rect2(0, 0, size.x * 0.2, size.y), edge, clear)

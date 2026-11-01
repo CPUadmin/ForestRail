@@ -225,5 +225,35 @@ func run() -> void:
 	await key(KEY_E)
 	for i in range(4): await frame()
 	check(game.cab_view, "the cab raised by hand at a platform stays")
+	# B4.1: the time of day. A day is 24 minutes of driving, it starts at seven and is the same for a save.
+	context = "daynight "
+	var clock = Model.new()
+	clock.new_game(42)
+	check(is_equal_approx(clock.world_hours(), 7.0) and clock.daylight() > 0.7, "the day starts at seven in the morning, in the light")
+	clock.state.stats.seconds = 6.0 * 60.0
+	check(is_equal_approx(clock.world_hours(), 13.0) and is_equal_approx(clock.daylight(), 1.0) and clock.night_amount() == 0.0, "at one o'clock it is full day")
+	clock.state.stats.seconds = 18.0 * 60.0
+	check(is_equal_approx(clock.world_hours(), 1.0) and clock.daylight() == 0.0 and clock.night_amount() == 1.0, "at one at night it is dark")
+	clock.state.stats.seconds = 1440.0
+	check(is_equal_approx(clock.world_hours(), 7.0), "a day later it is seven again")
+	clock.state.stats.seconds = 23.5 * 60.0 * 24.0 / 24.0
+	check(clock.twilight() >= 0.0 and clock.clock_text().length() == 5, "the clock reads as hh:mm (%s)" % clock.clock_text())
+	var round_trip = Model.new()
+	round_trip.new_game(42)
+	var saved = clock.serialize()
+	check(round_trip.restore(saved) and is_equal_approx(round_trip.world_hours(), clock.world_hours()), "a save knows the hour")
+	await prepare("motorcar")
+	game.model.state.stats.seconds = 18.0 * 60.0
+	game.model.state.engine = true
+	for i in range(8): await frame()
+	await shot("night_outside_motorcar")
+	await key(KEY_E)
+	for i in range(8): await frame()
+	await shot("night_cab_motorcar")
+	check(game.cab_active(), "the cab works at night")
+	await key(KEY_E)
+	game.model.state.stats.seconds = 11.5 * 60.0
+	for i in range(6): await frame()
+	await shot("dusk_outside_motorcar")
 	print("CAB CHECKS ", checks, "; FAILURES ", failures)
 	get_tree().quit(0 if failures.is_empty() else 1)

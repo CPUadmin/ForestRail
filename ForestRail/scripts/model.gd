@@ -990,6 +990,32 @@ func start_engine(value: bool) -> bool:
 	events.append("gear")
 	return true
 
+# --- B4.1: the time of day. A game day is 24 minutes of driving (the clock runs only on the road, like
+# the other statistics) and starts at seven in the morning, so that a save always knows what hour it is.
+const DAY_SECONDS = 1440.0
+const DAY_START_HOUR = 7.0
+
+func world_hours() -> float:
+	if state.is_empty(): return DAY_START_HOUR
+	return fposmod(DAY_START_HOUR + float(state.stats.seconds) / DAY_SECONDS * 24.0, 24.0)
+
+# 1 in the day, 0 in the night, soft at dawn (5-8) and dusk (18-21).
+func daylight() -> float:
+	var h = world_hours()
+	return smoothstep(5.0, 8.0, h) * (1.0 - smoothstep(18.0, 21.0, h))
+
+func night_amount() -> float:
+	return 1.0 - daylight()
+
+# Warm light of sunrise and sunset: strongest at 6:30 and 19:30.
+func twilight() -> float:
+	var h = world_hours()
+	return clampf(1.0 - absf(h - 6.5) / 1.5, 0.0, 1.0) + clampf(1.0 - absf(h - 19.5) / 1.5, 0.0, 1.0)
+
+func clock_text() -> String:
+	var h = world_hours()
+	return "%02d:%02d" % [int(h), int(fposmod(h, 1.0) * 60.0)]
+
 # --- B3.4: temperature of the petrol engine and the electric motor ---
 # One number 0..1 per machine (fleet entry "temp"). It warms with the work done and cools with the
 # speed of the air going past (Newton cooling), so a long climb at a crawl overheats and a run
