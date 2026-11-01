@@ -518,7 +518,15 @@ func trip_forecast(mission: Dictionary = {}) -> Dictionary:
 	var rate = float(base.get("energy_per_m" + suffix, base.energy_per_m))
 	var fixed = float(base.get("energy_fixed" + suffix, base.get("energy_fixed", 0.0) if suffix == "" else 0.0))
 	var water_rate = float(base.get("water_per_m" + suffix, base.get("water_per_m", 0.0)))
-	return {"far_m": far, "leg_m": leg, "need": fixed + leg * rate, "have": float(fleet.fuel), "tank": float(stats.tank),
+	# a heavy load costs more: the rolling part of the energy grows with the cargo against the empty train
+	# (measured: logs doubling the mass of the motorcar cost it 12%, the locomotive 10% for 42%; 0.25 covers all)
+	var empty_mass = 0.0
+	for id in body_ids(): empty_mass += float(object_stats(id).mass)
+	var cargo_mass = 0.0
+	for stop in mission.get("dropoffs", []):
+		for entry in stop.get("cargo", []): cargo_mass += float(cargo_base(str(entry[0])).mass_kg) * float(entry[1])
+	var load_factor = 1.0 + 0.25 * cargo_mass / maxf(empty_mass, 1.0)
+	return {"far_m": far, "leg_m": leg, "need": (fixed + leg * rate) * load_factor, "load_factor": load_factor, "have": float(fleet.fuel), "tank": float(stats.tank),
 		"water_leg_m": water_leg, "water_need": water_leg * water_rate if float(stats.water) > 0 else 0.0,
 		"water_have": float(fleet.get("water", 0)), "water_tank": float(stats.water), "unit": str(base.energy_unit)}
 

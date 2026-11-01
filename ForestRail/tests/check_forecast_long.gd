@@ -41,6 +41,23 @@ func run() -> void:
 			var water = float(real.get("water_used", 0.0))
 			var water_tank = float(m.object_stats("steam").water)
 			check(float(forecast.water_need) >= water and float(forecast.water_need) <= water * 1.6 and water <= water_tank, "steam water: forecast %.0f, real %.0f, tank %.0f" % [forecast.water_need, water, water_tank])
+	# B2.4: a heavy load (six bundles of logs) costs more than a sack on the way to D; the forecast knows it and still covers the real use
+	for kind in ["motorcar", "locomotive", "pneumatic"]:
+		var heavy = Model.new()
+		heavy.new_game(42, 2)
+		heavy.state.money = 1000000
+		Fixtures.equip(heavy, kind)
+		heavy.refuel()
+		for station in heavy.data.stations:
+			if station.id != "A": station.services = {}
+		var heavy_mission = {"dropoffs": [{"station": "D", "cargo": [["logs", 6]]}]}
+		var light_need = float(heavy.trip_forecast({"dropoffs": [{"station": "D", "cargo": [["sack", 1]]}]}).need)
+		var heavy_need = float(heavy.trip_forecast(heavy_mission).need)
+		var heavy_real = Driver.round_trip(heavy, "D", 6, "logs")
+		var heavy_used = float(heavy_real.get("used", 0.0))
+		check(bool(heavy_real.get("ok", false)), kind + " completes the heavy round trip")
+		check(heavy_need > light_need * 1.03, "%s: the forecast grows with the load (%.3f against %.3f)" % [kind, heavy_need, light_need])
+		check(heavy_need >= heavy_used and heavy_need <= heavy_used * 1.6, "%s: heavy forecast %.3f covers the real %.3f" % [kind, heavy_need, heavy_used])
 	# B2.2: the real tanks (petrol and battery halved, air a third). A whole round trip no longer fits one
 	# tank; the stations that sell fuel (A, E, F, and the compressor at D) are what makes the line work.
 	Model.legacy_tanks = false
