@@ -151,6 +151,20 @@ func run() -> void:
 	game.tab = "Гараж"
 	game.rebuild()
 	for i in range(4): await get_tree().process_frame
+	# B1.2e: the garage shows each machine with its picture and its role, the consist shows the train
+	game.tab = "Гараж"
+	game.rebuild()
+	for i in range(6): await get_tree().process_frame
+	var garage_pictures = 0
+	for node in game.ui.find_children("*", "TextureRect", true, false): garage_pictures += 1
+	check(garage_pictures >= game.Model.VEHICLE_IDS.size(), "every machine in the garage has its picture (%d)" % garage_pictures)
+	await RenderingServer.frame_post_draw
+	get_tree().root.get_texture().get_image().save_png(output_dir.path_join("garage_%d.png" % get_tree().root.size.y))
+	game.tab = "Состав"
+	game.rebuild()
+	for i in range(6): await get_tree().process_frame
+	await RenderingServer.frame_post_draw
+	get_tree().root.get_texture().get_image().save_png(output_dir.path_join("consist_%d.png" % get_tree().root.size.y))
 	var tiles = 0
 	for node in game.ui.find_children("*", "Button", true, false): if node.tooltip_text in ["Гараж", "Состав", "Мастерская", "Доска заказов"]: tiles += 1
 	check(tiles == 4, "four pictured places in the depot (%d)" % tiles)

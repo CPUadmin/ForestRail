@@ -779,9 +779,10 @@ func build_depot(size: Vector2) -> void:
 			var owned = model.state.fleet_by_id.has(id)
 			var base = model.vehicle_base(id)
 			var label = str(base.name)
-			var c = card(right, GOLD if model.vehicle_id() == id else CARD_EDGE)
+			var c = picture_card(right, id, owned, GOLD if model.vehicle_id() == id else CARD_EDGE)
 			add_label(c, label, 23)
-			add_label(c, vehicle_summary(id), 17, MUTED_INK)
+			add_label(c, "до %d км/ч  ·  %s" % [roundi(model.top_speed_kmh(id)), VEHICLE_ROLE.get(id, "")], 16, INK)
+			add_label(c, vehicle_summary(id), 15, MUTED_INK)
 			if owned:
 				add_button(c, "Выбрана" if model.vehicle_id() == id else "Выбрать", func():
 					if model.select_vehicle(id):
@@ -798,12 +799,13 @@ func build_depot(size: Vector2) -> void:
 							rebuild()
 						else: notify(model.message)))
 	elif tab == "Состав":
+		consist_strip(right)
 		add_label(right, "Вагоны твои: их улучшения сохраняются при перестановке. %s допускает вагонов: %d." % [vehicle_display_name(), model.max_wagons(model.vehicle_id())])
 		for id in model.state.wagons_by_id:
 			if id == Model.TEMP_WAGON: continue
 			var stats = model.object_stats(id)
 			var coupled = id in model.state.consist_ids
-			var c = card(right, GOLD if coupled else CARD_EDGE)
+			var c = picture_card(right, id, coupled, GOLD if coupled else CARD_EDGE)
 			add_label(c, "%s  ·  %d мест  ·  %d кг%s" % [id, stats.slots, stats.mass, "  ·  в составе" if coupled else ""], 21)
 			add_button(c, "Отцепить " + id if id in model.state.consist_ids else "Прицепить " + id, func():
 				if model.toggle_wagon(id): save_game(); rebuild()
@@ -1340,6 +1342,50 @@ func energy_text() -> String:
 
 func vehicle_display_name() -> String:
 	return str(model.vehicle_base().name)
+
+# What each machine is for, in a few words (the court of the five vehicles and the speed table).
+const VEHICLE_ROLE = {
+	"handcar": "бесплатная, без топлива; подъём больше 3% ей не по силам",
+	"pole": "берёт подъёмы медленно и точно; грунт решает, где упереться",
+	"steam": "тянет много, но разгоняется медленнее всех; уголь и вода",
+	"motorcar": "самая быстрая; бензин расходует быстро",
+	"pneumatic": "сильная на подъёмах; воздух кончается, трубки обмерзают",
+	"locomotive": "ровная тяга и рекуперация; батарея садится под нагрузкой"}
+
+# A card with the picture of the machine or wagon on its left; returns the box for the text and buttons.
+func picture_card(parent: Node, id: String, bright: bool, edge: Color) -> VBoxContainer:
+	var outer = card(parent, edge)
+	var row = HBoxContainer.new()
+	row.add_theme_constant_override("separation", 12)
+	outer.add_child(row)
+	var picture = TextureRect.new()
+	picture.texture = art.textures[art.body_key(id)]
+	picture.custom_minimum_size = Vector2(150.0, 78.0) * float(settings.text_scale)
+	picture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	picture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	picture.modulate = Color.WHITE if bright else Color(1, 1, 1, 0.55)
+	row.add_child(picture)
+	var info = VBoxContainer.new()
+	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(info)
+	return info
+
+# The train as it stands on the rails: the machine and its coupled wagons, then the wagons standing aside.
+func consist_strip(parent: Node) -> void:
+	var strip = HBoxContainer.new()
+	strip.add_theme_constant_override("separation", 6)
+	parent.add_child(strip)
+	var coupled: Array = [model.vehicle_id()] + model.state.consist_ids
+	for id in coupled:
+		var tile = TextureRect.new()
+		tile.texture = art.textures[art.body_key(id)]
+		tile.custom_minimum_size = Vector2(0, 54.0 * float(settings.text_scale))
+		tile.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		tile.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		tile.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		tile.tooltip_text = vehicle_display_name() if id == model.vehicle_id() else str(id)
+		strip.add_child(tile)
+	add_label(parent, "В составе: %s. Сцепки на рельсах слева тоже нажимаются мышью." % ", ".join(coupled.map(func(id): return vehicle_display_name() if id == model.vehicle_id() else str(id))), 15, MUTED_INK)
 
 func vehicle_summary(id: String) -> String:
 	var base = model.vehicle_base(id)
