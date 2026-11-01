@@ -4,9 +4,10 @@ const Route = preload("res://scripts/route.gd")
 const StationInteraction = preload("res://scripts/station_interaction.gd")
 const HandcarMechanism = preload("res://scripts/handcar_mechanism.gd")
 const HandcarDrive = preload("res://scripts/handcar_drive.gd")
+const Pole = preload("res://scripts/pole.gd")
 const G = 9.81
 const BUFFER_SAFE_SPEED = 1.0
-const VEHICLE_IDS = ["handcar", "steam", "motorcar", "pneumatic", "locomotive"]
+const VEHICLE_IDS = ["handcar", "pole", "steam", "motorcar", "pneumatic", "locomotive"]
 const WAGON_IDS = ["W01", "W02", "W03"]
 # Classes that exist in the data but are not shown to the player yet (no view, no cab).
 const HIDDEN_VEHICLE_IDS = []
@@ -19,6 +20,7 @@ var message = ""
 var pump_angle = 0.0
 var handcar = HandcarMechanism.new()
 var hand_drive = HandcarDrive.new()
+var pole = Pole.new()
 var pump_work = 0.0
 var output_power = 0.0
 var acceleration = 0.0
@@ -70,7 +72,7 @@ func creative() -> bool:
 func setup_creative() -> void:
 	state.mode = "creative"
 	state.money = CREATIVE_MONEY
-	for id in ["steam", "motorcar", "pneumatic", "locomotive"]:
+	for id in ["pole", "steam", "motorcar", "pneumatic", "locomotive"]:
 		buy_vehicle(id)
 	while next_wagon_id() != "":
 		if not buy_wagon(): break
@@ -147,7 +149,7 @@ func object_stats(id: String) -> Dictionary:
 		"shock": float(ef.get("cargo_shock_multiplier", 1.0)), "power": 220.0,
 		"tank": float(base.get("battery_kwh", base.get("coal_kg", base.get("fuel_l", base.get("air_bar", 0))))) * float(ef.get("fuel_capacity_multiplier", 1.0)) * (1.0 if base.has("air_bar") else line_tank_scale(base)),
 		"water": float(base.get("water_l", 0)) * line_tank_scale(base, true)}
-	if not wagon and id != "handcar":
+	if not wagon and not human_powered(id):
 		result.traction = [float(base.traction_n[0]) * float(ef.get("traction_multiplier", 1)) * float(ef.get("low_gear_multiplier", 1)),
 			float(base.traction_n[1]) * float(ef.get("traction_multiplier", 1))]
 		result.speeds = [float(base.gear_speed_mps[0]), float(base.gear_speed_mps[1]) * float(ef.get("high_gear_speed_multiplier", 1))]
@@ -161,6 +163,10 @@ func object_stats(id: String) -> Dictionary:
 				result.traction.append(float(base.gears[i][0]) * float(ef.get("traction_multiplier", 1)) * low)
 				result.speeds.append(float(base.gears[i][1]) * high)
 	return result
+
+# The two classes that run on a person: no fuel, no cab, no pult, no reverser.
+func human_powered(id: String = "") -> bool:
+	return (id if id != "" else vehicle_id()) in ["handcar", "pole"]
 
 func rank(id: String) -> int:
 	return int(vehicle_base(id).get("rank", 0))
@@ -345,7 +351,7 @@ func station_services(id: String) -> Dictionary:
 # class price times the station's multiplier; only stations with a service in the data
 # offer it.
 func service_offer() -> Dictionary:
-	if vehicle_id() == "handcar": return {}
+	if human_powered(): return {}
 	var id = ""
 	if state.phase == "depot":
 		if stopped(): id = "A"
@@ -422,7 +428,7 @@ func mission_far_s(mission: Dictionary) -> float:
 # 20 m, so slope does not move the estimate; recalibrate when the line changes (N7.3).
 func trip_forecast(mission: Dictionary = {}) -> Dictionary:
 	if mission.is_empty(): mission = state.active
-	if vehicle_id() == "handcar" or mission.is_empty(): return {}
+	if human_powered() or mission.is_empty(): return {}
 	var base = vehicle_base()
 	var fuel_points: Array = []
 	var water_points: Array = []
@@ -483,7 +489,7 @@ func mission_error(mission: Dictionary) -> String:
 		return "Нужна техника не слабее: " + str(vehicle_base(mission.tier).name)
 	if capacity() < 1:
 		return "Нужно хотя бы одно свободное место для груза"
-	if vehicle_id() != "handcar":
+	if not human_powered():
 		var forecast = trip_forecast(mission)
 		if float(forecast.need) > float(forecast.tank):
 			return "Бака не хватит на участок %.0f м без заправки: нужно примерно %.2f %s, бак %.2f. Нужна заправка по пути" % [forecast.leg_m, forecast.need, forecast.unit, forecast.tank]
@@ -503,7 +509,7 @@ func free_offers() -> Array:
 	for i in range(3):
 		var destination = 1 + ((i + int(state.offer_serial)) % max_station)
 		var cargo_type = types[(i + int(state.offer_serial)) % 3]
-		if vehicle_id() == "handcar" and cargo_type == "logs": cargo_type = "sack"
+		if human_powered() and cargo_type == "logs": cargo_type = "sack"
 		var count = mini(capacity(), 2 + i)
 		var dropoffs: Array = []
 		if i == 2 and destination >= 3 and count >= 3:
@@ -702,7 +708,8 @@ func loading_preview() -> Dictionary:
 		steepest=maxf(steepest,positive)
 		if first_hill<0 and positive>0.008: first_hill=float(s)-float(state.s)
 	var available=220.0/1.4
-	if vehicle_id()!="handcar":
+	if vehicle_id()=="pole": available=Pole.F_MAX*0.6
+	if not human_powered():
 		var stats=object_stats(vehicle_id())
 		available=minf(float(stats.traction[0])*maxf(0,1-pow(1.4/float(stats.speeds[0]),2))*charge_traction_factor(),0.35*float(stats.mass)*G)
 	var ratio=required/maxf(1,available)
@@ -850,6 +857,7 @@ func set_gear(value: int) -> bool:
 
 func set_reverser(value: int) -> bool:
 	if vehicle_id()=="handcar": return fail("Направление ручной дрезины задаётся усилием на рычаге")
+	if vehicle_id()=="pole": return fail("Шестовая идёт туда, куда толкнул шест")
 	if not stopped(): return fail("Для смены направления остановись и затяни тормоз")
 	if float(state.throttle) > 0.01: return fail("Для реверса убавь подачу до нуля")
 	state.reverser = 1 if value >= 0 else -1
@@ -1171,6 +1179,25 @@ func push_handcar(distance_m: float) -> bool:
 	hand_drive.push_used+=amount
 	return true
 
+# --- Pole truck (N12): the controls only aim, drop, lift and lean on a real pole ---
+func pole_ground_at(s: float) -> Dictionary:
+	pole.build(int(route.seed_value), float(route.length_m), route.station_s)
+	return pole.ground_at(s)
+
+func pole_aim(place_m: float) -> void:
+	if vehicle_id() == "pole": pole.set_aim(place_m)
+
+func pole_plant() -> bool:
+	if vehicle_id() != "pole" or state.phase != "route": return false
+	pole.build(int(route.seed_value), float(route.length_m), route.station_s)
+	return pole.plant(float(state.s), int(state.direction))
+
+func pole_lift() -> void:
+	if vehicle_id() == "pole": pole.lift(float(state.s), int(state.direction))
+
+func pole_effort(value: float) -> void:
+	if vehicle_id() == "pole": pole.set_effort(value)
+
 func physics_step(dt: float) -> void:
 	if state.is_empty() or dt<=0:
 		return
@@ -1180,6 +1207,7 @@ func physics_step(dt: float) -> void:
 		# The boiler can be prepared while the wagons are being loaded.
 		if state.phase == "loading" and vehicle_id() == "steam": steam_step(dt, state.fleet_by_id.steam)
 		reset_input()
+		pole.reset()
 		return
 	state.stats.seconds += dt
 	shift_cut = maxf(0.0, shift_cut - dt)
@@ -1212,6 +1240,9 @@ func physics_step(dt: float) -> void:
 			state.gear = 1
 			state.engine = float(fleet.fuel) > 0
 		if vehicle_id() == "steam": drive = steam_step(dt, fleet)
+		elif vehicle_id() == "pole":
+			pole.build(int(route.seed_value), float(route.length_m), route.station_s)
+			drive = pole.step(dt, float(state.s), float(state.v), int(state.direction))
 		elif fleet.fuel <= 0: state.engine = false
 		if vehicle_id() != "steam" and state.engine and fleet.fuel > 0:
 			if fleet.fuel <= 0:
@@ -1268,6 +1299,9 @@ func physics_step(dt: float) -> void:
 			# Coal and water are spent by the boiler itself (steam_step); this is
 			# only the shaft work for reports.
 			used=shaft_work/0.07
+		elif vehicle_id()=="pole":
+			# A person: the work only goes to the report, nothing is spent.
+			used=shaft_work
 		elif vehicle_id()=="pneumatic":
 			# Air is spent by the work on the shaft; the pipes frost over while it runs.
 			used=shaft_work/0.85

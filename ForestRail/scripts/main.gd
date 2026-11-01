@@ -47,6 +47,7 @@ var delivery_ghost: Dictionary = {}
 var screen = "menu"
 var tab = "Рейсы"
 var selected_object = "handcar"
+var pole_press_rel = 0.0
 var paused = false
 var modal_kind = ""
 # Every key here is read by the game; the settings menu (N9) edits exactly these.
@@ -159,7 +160,7 @@ func _ready() -> void:
 		for arg in qa_args:
 			if arg.begins_with("--qa-suite="):
 				var suite = arg.trim_prefix("--qa-suite=")
-				if suite not in ["check_model", "check_physics", "check_interaction", "drive_campaign", "check_presentation", "check_handcar_revision", "check_art_v3", "check_instruments", "check_station_service", "check_world_geometry", "check_mechanism", "check_mechanism_bench", "check_handcar_drive", "check_handcar_input", "check_motor_controls", "check_loading_selection", "check_layout_p7", "check_steam", "check_steam_view", "check_gearbox", "check_petrol_view", "check_skins", "check_perf", "check_cab", "check_sound", "check_forecast", "check_line_v2", "check_speeds", "check_creative", "check_settings", "check_pneumatic", "check_pneumatic_view", "check_forecast_long", "drive_long", "check_forecast_view", "check_soak_p8", "check_save_p8"]: get_tree().quit(2); return
+				if suite not in ["check_model", "check_physics", "check_interaction", "drive_campaign", "check_presentation", "check_handcar_revision", "check_art_v3", "check_instruments", "check_station_service", "check_world_geometry", "check_mechanism", "check_mechanism_bench", "check_handcar_drive", "check_handcar_input", "check_motor_controls", "check_loading_selection", "check_layout_p7", "check_steam", "check_steam_view", "check_gearbox", "check_petrol_view", "check_skins", "check_perf", "check_cab", "check_sound", "check_forecast", "check_line_v2", "check_speeds", "check_creative", "check_settings", "check_pneumatic", "check_pneumatic_view", "check_pole", "check_pole_view", "check_forecast_long", "drive_long", "check_forecast_view", "check_soak_p8", "check_save_p8"]: get_tree().quit(2); return
 				get_tree().root.set_meta("qa_running", true)
 				set_process(false)
 				set_physics_process(false)
@@ -805,7 +806,9 @@ func build_depot(size: Vector2) -> void:
 	positioned_label(vehicle_display_name(), Rect2(44, info_top + 7, left_width - 20, 70), 32)
 	var stats = model.object_stats(model.vehicle_id())
 	var details = "%d кг  ·  %d мест" % [model.train_mass(), model.capacity()]
-	if model.vehicle_id() == "handcar":
+	if model.vehicle_id() == "pole":
+		details += "\nШест · без топлива\nГрунт решает: глина вязнет, камни скользят"
+	elif model.vehicle_id() == "handcar":
 		details += "\nРучной привод · без топлива\nМаховик сохраняет накат"
 	else:
 		details += "\nПередачи R / N / 1–4 · до %.0f км/ч\n" % model.top_speed_kmh() + energy_text() + "\n" + forecast_line(model.current_mission())
@@ -817,11 +820,11 @@ func build_depot(size: Vector2) -> void:
 	service.position = Vector2(44, size.y - 150)
 	service.size = Vector2(left_width - 25, 50)
 	ui.add_child(service)
-	var refill = model.refill_cost() if model.vehicle_id() != "handcar" else 0
+	var refill = model.refill_cost() if not model.human_powered() else 0
 	var refill_text = ({"locomotive": "Зарядить", "pneumatic": "Накачать"}.get(model.vehicle_id(), "Заправить")) + (" · %d монет" % refill if refill > 0 else " · полон")
 	add_button(service, refill_text, func():
 		if model.refuel(): save_game(); rebuild(); notify(model.message if model.message != "" else "Запас пополнен"); model.message = ""
-		else: notify(model.message), model.vehicle_id() == "handcar" or refill <= 0)
+		else: notify(model.message), model.human_powered() or refill <= 0)
 	add_button(service, "Улучшить", func(): selected_object = model.vehicle_id(); tab = "Улучшения"; rebuild())
 	positioned_label("Нажми на машину или вагон, чтобы выбрать его улучшения.", Rect2(46, size.y - 83, left_width - 30, 60), 17)
 
@@ -948,7 +951,7 @@ func build_hud(size: Vector2) -> void:
 	for state in ["normal","hover","pressed","focus"]: mini_button.add_theme_stylebox_override(state,StyleBoxEmpty.new())
 	mini_button.pressed.connect(toggle_map)
 	ui.add_child(mini_button)
-	var buttons_width = (270 if model.vehicle_id()=="handcar" else 560)*float(settings.text_scale)
+	var buttons_width = (270 if model.human_powered() else 560)*float(settings.text_scale)
 	hud = positioned_label("", Rect2(34, 12, size.x - buttons_width - 90, 42), 20)
 	hud.autowrap_mode=TextServer.AUTOWRAP_OFF
 	hud.text_overrun_behavior=TextServer.OVERRUN_TRIM_ELLIPSIS
@@ -958,8 +961,8 @@ func build_hud(size: Vector2) -> void:
 	pause_row.add_theme_constant_override("separation",10)
 	ui.add_child(pause_row)
 	map_button = add_button(pause_row, "Карта [%s]" % key_name("map"), toggle_map)
-	if model.vehicle_id()!="handcar": add_button(pause_row,"Пульт [%s]" % key_name("pult"),toggle_control_zoom)
-	if model.vehicle_id()!="handcar": add_button(pause_row,"Кабина [%s]" % key_name("cab"),toggle_cab_view)
+	if not model.human_powered(): add_button(pause_row,"Пульт [%s]" % key_name("pult"),toggle_control_zoom)
+	if not model.human_powered(): add_button(pause_row,"Кабина [%s]" % key_name("cab"),toggle_cab_view)
 	add_button(pause_row, "Пауза", pause_game)
 	for button in pause_row.get_children():
 		for state_name in ["normal","hover","pressed","disabled","focus"]:
@@ -1027,6 +1030,8 @@ func update_hud() -> void:
 		hint = "Груз доставлен. Разверни состав и возвращайся домой за оплатой."
 	elif stop_index >= 0 and model.stopped():
 		hint = "Станция «%s». Перетащи груз для этой станции на площадку внизу." % at_station
+	elif model.vehicle_id() == "pole":
+		hint = "Веди мышью — шест следует за ней. Щелчок втыкает его; держи и тяни мышь назад — едешь, вперёд — встаёшь на шест. Отпустил — шест поднят. Красный рычаг — тормоз."
 	elif model.vehicle_id() == "handcar":
 		hint = "Зажми деревянный хват и веди его по дуге рычага. Ровные полные ходы разгоняют лучше. Красный рычаг — тормоз."
 	elif model.vehicle_id() == "steam":
@@ -1068,7 +1073,7 @@ func update_hud() -> void:
 			choice_label.add_theme_stylebox_override("normal",style(INK,Color("5d7561"),6))
 			choice_label.vertical_alignment=VERTICAL_ALIGNMENT_CENTER
 		elif model.stopped():
-			if model.vehicle_id() not in ["handcar","motorcar"]:
+			if model.vehicle_id() not in ["handcar","pole","motorcar"]:
 				add_button(action_bar, "Тяга ←", func():
 					if model.set_reverser(-int(state.direction)): save_game(); last_action_key = ""
 					else: notify(model.message), false, model.drive_direction() < 0)
@@ -1089,6 +1094,7 @@ func update_hud() -> void:
 
 func energy_text() -> String:
 	if model.vehicle_id() == "handcar": return "Ручной привод · %d Вт" % roundi(model.output_power)
+	if model.vehicle_id() == "pole": return "Шест · опора: %s" % (str(model.pole_ground_at(float(model.pole.tip_s)).name) if model.pole.planted() else "в руках")
 	var amount = float(model.state.fleet_by_id[model.vehicle_id()].fuel)
 	var cap = float(model.object_stats(model.vehicle_id()).tank)
 	if model.vehicle_id() == "locomotive":
@@ -1130,7 +1136,7 @@ func toggle_map() -> void:
 # E: close in on the cab and work every control there, or step back out. Levers keep
 # their positions; only the mouse grab is dropped.
 func toggle_cab_view() -> void:
-	if screen != "game" or paused or model.vehicle_id() == "handcar": return
+	if screen != "game" or paused or model.human_powered(): return
 	cancel_drag()
 	cab_view = not cab_view
 	if cab_view: control_zoom = false
@@ -1139,7 +1145,7 @@ func toggle_cab_view() -> void:
 	queue_redraw()
 
 func toggle_control_zoom() -> void:
-	if screen!="game" or paused or model.vehicle_id()=="handcar": return
+	if screen!="game" or paused or model.human_powered(): return
 	cancel_drag()
 	control_zoom = not control_zoom
 	update_hud()
@@ -1148,6 +1154,7 @@ func toggle_control_zoom() -> void:
 # Electric drive has no gearbox or start switch: only brake and traction levers.
 func control_ids() -> Array:
 	if model.vehicle_id() == "handcar": return ["pump", "brake"]
+	if model.vehicle_id() == "pole": return ["brake"]
 	if model.vehicle_id() in ["locomotive", "pneumatic"]: return ["brake", "throttle"]
 	return ["brake", "throttle", "gear", "start"]
 
@@ -1256,6 +1263,7 @@ func cab_button(id: String) -> void:
 # rest (gearbox, tap, ignition, fire door, coal) live in the pult on C.
 func world_control_ids() -> Array:
 	if model.vehicle_id() == "handcar": return ["pump", "brake"]
+	if model.vehicle_id() == "pole": return ["brake"]
 	return ["brake", "throttle"]
 
 # A forged lever: mounting plate, brass pivot, tapered steel arm with a collar and
@@ -1458,7 +1466,7 @@ func cancel_drag() -> void:
 
 func _process(dt: float) -> void:
 	time += dt
-	if screen != "game" or model.vehicle_id() == "handcar": cab_view = false
+	if screen != "game" or model.human_powered(): cab_view = false
 	cab_blend = move_toward(cab_blend, 1.0 if cab_view else 0.0, dt * 4.0)
 	cab_dt = minf(dt, 0.033)
 	cab_jolt = move_toward(cab_jolt, 0.0, dt * 4.0)
@@ -1566,9 +1574,19 @@ func _input(event: InputEvent) -> void:
 		else: close_modal()
 		get_viewport().set_input_as_handled()
 		return
+	if drag == "" and event is InputEventMouseMotion and screen == "game" and not paused and model.vehicle_id() == "pole" and model.state.phase == "route":
+		model.pole_aim(pole_mouse_rel(event.position))
+		return
 	if drag == "": return
 	if event is InputEventMouseMotion:
 		if paused: cancel_drag(); return
+		if drag == "pole":
+			# Free pushing: how far the hand is drawn back from where the pole was planted is how
+			# hard the person leans on it; forward is leaning the other way (standing on the pole).
+			var rel = pole_mouse_rel(event.position)
+			model.pole_effort(clampf(-(rel - pole_press_rel) / 0.8, -1.0, 1.0))
+			get_viewport().set_input_as_handled()
+			return
 		if drag=="cargo" or drag=="coal":
 			drag_cursor=event.position
 			get_viewport().set_input_as_handled()
@@ -1738,6 +1756,19 @@ func _unhandled_input(event: InputEvent) -> void:
 				drag_offset=mouse-hit.rect.position
 				drag_size=hit.rect.size
 				return
+		if model.vehicle_id() == "pole" and model.state.phase == "route" and not in_closeup and not paused:
+			model.pole_aim(pole_mouse_rel(mouse))
+			if model.pole_plant():
+				drag = "pole"
+				pole_press_rel = pole_mouse_rel(mouse)
+				Input.set_default_cursor_shape(Input.CURSOR_DRAG)
+				get_viewport().set_input_as_handled()
+
+# The mouse place along the track in the pole truck's own frame: metres forward of the
+# platform centre in the direction of travel.
+func pole_mouse_rel(mouse: Vector2) -> float:
+	var outer = body_transform(model.vehicle_id(), model.body_s_render(0))
+	return (outer.affine_inverse() * mouse).x / ArtV3.PX * float(int(model.state.direction))
 
 func finish_drag(mouse: Vector2) -> void:
 	if drag == "cargo":
@@ -1752,6 +1783,8 @@ func finish_drag(mouse: Vector2) -> void:
 		if target != "invalid":
 			transfer_cargo(drag_item,target,mouse)
 		else: notify("Перенеси груз в выделенную зону разгрузки или свободное место")
+	elif drag == "pole":
+		model.pole_lift()
 	elif drag == "coal":
 		var fire_local = steam_fire_rect(control_zoom_rect())
 		var fire_box = Rect2(pult_t * fire_local.position, fire_local.size * pult_t.get_scale())
@@ -1882,7 +1915,7 @@ func rail_baseline() -> float:
 	return minf(height*0.66,dock_rect().position.y-20) if screen=="game" else height*0.63
 
 func cab_active() -> bool:
-	return screen == "game" and cab_view and model.vehicle_id() != "handcar"
+	return screen == "game" and cab_view and not model.human_powered()
 
 func view_scale() -> float:
 	if screen != "depot": return zoom_level
@@ -1930,7 +1963,7 @@ func _draw() -> void:
 				draw_style_box(style(Color(0.08,0.15,0.12,0.87),Color("526c59"),6),info.grow(7))
 			if dock_visible(): draw_loading_dock(size)
 			draw_cargo_feedback()
-			if control_zoom and model.vehicle_id()!="handcar": draw_control_zoom()
+			if control_zoom and not model.human_powered(): draw_control_zoom()
 			draw_tooltip()
 	if toast_seconds > 0 and modal_kind != "confirm" and not control_zoom:
 		var width = minf(1100, size.x - 100)

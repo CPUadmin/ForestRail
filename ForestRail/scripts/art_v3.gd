@@ -3,7 +3,7 @@ extends RefCounted
 const ROOT = "res://assets/art_v3/"
 # The steam engine body is drawn by tools/make_steam_art.py; the fire glow,
 # needle, smoke and rods are drawn live in draw_steam_overlay / draw_steam_motion.
-const BODY = {"handcar": "vehicles/handcar_body", "steam": "vehicles/steam_locomotive_body", "motorcar": "vehicles/petrol_motorcar_body", "locomotive": "vehicles/battery_locomotive_body", "pneumatic": "vehicles/pneumatic_body"}
+const BODY = {"handcar": "vehicles/handcar_body", "pole": "vehicles/pole_body", "steam": "vehicles/steam_locomotive_body", "motorcar": "vehicles/petrol_motorcar_body", "locomotive": "vehicles/battery_locomotive_body", "pneumatic": "vehicles/pneumatic_body"}
 const LARGE_WHEELS = ["locomotive", "steam", "pneumatic"]
 const Geometry = preload("res://scripts/world_geometry.gd")
 const Mechanism = preload("res://scripts/handcar_mechanism.gd")
@@ -56,7 +56,7 @@ func _init(skins_path: String = "") -> void:
 		var id = "vehicles/freight_wagon_body" if kind=="wagon" else BODY[kind]
 		# The pneumatic train (tools/make_pneumatic_art.py) has no manifest entry of its own;
 		# it takes the steam body's entry as a template for the fields that are overwritten below.
-		var meta = assets["vehicles/steam_locomotive_body" if kind == "pneumatic" else id].duplicate(true)
+		var meta = assets["vehicles/steam_locomotive_body" if kind == "pneumatic" else ("vehicles/handcar_body" if kind == "pole" else id)].duplicate(true)
 		meta.file = "../art_p2/"+spec.file
 		meta.region_px = spec.region_px
 		meta.pivot_px = [float(spec.region_px[0])+float(spec.region_px[2])*0.5,float(spec.axles_px[0][1])]
@@ -288,6 +288,7 @@ func draw_vehicle(canvas: Node2D, id: String, distance: float, facing: int, oute
 	var p = mechanism_pose(model) if id=="handcar" and pose_override.is_empty() else pose_override
 	if id=="steam": draw_steam_overlay(canvas, model)
 	if id=="pneumatic": draw_pneumatic_overlay(canvas, model)
+	if id=="pole": draw_pole_overlay(canvas, model)
 	if id=="motorcar": draw_petrol_overlay(canvas, model)
 	var wheel_id = skin_wheel.get(id, "vehicles/steam_wheel" if id == "steam" else "vehicles/petrol_wheel" if id == "motorcar" else ("vehicles/wheel_large" if id in LARGE_WHEELS else "vehicles/wheel_small"))
 	var radius = PX * (0.55 if id in LARGE_WHEELS else 0.42) * 0.5
@@ -370,6 +371,48 @@ func draw_steam_overlay(canvas: Node2D, model) -> void:
 		var origin = skin_point("steam", "stack_m", Vector2(1.168, 2.30))
 		var puff = steam_point(origin.x - age * 1.4, origin.y + age * 0.7)
 		canvas.draw_circle(puff, (0.10 + age * 0.22) * PX, Color(0.86, 0.86, 0.82, (0.35 + 0.35 * throttle) * (1.0 - age)))
+
+# The pole truck's person, pole and the ground under the line, all live (placeholder figures
+# until it has its own art). Local frame: x along increasing route distance, metres above the rail.
+func pole_point(x: float, y: float) -> Vector2:
+	return Vector2(x, -(y - 0.21)) * PX
+
+func draw_pole_overlay(canvas: Node2D, model) -> void:
+	if model == null or model.state.is_empty() or not model.state.fleet_by_id.has("pole"): return
+	var dir = float(int(model.state.direction))
+	var s = float(model.state.s)
+	# Ground type under the line, 8 m each way: only the unusual kinds are marked.
+	if model.state.phase == "route":
+		var x = -8.0
+		while x < 8.0:
+			var ground = model.pole_ground_at(s + x * dir)
+			if ground.type != "dense":
+				var color = {"clay": Color(0.42, 0.34, 0.26, 0.9), "stones": Color(0.62, 0.62, 0.64, 0.95), "roots": Color(0.30, 0.42, 0.22, 0.95)}[ground.type]
+				canvas.draw_rect(Rect2(pole_point(x - 0.25, -0.02), Vector2(0.5, 0.07) * PX), color)
+				if ground.type == "stones": canvas.draw_circle(pole_point(x, 0.06), 0.05 * PX, Color(0.72, 0.72, 0.74))
+				if ground.type == "roots": canvas.draw_line(pole_point(x - 0.2, 0.0), pole_point(x + 0.2, 0.1), Color(0.35, 0.24, 0.14), 0.04 * PX, true)
+			x += 0.5
+	var pole = model.pole
+	var tip_x = float(pole.tip) * dir
+	var hands = pole_point(0.0, 1.45)
+	var tip = pole_point(tip_x, 0.0)
+	var axis = (hands - tip).normalized()
+	# Person: legs, body, arms to the hands, head.
+	var feet = pole_point(-0.15, 0.62)
+	canvas.draw_line(feet, pole_point(-0.15, 1.2), Color("5a4a3a"), 0.12 * PX, true)
+	canvas.draw_line(pole_point(-0.15, 1.2), pole_point(-0.10, 1.95), Color("6d7f5f"), 0.22 * PX, true)
+	canvas.draw_circle(pole_point(-0.08, 2.15), 0.11 * PX, Color("d9b48f"))
+	canvas.draw_line(pole_point(-0.10, 1.85), hands, Color("6d7f5f"), 0.08 * PX, true)
+	# Pole: wooden, 4 m, sliding through the hands, with an iron tip.
+	var top = tip + axis * 4.0 * PX
+	canvas.draw_line(tip, top, Color("b08a52"), 0.07 * PX, true)
+	canvas.draw_line(tip, tip + axis * 0.18 * PX, Color("3d4446"), 0.08 * PX, true)
+	canvas.draw_circle(hands, 0.05 * PX, Color("d9b48f"))
+	if pole.planted():
+		var ground = model.pole_ground_at(float(pole.tip_s))
+		var spot = {"dense": Color(0.45, 0.35, 0.22), "clay": Color(0.42, 0.34, 0.26), "stones": Color(0.7, 0.7, 0.72), "roots": Color(0.3, 0.42, 0.22)}[ground.type]
+		canvas.draw_circle(tip, 0.07 * PX, spot)
+		if pole.slipping: canvas.draw_arc(tip, 0.16 * PX, 0, TAU, 20, Color(1, 0.8, 0.4, 0.8), 2.0, true)
 
 # Live parts of the pneumatic train on top of the painted body (tools/make_pneumatic_art.py):
 # the manometer needle, frost on the four pipe places (the same places the model counts) and

@@ -261,7 +261,7 @@ func draw_minimap() -> void:
 func draw_status() -> void:
 	var r = Rect2(size.x-status_width()-22,hud_top(),status_width(),hud_height())
 	var f=r.size.y/100.0
-	var accent={"handcar":Color("8fc46a"),"steam":Color("e8825a"),"motorcar":Color("e6b34a"),"locomotive":Color("6cc4e0"),"pneumatic":Color("9fd6e8")}.get(game.model.vehicle_id(),GOLD)
+	var accent={"handcar":Color("8fc46a"),"pole":Color("c9b87a"),"steam":Color("e8825a"),"motorcar":Color("e6b34a"),"locomotive":Color("6cc4e0"),"pneumatic":Color("9fd6e8")}.get(game.model.vehicle_id(),GOLD)
 	panel(r,Color("2a2a22") if game.model.vehicle_id()=="motorcar" else Color("1f2f30"),accent)
 	var m = game.model
 	var stats = m.object_stats(m.vehicle_id())
@@ -269,7 +269,11 @@ func draw_status() -> void:
 	var title: String
 	var value: String
 	var fraction: float
-	if m.vehicle_id()=="handcar":
+	if m.vehicle_id()=="pole":
+		title = "ШЕСТ  ·  " + ("упор: " + str(m.pole_ground_at(float(m.pole.tip_s)).name) if m.pole.planted() else "в руках")
+		value = "%d Н" % roundi(absf(m.pole.force))
+		fraction = absf(m.pole.effort)
+	elif m.vehicle_id()=="handcar":
 		title = "РУЧНОЙ ПРИВОД"
 		value = "%d / %d Вт" % [roundi(m.output_power),roundi(stats.power)]
 		fraction = m.output_power / float(stats.power)
@@ -284,9 +288,9 @@ func draw_status() -> void:
 			fraction = float(m.boiler().pressure)
 	if m.vehicle_id()=="motorcar": title+="  ·  %s  ·  %.1fк" % [{0:"N",1:"1",2:"2",3:"3",4:"4",5:"R"}[int(m.state.gear)],m.engine_rpm()/1000.0]
 	if m.vehicle_id()=="locomotive" and m.regen_kw>0.01: title="РЕКУПЕРАЦИЯ +%.1f кВт" % m.regen_kw
-	var level=level_color(fraction) if m.vehicle_id()!="handcar" else Color("8fc46a")
+	var level=level_color(fraction) if not m.human_powered() else Color("8fc46a")
 	put(title,r.position+Vector2(16,22*f),r.size.x*0.5-16,12,Color("6cc4e0") if m.regen_kw>0.01 else accent)
-	put(value,r.position+Vector2(r.size.x*0.48,22*f),r.size.x*0.52-16,14,level if fraction<=0.35 and m.vehicle_id()!="handcar" else PAPER,HORIZONTAL_ALIGNMENT_RIGHT)
+	put(value,r.position+Vector2(r.size.x*0.48,22*f),r.size.x*0.52-16,14,level if fraction<=0.35 and not m.human_powered() else PAPER,HORIZONTAL_ALIGNMENT_RIGHT)
 	bar(Rect2(r.position+Vector2(16,30*f),Vector2(r.size.x-32,6)),fraction,level)
 	var dry_mass = 0.0
 	for id in m.body_ids(): dry_mass += float(m.object_stats(id).mass)
