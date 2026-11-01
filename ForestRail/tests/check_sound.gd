@@ -55,8 +55,28 @@ func run() -> void:
 	check(int(sound.played.get("sting_start", 0)) == 1 and not sound.loops["music_menu"].playing, "starting the game plays the sting and stops the theme")
 	# joints clack every 12 m
 	run_frames(sound, m, 1200, 4.0)
-	var clacks = int(sound.played.get("rail_clack_a", 0)) + int(sound.played.get("rail_clack_b", 0))
-	check(clacks >= 3 and clacks <= 8, "joints clack in step with the track (%d for about 77 m)" % clacks)
+	var clacks = int(sound.played.get("rail_tick_a", 0)) + int(sound.played.get("rail_tick_b", 0)) + int(sound.played.get("rail_tick_c", 0))
+	var axle_count = sound.axle_places(m).size()
+	check(clacks >= axle_count * 5 and clacks <= axle_count * 8, "every axle knocks on every joint (%d knocks, %d axles, about 6 joints in 77 m)" % [clacks, axle_count])
+	# B1.4: more bodies, more axles, more knocks; the rhythm comes from the wheelbase
+	var long = m
+	var solo = vehicle("handcar")
+	var axles = sound.axle_places(long)
+	check(axles.size() == 2 * long.body_ids().size() and long.body_ids().size() >= 3, "every body brings two axles (%d axles)" % axles.size())
+	check(sound.axle_places(solo).size() == 2, "a lone handcar has two axles")
+	var gaps_ok = true
+	for k in range(1, axles.size()): if absf(float(axles[k].s) - float(axles[k - 1].s)) < 0.3: gaps_ok = false
+	check(gaps_ok, "no two axles share a place")
+	var before = int(sound.played.get("rail_tick_a", 0)) + int(sound.played.get("rail_tick_b", 0)) + int(sound.played.get("rail_tick_c", 0))
+	sound.axle_joints.clear()
+	run_frames(sound, solo, 1200, 4.0)
+	var solo_clacks = int(sound.played.get("rail_tick_a", 0)) + int(sound.played.get("rail_tick_b", 0)) + int(sound.played.get("rail_tick_c", 0)) - before
+	check(solo_clacks > 0 and solo_clacks < clacks / 2, "a lone car knocks much less than a train (%d against %d)" % [solo_clacks, clacks])
+	var train_clacks = solo_clacks
+	before = int(sound.played.get("rail_tick_a", 0)) + int(sound.played.get("rail_tick_b", 0)) + int(sound.played.get("rail_tick_c", 0))
+	sound.axle_joints.clear()
+	run_frames(sound, long, 60, 0.0)
+	check(int(sound.played.get("rail_tick_a", 0)) + int(sound.played.get("rail_tick_b", 0)) + int(sound.played.get("rail_tick_c", 0)) == before, "standing still it is silent")
 	# petrol: idle at low revs, the run loop takes over at high revs, start and stall cues
 	m = vehicle("motorcar")
 	m.start_engine(true)

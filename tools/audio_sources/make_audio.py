@@ -322,7 +322,16 @@ def make_electric():
     write("contactor.wav", relay, peak=0.75)
 
 
+def make_rail_ticks():
+    """One hit of one axle on a rail joint (B1.4): the double clack of a whole truck is built from these in the game."""
+    for name, ring, decay in [("rail_tick_a.wav", 1250, 30.0), ("rail_tick_b.wav", 1080, 26.0), ("rail_tick_c.wav", 1180, 34.0)]:
+        buf = np.zeros(int(0.3 * SR))
+        put(buf, impact(0.25, ring, 1.0, decay), 0.0)
+        write(name, buf, peak=0.8)
+
+
 def make_rails_and_ui():
+    make_rail_ticks()
     for name, gap, ring in [("rail_clack_a.wav", 0.062, 1250), ("rail_clack_b.wav", 0.075, 1080), ("rail_clack.wav", 0.07, 1180)]:
         buf = np.zeros(int(0.5 * SR))
         put(buf, impact(0.3, ring), 0.0)

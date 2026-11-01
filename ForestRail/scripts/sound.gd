@@ -3,12 +3,13 @@ extends Node
 # N8: layered ambience, machine sound per class, rail joints in step with the track,
 # a muffled cab. All the audio is synthesised by tools/audio_sources/make_audio.py.
 # Pause silences the machine; interface, payment and finale cues always play.
-const MECHANISM_CLIPS = ["pump", "rail_clack", "rail_clack_a", "rail_clack_b", "gear", "cargo", "steam_chuff", "steam_blow", "petrol_start", "petrol_stall", "contactor", "coupler_clank"]
-const CLIP_NAMES = ["pump", "rail_clack", "rail_clack_a", "rail_clack_b", "gear", "cargo", "coins", "finale", "ui_click", "sting_start", "steam_chuff", "steam_blow", "petrol_start", "petrol_stall", "contactor", "coupler_clank", "bird_1", "bird_2", "bird_3", "bird_4"]
+const MECHANISM_CLIPS = ["pump", "rail_clack", "rail_clack_a", "rail_clack_b", "rail_tick_a", "rail_tick_b", "rail_tick_c", "gear", "cargo", "steam_chuff", "steam_blow", "petrol_start", "petrol_stall", "contactor", "coupler_clank"]
+const CLIP_NAMES = ["pump", "rail_clack", "rail_clack_a", "rail_clack_b", "rail_tick_a", "rail_tick_b", "rail_tick_c", "gear", "cargo", "coins", "finale", "ui_click", "sting_start", "steam_chuff", "steam_blow", "petrol_start", "petrol_stall", "contactor", "coupler_clank", "bird_1", "bird_2", "bird_3", "bird_4"]
 const LOOP_NAMES = ["amb_wind", "amb_insects", "amb_water", "music_menu", "steam_hiss", "fire_crackle", "petrol_idle", "petrol_run", "electric_hum", "electric_whine", "brake"]
 const MACHINE_LOOPS = ["steam_hiss", "fire_crackle", "petrol_idle", "petrol_run", "electric_hum", "electric_whine", "brake"]
 const INTERFACE_CLIPS = ["coins", "finale", "ui_click", "sting_start"]
 const JOINT_SPACING = 12.0
+const Geometry = preload("res://scripts/world_geometry.gd")
 const CHUFF_SPACING = 0.43
 
 var clips: Dictionary = {}
@@ -16,7 +17,8 @@ var loops: Dictionary = {}
 var voices: Array = []
 var settings: Dictionary = {}
 var played: Dictionary = {}
-var last_joint = -999999
+var axle_joints: Array = []
+var clack_gap = 0.0
 var last_chuff = 0.0
 var last_pump = 0.0
 var bird_timer = 4.0
@@ -100,6 +102,19 @@ func run_loop(name: String, volume: float, active: bool, pitch: float = 1.0) -> 
 	player.pitch_scale = clampf(pitch, 0.2, 4.0)
 	if not player.playing: player.play()
 
+# The route distance of every axle of the train, front body first, with the index of its body.
+func axle_places(model) -> Array:
+	var result: Array = []
+	var ids = model.body_ids()
+	var direction = float(int(model.state.direction))
+	for i in range(ids.size()):
+		var spec = Geometry.body(ids[i])
+		var centre = float(spec.region_px[0]) + float(spec.region_px[2]) * 0.5
+		for axle in spec.axles_px:
+			var local = (float(axle[0]) - centre) / float(spec.region_px[2]) * float(spec.length_m)
+			result.append({"s": float(model.body_s(i)) + direction * local, "body": i})
+	return result
+
 func stop_machine() -> void:
 	for name in MACHINE_LOOPS: run_loop(name, 0.0, false)
 	for voice in voices:
@@ -137,12 +152,22 @@ func update(model, paused: bool, in_menu: bool, dt: float, in_cab: bool = false)
 	var throttle = float(model.state.throttle)
 	var brake = float(model.state.brake)
 	var loud = 1.0 + 0.35 * cab_mix
-	# rail joints: a double clack at every joint, in step with the track under the wheels
-	var joint = floori(float(model.state.s) / JOINT_SPACING)
-	if joint != last_joint:
-		if last_joint != -999999 and speed > 0.25:
-			play("rail_clack_a" if joint % 2 == 0 else "rail_clack_b", (0.16 + 0.05 * minf(speed, 8.0)) * loud, 0.9 + minf(speed, 10.0) * 0.02)
-		last_joint = joint
+	# rail joints (B1.4): every axle of every body of the train hits every joint it passes, so the
+	# rhythm of the knock comes from the wheelbase and the car lengths, not from a single pattern
+	clack_gap = maxf(0.0, clack_gap - dt)
+	var axles = axle_places(model)
+	if axle_joints.size() != axles.size():
+		axle_joints.clear()
+		for axle in axles: axle_joints.append(floori(float(axle.s) / JOINT_SPACING))
+	else:
+		for k in range(axles.size()):
+			var joint = floori(float(axles[k].s) / JOINT_SPACING)
+			if joint == axle_joints[k]: continue
+			axle_joints[k] = joint
+			if speed > 0.25 and clack_gap <= 0.0:
+				var level = (0.10 + 0.03 * minf(speed, 8.0)) * loud * pow(0.93, float(axles[k].body)) * randf_range(0.8, 1.15)
+				play(["rail_tick_a", "rail_tick_b", "rail_tick_c"][(joint + k) % 3], level, (0.9 + minf(speed, 10.0) * 0.02) * randf_range(0.95, 1.05))
+				clack_gap = 0.03
 	run_loop("brake", machine * 0.3 * brake * minf(1.0, speed / 5.0), brake > 0.1 and speed > 0.8, 0.9 + speed * 0.03)
 	last_pump -= dt
 	if model.pump_work > 0.1 and last_pump <= 0:
