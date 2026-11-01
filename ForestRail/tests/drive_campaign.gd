@@ -99,7 +99,7 @@ func run() -> void:
 						m.start_engine(true)
 						m.set_gear(2)
 					if m.vehicle_id() == "motorcar":
-						var want = 2 if speed < 2.5 else 4
+						var want = 2 if speed < 4.0 else (3 if speed < 10.0 else (4 if speed < 20.0 else 5))
 						if int(m.state.gear) != want:
 							m.state.throttle = 0.0
 							m.set_gear(want)

@@ -299,11 +299,11 @@ func economy_v32_checks() -> void:
 	# Paid refill: half a tank of coal costs half its price; no money, no coal.
 	m.state.fleet_by_id.steam.fuel = 28.0
 	m.state.money = 300
-	check(m.refill_cost() == 144 and m.refuel() and m.state.money == 156 and is_equal_approx(float(m.state.fleet_by_id.steam.fuel), 40.0), "coal refill is paid")
+	check(m.refill_cost() == 96 and m.refuel() and m.state.money == 204 and is_equal_approx(float(m.state.fleet_by_id.steam.fuel), 40.0), "coal refill is paid")
 	m.state.fleet_by_id.steam.fuel = 0.0
 	m.state.money = 15
 	m.refuel()
-	check(m.state.money == 0 and is_equal_approx(float(m.state.fleet_by_id.steam.fuel), 15.0 / 12.0), "too little money buys part of the coal")
+	check(m.state.money == 0 and is_equal_approx(float(m.state.fleet_by_id.steam.fuel), 15.0 / 8.0), "too little money buys part of the coal")
 	m.state.fleet_by_id.steam.water = 0.0
 	check(not m.start_engine(true), "no water, no fire")
 	# Missions name the weakest class; stronger machines may take them.

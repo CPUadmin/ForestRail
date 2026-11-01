@@ -181,7 +181,7 @@
       "power_cap_w": 4200,
       "coal_kg": 40,
       "water_l": 160,
-      "refill_price": 12,
+      "refill_price": 8,
       "energy_per_m": 0.00426,
       "energy_fixed": 4.0,
       "energy_per_m_v2": 0.0050,
