@@ -28,6 +28,7 @@ func check(condition: bool, description: String) -> void:
 		print("FAIL: ", description)
 
 func _ready() -> void:
+	Model.legacy_tanks = true  # calibrated on the old tank sizes (B2.2)
 	call_deferred("run")
 
 func run() -> void:

@@ -7,7 +7,9 @@ var failures: Array=[]
 var economies: Array=[]
 var out_dir=""
 
-func _ready() -> void: call_deferred("run")
+func _ready() -> void:
+	preload("res://scripts/model.gd").legacy_tanks = true  # calibrated on the old tank sizes (B2.2)
+	call_deferred("run")
 func check(ok: bool,label: String) -> void:
 	checks+=1
 	if not ok: failures.append(label);print("FAIL: ",label)

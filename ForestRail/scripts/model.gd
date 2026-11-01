@@ -5,9 +5,10 @@ const StationInteraction = preload("res://scripts/station_interaction.gd")
 const HandcarMechanism = preload("res://scripts/handcar_mechanism.gd")
 const HandcarDrive = preload("res://scripts/handcar_drive.gd")
 const Pole = preload("res://scripts/pole.gd")
+const Wind = preload("res://scripts/wind.gd")
 const G = 9.81
 const BUFFER_SAFE_SPEED = 1.0
-const VEHICLE_IDS = ["handcar", "pole", "steam", "motorcar", "pneumatic", "locomotive"]
+const VEHICLE_IDS = ["handcar", "pole", "sail", "steam", "motorcar", "pneumatic", "locomotive"]
 const WAGON_IDS = ["W01", "W02", "W03"]
 # Classes that exist in the data but are not shown to the player yet (no view, no cab).
 const HIDDEN_VEHICLE_IDS = []
@@ -21,6 +22,11 @@ var pump_angle = 0.0
 var handcar = HandcarMechanism.new()
 var hand_drive = HandcarDrive.new()
 var pole = Pole.new()
+# The sail car (B6.4): the wind over the line, the trim of the sail (0 edge-on .. 1 wide open) and
+# the numbers of the last step for the hud and the picture.
+var wind = Wind.new()
+var sail_trim = 0.6
+var sail_info: Dictionary = {}
 # B1.1: the brake was set by the platform itself, not by the player
 var auto_brake = false
 var hold_armed = false   # the train has been moving since it last held itself
@@ -48,8 +54,18 @@ var last_refill_cost = 0
 var stationary_seconds = 0.25
 var stationary_station = 0
 
+# Calibration tests measure real consumption over whole round trips with the tank sizes they were
+# calibrated for; they set this to get the old full-size tanks (B2.2 halved petrol and battery and cut
+# the air tank to a third). The game itself never sets it.
+static var legacy_tanks = false
+
 func _init() -> void:
 	data = JSON.parse_string(FileAccess.get_file_as_string("res://data/game_data.json"))
+	if legacy_tanks:
+		for item in data.vehicles:
+			if item.has("fuel_l") and item.id == "motorcar": item.fuel_l = float(item.fuel_l) * 2.0
+			if item.has("battery_kwh"): item.battery_kwh = float(item.battery_kwh) * 2.0
+			if item.has("air_bar"): item.air_bar = float(item.air_bar) * 3.0
 
 # line_version 1 is the original 1.7 km line (what the tests use unless they ask), 2 the long
 # line of about 6.8 km that the game gives to a new career (N7.3).
@@ -84,7 +100,7 @@ func creative() -> bool:
 func setup_creative() -> void:
 	state.mode = "creative"
 	state.money = CREATIVE_MONEY
-	for id in ["pole", "steam", "motorcar", "pneumatic", "locomotive"]:
+	for id in ["pole", "sail", "steam", "motorcar", "pneumatic", "locomotive"]:
 		buy_vehicle(id)
 	while next_wagon_id() != "":
 		if not buy_wagon(): break
@@ -116,6 +132,7 @@ func drive_command() -> bool:
 	match vehicle_id():
 		"handcar": return hand_drive.held
 		"pole": return pole.planted() and absf(pole.effort_target) > 0.05
+		"sail": return sail_trim > 0.35
 		"motorcar": return float(state.throttle) > 0.02 and int(state.gear) > 0 and bool(state.engine)
 		_: return float(state.throttle) > 0.02
 
@@ -214,7 +231,7 @@ func object_stats(id: String) -> Dictionary:
 
 # The two classes that run on a person: no fuel, no cab, no pult, no reverser.
 func human_powered(id: String = "") -> bool:
-	return (id if id != "" else vehicle_id()) in ["handcar", "pole"]
+	return (id if id != "" else vehicle_id()) in ["handcar", "pole", "sail"]
 
 func rank(id: String) -> int:
 	return int(vehicle_base(id).get("rank", 0))
@@ -757,6 +774,7 @@ func loading_preview() -> Dictionary:
 		if first_hill<0 and positive>0.008: first_hill=float(s)-float(state.s)
 	var available=220.0/1.4
 	if vehicle_id()=="pole": available=Pole.F_MAX*0.6
+	if vehicle_id()=="sail": available=140.0
 	if not human_powered():
 		var stats=object_stats(vehicle_id())
 		available=minf(float(stats.traction[0])*maxf(0,1-pow(1.4/float(stats.speeds[0]),2))*charge_traction_factor(),0.35*float(stats.mass)*G)
@@ -924,6 +942,7 @@ func set_gear(value: int) -> bool:
 func set_reverser(value: int) -> bool:
 	if vehicle_id()=="handcar": return fail("Направление ручной дрезины задаётся усилием на рычаге")
 	if vehicle_id()=="pole": return fail("Шестовая идёт туда, куда толкнул шест")
+	if vehicle_id()=="sail": return fail("Парусная идёт туда, куда её тянет парус")
 	if not stopped(): return fail("Для смены направления остановись и затяни тормоз")
 	if float(state.throttle) > 0.01: return fail("Для реверса убавь подачу до нуля")
 	state.reverser = 1 if value >= 0 else -1
@@ -989,14 +1008,15 @@ func frost() -> float:
 func pneumatic_factor() -> float:
 	if vehicle_id() != "pneumatic": return 1.0
 	var pressure = float(state.fleet_by_id.pneumatic.fuel)
-	return minf(1.0, pressure / 60.0) * (1.0 - 0.7 * frost())
+	# the pull is full from 40% of a full tank upwards (it was 60 bar of 150)
+	return minf(1.0, pressure / (0.4 * float(object_stats("pneumatic").tank))) * (1.0 - 0.7 * frost())
 
 func update_frost(fleet: Dictionary, dt: float) -> void:
 	var spots: Array = fleet.get("ice_spots", [0.0, 0.0, 0.0, 0.0])
 	var running = absf(float(state.v)) > 0.3 and float(state.throttle) > 0.0
 	var weights = [1.0, 0.8, 0.6, 0.4]
 	for i in range(spots.size()):
-		if running: spots[i] = minf(1.0, float(spots[i]) + 0.02 * float(state.throttle) * (float(fleet.fuel) / 150.0) * float(weights[i]) * dt)
+		if running: spots[i] = minf(1.0, float(spots[i]) + 0.02 * float(state.throttle) * (float(fleet.fuel) / float(object_stats("pneumatic").tank)) * float(weights[i]) * dt)
 		elif absf(float(state.v)) < 0.1: spots[i] = maxf(0.0, float(spots[i]) - 0.01 * dt)
 	fleet.ice_spots = spots
 
@@ -1245,6 +1265,49 @@ func push_handcar(distance_m: float) -> bool:
 	hand_drive.push_used+=amount
 	return true
 
+# --- Sail car (B6.4): the sail takes the force from the apparent wind, the player trims it ---
+func wind_ready() -> void:
+	if wind.station_s != route.station_s: wind.build(int(route.seed_value), route.station_s)
+
+# The wind here and now, x along the travel direction (tail wind positive), y across.
+func wind_here(s: float = -9999.0) -> Vector2:
+	wind_ready()
+	var place = float(state.s) if s < -9000.0 else s
+	var vector = wind.at(place, float(state.stats.seconds))
+	return Vector2(vector.x * float(int(state.direction)), vector.y)
+
+func set_sail_trim(value: float) -> void:
+	if vehicle_id() == "sail": sail_trim = clampf(value, 0.0, 1.0)
+
+# How well the trim suits the angle of the apparent wind: 1 is perfect, 0 is no pull.
+func sail_quality(beta: float, trim: float) -> float:
+	var best = 1.0
+	if beta > 0.52: best = lerpf(1.0, 0.45, clampf((beta - 0.52) / (PI * 0.5 - 0.52), 0.0, 1.0))
+	if beta > PI * 0.5: best = lerpf(0.45, 0.25, clampf((beta - PI * 0.5) / (PI * 0.5), 0.0, 1.0))
+	return maxf(0.0, 1.0 - pow((trim - best) / 0.4, 2.0))
+
+# The pull coefficient by the angle of the apparent wind (0 tail wind, PI head wind): the best on a
+# run and a beam reach, falling away to nothing close to the wind, a little drag dead against it.
+func sail_pull(beta: float) -> float:
+	if beta <= 1.745: return 1.2 + 0.2 * sin(minf(beta, PI * 0.5))
+	if beta <= 2.27: return 1.4 * (1.0 - (beta - 1.745) / (2.27 - 1.745))
+	return -0.15
+
+# The force of the sail along the route (route frame), and the numbers for the hud and the picture.
+func sail_step() -> float:
+	wind_ready()
+	var w = wind_here()
+	var forward_speed = float(state.v) * float(int(state.direction))
+	var ua = w.x - forward_speed
+	var uc = w.y
+	var apparent = sqrt(ua * ua + uc * uc)
+	var beta = atan2(absf(uc), ua)
+	var quality = sail_quality(beta, sail_trim)
+	var area = 6.0
+	var force = 0.5 * 1.2 * area * apparent * apparent * sail_pull(beta) * (quality if sail_pull(beta) > 0.0 else 1.0)
+	sail_info = {"wind": w, "apparent": apparent, "beta": beta, "quality": quality, "force": force, "trim": sail_trim, "gust": wind.gust_ahead(float(state.s), float(state.stats.seconds))}
+	return force * float(int(state.direction))
+
 # --- Pole truck (N12): the controls only aim, drop, lift and lean on a real pole ---
 func pole_ground_at(s: float) -> Dictionary:
 	pole.build(int(route.seed_value), float(route.length_m), route.station_s)
@@ -1279,6 +1342,7 @@ func physics_step(dt: float) -> void:
 		else:
 			reset_input()
 			pole.reset()
+			if vehicle_id() == "sail": sail_trim = 0.0
 			return
 	state.stats.seconds += dt
 	shift_cut = maxf(0.0, shift_cut - dt)
@@ -1311,6 +1375,8 @@ func physics_step(dt: float) -> void:
 			state.gear = 1
 			state.engine = float(fleet.fuel) > 0
 		if vehicle_id() == "steam": drive = steam_step(dt, fleet)
+		elif vehicle_id() == "sail":
+			drive = sail_step()
 		elif vehicle_id() == "pole":
 			pole.build(int(route.seed_value), float(route.length_m), route.station_s)
 			drive = pole.step(dt, float(state.s), float(state.v), int(state.direction))
@@ -1375,8 +1441,8 @@ func physics_step(dt: float) -> void:
 			# Coal and water are spent by the boiler itself (steam_step); this is
 			# only the shaft work for reports.
 			used=shaft_work/0.07
-		elif vehicle_id()=="pole":
-			# A person: the work only goes to the report, nothing is spent.
+		elif vehicle_id()=="pole" or vehicle_id()=="sail":
+			# A person or the wind: the work only goes to the report, nothing is spent.
 			used=shaft_work
 		elif vehicle_id()=="pneumatic":
 			# Air is spent by the work on the shaft; the pipes frost over while it runs.

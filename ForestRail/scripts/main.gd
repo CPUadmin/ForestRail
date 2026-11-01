@@ -48,6 +48,7 @@ var screen = "menu"
 var tab = "Рейсы"
 var selected_object = "handcar"
 var pole_press_rel = 0.0
+var sail_rect = Rect2()   # where the sail can be taken (B6.4)
 var workshop_hits: Array = []   # B1.2c: the parts of the machine in the workshop that can be pointed at
 var workshop_branch = ""
 var paused = false
@@ -175,7 +176,7 @@ func _ready() -> void:
 				# Tests and debugging runs are silent: nobody listens to the clicks and the engine.
 				AudioServer.set_bus_mute(0, true)
 				var suite = arg.trim_prefix("--qa-suite=")
-				if suite not in ["check_model", "check_physics", "check_interaction", "drive_campaign", "check_presentation", "check_handcar_revision", "check_art_v3", "check_instruments", "check_station_service", "check_world_geometry", "check_mechanism", "check_mechanism_bench", "check_handcar_drive", "check_handcar_input", "check_motor_controls", "check_loading_selection", "check_layout_p7", "check_steam", "check_steam_view", "check_gearbox", "check_petrol_view", "check_skins", "check_perf", "check_cab", "check_sound", "check_forecast", "check_line_v2", "check_speeds", "check_creative", "check_settings", "check_pneumatic", "check_pneumatic_view", "check_pole", "check_pole_view", "check_air", "check_loading_flow", "check_depot_entry", "check_forecast_long", "drive_long", "check_forecast_view", "check_soak_p8", "check_save_p8"]: get_tree().quit(2); return
+				if suite not in ["check_model", "check_physics", "check_interaction", "drive_campaign", "check_presentation", "check_handcar_revision", "check_art_v3", "check_instruments", "check_station_service", "check_world_geometry", "check_mechanism", "check_mechanism_bench", "check_handcar_drive", "check_handcar_input", "check_motor_controls", "check_loading_selection", "check_layout_p7", "check_steam", "check_steam_view", "check_gearbox", "check_petrol_view", "check_skins", "check_perf", "check_cab", "check_sound", "check_forecast", "check_line_v2", "check_speeds", "check_creative", "check_settings", "check_pneumatic", "check_pneumatic_view", "check_pole", "check_pole_view", "check_air", "check_sail", "check_sail_view", "check_loading_flow", "check_depot_entry", "check_forecast_long", "drive_long", "check_forecast_view", "check_soak_p8", "check_save_p8"]: get_tree().quit(2); return
 				get_tree().root.set_meta("qa_running", true)
 				set_process(false)
 				set_physics_process(false)
@@ -827,7 +828,9 @@ func build_depot(size: Vector2) -> void:
 		positioned_label(vehicle_display_name(), Rect2(44, info_top + 7, left_width - 20, 70), 32)
 		var stats = model.object_stats(model.vehicle_id())
 		var details = "%d кг  ·  %d мест" % [model.train_mass(), model.capacity()]
-		if model.vehicle_id() == "pole":
+		if model.vehicle_id() == "sail":
+			details += "\nПарус · без топлива\nВетер задаёт ход: штиль — стоим"
+		elif model.vehicle_id() == "pole":
 			details += "\nШест · без топлива\nГрунт решает: глина вязнет, камни скользят"
 		elif model.vehicle_id() == "handcar":
 			details += "\nРучной привод · без топлива\nМаховик сохраняет накат"
@@ -938,7 +941,7 @@ func draw_depot_interior(size: Vector2) -> void:
 	for beam_x in [0.12, 0.38, 0.64, 0.90]:
 		var bx = size.x * beam_x
 		draw_colored_polygon(PackedVector2Array([Vector2(bx - 8, 47), Vector2(bx + 8, 47), Vector2(bx + 44, 140), Vector2(bx + 30, 140)]), Color("1f160f"))
-		draw_colored_polygon(PackedVector2Array([Vector2(bx - 8, 47), Vector2(bx + 8, 47), Vector2(bx - 44, 140), Vector2(bx - 30, 140)]), Color("1f160f"))
+		draw_colored_polygon(PackedVector2Array([Vector2(bx - 8, 47), Vector2(bx + 8, 47), Vector2(bx - 30, 140), Vector2(bx - 44, 140)]), Color("1f160f"))
 	# hanging lamps with a warm pool of light, hung below the info box so that they are seen
 	var lamp_y = maxf(depot_info_rect.end.y + 38.0, 240.0)
 	for lamp_x in [0.12, 0.36]:
@@ -1264,6 +1267,8 @@ func update_hud() -> void:
 		hint = "Груз доставлен. Разверни состав и возвращайся домой за оплатой."
 	elif stop_index >= 0 and model.stopped():
 		hint = "Станция «%s». Перетащи груз для этой станции на площадку внизу." % at_station
+	elif model.vehicle_id() == "sail":
+		hint = "Тяни нижний угол паруса (гик) мышью: к мачте — парус раскрыт, назад — ребром. Попутный ветер — раскрой, боковой — наполовину. Красный рычаг — тормоз."
 	elif model.vehicle_id() == "pole":
 		hint = "Веди мышью — шест следует за ней. Щелчок втыкает его; держи и тяни мышь назад — едешь, вперёд — встаёшь на шест. Отпустил — шест поднят. Красный рычаг — тормоз."
 	elif model.vehicle_id() == "handcar":
@@ -1307,7 +1312,7 @@ func update_hud() -> void:
 			choice_label.add_theme_stylebox_override("normal",style(INK,Color("5d7561"),6))
 			choice_label.vertical_alignment=VERTICAL_ALIGNMENT_CENTER
 		elif model.stopped():
-			if model.vehicle_id() not in ["handcar","pole","motorcar"]:
+			if model.vehicle_id() not in ["handcar","pole","sail","motorcar"]:
 				add_button(action_bar, "Тяга ←", func():
 					if model.set_reverser(-int(state.direction)): save_game(); last_action_key = ""
 					else: notify(model.message), false, model.drive_direction() < 0)
@@ -1328,6 +1333,7 @@ func update_hud() -> void:
 
 func energy_text() -> String:
 	if model.vehicle_id() == "handcar": return "Ручной привод · %d Вт" % roundi(model.output_power)
+	if model.vehicle_id() == "sail": return "Парус · ветер %.1f м/с" % model.wind_here().length()
 	if model.vehicle_id() == "pole": return "Шест · опора: %s" % (str(model.pole_ground_at(float(model.pole.tip_s)).name) if model.pole.planted() else "в руках")
 	var amount = float(model.state.fleet_by_id[model.vehicle_id()].fuel)
 	var cap = float(model.object_stats(model.vehicle_id()).tank)
@@ -1347,6 +1353,7 @@ func vehicle_display_name() -> String:
 const VEHICLE_ROLE = {
 	"handcar": "бесплатная, без топлива; подъём больше 3% ей не по силам",
 	"pole": "берёт подъёмы медленно и точно; грунт решает, где упереться",
+	"sail": "бесплатный ход по ветру; в штиль стоит, против ветра не идёт",
 	"steam": "тянет много, но разгоняется медленнее всех; уголь и вода",
 	"motorcar": "самая быстрая; бензин расходует быстро",
 	"pneumatic": "сильная на подъёмах; воздух кончается, трубки обмерзают",
@@ -1391,7 +1398,7 @@ func vehicle_summary(id: String) -> String:
 	var base = model.vehicle_base(id)
 	var places = "%d места на платформе" % int(base.deck_slots) if int(base.deck_slots) > 0 else "без мест на кузове"
 	var wagons = "вагонов: до %d" % int(base.get("max_wagons", 0)) if int(base.get("max_wagons", 0)) > 0 else "без вагонов"
-	var energy = {"handcar": "без топлива", "steam": "уголь и вода", "motorcar": "бензин", "pneumatic": "сжатый воздух", "pole": "мускулы и шест", "locomotive": "аккумулятор"}.get(id, "")
+	var energy = {"handcar": "без топлива", "steam": "уголь и вода", "motorcar": "бензин", "pneumatic": "сжатый воздух", "pole": "мускулы и шест", "sail": "ветер", "locomotive": "аккумулятор"}.get(id, "")
 	return "%s · %s · %s" % [places, wagons, energy]
 
 func station_number(id: String) -> int:
@@ -1432,7 +1439,7 @@ func toggle_control_zoom() -> void:
 # Electric drive has no gearbox or start switch: only brake and traction levers.
 func control_ids() -> Array:
 	if model.vehicle_id() == "handcar": return ["pump", "brake"]
-	if model.vehicle_id() == "pole": return ["brake"]
+	if model.vehicle_id() in ["pole", "sail"]: return ["brake"]
 	if model.vehicle_id() in ["locomotive", "pneumatic"]: return ["brake", "throttle"]
 	return ["brake", "throttle", "gear", "start"]
 
@@ -1541,7 +1548,7 @@ func cab_button(id: String) -> void:
 # rest (gearbox, tap, ignition, fire door, coal) live in the pult on C.
 func world_control_ids() -> Array:
 	if model.vehicle_id() == "handcar": return ["pump", "brake"]
-	if model.vehicle_id() == "pole": return ["brake"]
+	if model.vehicle_id() in ["pole", "sail"]: return ["brake"]
 	return ["brake", "throttle"]
 
 # A forged lever: mounting plate, brass pivot, tapered steel arm with a collar and
@@ -1926,6 +1933,10 @@ func _input(event: InputEvent) -> void:
 	if drag == "": return
 	if event is InputEventMouseMotion:
 		if paused: cancel_drag(); return
+		if drag == "sail":
+			set_sail_from_mouse(event.position)
+			get_viewport().set_input_as_handled()
+			return
 		if drag == "pole":
 			# Free pushing: how far the hand is drawn back from where the pole was planted is how
 			# hard the person leans on it; forward is leaning the other way (standing on the pole).
@@ -2117,6 +2128,12 @@ func _unhandled_input(event: InputEvent) -> void:
 				drag_offset=mouse-hit.rect.position
 				drag_size=hit.rect.size
 				return
+		if model.vehicle_id() == "sail" and model.state.phase == "route" and not in_closeup and not paused and sail_rect.has_point(mouse):
+			drag = "sail"
+			Input.set_default_cursor_shape(Input.CURSOR_DRAG)
+			set_sail_from_mouse(mouse)
+			get_viewport().set_input_as_handled()
+			return
 		if model.vehicle_id() == "pole" and model.state.phase == "route" and not in_closeup and not paused:
 			model.pole_aim(pole_mouse_rel(mouse))
 			if model.pole_plant():
@@ -2124,6 +2141,12 @@ func _unhandled_input(event: InputEvent) -> void:
 				pole_press_rel = pole_mouse_rel(mouse)
 				Input.set_default_cursor_shape(Input.CURSOR_DRAG)
 				get_viewport().set_input_as_handled()
+
+# The boom is held by its free end: the further back the hand, the narrower the sail is set.
+func set_sail_from_mouse(mouse: Vector2) -> void:
+	var forward = pole_mouse_rel(mouse)
+	var back = ArtV3.SAIL_MAST_X - forward
+	model.set_sail_trim(1.0 - clampf(back / ArtV3.SAIL_BOOM, 0.0, 1.0))
 
 # The mouse place along the track in the pole truck's own frame: metres forward of the
 # platform centre in the direction of travel.
@@ -2289,6 +2312,7 @@ func _draw() -> void:
 	if art_world == null: draw_background(size)
 	grip_hits.clear()
 	ice_hits.clear()
+	sail_rect = Rect2()
 	workshop_hits.clear()
 	steam_hits.clear()
 	cab_hits.clear()
@@ -2990,7 +3014,7 @@ func draw_cab_gauges(size: Vector2, layout: Dictionary) -> void:
 		draw_round_gauge(Vector2(left + radius * 1.1, y), radius, model.engine_rpm() / 6000.0, "ОБОРОТЫ", "%.1f тыс" % (model.engine_rpm() / 1000.0), [[0.7, Color("5cc17f")], [0.88, Color("e6b34a")], [1.0, Color("e0564a")]], 6, [0, 1, 2, 3, 4, 5, 6])
 		draw_round_gauge(Vector2(pult.end.x + 36.0 + radius + 8.0, y), radius, amount / float(stats.tank), "БЕНЗИН", "%.2f л" % amount, low_bad, 4, ["0", "", "1/2", "", "П"])
 	elif kind == "pneumatic":
-		draw_round_gauge(Vector2(left + radius * 1.1, y), radius, amount / float(stats.tank), "ДАВЛЕНИЕ", "%.0f бар" % amount, [[0.4, Color("e0564a")], [0.7, Color("e6b34a")], [1.0, Color("5cc17f")]], 10, [0, 30, 60, 90, 120, 150])
+		draw_round_gauge(Vector2(left + radius * 1.1, y), radius, amount / float(stats.tank), "ДАВЛЕНИЕ", "%.0f бар" % amount, [[0.4, Color("e0564a")], [0.7, Color("e6b34a")], [1.0, Color("5cc17f")]], 10, [0, int(stats.tank * 0.2), int(stats.tank * 0.4), int(stats.tank * 0.6), int(stats.tank * 0.8), int(stats.tank)])
 		draw_round_gauge(Vector2(right - radius * 0.9, y), radius, model.frost(), "ИНЕЙ", "%d%%" % roundi(model.frost() * 100.0), [[0.3, Color("5cc17f")], [0.6, Color("e6b34a")], [1.0, Color("e0564a")]], 4, ["0", "", "1/2", "", "П"])
 	elif kind == "steam":
 		var work = float(model.boiler_cfg().work_pressure_bar) / float(model.boiler_cfg().max_pressure_bar)
@@ -3562,6 +3586,11 @@ func add_world_hits(id: String, index: int, transform: Transform2D) -> void:
 			grip_hits.append({"id": control_id, "position": transform * lever_geometry(control_id).grip})
 		if id=="handcar":
 			grip_hits.append({"id":"pump","side":-1.0,"position":transform*(model.handcar.pose().grip_left*ArtV3.PX)})
+		if id=="sail":
+			var geo = art.sail_geometry(model)
+			var a = transform * art.sail_point(float(geo.mast_x) + 0.2 * float(geo.fwd), 0.5)
+			var b = transform * art.sail_point(float(geo.mast_x) - 1.8 * float(geo.fwd), 3.8)
+			sail_rect = Rect2(a, Vector2.ZERO).expand(b).grow(10.0)
 		if id=="pneumatic":
 			for i in range(ArtV3.FROST_SPOTS.size()):
 				ice_hits.append({"spot": i, "position": transform * art.steam_point(ArtV3.FROST_SPOTS[i].x, ArtV3.FROST_SPOTS[i].y)})

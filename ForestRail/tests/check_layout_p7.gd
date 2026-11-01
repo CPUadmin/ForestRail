@@ -8,7 +8,9 @@ var cases: Array=[]
 var out_dir=""
 var context=""
 
-func _ready() -> void: call_deferred("run")
+func _ready() -> void:
+	preload("res://scripts/model.gd").legacy_tanks = true  # these tests are about the screens, on the old tank sizes (B2.2)
+	call_deferred("run")
 func check(ok: bool,label: String) -> void:
 	checks+=1
 	if not ok: failures.append(context+label);print("FAIL: ",context,label)

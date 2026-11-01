@@ -3,7 +3,7 @@ extends RefCounted
 const ROOT = "res://assets/art_v3/"
 # The steam engine body is drawn by tools/make_steam_art.py; the fire glow,
 # needle, smoke and rods are drawn live in draw_steam_overlay / draw_steam_motion.
-const BODY = {"handcar": "vehicles/handcar_body", "pole": "vehicles/pole_body", "steam": "vehicles/steam_locomotive_body", "motorcar": "vehicles/petrol_motorcar_body", "locomotive": "vehicles/battery_locomotive_body", "pneumatic": "vehicles/pneumatic_body"}
+const BODY = {"handcar": "vehicles/handcar_body", "pole": "vehicles/pole_body", "sail": "vehicles/sail_body", "steam": "vehicles/steam_locomotive_body", "motorcar": "vehicles/petrol_motorcar_body", "locomotive": "vehicles/battery_locomotive_body", "pneumatic": "vehicles/pneumatic_body"}
 const LARGE_WHEELS = ["locomotive", "steam", "pneumatic"]
 const Geometry = preload("res://scripts/world_geometry.gd")
 const Mechanism = preload("res://scripts/handcar_mechanism.gd")
@@ -56,7 +56,7 @@ func _init(skins_path: String = "") -> void:
 		var id = "vehicles/freight_wagon_body" if kind=="wagon" else BODY[kind]
 		# The pneumatic train (tools/make_pneumatic_art.py) has no manifest entry of its own;
 		# it takes the steam body's entry as a template for the fields that are overwritten below.
-		var meta = assets["vehicles/steam_locomotive_body" if kind == "pneumatic" else ("vehicles/handcar_body" if kind == "pole" else id)].duplicate(true)
+		var meta = assets["vehicles/steam_locomotive_body" if kind == "pneumatic" else ("vehicles/handcar_body" if kind == "pole" or kind == "sail" else id)].duplicate(true)
 		meta.file = "../art_p2/"+spec.file
 		meta.region_px = spec.region_px
 		meta.pivot_px = [float(spec.region_px[0])+float(spec.region_px[2])*0.5,float(spec.axles_px[0][1])]
@@ -289,6 +289,7 @@ func draw_vehicle(canvas: Node2D, id: String, distance: float, facing: int, oute
 	if id=="steam": draw_steam_overlay(canvas, model)
 	if id=="pneumatic": draw_pneumatic_overlay(canvas, model)
 	if id=="pole": draw_pole_overlay(canvas, model)
+	if id=="sail": draw_sail_overlay(canvas, model)
 	if id=="motorcar": draw_petrol_overlay(canvas, model)
 	var wheel_id = skin_wheel.get(id, "vehicles/steam_wheel" if id == "steam" else "vehicles/petrol_wheel" if id == "motorcar" else ("vehicles/wheel_large" if id in LARGE_WHEELS else "vehicles/wheel_small"))
 	var radius = PX * (0.55 if id in LARGE_WHEELS else 0.42) * 0.5
@@ -372,6 +373,46 @@ func draw_steam_overlay(canvas: Node2D, model) -> void:
 		var puff = steam_point(origin.x - age * 1.4, origin.y + age * 0.7)
 		canvas.draw_circle(puff, (0.10 + age * 0.22) * PX, Color(0.86, 0.86, 0.82, (0.35 + 0.35 * throttle) * (1.0 - age)))
 
+# The sail car's mast and sail, drawn live (placeholder picture): the mast stands at the front end in
+# the direction of travel, the boom runs back from it; the wider the sail is open the shorter the boom
+# looks from the side. A badly trimmed sail flaps.
+const SAIL_MAST_X = 0.5
+const SAIL_BOOM = 1.6
+func sail_point(x: float, y: float) -> Vector2:
+	return Vector2(x, -(y - 0.21)) * PX
+
+func sail_geometry(model) -> Dictionary:
+	var fwd = float(int(model.state.direction)) if not model.state.is_empty() else 1.0
+	var trim = float(model.sail_trim)
+	var boom = SAIL_BOOM * cos(trim * PI * 0.5)
+	return {"fwd": fwd, "mast_x": SAIL_MAST_X * fwd, "boom_end_x": (SAIL_MAST_X - boom) * fwd, "foot_y": 1.05, "top_y": 3.6}
+
+func draw_sail_overlay(canvas: Node2D, model) -> void:
+	if model == null or model.state.is_empty(): return
+	var g = sail_geometry(model)
+	var t = Time.get_ticks_msec() / 1000.0
+	var info: Dictionary = model.sail_info
+	var flap = 0.0
+	if not info.is_empty(): flap = (1.0 - float(info.quality)) * 0.12
+	var mast_foot = sail_point(g.mast_x, 0.6)
+	var mast_top = sail_point(g.mast_x, g.top_y)
+	canvas.draw_line(mast_foot, mast_top, Color("6a4a2a"), 0.07 * PX, true)
+	canvas.draw_line(sail_point(g.mast_x, g.foot_y), sail_point(g.boom_end_x, g.foot_y), Color("8a6a3a"), 0.05 * PX, true)
+	var wobble = Vector2(sin(t * 11.0), cos(t * 9.0)) * flap * PX
+	var leech = sail_point(g.boom_end_x, g.foot_y) + wobble
+	var belly = sail_point((g.mast_x + g.boom_end_x) * 0.5, (g.foot_y + g.top_y) * 0.42) + wobble * 0.6 + Vector2(0, -0.1 * PX) * float(model.sail_trim)
+	var cloth = PackedVector2Array([sail_point(g.mast_x, g.foot_y), sail_point(g.mast_x, g.top_y), belly, leech])
+	if absf(float(g.mast_x) - float(g.boom_end_x)) > 0.06:
+		canvas.draw_colored_polygon(cloth, Color(0.93, 0.89, 0.8, 0.94))
+		canvas.draw_polyline(PackedVector2Array([cloth[1], cloth[2], cloth[3]]), Color(0.5, 0.42, 0.3), 1.6, true)
+	else:
+		canvas.draw_line(sail_point(g.mast_x, g.foot_y), sail_point(g.mast_x, g.top_y), Color(0.93, 0.89, 0.8), 0.04 * PX, true)
+	# a pennant at the masthead shows where the wind is
+	if not info.is_empty():
+		var wv: Vector2 = info.wind
+		var dirx = float(g.fwd) * -signf(wv.x if absf(wv.x) > 0.2 else 0.2)
+		canvas.draw_line(mast_top, mast_top + Vector2(dirx * 0.35 * PX, 0.04 * PX * sin(t * 12.0)), Color("c9552f"), 0.03 * PX, true)
+
 # The pole truck's person, pole and the ground under the line, all live (placeholder figures
 # until it has its own art). Local frame: x along increasing route distance, metres above the rail.
 func pole_point(x: float, y: float) -> Vector2:
@@ -423,7 +464,7 @@ func draw_pneumatic_overlay(canvas: Node2D, model) -> void:
 	if model == null or model.state.is_empty() or not model.state.fleet_by_id.has("pneumatic"): return
 	var fleet = model.state.fleet_by_id.pneumatic
 	var center = steam_point(-0.30, 1.88)
-	var needle = deg_to_rad(150.0) + deg_to_rad(240.0) * clampf(float(fleet.get("fuel", 0.0)) / 150.0, 0.0, 1.0)
+	var needle = deg_to_rad(150.0) + deg_to_rad(240.0) * clampf(float(fleet.get("fuel", 0.0)) / float(model.object_stats("pneumatic").tank), 0.0, 1.0)
 	canvas.draw_line(center, center + Vector2.from_angle(needle) * 0.075 * PX, Color("a8231c"), 2.0, true)
 	canvas.draw_circle(center, 2.0, Color("2a2a2a"))
 	var spots: Array = fleet.get("ice_spots", [])

@@ -10,6 +10,7 @@ func check(condition: bool, text: String) -> void:
 	if not condition: failures.append(text); print("FAIL: ", text)
 
 func _ready() -> void:
+	Model.legacy_tanks = true  # calibrated on the old tank sizes (B2.2)
 	call_deferred("run")
 
 func setup():

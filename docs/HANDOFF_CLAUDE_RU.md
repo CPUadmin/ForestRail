@@ -220,3 +220,16 @@
 - Тесты: `check_line_v2` (высота E = 58), `check_air` (уклон бугра до 8%, торможение проверяется после отрыва).
 - Прогнано: `check_forecast_long`, `drive_long`, `drive_campaign`, `check_pole`, `check_pneumatic`, `check_line_v2`, `check_forecast`, `check_speeds`: проходят без подгонки баков и ставок. Баки и рекуперация — отдельные задачи В2.2 и В2.3.
 
+## В2.2 (preview.46): баки
+
+- `game_data.json`: `fuel_l` бензиновой 1,3 → 0,65 (цена литра 55 → 110), `battery_kwh` 0,7 → 0,35 (160 → 320), `air_bar` 150 → 50 (1,5 → 4,5 за бар); цена за единицу выросла в той же пропорции, чтобы полная заправка не подешевела на единицу пути. Заправка и зарядка (`fuel`) добавлены на станциях C (1,0), D (1,25 рядом с водой и воздухом) и E (1,25).
+- `model.gd`: пневматические расчёты считаются от бака (`pneumatic_factor` полный от 40% бака, иней от доли бака, звук и стрелка тоже); статическая переменная `legacy_tanks` возвращает старые баки только калибровочным тестам.
+- Тесты, которым нужны старые баки (`legacy_tanks = true`): `check_model`, `check_gearbox`, `check_forecast`, `check_physics`, `check_handcar_revision`, `check_loading_selection`, `check_instruments`, `check_station_service`, `check_layout_p7`, `check_forecast_long` (калибровочная часть) и `drive_campaign` на старой линии. На настоящих баках проверены `check_forecast_long` (новый блок: с услугами станций участок помещается в бак, без них полный круг нет) и `drive_long` (кампания, водитель теперь заезжает за топливом по пути).
+- Из-за крутой карты длинный участок тяжёлого состава у электровоза упирался в тягу при низком заряде: поэтому добавлены точки заправки на C и D.
+
+## В6.4 (preview.46): парусная, шаг 1
+
+- `wind.gd` (поле ветра), `model.gd`: `wind`, `sail_trim`, `sail_info`, `sail_step`, `sail_quality`, `sail_pull`, `wind_here`, `set_sail_trim`; `human_powered()` включает `sail`; в фазе погрузки парус держится ребром (`sail_trim = 0`), раскрыть его больше 0,35 значит выехать (как у ручной и шестовой).
+- `art_v3.gd`: `draw_sail_overlay`, `sail_geometry`; `main.gd`: `sail_rect`, `set_sail_from_mouse`, перетаскивание паруса; `instruments.gd`: панель паруса.
+- Тесты: `check_sail` (16), `check_sail_view` (4).
+

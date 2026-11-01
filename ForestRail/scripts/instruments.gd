@@ -286,7 +286,7 @@ func draw_minimap() -> void:
 func draw_status() -> void:
 	var r = Rect2(size.x-status_width()-22,hud_top(),status_width(),hud_height())
 	var f=r.size.y/100.0
-	var accent={"handcar":Color("8fc46a"),"pole":Color("c9b87a"),"steam":Color("e8825a"),"motorcar":Color("e6b34a"),"locomotive":Color("6cc4e0"),"pneumatic":Color("9fd6e8")}.get(game.model.vehicle_id(),GOLD)
+	var accent={"handcar":Color("8fc46a"),"pole":Color("c9b87a"),"sail":Color("e8e0c8"),"steam":Color("e8825a"),"motorcar":Color("e6b34a"),"locomotive":Color("6cc4e0"),"pneumatic":Color("9fd6e8")}.get(game.model.vehicle_id(),GOLD)
 	panel(r,Color("2a2a22") if game.model.vehicle_id()=="motorcar" else Color("1f2f30"),accent)
 	var m = game.model
 	var stats = m.object_stats(m.vehicle_id())
@@ -294,7 +294,15 @@ func draw_status() -> void:
 	var title: String
 	var value: String
 	var fraction: float
-	if m.vehicle_id()=="pole":
+	if m.vehicle_id()=="sail":
+		var info = m.sail_info
+		var wind_speed = info.wind.length() if not info.is_empty() else 0.0
+		title = "ПАРУС  ·  ветер %.1f м/с" % wind_speed
+		var gust = float(info.get("gust", -1.0)) if not info.is_empty() else -1.0
+		if gust >= 0.0: title += "  ·  порыв через %.0f с" % gust
+		value = "тяга %d Н" % roundi(float(info.get("force", 0.0))) if not info.is_empty() else "тяга 0 Н"
+		fraction = float(info.get("quality", 0.0)) if not info.is_empty() else 0.0
+	elif m.vehicle_id()=="pole":
 		title = "ШЕСТ  ·  " + ("упор: " + str(m.pole_ground_at(float(m.pole.tip_s)).name) if m.pole.planted() else "в руках")
 		value = "%d Н" % roundi(absf(m.pole.force))
 		fraction = absf(m.pole.effort)

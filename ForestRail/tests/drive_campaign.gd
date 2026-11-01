@@ -19,6 +19,7 @@ func _ready() -> void:
 	call_deferred("run")
 
 func run() -> void:
+	Model.legacy_tanks = (line == 1)  # the old 1.7 km line keeps the old tanks; the long line runs on the real ones
 	var m = Model.new()
 	m.new_game(42, line)
 	var partial="--partial-first" in OS.get_cmdline_user_args()
@@ -31,6 +32,11 @@ func run() -> void:
 		if purchase != "":
 			m.state.money += int(m.vehicle_base(purchase).cost)
 			m.buy_vehicle(purchase)
+			# The stock tank is small on purpose (B2.2): a player who goes far buys the tank upgrade.
+			if line == 2:
+				for branch in m.data.upgrade_catalog:
+					if str(branch.id) == purchase + "_tank": m.state.fleet_by_id[purchase].levels[branch.id] = 2
+				m.refuel()
 		if chapter == 4 or chapter == 9:
 			m.state.money += m.wagon_price(m.next_wagon_id())
 			m.buy_wagon()
@@ -43,7 +49,24 @@ func run() -> void:
 		var phase_time = 0.0
 		var last_stop = ""
 		while m.state.phase != "depot" and timer < 9000:
-			var destination = m.next_destination()
+			var real_destination = m.next_destination()
+			var destination = real_destination
+			# B2.2: the tanks are half of what they were. A driver stops where the road sells fuel when
+			# the tank is going down, as a player must.
+			if m.vehicle_id() not in ["handcar", "pole"]:
+				var stats_now = m.object_stats(m.vehicle_id())
+				if float(m.state.fleet_by_id[m.vehicle_id()].fuel) < 0.75 * float(stats_now.tank):
+					var here_s = float(m.state.s)
+					var end_s = m.service_stop(station_index(m, real_destination))
+					for i in range(m.data.stations.size()):
+						var spot = m.service_stop(i)
+						var services = m.data.stations[i].get("services", {})
+						if m.fuel_service_mult(services) < 0.0: continue
+						var ahead = (spot - here_s) * int(m.state.direction)
+						var before_end = (end_s - spot) * int(m.state.direction)
+						if ahead > 20.0 and before_end > 20.0:
+							destination = str(m.data.stations[i].id)
+							break
 			var target_s = m.service_stop(station_index(m,destination))
 			var remaining = (target_s - float(m.state.s)) * int(m.state.direction)
 			var speed = absf(float(m.state.v))
@@ -89,6 +112,13 @@ func run() -> void:
 			timer += 1.0 / 60
 			steps += 1
 			if m.station_index() == station_index(m, destination) and m.station_interaction().can_transfer:
+				# a driver tops up where the station sells fuel (B2.2: the tanks are half of what they were)
+				if not m.service_offer().is_empty() and m.refill_cost() > 0:
+					print("REFUEL ", mission.id, " at ", destination, " s=", int(m.state.s), " fuel was ", snappedf(float(m.state.fleet_by_id[m.vehicle_id()].fuel) / maxf(0.0001, float(m.object_stats(m.vehicle_id()).tank)), 0.01))
+					m.refuel()
+				if destination != real_destination:
+					m.state.brake = 0.0
+					continue
 				if destination == "A" and m.state.active.is_empty(): break
 				for item in m.state.cargo.duplicate(true):
 					if item.destination == destination and not item.delivered: m.transfer(item.id, "")
@@ -97,7 +127,7 @@ func run() -> void:
 					# No engine restart required when changing the consist direction.
 					m.state.brake = 1
 			if steps % 18000 == 0:
-				print("DRIVE ", mission.id, " t=", int(timer), " s=", int(m.state.s), " v=", snappedf(m.state.v, 0.01), " dest=", destination, " idx=", m.station_index(), " can=", m.station_interaction().can_transfer, " phase=", m.state.phase, " cargo=", m.state.cargo.size(), " brake=", m.state.brake, " dir=", m.state.direction, " held=", m.hand_drive.held, " canpush=", m.can_push_handcar(), " dang=", snappedf(float(m.handcar.pose().dangle_dphase), 0.001), " active=", m.state.active.get("phase", ""))
+				print("DRIVE ", mission.id, " t=", int(timer), " s=", int(m.state.s), " v=", snappedf(m.state.v, 0.01), " dest=", destination, " idx=", m.station_index(), " can=", m.station_interaction().can_transfer, " phase=", m.state.phase, " cargo=", m.state.cargo.size(), " brake=", m.state.brake, " dir=", m.state.direction, " held=", m.hand_drive.held, " canpush=", m.can_push_handcar(), " dang=", snappedf(float(m.handcar.pose().dangle_dphase), 0.001), " active=", m.state.active.get("phase", ""), " fuel=", snappedf(float(m.state.fleet_by_id[m.vehicle_id()].fuel) / maxf(0.0001, float(m.object_stats(m.vehicle_id()).tank)), 0.01), " thr=", snappedf(float(m.state.throttle), 0.01))
 				await get_tree().process_frame
 		if m.state.phase != "depot":
 			failures.append("Could not finish " + str(mission.id) + " s=" + str(m.state.s))

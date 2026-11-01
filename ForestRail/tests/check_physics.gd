@@ -18,6 +18,7 @@ func check(value: bool, text: String) -> void:
 	if not value: failures.append(text); print("FAIL: ", text)
 
 func _ready() -> void:
+	Model.legacy_tanks = true  # physics checks drive far on the old tank sizes (B2.2)
 	call_deferred("run")
 
 func setup(id: String, seed_value: int = 42):

@@ -32,15 +32,15 @@ func run() -> void:
 	m.state.money = 100000
 	Fixtures.equip(m, "pneumatic")
 	var stats = m.object_stats("pneumatic")
-	check(m.vehicle_id() == "pneumatic" and is_equal_approx(float(stats.tank), 150.0), "a pneumatic train of 150 bar")
+	check(m.vehicle_id() == "pneumatic" and is_equal_approx(float(stats.tank), 50.0), "a pneumatic train of 50 bar")
 	check("pneumatic" in Model.VEHICLE_IDS and not bool(m.vehicle_base("pneumatic").get("hidden", false)), "it is in the garage list of the game")
-	check(is_equal_approx(float(m.state.fleet_by_id.pneumatic.fuel), 150.0) and m.max_wagons("pneumatic") == 2 and m.rank("pneumatic") == 2, "bought with a full tank, two wagons, the rank of the petrol one")
+	check(is_equal_approx(float(m.state.fleet_by_id.pneumatic.fuel), 50.0) and m.max_wagons("pneumatic") == 2 and m.rank("pneumatic") == 2, "bought with a full tank, two wagons, the rank of the petrol one")
 	check(m.top_speed_kmh("pneumatic") == 60.0, "stated top speed 60 km/h")
 	# pressure and frost shape the pull
 	check(is_equal_approx(m.pneumatic_factor(), 1.0), "a full tank, no frost: full pull")
-	m.state.fleet_by_id.pneumatic.fuel = 30.0
-	check(is_equal_approx(m.pneumatic_factor(), 0.5), "30 bar: half the pull")
-	m.state.fleet_by_id.pneumatic.fuel = 150.0
+	m.state.fleet_by_id.pneumatic.fuel = 10.0
+	check(is_equal_approx(m.pneumatic_factor(), 0.5), "10 bar of 50: half the pull")
+	m.state.fleet_by_id.pneumatic.fuel = 50.0
 	m.state.fleet_by_id.pneumatic.ice_spots = [1.0, 1.0, 1.0, 1.0]
 	check(is_equal_approx(m.pneumatic_factor(), 0.3), "full frost: 30% of the pull")
 	check(is_equal_approx(m.frost(), 1.0), "the frost is the mean of four spots")
@@ -67,26 +67,26 @@ func run() -> void:
 	check(not m.chip_ice(2) and not m.chip_ice(3) and not m.chip_ice(9), "a clean spot, or none, gives nothing")
 	check(m.frost() < before and is_equal_approx(before - m.frost(), 0.0625), "the mean falls by a quarter of one spot")
 	# the compressor is a station service
-	check(m.station_services("D").has("air") and not m.station_services("D").has("fuel"), "the lake station has a compressor, not fuel")
-	fleet.fuel = 100.0
+	check(m.station_services("D").has("air"), "the lake station has a compressor")
+	fleet.fuel = 20.0
 	at_station(m, "D")
-	check(not m.service_offer().is_empty() and m.refill_cost() == ceili(50.0 * 1.5 - 0.0001), "air at the lake station costs the bar price (%d)" % m.refill_cost())
+	check(not m.service_offer().is_empty() and m.refill_cost() == ceili(30.0 * 4.5 - 0.0001), "air at the lake station costs the bar price (%d)" % m.refill_cost())
 	var money = int(m.state.money)
-	check(m.refuel() and float(fleet.fuel) >= 150.0 - 0.001 and money - int(m.state.money) == ceili(50.0 * 1.5 - 0.0001), "the compressor fills the tank for that price")
+	check(m.refuel() and float(fleet.fuel) >= 50.0 - 0.001 and money - int(m.state.money) == ceili(30.0 * 4.5 - 0.0001), "the compressor fills the tank for that price")
 	at_station(m, "F")
-	fleet.fuel = 100.0
-	check(m.refill_cost() == ceili(50.0 * 1.5 * 1.5 - 0.0001), "the far station charges its multiplier")
-	at_station(m, "C")
+	fleet.fuel = 20.0
+	check(m.refill_cost() == ceili(30.0 * 4.5 * 1.5 - 0.0001), "the far station charges its multiplier")
+	at_station(m, "B")
 	check(m.service_offer().is_empty(), "no service at a station without one")
 	var steam = Model.new()
 	steam.new_game(42, 2)
 	steam.state.money = 100000
 	Fixtures.equip(steam, "steam")
-	at_station(steam, "D")
-	check(steam.fuel_service_mult(steam.station_services("D")) < 0.0, "the steam locomotive finds no fuel at the lake station")
+	at_station(steam, "B")
+	check(steam.fuel_service_mult(steam.station_services("B")) < 0.0, "the steam locomotive finds no fuel at a station with no service")
 	# legs: with a compressor halfway the pneumatic train needs a shorter stretch
 	var mission = {"dropoffs": [{"station": "F", "cargo": [["sack", 1]]}]}
-	check(float(m.trip_forecast(mission).leg_m) < float(steam.trip_forecast(mission).leg_m), "the compressor at D shortens the longest stretch against the steam locomotive")
+	check(float(m.trip_forecast(mission).leg_m) <= float(steam.trip_forecast(mission).leg_m) and float(m.trip_forecast(mission).leg_m) < 3600.0, "the compressors keep the longest stretch of the pneumatic train short")
 	# work on the shaft pays for the air; it never goes below zero
 	var flat = Model.new()
 	flat.new_game(42, 1)

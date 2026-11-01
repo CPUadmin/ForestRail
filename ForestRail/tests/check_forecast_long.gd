@@ -10,6 +10,7 @@ var checks = 0
 var failures: Array = []
 
 func _ready() -> void:
+	Model.legacy_tanks = true  # the calibration drives a whole round trip on the old tank sizes (B2.2)
 	call_deferred("run")
 
 func check(ok: bool, label: String) -> void:
@@ -40,5 +41,21 @@ func run() -> void:
 			var water = float(real.get("water_used", 0.0))
 			var water_tank = float(m.object_stats("steam").water)
 			check(float(forecast.water_need) >= water and float(forecast.water_need) <= water * 1.6 and water <= water_tank, "steam water: forecast %.0f, real %.0f, tank %.0f" % [forecast.water_need, water, water_tank])
+	# B2.2: the real tanks (petrol and battery halved, air a third). A whole round trip no longer fits one
+	# tank; the stations that sell fuel (A, E, F, and the compressor at D) are what makes the line work.
+	Model.legacy_tanks = false
+	for kind in ["motorcar", "locomotive", "pneumatic"]:
+		var real_game = Model.new()
+		real_game.new_game(42, 2)
+		real_game.state.money = 1000000
+		Fixtures.equip(real_game, kind)
+		var far_mission = {"id": "T", "tier": kind, "free": true, "reward": 0, "dropoffs": [{"station": "F", "cargo": [["sack", 1]]}]}
+		var with_services = real_game.trip_forecast(far_mission)
+		check(float(with_services.need) <= float(with_services.tank), "%s: with the stations' services the longest stretch fits the tank (%.2f of %.2f)" % [kind, with_services.need, with_services.tank])
+		check(real_game.mission_error(far_mission) == "", kind + ": the far run is accepted with a full tank on the real line")
+		for station in real_game.data.stations:
+			if station.id != "A": station.services = {}
+		var without = real_game.trip_forecast(far_mission)
+		check(float(without.need) > float(without.tank) and real_game.mission_error(far_mission) != "", "%s: with no fuel on the way a whole round trip does not fit the half tank (%.2f of %.2f)" % [kind, without.need, without.tank])
 	print("FORECAST LONG CHECKS ", checks, "; FAILURES ", failures)
 	get_tree().quit(0 if failures.is_empty() else 1)

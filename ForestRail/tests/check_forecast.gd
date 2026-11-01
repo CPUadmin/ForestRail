@@ -9,6 +9,7 @@ var checks = 0
 var failures: Array = []
 
 func _ready() -> void:
+	Model.legacy_tanks = true  # calibrated on the old tank sizes (B2.2)
 	call_deferred("run")
 
 func check(ok: bool, label: String) -> void:
@@ -34,7 +35,7 @@ func fresh(kind: String):
 func run() -> void:
 	var m = fresh("motorcar")
 	check(m.station_services("A").has("fuel") and m.station_services("F").has("fuel") and m.station_services("D").has("water"), "services come from the data")
-	check(m.station_services("B").is_empty() and m.station_services("C").is_empty() and m.station_services("E").is_empty(), "other stations offer nothing")
+	check(m.station_services("B").is_empty() and m.station_services("C").has("fuel") and m.station_services("E").has("fuel") and not m.station_services("E").has("water"), "B offers nothing, the sawmill and the upper forest sell fuel")
 	# the longest stretch without a refill
 	check(is_equal_approx(m.longest_leg(1000.0, []), 2000.0), "no service on the way: out and back")
 	check(is_equal_approx(m.longest_leg(1700.0, [1700.0]), 1700.0), "service at the far end: one way")
@@ -42,7 +43,7 @@ func run() -> void:
 	check(is_equal_approx(m.longest_leg(900.0, [600.0]), 600.0), "service before the far end: the dead end back and forth counts")
 	# refuelling on the road
 	m.state.fleet_by_id.motorcar.fuel = 0.5
-	at_station(m, "C")
+	at_station(m, "B")
 	check(m.service_offer().is_empty() and not m.refuel() and is_equal_approx(float(m.state.fleet_by_id.motorcar.fuel), 0.5), "a station without the service does not refuel")
 	at_station(m, "F")
 	var cost = m.refill_cost()
@@ -61,8 +62,10 @@ func run() -> void:
 	var before = int(s.state.money)
 	at_station(s, "D")
 	check(s.refuel() and float(s.state.fleet_by_id.steam.water) >= float(s.object_stats("steam").water) - 0.001, "the lake station gives water")
-	check(is_equal_approx(float(s.state.fleet_by_id.steam.fuel), coal - 10.0) and int(s.state.money) == before, "and no coal or charge there")
-	check(not s.refuel(), "nothing left to take there")
+	check(float(s.state.fleet_by_id.steam.fuel) >= float(s.object_stats("steam").tank) - 0.001 and int(s.state.money) < before, "and coal at the lake station too, for money")
+	var after_first = int(s.state.money)
+	s.refuel()
+	check(int(s.state.money) == after_first, "nothing more to buy there")
 	# forecast and the mission check follow the same numbers
 	var mission = {"id": "T", "tier": "motorcar", "dropoffs": [{"station": "F", "cargo": [["sack", 1]]}]}
 	var forecast = m.trip_forecast(mission)

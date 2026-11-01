@@ -13,6 +13,7 @@ func check(ok: bool, text: String) -> void:
 	if not ok: failures.append(text);print("FAIL: ",text)
 
 func _ready() -> void:
+	preload("res://scripts/model.gd").legacy_tanks = true  # these tests are about the screens, on the old tank sizes (B2.2)
 	call_deferred("run")
 
 func frame(count: int = 2) -> void:
@@ -258,7 +259,7 @@ func run() -> void:
 	await prepare(2)
 	var tank=float(game.model.object_stats("motorcar").tank)
 	game.model.state.fleet_by_id.motorcar.fuel=0.4
-	await arrive(2)
+	await arrive(1)
 	game.cargo_action_key="x"
 	await frame(3)
 	var fuel_button: Button = null

@@ -193,7 +193,7 @@ func update(model, paused: bool, in_menu: bool, dt: float, in_cab: bool = false)
 			blow_timer = 2.4
 	elif kind == "pneumatic":
 		# A quiet hiss by the valve and a puff of air for every beat, thinned at speed.
-		var air = float(model.state.fleet_by_id.pneumatic.fuel) / 150.0
+		var air = float(model.state.fleet_by_id.pneumatic.fuel) / float(model.object_stats("pneumatic").tank)
 		if model.rail_distance - last_chuff >= maxf(CHUFF_SPACING * 1.4, speed / 7.0):
 			last_chuff = model.rail_distance
 			if throttle > 0.03 and air > 0.02 and speed > 0.05:
