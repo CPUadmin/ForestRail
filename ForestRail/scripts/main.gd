@@ -1053,37 +1053,62 @@ func build_missions(right: VBoxContainer) -> void:
 		add_label(right, "Любые рейсы, любые машины", 22)
 		for index in range(model.data.missions.size()):
 			var open_mission = model.scaled_mission(model.data.missions[index])
-			var open_card = card(right, GOLD if index == 0 else CARD_EDGE)
-			add_label(open_card, "%s  ·  %s" % [open_mission.id, str(open_mission.title)], 20)
-			add_label(open_card, mission_description(open_mission), 16, MUTED_INK)
-			var open_problem = model.mission_error(open_mission)
-			if open_problem != "": add_label(open_card, open_problem, 16, RED)
-			add_button(open_card, "К погрузке →", func(): take_mission(open_mission), open_problem != "")
+			mission_notice(right, open_mission, "ОТКРЫТЫЙ РЕЙС  ·  %s" % open_mission.id, "К погрузке →", index == 0)
 		add_label(right, "Свободные рейсы", 22)
 		for offer in model.free_offers():
-			var offer_card = card(right)
-			add_label(offer_card, str(offer.title), 19)
-			add_label(offer_card, mission_description(offer), 16, MUTED_INK)
-			add_button(offer_card, "Взять", func(): take_mission(offer))
+			mission_notice(right, offer, "СВОБОДНЫЙ РЕЙС", "Взять")
 		return
 	var mission = model.current_mission()
 	if not mission.is_empty():
-		var c = card(right, GOLD)
-		add_label(c, "ОСНОВНОЙ РЕЙС  ·  %s" % mission.id, 15, Color("9a7a3c"))
-		add_label(c, str(mission.title), 24)
-		add_label(c, mission_description(mission), 17, MUTED_INK)
-		var problem = model.mission_error(mission)
-		if problem != "":
-			add_label(c, problem, 17, RED)
-		add_button(c, "К погрузке →", func(): take_mission(mission), problem != "")
+		mission_notice(right, mission, "ОСНОВНОЙ РЕЙС  ·  %s" % mission.id, "К погрузке →", true)
 	else:
 		add_label(right, "Линия работает. Выбирай следующую перевозку.", 23)
 	add_label(right, "Свободные рейсы", 22)
 	for offer in model.free_offers():
-		var c = card(right)
-		add_label(c, str(offer.title), 19)
-		add_label(c, mission_description(offer), 16, MUTED_INK)
-		add_button(c, "Взять · %d монет" % offer.reward, func(): take_mission(offer))
+		mission_notice(right, offer, "СВОБОДНЫЙ РЕЙС", "Взять · %d монет" % offer.reward)
+
+# B1.2d: an order is a notice pinned to the board: where it goes, what it carries, what it pays, how
+# hard the road is, and the button that takes it.
+func mission_notice(parent: Node, mission: Dictionary, kind: String, take_text: String, highlighted: bool = false) -> void:
+	var problem = model.mission_error(mission)
+	var notice = card(parent, GOLD if highlighted else CARD_EDGE)
+	var top = HBoxContainer.new()
+	notice.add_child(top)
+	add_label(top, kind, 14, Color("9a7a3c"))
+	var far = model.mission_far_s(mission)
+	var distance = add_label(top, "%.1f км" % (far / 1000.0), 15, MUTED_INK)
+	distance.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	add_label(notice, str(mission.title), 22)
+	var places: Array = [model.station_name("A")]
+	for stop in mission.dropoffs:
+		var name = model.station_name(stop.station)
+		if places[places.size() - 1] != name: places.append(name)
+	add_label(notice, " → ".join(places), 16, INK)
+	var goods: Array = []
+	for stop in mission.dropoffs:
+		for pair in stop.cargo: goods.append("%s × %d" % [model.cargo_base(pair[0]).name, pair[1]])
+	add_label(notice, "Груз: " + ", ".join(goods), 16, MUTED_INK)
+	var grade = route_climb_to(far)
+	var hard = grade > (0.03 if model.human_powered() else 0.045)
+	var road_text = "Ровный путь" if grade <= 0.02 else ("Подъёмы до %.1f%%" % (grade * 100.0))
+	if hard: road_text = "Крутой подъём %.1f%%" % (grade * 100.0)
+	var bottom = HBoxContainer.new()
+	notice.add_child(bottom)
+	add_label(bottom, "Награда до %d" % int(mission.reward), 20, GOLD.darkened(0.25))
+	var road = add_label(bottom, road_text, 16, RED if hard else (GREEN if grade <= 0.02 else MUTED_INK))
+	road.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	if problem != "": add_label(notice, problem, 16, RED)
+	add_button(notice, take_text, func(): take_mission(mission), problem != "")
+
+# The steepest climb of the road from the depot to distance s (as a grade, 0.03 is 3%), measured
+# over 30 m so that a short springboard knoll is not mistaken for a hill.
+func route_climb_to(distance: float) -> float:
+	var worst = 0.0
+	var s = 0.0
+	while s <= distance:
+		worst = maxf(worst, (model.route.sample(s + 30.0).y - model.route.sample(s).y) / 30.0)
+		s += 10.0
+	return worst
 
 func mission_description(mission: Dictionary) -> String:
 	var stops: Array = []

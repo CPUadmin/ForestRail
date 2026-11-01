@@ -103,6 +103,18 @@ func run() -> void:
 		for i in range(6): await get_tree().process_frame
 		await RenderingServer.frame_post_draw
 		get_tree().root.get_texture().get_image().save_png(output_dir.path_join("workshop_%d.png" % get_tree().root.size.y))
+	# B1.2d: the job board shows notices with a route, goods, reward and the road
+	game.tab = "Рейсы"
+	game.rebuild()
+	for i in range(6): await get_tree().process_frame
+	await RenderingServer.frame_post_draw
+	get_tree().root.get_texture().get_image().save_png(output_dir.path_join("board_%d.png" % get_tree().root.size.y))
+	var rewards = 0
+	var roads = 0
+	for node in game.ui.find_children("*", "Label", true, false):
+		if node.text.begins_with("Награда до"): rewards += 1
+		if node.text.begins_with("Ровный путь") or node.text.begins_with("Подъёмы до") or node.text.begins_with("Крутой подъём"): roads += 1
+	check(rewards >= 2 and rewards == roads, "every notice on the board shows its reward and its road (%d, %d)" % [rewards, roads])
 	var tiles = 0
 	for node in game.ui.find_children("*", "Button", true, false): if node.tooltip_text in ["Гараж", "Состав", "Мастерская", "Доска заказов"]: tiles += 1
 	check(tiles == 4, "four pictured places in the depot (%d)" % tiles)
