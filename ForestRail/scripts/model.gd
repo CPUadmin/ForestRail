@@ -866,6 +866,28 @@ func render_s() -> float:
 func body_s_render(index: int) -> float:
 	return body_s(index) - render_shift()
 
+# Air drag per class (the old single 1.2 is right for the slow machines; a fast machine
+# is streamlined). N11 sets the top speeds with this and the power limit below.
+# The class's stated top speed (km/h) in the base build with a light load; the speed tests
+# hold the model to it.
+func top_speed_kmh(id: String = "") -> float:
+	var base = vehicle_base(id) if id != "" else vehicle_base()
+	return float(base.get("top_speed_kmh", 0.0))
+
+func drag_coefficient() -> float:
+	return float(vehicle_base().get("drag", 1.2))
+
+# Power limit of the drive (W): the pull cannot exceed power / speed, so the machine
+# is strong at a standstill but accelerates more and more slowly as it speeds up. The
+# steam locomotive's limit follows the boiler pressure, the electric one the charge.
+func power_limit_force(scale: float = 1.0) -> float:
+	var cap = float(vehicle_base().get("power_cap_w", 0.0))
+	if cap <= 0.0: return INF
+	return cap * scale / maxf(absf(float(state.v)), 1.5)
+
+func boiler_cap_scale() -> float:
+	return clampf(float(boiler().pressure) * 1.25, 0.0, 1.0)
+
 func engine_rpm_fraction() -> float:
 	if vehicle_id() != "motorcar" or not state.engine: return 0.0
 	var gear = int(state.gear)
@@ -1031,6 +1053,7 @@ func steam_step(dt: float, fleet: Dictionary) -> float:
 	var strong = smoothstep(low, 0.8, float(b.pressure))
 	var vmax = lerpf(float(stats.speeds[0]), float(stats.speeds[1]), smoothstep(low, 1.0, float(b.pressure)))
 	var pull = float(stats.traction[0]) * strong * valve * maxf(0.0, 1.0 - pow(absf(float(state.v)) / vmax, 2))
+	pull = minf(pull, power_limit_force(boiler_cap_scale()))
 	var adhesion = 0.35 * float(stats.mass) * G * cos(route.slope(float(state.s)))
 	return float(drive_direction()) * minf(pull, adhesion)
 
@@ -1102,7 +1125,7 @@ func physics_step(dt: float) -> void:
 	regen_kw = 0.0
 	var hand_result: Dictionary = {}
 	if vehicle_id() == "handcar":
-		hand_result=hand_drive.step(handcar,float(state.v),total,int(state.direction),0.21,dt,grade,rolling,float(state.brake)*max_brake,minf(220.0,float(stats.power)),float(effects(vehicle_id()).get("work_multiplier",1.0)),handcar_potential_at)
+		hand_result=hand_drive.step(handcar,float(state.v),total,int(state.direction),0.21,dt,grade,rolling+float(vehicle_base().get("drag",0.0))*float(state.v)*float(state.v),float(state.brake)*max_brake,minf(220.0,float(stats.power)),float(effects(vehicle_id()).get("work_multiplier",1.0)),handcar_potential_at)
 		pump_angle=handcar.pose().angle
 		pump_work=maxf(0,float(hand_result.hand_work))
 		output_power=pump_work/dt
@@ -1124,9 +1147,11 @@ func physics_step(dt: float) -> void:
 				if reverse_gear: gear = 0
 				if vehicle_id() == "motorcar" and not reverse_gear: petrol_stall_check(gear, stats, dt)
 				var traction = float(stats.traction[gear]) * maxf(0, 1 - pow(absf(float(state.v)) / float(stats.speeds[gear]), 2)) * charge_traction_factor() * petrol_lug(gear, stats)
+				traction = minf(traction, power_limit_force(charge_traction_factor()))
 				if shift_cut > 0.0: traction = 0.0
 				var adhesion = 0.35 * float(stats.mass) * G * cos(route.slope(float(state.s)))
 				drive = float(drive_direction()) * (-1.0 if reverse_gear else 1.0) * float(state.throttle) * minf(traction, adhesion)
+	var drag = drag_coefficient()
 	var brake = float(state.brake) * max_brake + engine_brake_force()
 	var old_v = float(state.v)
 	var new_v = old_v
@@ -1136,7 +1161,7 @@ func physics_step(dt: float) -> void:
 		movement=hand_result.delta_s
 	else:
 		var external = drive + grade
-		var resist = rolling + brake + 1.2 * old_v * old_v
+		var resist = rolling + brake + drag * old_v * old_v
 		if absf(old_v) < 0.03 and absf(external) <= rolling + brake:
 			new_v = 0.0
 		else:
@@ -1150,7 +1175,7 @@ func physics_step(dt: float) -> void:
 		var shaft_work=absf(drive*movement)
 		var kinetic_change=0.5*total*(new_v*new_v-old_v*old_v)
 		var dissipated=maxf(0,drive*movement+grade*movement-kinetic_change)
-		var resist=rolling+brake+1.2*old_v*old_v
+		var resist=rolling+brake+drag*old_v*old_v
 		var brake_work=minf(brake*absf(movement),dissipated*brake/maxf(0.000001,resist))
 		var fleet=state.fleet_by_id[vehicle_id()]
 		var before=float(fleet.fuel)

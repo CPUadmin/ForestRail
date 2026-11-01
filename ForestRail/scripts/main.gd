@@ -149,7 +149,7 @@ func _ready() -> void:
 		for arg in qa_args:
 			if arg.begins_with("--qa-suite="):
 				var suite = arg.trim_prefix("--qa-suite=")
-				if suite not in ["check_model", "check_physics", "check_interaction", "drive_campaign", "check_presentation", "check_handcar_revision", "check_art_v3", "check_instruments", "check_station_service", "check_world_geometry", "check_mechanism", "check_mechanism_bench", "check_handcar_drive", "check_handcar_input", "check_motor_controls", "check_loading_selection", "check_layout_p7", "check_steam", "check_steam_view", "check_gearbox", "check_petrol_view", "check_skins", "check_perf", "check_cab", "check_sound", "check_forecast", "check_line_v2", "check_forecast_long", "drive_long", "check_forecast_view", "check_soak_p8", "check_save_p8"]: get_tree().quit(2); return
+				if suite not in ["check_model", "check_physics", "check_interaction", "drive_campaign", "check_presentation", "check_handcar_revision", "check_art_v3", "check_instruments", "check_station_service", "check_world_geometry", "check_mechanism", "check_mechanism_bench", "check_handcar_drive", "check_handcar_input", "check_motor_controls", "check_loading_selection", "check_layout_p7", "check_steam", "check_steam_view", "check_gearbox", "check_petrol_view", "check_skins", "check_perf", "check_cab", "check_sound", "check_forecast", "check_line_v2", "check_speeds", "check_forecast_long", "drive_long", "check_forecast_view", "check_soak_p8", "check_save_p8"]: get_tree().quit(2); return
 				get_tree().root.set_meta("qa_running", true)
 				set_process(false)
 				set_physics_process(false)
@@ -514,8 +514,7 @@ func line_height(font_size: int) -> float:
 func wrapped_lines(text: String, width: float, font_size: int) -> int:
 	var lines = 0
 	var pixels = int(font_size * float(settings.text_scale))
-	for line in text.split("
-"):
+	for line in text.split("\n"):
 		lines += maxi(1, ceili(font.get_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, -1, pixels).x * 1.08 / maxf(1.0, width)))
 	return lines
 
@@ -604,8 +603,7 @@ func build_depot(size: Vector2) -> void:
 	if model.vehicle_id() == "handcar":
 		details += "\nРучной привод · без топлива\nМаховик сохраняет накат"
 	else:
-		details += "\nПередачи R / N / 1–4 · до %.0f км/ч\n" % (float(stats.speeds[stats.speeds.size()-1])*3.6) + energy_text() + "
-" + forecast_line(model.current_mission())
+		details += "\nПередачи R / N / 1–4 · до %.0f км/ч\n" % model.top_speed_kmh() + energy_text() + "\n" + forecast_line(model.current_mission())
 	var details_y = maxf(info_top + 88, info_top + 7 + line_height(32) + 6)
 	var details_lines = wrapped_lines(details, left_width - 20, 19)
 	positioned_label(details, Rect2(46, details_y, left_width - 20, maxf(105, details_lines * line_height(19))), 19)

@@ -105,6 +105,8 @@
       "rank": 0,
       "max_wagons": 0,
       "brake_n": 700,
+      "top_speed_kmh": 25,
+      "drag": 0.31,
       "free_reward_multiplier": 1.0,
       "free_reach": "C"
     },
@@ -123,18 +125,23 @@
         1300
       ],
       "gear_speed_mps": [
-        3.5,
-        6.0
+        8.0,
+        15.9
       ],
+      "drag": 0.55,
+      "top_speed_kmh": 50,
+      "power_cap_w": 4200,
       "coal_kg": 24,
       "water_l": 160,
-      "refill_price": 4.5,
-      "energy_per_m": 0.0055,
-      "energy_per_m_v2": 0.00203,
-      "line_tank_factor": 0.4,
-      "line_water_factor": 0.45,
-      "water_per_m": 0.0465,
-      "water_per_m_v2": 0.0195,
+      "refill_price": 12,
+      "energy_per_m": 0.00076,
+      "energy_fixed": 0.28,
+      "energy_per_m_v2": 0.0008,
+      "energy_fixed_v2": 0.15,
+      "line_tank_factor": 0.15,
+      "line_water_factor": 0.2,
+      "water_per_m": 0.0083,
+      "water_per_m_v2": 0.0081,
       "energy_unit": "кг угля",
       "free_reward_multiplier": 1.25,
       "free_reach": "D",
@@ -165,16 +172,18 @@
       "mass_kg": 320,
       "deck_slots": 0,
       "default_wagons": 0,
-      "fuel_l": 1.6,
+      "fuel_l": 1.3,
       "traction_n": [
-        900,
-        495
+        1200,
+        1000
       ],
       "gear_speed_mps": [
-        4,
-        6.5
+        7.0,
+        33.0
       ],
-      "gears": [[900, 2.0], [750, 3.5], [600, 5.0], [495, 6.5]],
+      "drag": 0.35,
+      "top_speed_kmh": 100,
+      "gears": [[1200, 7.0], [1100, 13.0], [1050, 21.0], [1000, 33.0]],
       "engine": {
         "idle_rpm": 800,
         "max_rpm": 6000,
@@ -190,12 +199,12 @@
       "rank": 2,
       "max_wagons": 2,
       "brake_n": 1800,
-      "refill_price": 40,
-      "energy_per_m": 0.00043,
-      "energy_per_m_v2": 0.00049,
-      "energy_fixed_v2": 0.31,
-      "line_tank_factor": 1.1,
-      "energy_fixed": 0.12,
+      "refill_price": 55,
+      "energy_per_m": 0.000306,
+      "energy_per_m_v2": 0.000278,
+      "energy_fixed_v2": 0.227,
+      "line_tank_factor": 0.88,
+      "energy_fixed": 0.133,
       "energy_unit": "л",
       "free_reward_multiplier": 1.45,
       "free_reach": "F"
@@ -210,12 +219,14 @@
       "fuel_l": 4,
       "traction_n": [
         3000,
-        1650
+        3000
       ],
       "gear_speed_mps": [
-        5,
-        8
+        21.83,
+        21.83
       ],
+      "drag": 0.5,
+      "top_speed_kmh": 75,
       "charge_traction_curve": [
         [
           0,
@@ -245,12 +256,13 @@
       "rank": 3,
       "max_wagons": 3,
       "brake_n": 6000,
-      "battery_kwh": 0.15,
-      "refill_price": 550,
-      "energy_per_m": 3.65e-05,
-      "energy_per_m_v2": 5.3e-05,
-      "line_tank_factor": 1.5,
-      "energy_fixed": 0.0122,
+      "battery_kwh": 0.7,
+      "refill_price": 160,
+      "energy_per_m": 0.000115,
+      "energy_per_m_v2": 0.000107,
+      "energy_fixed_v2": 0.185,
+      "line_tank_factor": 0.75,
+      "energy_fixed": 0.154,
       "energy_unit": "кВт·ч",
       "free_reward_multiplier": 1.7,
       "free_reach": "F"

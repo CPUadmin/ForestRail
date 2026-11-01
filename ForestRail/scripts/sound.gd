@@ -153,7 +153,8 @@ func update(model, paused: bool, in_menu: bool, dt: float, in_cab: bool = false)
 	if kind == "steam":
 		var boiler = model.boiler()
 		var pressure = float(boiler.pressure)
-		if model.rail_distance - last_chuff >= CHUFF_SPACING:
+		# at speed the exhaust beats are thinned to at most 8 a second
+		if model.rail_distance - last_chuff >= maxf(CHUFF_SPACING, speed / 8.0):
 			last_chuff = model.rail_distance
 			if throttle > 0.03 and pressure > 0.2 and speed > 0.05:
 				play("steam_chuff", (0.3 + 0.5 * throttle) * loud, randf_range(0.94, 1.06) * (0.85 + minf(speed, 6.0) * 0.03))
@@ -176,8 +177,8 @@ func update(model, paused: bool, in_menu: bool, dt: float, in_cab: bool = false)
 	elif kind == "locomotive":
 		var powered = float(model.state.fleet_by_id.locomotive.fuel) > 0.0
 		var regen = clampf(model.regen_kw * 0.4, 0.0, 0.15)
-		run_loop("electric_hum", machine * (0.14 + 0.2 * throttle + 0.03 * minf(speed, 8.0)) * loud, powered, 0.75 + speed * 0.07)
-		run_loop("electric_whine", machine * (0.02 + 0.14 * throttle + regen) * loud, powered and (throttle > 0.02 or regen > 0.01 or speed > 0.5), 0.8 + speed * 0.12)
+		run_loop("electric_hum", machine * (0.14 + 0.2 * throttle + 0.03 * minf(speed, 8.0)) * loud, powered, 0.75 + minf(speed, 12.0) * 0.07)
+		run_loop("electric_whine", machine * (0.02 + 0.14 * throttle + regen) * loud, powered and (throttle > 0.02 or regen > 0.01 or speed > 0.5), 0.8 + minf(speed, 12.0) * 0.1)
 		var contact = throttle > 0.03 or brake > 0.05
 		if contact != contactor_on:
 			contactor_on = contact

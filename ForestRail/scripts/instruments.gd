@@ -39,7 +39,7 @@ func _process(delta: float) -> void:
 		queue_redraw()
 
 func nominal_speed() -> float:
-	if game.model.vehicle_id() == "handcar": return 30.0
+	if game.model.top_speed_kmh() > 0.0: return game.model.top_speed_kmh()
 	var speeds = game.model.object_stats(game.model.vehicle_id()).speeds
 	var top = 0.0
 	for s in speeds: top = maxf(top, float(s))
@@ -48,7 +48,7 @@ func nominal_speed() -> float:
 func dial_maximum() -> float:
 	var nominal = nominal_speed()
 	var step = 5.0 if nominal <= 40 else 10.0
-	return ceilf(nominal / step) * step
+	return ceilf(nominal * 1.1 / step - 0.0001) * step
 
 func mini_rect() -> Rect2:
 	return Rect2(244,hud_top(),maxf(240,size.x-244-status_width()-34),hud_height())

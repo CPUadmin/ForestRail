@@ -52,6 +52,8 @@ func run() -> void:
 			for id in m.body_ids(): brake_force += float(m.object_stats(id).brake)
 			var braking_distance = speed * speed / (2 * brake_force / m.train_mass()) + 0.3
 			var stopping = remaining < maxf(0.5, braking_distance)
+			# Standing short of the platform: let the brake off and go on, as a person would.
+			if speed < 0.05 and remaining > 0.6: stopping = false
 			if stopping:
 				m.state.throttle = 0
 				m.state.brake = 1.0
@@ -82,7 +84,7 @@ func run() -> void:
 					if m.vehicle_id() == "steam":
 						# Ease the regulator when the pressure runs down, as a driver does.
 						var pressure = float(m.boiler().pressure)
-						m.state.throttle = 0.95 if pressure > 0.55 else (0.5 if pressure > 0.3 else 0.15)
+						m.state.throttle = 0.95 if pressure > 0.7 else (0.5 if pressure > 0.45 else 0.15)
 			m.physics_step(1.0 / 60)
 			timer += 1.0 / 60
 			steps += 1
@@ -95,7 +97,7 @@ func run() -> void:
 					# No engine restart required when changing the consist direction.
 					m.state.brake = 1
 			if steps % 18000 == 0:
-				print("DRIVE ", mission.id, " t=", int(timer), " s=", int(m.state.s), " v=", snappedf(m.state.v, 0.01))
+				print("DRIVE ", mission.id, " t=", int(timer), " s=", int(m.state.s), " v=", snappedf(m.state.v, 0.01), " dest=", destination, " idx=", m.station_index(), " can=", m.station_interaction().can_transfer, " phase=", m.state.phase, " cargo=", m.state.cargo.size(), " brake=", m.state.brake, " dir=", m.state.direction, " held=", m.hand_drive.held, " canpush=", m.can_push_handcar(), " dang=", snappedf(float(m.handcar.pose().dangle_dphase), 0.001), " active=", m.state.active.get("phase", ""))
 				await get_tree().process_frame
 		if m.state.phase != "depot":
 			failures.append("Could not finish " + str(mission.id) + " s=" + str(m.state.s))

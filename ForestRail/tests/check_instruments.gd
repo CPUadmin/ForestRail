@@ -162,7 +162,7 @@ func run() -> void:
 	game.model.accept_mission(game.model.current_mission())
 	game.screen="game"
 	game.rebuild()
-	check(game.instruments.dial_maximum()==25,"petrol dial adapts to 23.4 km/h")
+	check(game.instruments.dial_maximum()==110,"petrol dial adapts to 100 km/h")
 	game.model.state.fleet_by_id.motorcar.fuel=0.12
 	await shot("petrol_low_fuel")
 	game.model.rescue()
@@ -172,7 +172,7 @@ func run() -> void:
 	game.model.accept_mission(game.model.current_mission())
 	game.screen="game"
 	game.rebuild()
-	check(game.instruments.dial_maximum()==30,"electric dial adapts to 28.8 km/h")
+	check(game.instruments.dial_maximum()==90,"electric dial adapts to 75 km/h")
 	# Upgrades change the scale without a new interface setting.
 	var upgraded = false
 	for branch in game.model.data.upgrade_catalog:

@@ -90,8 +90,8 @@ func run() -> void:
 	var long_game = Model.new()
 	long_game.new_game(42, 2)
 	var scale = 6800.0 / 1700.0
-	check(is_equal_approx(float(long_game.object_stats("motorcar").tank), float(short_game.object_stats("motorcar").tank) * scale * 1.1), "tanks grow with the line (and with the class factor)")
-	check(is_equal_approx(float(long_game.object_stats("steam").water), float(short_game.object_stats("steam").water) * scale * 0.45), "and the water of the boiler")
+	check(is_equal_approx(float(long_game.object_stats("motorcar").tank), float(short_game.object_stats("motorcar").tank) * scale * 0.88), "tanks grow with the line (and with the class factor)")
+	check(is_equal_approx(float(long_game.object_stats("steam").water), float(short_game.object_stats("steam").water) * scale * 0.2), "and the water of the boiler")
 	check(int(short_game.current_mission().reward) == 120 and int(long_game.current_mission().reward) == 360, "the first order pays 3 times more over 3 times the distance")
 	check(is_equal_approx(long_game.mission_reward_scale(long_game.data.missions[9]), 4.0), "the last career order scales by the far station")
 	long_game.state.chapter = 9

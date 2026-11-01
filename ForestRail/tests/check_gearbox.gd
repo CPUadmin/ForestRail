@@ -68,6 +68,7 @@ func run() -> void:
 	check(m.engine_rpm() > 5000.0, "neutral revs follow the pedal")
 	# Reverse drives backwards, slowly.
 	var r = setup()
+	r.state.s = 800.0
 	r.state.brake = 1.0
 	r.set_gear(5)
 	r.state.brake = 0.0
@@ -94,8 +95,8 @@ func run() -> void:
 	for i in range(900): top.physics_step(1.0 / 60)
 	check(float(top.state.v) <= float(stats.speeds[0]) + 0.05, "first gear is limited to its own top speed")
 	# Same run, different gear: a wrong gear costs visibly more fuel.
-	var good = cruise(4, 1.8, 40.0)
-	var bad = cruise(1, 1.8, 40.0)
+	var good = cruise(4, 7.0, 40.0)
+	var bad = cruise(1, 7.0, 40.0)
 	check(bad.fuel > good.fuel * 1.1, "screaming in first gear burns clearly more than cruising in fourth")
 	check(good.distance > 40.0 and bad.distance > 40.0, "both runs actually cover ground")
 	check(bad.m.engine_rpm() > good.m.engine_rpm(), "low gear at speed runs higher rpm")

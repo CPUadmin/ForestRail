@@ -31,7 +31,7 @@ static func round_trip(m, station: String, count: int, cargo_type: String = "sac
 		var brake_force = 0.0
 		for id in m.body_ids(): brake_force += float(m.object_stats(id).brake)
 		var braking_distance = speed * speed / (2 * brake_force / m.train_mass()) + 0.3
-		if remaining < maxf(0.5, braking_distance):
+		if remaining < maxf(0.5, braking_distance) and not (speed < 0.05 and remaining > 0.6):
 			m.state.throttle = 0
 			m.state.brake = 1.0
 		else:
@@ -57,7 +57,7 @@ static func round_trip(m, station: String, count: int, cargo_type: String = "sac
 			m.state.throttle = 0.95
 			if steam:
 				var pressure = float(m.boiler().pressure)
-				m.state.throttle = 0.95 if pressure > 0.55 else (0.5 if pressure > 0.3 else 0.15)
+				m.state.throttle = 0.95 if pressure > 0.7 else (0.5 if pressure > 0.45 else 0.15)
 		m.physics_step(1.0 / 60)
 		timer += 1.0 / 60
 		if OS.get_environment("MEASURE_DEBUG") != "" and int(timer * 60.0) % 3600 == 0:
