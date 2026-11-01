@@ -17,7 +17,7 @@ func check(ok: bool, label: String) -> void:
 	if not ok: failures.append(label); print("FAIL: ", label)
 
 func run() -> void:
-	for kind in ["motorcar", "locomotive", "steam"]:
+	for kind in ["motorcar", "locomotive", "steam", "pneumatic"]:
 		var m = Model.new()
 		m.new_game(42, 2)
 		m.state.money = 1000000

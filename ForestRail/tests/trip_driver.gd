@@ -55,6 +55,9 @@ static func round_trip(m, station: String, count: int, cargo_type: String = "sac
 					m.state.throttle = 0.0
 					m.set_gear(want)
 			m.state.throttle = 0.95
+			if m.vehicle_id() == "pneumatic" and m.frost() > 0.3:
+				# Knock the ice off the pipes, as a person would with the mouse.
+				for spot in range(4): m.chip_ice(spot)
 			if steam:
 				var pressure = float(m.boiler().pressure)
 				m.state.throttle = 0.95 if pressure > 0.7 else (0.5 if pressure > 0.45 else 0.15)

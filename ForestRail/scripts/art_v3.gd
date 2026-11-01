@@ -3,7 +3,7 @@ extends RefCounted
 const ROOT = "res://assets/art_v3/"
 # The steam engine body is drawn by tools/make_steam_art.py; the fire glow,
 # needle, smoke and rods are drawn live in draw_steam_overlay / draw_steam_motion.
-const BODY = {"handcar": "vehicles/handcar_body", "steam": "vehicles/steam_locomotive_body", "motorcar": "vehicles/petrol_motorcar_body", "locomotive": "vehicles/battery_locomotive_body"}
+const BODY = {"handcar": "vehicles/handcar_body", "steam": "vehicles/steam_locomotive_body", "motorcar": "vehicles/petrol_motorcar_body", "locomotive": "vehicles/battery_locomotive_body", "pneumatic": "vehicles/pneumatic_body"}
 const LARGE_WHEELS = ["locomotive", "steam"]
 const Geometry = preload("res://scripts/world_geometry.gd")
 const Mechanism = preload("res://scripts/handcar_mechanism.gd")
@@ -54,7 +54,8 @@ func _init(skins_path: String = "") -> void:
 	for kind in Geometry.data().bodies:
 		var spec = Geometry.body(kind)
 		var id = "vehicles/freight_wagon_body" if kind=="wagon" else BODY[kind]
-		var meta = assets[id].duplicate(true)
+		# The pneumatic train borrows the steam locomotive picture until it has its own.
+		var meta = assets["vehicles/steam_locomotive_body" if kind == "pneumatic" else id].duplicate(true)
 		meta.file = "../art_p2/"+spec.file
 		meta.region_px = spec.region_px
 		meta.pivot_px = [float(spec.region_px[0])+float(spec.region_px[2])*0.5,float(spec.axles_px[0][1])]

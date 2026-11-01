@@ -39,7 +39,7 @@
       "s_m_v2": 3500,
       "height_v2": 4,
       "role": "Промежуточная станция в низине",
-      "services": {"water": 1.0}
+      "services": {"water": 1.0, "air": 1.0}
     },
     {
       "id": "E",
@@ -207,6 +207,40 @@
       "energy_fixed": 0.133,
       "energy_unit": "л",
       "free_reward_multiplier": 1.45,
+      "free_reach": "F"
+    },
+    {
+      "id": "pneumatic",
+      "name": "Пневматический поезд",
+      "hidden": true,
+      "cost": 1800,
+      "mass_kg": 900,
+      "deck_slots": 0,
+      "default_wagons": 0,
+      "air_bar": 150,
+      "traction_n": [
+        2400,
+        2400
+      ],
+      "gear_speed_mps": [
+        17.4,
+        17.4
+      ],
+      "drag": 0.5,
+      "top_speed_kmh": 60,
+      "power_cap_w": 14000,
+      "rank": 2,
+      "max_wagons": 2,
+      "brake_n": 3500,
+      "refill_price": 1.5,
+      "energy_per_m": 0.0158,
+      "energy_fixed": 23.8,
+      "energy_per_m_v2": 0.00948,
+      "energy_fixed_v2": 14.8,
+      "air_joule_per_bar": 16000,
+      "line_tank_factor": 0.4,
+      "energy_unit": "бар",
+      "free_reward_multiplier": 1.5,
       "free_reach": "F"
     },
     {

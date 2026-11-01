@@ -71,7 +71,7 @@ func run_class(kind: String, seconds: float, marks: Array) -> Dictionary:
 
 func run() -> void:
 	var results: Dictionary = {}
-	for kind in ["handcar", "steam", "motorcar", "locomotive"]:
+	for kind in ["handcar", "steam", "motorcar", "locomotive", "pneumatic"]:
 		results[kind] = run_class(kind, 120.0, [5.0, 10.0])
 		var stated = float(results[kind].m.top_speed_kmh(kind))
 		var peak_kmh = float(results[kind].peak) * 3.6
@@ -83,6 +83,8 @@ func run() -> void:
 	var petrol_t = float(results.motorcar.reached.get(10.0, 999.0))
 	var electric_t = float(results.locomotive.reached.get(10.0, 999.0))
 	check(steam_t > petrol_t * 1.5 and steam_t > electric_t * 2.0, "the steam locomotive accelerates slowest (%.1f s to 36 km/h against %.1f and %.1f)" % [steam_t, petrol_t, electric_t])
+	var pneumatic_t = float(results.pneumatic.reached.get(10.0, 999.0))
+	check(pneumatic_t > electric_t and pneumatic_t < steam_t, "the pneumatic train accelerates between the electric and the steam locomotive (%.1f s)" % pneumatic_t)
 	check(petrol_t > electric_t, "the electric locomotive pulls away fastest (%.1f s against petrol %.1f s)" % [electric_t, petrol_t])
 	print("SPEED CHECKS ", checks, "; FAILURES ", failures)
 	get_tree().quit(0 if failures.is_empty() else 1)

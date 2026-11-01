@@ -8,6 +8,8 @@ const G = 9.81
 const BUFFER_SAFE_SPEED = 1.0
 const VEHICLE_IDS = ["handcar", "steam", "motorcar", "locomotive"]
 const WAGON_IDS = ["W01", "W02", "W03"]
+# Classes that exist in the data but are not shown to the player yet (no view, no cab).
+const HIDDEN_VEHICLE_IDS = ["pneumatic"]
 # Holds cargo migrated from an old petrol deck until it is unloaded (ECONOMY_v3_2_RU.md).
 const TEMP_WAGON = "WT"
 var data: Dictionary
@@ -143,7 +145,7 @@ func object_stats(id: String) -> Dictionary:
 	var result = {"slots": slots, "mass": mass, "rolling": 0.004 * float(ef.get("rolling_multiplier", 1.0)),
 		"brake": brake_base * float(ef.get("brake_multiplier", 1.0)) + float(ef.get("add_brake_n", 0)),
 		"shock": float(ef.get("cargo_shock_multiplier", 1.0)), "power": 220.0,
-		"tank": float(base.get("battery_kwh", base.get("coal_kg", base.get("fuel_l", 0)))) * float(ef.get("fuel_capacity_multiplier", 1.0)) * line_tank_scale(base),
+		"tank": float(base.get("battery_kwh", base.get("coal_kg", base.get("fuel_l", base.get("air_bar", 0))))) * float(ef.get("fuel_capacity_multiplier", 1.0)) * (1.0 if base.has("air_bar") else line_tank_scale(base)),
 		"water": float(base.get("water_l", 0)) * line_tank_scale(base, true)}
 	if not wagon and id != "handcar":
 		result.traction = [float(base.traction_n[0]) * float(ef.get("traction_multiplier", 1)) * float(ef.get("low_gear_multiplier", 1)),
@@ -238,6 +240,7 @@ func buy_vehicle(id: String) -> bool:
 		return fail("Не хватает %d монет" % (int(base.cost) - int(state.money)))
 	state.money -= int(base.cost)
 	state.fleet_by_id[id] = {"levels": {}, "fuel": 0.0, "consist": []}
+	if id == "pneumatic": state.fleet_by_id[id].ice_spots = [0.0, 0.0, 0.0, 0.0]
 	var stats = object_stats(id)
 	state.fleet_by_id[id].fuel = float(stats.tank)
 	if float(stats.water) > 0: state.fleet_by_id[id].water = float(stats.water)
@@ -363,13 +366,14 @@ func refuel() -> bool:
 	if float(stats.water) > 0 and services.has("water"):
 		water_added = float(fleet.get("water", 0)) < float(stats.water) - 0.0001
 		fleet.water = float(stats.water)
-	if not services.has("fuel"):
+	var fuel_mult = fuel_service_mult(services)
+	if fuel_mult < 0.0:
 		if water_added:
 			message = "Вода пополнена"
 			return true
 		return fail("Здесь нет заправки для этой машины")
 	var missing = maxf(0, float(stats.tank) - float(fleet.fuel))
-	var price = 0.0 if creative() else float(vehicle_base().get("refill_price", 0)) * float(services.fuel)
+	var price = 0.0 if creative() else float(vehicle_base().get("refill_price", 0)) * fuel_mult
 	if missing <= 0.0001 or price <= 0:
 		fleet.fuel = float(stats.tank)
 		return true
@@ -388,7 +392,7 @@ func refill_cost() -> int:
 	if creative(): return 0
 	var stats = object_stats(vehicle_id())
 	var offer = service_offer()
-	var multiplier = float(offer.services.get("fuel", 1.0)) if not offer.is_empty() else 1.0
+	var multiplier = maxf(0.0, fuel_service_mult(offer.services)) if not offer.is_empty() else 1.0
 	return ceili(maxf(0, float(stats.tank) - float(state.fleet_by_id[vehicle_id()].fuel)) * float(vehicle_base().get("refill_price", 0)) * multiplier - 0.0001)
 
 # Longest stretch the machine has to cover on its own on a trip A -> far station -> A,
@@ -424,7 +428,7 @@ func trip_forecast(mission: Dictionary = {}) -> Dictionary:
 	var water_points: Array = []
 	for i in range(data.stations.size()):
 		var services = data.stations[i].get("services", {})
-		if services.has("fuel"): fuel_points.append(float(route.station_s[i]))
+		if fuel_service_mult(services) >= 0.0: fuel_points.append(float(route.station_s[i]))
 		if services.has("water"): water_points.append(float(route.station_s[i]))
 	var far = mission_far_s(mission)
 	var stats = object_stats(vehicle_id())
@@ -890,6 +894,55 @@ func body_s_render(index: int) -> float:
 
 # Air drag per class (the old single 1.2 is right for the slow machines; a fast machine
 # is streamlined). N11 sets the top speeds with this and the power limit below.
+# --- Pneumatic train (N12): compressed air, frost on the pipes ---
+
+# What one bar of the 150 is worth in joules; the long line scales it so that a full tank
+# is still about one round trip (N10), like every other class.
+func air_joule_per_bar() -> float:
+	var base = vehicle_base("pneumatic")
+	return float(base.air_joule_per_bar) * route.fuel_scale() * float(base.get("line_tank_factor", 1.0)) if route.version >= 2 else float(base.air_joule_per_bar)
+
+func pneumatic_fleet() -> Dictionary:
+	return state.fleet_by_id.get("pneumatic", {})
+
+# Four spots on the pipes frost over unevenly; the machine feels their mean.
+func frost() -> float:
+	var spots = pneumatic_fleet().get("ice_spots", [0.0, 0.0, 0.0, 0.0])
+	var total = 0.0
+	for spot in spots: total += float(spot)
+	return total / maxf(1.0, float(spots.size()))
+
+func pneumatic_factor() -> float:
+	if vehicle_id() != "pneumatic": return 1.0
+	var pressure = float(state.fleet_by_id.pneumatic.fuel)
+	return minf(1.0, pressure / 60.0) * (1.0 - 0.7 * frost())
+
+func update_frost(fleet: Dictionary, dt: float) -> void:
+	var spots: Array = fleet.get("ice_spots", [0.0, 0.0, 0.0, 0.0])
+	var running = absf(float(state.v)) > 0.3 and float(state.throttle) > 0.0
+	var weights = [1.0, 0.8, 0.6, 0.4]
+	for i in range(spots.size()):
+		if running: spots[i] = minf(1.0, float(spots[i]) + 0.02 * float(state.throttle) * (float(fleet.fuel) / 150.0) * float(weights[i]) * dt)
+		elif absf(float(state.v)) < 0.1: spots[i] = maxf(0.0, float(spots[i]) - 0.01 * dt)
+	fleet.ice_spots = spots
+
+# A click on a frosted spot knocks a quarter of the ice off it.
+func chip_ice(spot: int) -> bool:
+	if vehicle_id() != "pneumatic": return false
+	var fleet = state.fleet_by_id.pneumatic
+	var spots: Array = fleet.get("ice_spots", [0.0, 0.0, 0.0, 0.0])
+	if spot < 0 or spot >= spots.size() or float(spots[spot]) < 0.05: return false
+	spots[spot] = maxf(0.0, float(spots[spot]) - 0.25)
+	fleet.ice_spots = spots
+	events.append("gear")
+	return true
+
+# The multiplier of this station's fuel service for the current machine: the pneumatic
+# train fills from a compressor ("air") where there is one, otherwise from the fuel service.
+func fuel_service_mult(services: Dictionary) -> float:
+	if vehicle_id() == "pneumatic" and services.has("air"): return float(services.air)
+	return float(services.fuel) if services.has("fuel") else -1.0
+
 # The class's stated top speed (km/h) in the base build with a light load; the speed tests
 # hold the model to it.
 func top_speed_kmh(id: String = "") -> float:
@@ -1153,9 +1206,9 @@ func physics_step(dt: float) -> void:
 		output_power=pump_work/dt
 	else:
 		var fleet = state.fleet_by_id[vehicle_id()]
-		if vehicle_id() == "locomotive":
-			# Electric drive has no gearbox or start switch: traction is always
-			# engaged and only the battery charge limits it.
+		if vehicle_id() == "locomotive" or vehicle_id() == "pneumatic":
+			# Electric and pneumatic drives have no gearbox or start switch: traction is always
+			# engaged and only the battery charge or the air pressure limits it.
 			state.gear = 1
 			state.engine = float(fleet.fuel) > 0
 		if vehicle_id() == "steam": drive = steam_step(dt, fleet)
@@ -1168,7 +1221,7 @@ func physics_step(dt: float) -> void:
 				var reverse_gear = vehicle_id() == "motorcar" and gear == 4
 				if reverse_gear: gear = 0
 				if vehicle_id() == "motorcar" and not reverse_gear: petrol_stall_check(gear, stats, dt)
-				var traction = float(stats.traction[gear]) * maxf(0, 1 - pow(absf(float(state.v)) / float(stats.speeds[gear]), 2)) * charge_traction_factor() * petrol_lug(gear, stats)
+				var traction = float(stats.traction[gear]) * maxf(0, 1 - pow(absf(float(state.v)) / float(stats.speeds[gear]), 2)) * charge_traction_factor() * petrol_lug(gear, stats) * pneumatic_factor()
 				traction = minf(traction, power_limit_force(charge_traction_factor()))
 				if shift_cut > 0.0: traction = 0.0
 				var adhesion = 0.35 * float(stats.mass) * G * cos(route.slope(float(state.s)))
@@ -1215,6 +1268,11 @@ func physics_step(dt: float) -> void:
 			# Coal and water are spent by the boiler itself (steam_step); this is
 			# only the shaft work for reports.
 			used=shaft_work/0.07
+		elif vehicle_id()=="pneumatic":
+			# Air is spent by the work on the shaft; the pipes frost over while it runs.
+			used=shaft_work/0.85
+			fleet.fuel=maxf(0.0,before-used/air_joule_per_bar())
+			update_frost(fleet,dt)
 		else:
 			# Game calibration: petrol 34 MJ/l burnt four times faster (N10: a tank lasts about one
 			# round trip to the far station). Efficiency peaks mid-range and
@@ -1407,10 +1465,10 @@ func validate_save(saved: Dictionary) -> bool:
 		previous_s = float(point[2])
 	for group in [saved.fleet_by_id, saved.wagons_by_id]:
 		for id in group:
-			if id not in VEHICLE_IDS and id not in WAGON_IDS and id != TEMP_WAGON: return false
+			if id not in VEHICLE_IDS and id not in HIDDEN_VEHICLE_IDS and id not in WAGON_IDS and id != TEMP_WAGON: return false
 			var object = group[id]
 			if not object is Dictionary or not object.has("levels") or not object.levels is Dictionary: return false
-			if id in VEHICLE_IDS and (not object.has("fuel") or not numeric(object.fuel) or object.fuel < 0): return false
+			if (id in VEHICLE_IDS or id in HIDDEN_VEHICLE_IDS) and (not object.has("fuel") or not numeric(object.fuel) or object.fuel < 0): return false
 			if object.has("water") and (not numeric(object.water) or object.water < 0): return false
 			for branch_id in object.levels:
 				var valid = false
