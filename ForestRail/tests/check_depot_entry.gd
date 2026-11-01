@@ -115,6 +115,42 @@ func run() -> void:
 		if node.text.begins_with("Награда до"): rewards += 1
 		if node.text.begins_with("Ровный путь") or node.text.begins_with("Подъёмы до") or node.text.begins_with("Крутой подъём"): roads += 1
 	check(rewards >= 2 and rewards == roads, "every notice on the board shows its reward and its road (%d, %d)" % [rewards, roads])
+	# B1.2d: leaving the depot with an order or just driving, both through the fading scene
+	game.animate_in_tests = true
+	game.model.new_game(42, 2)
+	game.screen = "depot"
+	game.tab = "Рейсы"
+	game.rebuild()
+	var driving = false
+	for node in game.ui.find_children("*", "Button", true, false): if node.text.begins_with("Просто поехать"): driving = true
+	check(driving, "the depot offers 'just drive' when there is no order under way")
+	game.take_free_ride()
+	check(game.depot_anim == "leave" and game.screen == "depot", "leaving starts with the fade, the depot is still on screen")
+	run_frames(0.7)
+	check(game.screen == "game" and game.model.state.phase == "route" and game.model.state.active.is_empty() and game.model.state.cargo.is_empty(), "then the road: no order, no cargo, on the line")
+	run_frames(0.7)
+	check(game.depot_anim == "" and game.fade_rect.color.a == 0.0, "and the screen is clear")
+	check(float(game.model.state.brake) == 0.0 and absf(float(game.model.state.s) - game.model.service_stop(0)) < 0.5, "it stands at the depot platform with the brake free")
+	# the order way
+	game.model.new_game(42, 2)
+	game.screen = "depot"
+	game.rebuild()
+	game.take_mission(game.model.current_mission())
+	check(game.depot_anim == "leave" and game.model.state.phase == "loading", "taking an order starts the fade, the loading is ready")
+	run_frames(0.7)
+	check(game.screen == "game" and game.model.state.phase == "loading", "then the loading platform")
+	run_frames(0.7)
+	# a free ride cannot start over an order under way
+	game.model.new_game(42, 2)
+	game.model.accept_mission(game.model.current_mission())
+	game.model.state.phase = "depot"
+	check(not game.model.start_free_ride(), "no free ride over an order under way")
+	game.animate_in_tests = false
+	game.model.new_game(42, 2)
+	game.screen = "depot"
+	game.tab = "Гараж"
+	game.rebuild()
+	for i in range(4): await get_tree().process_frame
 	var tiles = 0
 	for node in game.ui.find_children("*", "Button", true, false): if node.tooltip_text in ["Гараж", "Состав", "Мастерская", "Доска заказов"]: tiles += 1
 	check(tiles == 4, "four pictured places in the depot (%d)" % tiles)

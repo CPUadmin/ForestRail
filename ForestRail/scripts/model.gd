@@ -800,6 +800,24 @@ func back_to_depot() -> bool:
 	cool_boiler()
 	return true
 
+# B1.2d: "just drive": leave the depot without an order, no cargo, no pay, the same physics and fuel.
+func start_free_ride() -> bool:
+	if state.phase != "depot": return fail("Выехать можно из депо")
+	if not state.active.is_empty(): return fail("Сначала продолжи или отмени начатый рейс")
+	state.cargo = []
+	state.phase = "route"
+	state.s = service_stop(0)
+	state.v = 0.0
+	state.brake = 0.0
+	state.throttle = 0.0
+	state.direction = 1
+	stationary_station = -1
+	stationary_seconds = 0.0
+	auto_brake = false
+	hold_armed = false
+	message = ""
+	return true
+
 func resume_mission() -> bool:
 	if state.phase != "depot" or state.active.is_empty():
 		return false

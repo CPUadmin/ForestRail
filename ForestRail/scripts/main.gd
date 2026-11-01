@@ -74,6 +74,8 @@ var depot_anim = ""            # "", "in" (rolling in and fading out), "out" (fa
 var depot_anim_t = 0.0
 var depot_anim_from = 0.0
 var depot_anim_zoom = 1.0
+var depot_exit_action = Callable()
+var animate_in_tests = false
 var fade_rect: ColorRect = null
 var control_zoom = false
 # Cab view (E): the camera closes in on the cab and every control of the machine is
@@ -843,6 +845,7 @@ func build_depot(size: Vector2) -> void:
 		if model.refuel(): save_game(); rebuild(); notify(model.message if model.message != "" else "Запас пополнен"); model.message = ""
 		else: notify(model.message), model.human_powered() or refill <= 0)
 	add_button(service, "Улучшить", func(): selected_object = model.vehicle_id(); tab = "Улучшения"; rebuild())
+	if model.state.active.is_empty(): add_button(service, "Просто поехать →", take_free_ride)
 	positioned_label("Нажми на машину или вагон, чтобы выбрать его улучшения.", Rect2(46, size.y - 83, left_width - 30, 60), 17)
 
 # A big picture button for one place of the depot: the picture and its name are drawn on top of an
@@ -1121,15 +1124,48 @@ func mission_description(mission: Dictionary) -> String:
 
 func take_mission(mission: Dictionary) -> void:
 	if model.accept_mission(mission):
-		screen = "game"
-		zoom_level = fit_train_zoom()
-		camera_s = float(model.state.s)
-		camera_y = model.route.sample(camera_s).y
-		last_phase = "loading"
-		save_game()
-		rebuild()
+		start_depot_exit(func(): enter_game_from_depot("loading"))
 	else:
 		notify(model.message)
+
+# "Just drive": out of the depot without an order.
+func take_free_ride() -> void:
+	if model.start_free_ride():
+		start_depot_exit(func(): enter_game_from_depot("route"))
+	else:
+		notify(model.message)
+
+func enter_game_from_depot(phase: String) -> void:
+	screen = "game"
+	zoom_level = fit_train_zoom()
+	camera_s = float(model.state.s)
+	camera_y = model.route.sample(camera_s).y
+	last_phase = phase
+	save_game()
+	rebuild()
+
+# Leaving the depot: the screen fades to black, the action switches to the road, the road fades in.
+func start_depot_exit(action: Callable) -> void:
+	if test_mode and not animate_in_tests:
+		action.call()
+		return
+	cancel_drag()
+	depot_exit_action = action
+	depot_anim = "leave"
+	depot_anim_t = 0.0
+	ensure_fade_rect()
+	sound.play("gear", 0.5, 0.7)
+
+func ensure_fade_rect() -> void:
+	if fade_rect != null: return
+	var layer = CanvasLayer.new()
+	layer.layer = 50
+	add_child(layer)
+	fade_rect = ColorRect.new()
+	fade_rect.color = Color(0, 0, 0, 0)
+	fade_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	fade_rect.set_anchors_preset(Control.PRESET_FULL_RECT)
+	layer.add_child(fade_rect)
 
 func fit_train_zoom() -> float:
 	return clampf(10.5 / maxf(10.5, model.train_length()), 0.75, 1.0)
@@ -1756,19 +1792,12 @@ func start_depot_entry() -> void:
 	depot_anim_t = 0.0
 	depot_anim_from = float(model.state.s)
 	depot_anim_zoom = zoom_level
-	if fade_rect == null:
-		var layer = CanvasLayer.new()
-		layer.layer = 50
-		add_child(layer)
-		fade_rect = ColorRect.new()
-		fade_rect.color = Color(0, 0, 0, 0)
-		fade_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		fade_rect.set_anchors_preset(Control.PRESET_FULL_RECT)
-		layer.add_child(fade_rect)
+	ensure_fade_rect()
 	sound.play("gear", 0.5, 0.7)
 
 func skip_depot_anim() -> void:
 	if depot_anim == "in": depot_anim_t = maxf(depot_anim_t, DEPOT_MOVE_S)
+	elif depot_anim == "leave": depot_anim_t = DEPOT_FADE_S
 	elif depot_anim == "out": depot_anim_t = DEPOT_FADE_S
 
 func advance_depot_anim(dt: float) -> void:
@@ -1793,6 +1822,13 @@ func advance_depot_anim(dt: float) -> void:
 				notify(model.message)
 				depot_anim = ""
 				if fade_rect != null: fade_rect.color.a = 0.0
+	elif depot_anim == "leave":
+		if fade_rect != null: fade_rect.color.a = clampf(depot_anim_t / DEPOT_FADE_S, 0.0, 1.0)
+		if depot_anim_t >= DEPOT_FADE_S:
+			if depot_exit_action.is_valid(): depot_exit_action.call()
+			depot_exit_action = Callable()
+			depot_anim = "out"
+			depot_anim_t = 0.0
 	elif depot_anim == "out":
 		if fade_rect != null: fade_rect.color.a = 1.0 - clampf(depot_anim_t / DEPOT_FADE_S, 0.0, 1.0)
 		if depot_anim_t >= DEPOT_FADE_S:
