@@ -48,6 +48,7 @@ var screen = "menu"
 var tab = "Рейсы"
 var selected_object = "handcar"
 var pole_press_rel = 0.0
+var sail_hold = 0.0   # how far behind the mast the boom end is held, metres
 var sail_rect = Rect2()   # where the sail can be taken (B6.4)
 var workshop_hits: Array = []   # B1.2c: the parts of the machine in the workshop that can be pointed at
 var workshop_branch = ""
@@ -57,7 +58,7 @@ var modal_kind = ""
 const DEFAULT_SETTINGS = {"master": 0.65, "mechanisms": 0.7, "forest": 0.6, "music": 0.25, "interface": 0.8,
 	"sensitivity": 1.0, "text_scale": 1.0, "fullscreen": false, "borderless": false, "window_size": 1,
 	"vsync": true, "fps_cap": 0, "msaa": 0, "instrument_hz": 30, "reduce_motion": false, "cab_shake": 1.0,
-	"autosave": 60, "keys": {"map": KEY_M, "pult": KEY_C, "cab": KEY_E, "ice": KEY_I}}
+	"autosave": 60, "keys": {"map": KEY_M, "pult": KEY_C, "cab": KEY_E, "ice": KEY_I, "brake": KEY_SPACE}}
 const WINDOW_SIZES = [Vector2i(1280, 720), Vector2i(1600, 900), Vector2i(1920, 1080)]
 const SETTINGS_TABS = ["Звук", "Графика", "Управление", "Игра", "Доступность", "Служебное"]
 var settings = DEFAULT_SETTINGS.duplicate(true)
@@ -467,6 +468,7 @@ func build_settings(box: VBoxContainer) -> void:
 		settings_key(box, "pult", "Пульт")
 		settings_key(box, "cab", "Кабина")
 		settings_key(box, "ice", "Сбить иней (пневматический)")
+		settings_key(box, "brake", "Тормоз: затянуть или отпустить")
 	elif settings_tab == "Игра":
 		settings_choice(box, "autosave", "Автосохранение раз в", [[0, "Выкл."], [30, "30 с"], [60, "60 с"], [120, "2 мин"], [300, "5 мин"]])
 		if screen != "menu" and not model.state.is_empty():
@@ -1268,7 +1270,7 @@ func update_hud() -> void:
 	elif stop_index >= 0 and model.stopped():
 		hint = "Станция «%s». Перетащи груз для этой станции на площадку внизу." % at_station
 	elif model.vehicle_id() == "sail":
-		hint = "Тяни нижний угол паруса (гик) мышью: к мачте — парус раскрыт, назад — ребром. Попутный ветер — раскрой, боковой — наполовину. Красный рычаг — тормоз."
+		hint = "Тяни нижний угол паруса (гик) мышью: к мачте — парус раскрыт, назад — ребром. Попутный ветер — раскрой, боковой — наполовину. Тормоз — красный рычаг у носа или клавиша %s."  % key_name("brake")
 	elif model.vehicle_id() == "pole":
 		hint = "Веди мышью — шест следует за ней. Щелчок втыкает его; держи и тяни мышь назад — едешь, вперёд — встаёшь на шест. Отпустил — шест поднят. Красный рычаг — тормоз."
 	elif model.vehicle_id() == "handcar":
@@ -1897,6 +1899,13 @@ func _input(event: InputEvent) -> void:
 		bind_key(event.keycode)
 		get_viewport().set_input_as_handled()
 		return
+	if key_is(event,"brake") and event.pressed and not event.echo and screen=="game" and not paused and model.state.phase=="route" and model.vehicle_id()!="handcar":
+		# one key sets the brake fully or lets it go, so that the hands stay on the sail or the pole
+		model.state.brake = 0.0 if float(model.state.brake) > 0.5 else 1.0
+		model.auto_brake = false
+		notify("Тормоз затянут" if float(model.state.brake) > 0.5 else "Тормоз отпущен")
+		get_viewport().set_input_as_handled()
+		return
 	if key_is(event,"ice") and event.pressed and not event.echo and screen=="game" and not paused and model.vehicle_id()=="pneumatic":
 		chip_all_ice()
 		get_viewport().set_input_as_handled()
@@ -1934,7 +1943,13 @@ func _input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion:
 		if paused: cancel_drag(); return
 		if drag == "sail":
-			set_sail_from_mouse(event.position)
+			# relative motion in the machine's own frame, so that the car running away from the camera
+			# does not drag the sail with it (the same lesson as with the brake lever)
+			var outer_sail = body_transform(model.vehicle_id(), model.body_s_render(0))
+			var moved = outer_sail.affine_inverse().basis_xform(event.relative * float(settings.sensitivity)).x / ArtV3.PX * float(int(model.state.direction))
+			if not is_finite(moved): moved = 0.0
+			sail_hold = clampf(sail_hold - moved, 0.0, ArtV3.SAIL_BOOM)
+			model.set_sail_trim(acos(clampf(sail_hold / ArtV3.SAIL_BOOM, 0.0, 1.0)) * 2.0 / PI)
 			get_viewport().set_input_as_handled()
 			return
 		if drag == "pole":
@@ -2131,7 +2146,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		if model.vehicle_id() == "sail" and model.state.phase == "route" and not in_closeup and not paused and sail_rect.has_point(mouse):
 			drag = "sail"
 			Input.set_default_cursor_shape(Input.CURSOR_DRAG)
-			set_sail_from_mouse(mouse)
+			# the hand holds the free end of the boom where it is; only the motion of the mouse moves it
+			sail_hold = ArtV3.SAIL_BOOM * cos(float(model.sail_trim) * PI * 0.5)
 			get_viewport().set_input_as_handled()
 			return
 		if model.vehicle_id() == "pole" and model.state.phase == "route" and not in_closeup and not paused:
@@ -2141,12 +2157,6 @@ func _unhandled_input(event: InputEvent) -> void:
 				pole_press_rel = pole_mouse_rel(mouse)
 				Input.set_default_cursor_shape(Input.CURSOR_DRAG)
 				get_viewport().set_input_as_handled()
-
-# The boom is held by its free end: the further back the hand, the narrower the sail is set.
-func set_sail_from_mouse(mouse: Vector2) -> void:
-	var forward = pole_mouse_rel(mouse)
-	var back = ArtV3.SAIL_MAST_X - forward
-	model.set_sail_trim(1.0 - clampf(back / ArtV3.SAIL_BOOM, 0.0, 1.0))
 
 # The mouse place along the track in the pole truck's own frame: metres forward of the
 # platform centre in the direction of travel.
@@ -3497,10 +3507,17 @@ func lever_geometry(id: String) -> Dictionary:
 		return {"pivot":pose.rocker*ArtV3.PX,"grip":pose.grip_right*ArtV3.PX,"angle":pose.angle}
 	return control_geometry(id)
 
+# Where a control stands on the machine, metres. The sail car's brake stands at the bow, the end the
+# sail never reaches (the boom always runs aft of the mast), so that it cannot be mistaken for the sail.
+func control_anchor(id: String) -> Vector2:
+	var anchor = art.vec(Geometry.body(model.vehicle_id()).control_anchors_m[id])
+	if model.vehicle_id() == "sail" and id == "brake": return Vector2(1.0 * float(int(model.state.direction)), anchor.y)
+	return anchor
+
 func control_geometry(id: String, closeup: bool = false) -> Dictionary:
 	var kind=control_kind(id)
 	if kind=="slider":
-		var slot_pivot=art.vec(Geometry.body(model.vehicle_id()).control_anchors_m[id])*ArtV3.PX
+		var slot_pivot=control_anchor(id)*ArtV3.PX
 		var slot_length=0.40*ArtV3.PX
 		if closeup:
 			slot_pivot=control_zoom_rect().position+Vector2(65+100*["brake","throttle","gear","start"].find(id),230)
@@ -3513,11 +3530,11 @@ func control_geometry(id: String, closeup: bool = false) -> Dictionary:
 		return {"pivot":rect.get_center(),"grip":gate_local(rect,knob),"angle":0.0}
 	if kind=="wheel":
 		var radius=34.0 if closeup else 0.17*ArtV3.PX
-		var center=art.vec(Geometry.body(model.vehicle_id()).control_anchors_m[id])*ArtV3.PX
+		var center=control_anchor(id)*ArtV3.PX
 		if closeup: center=control_zoom_rect().position+Vector2(65+100*["brake","throttle","gear","start"].find(id),188)
 		var turn=(float(model.boiler().feed) if id=="gear" else float(model.state.throttle))*WHEEL_SWEEP
 		return {"pivot":center,"grip":center+Vector2(0,-radius).rotated(turn),"angle":turn,"radius":radius}
-	var pivot=art.vec(Geometry.body(model.vehicle_id()).control_anchors_m[id])*ArtV3.PX
+	var pivot=control_anchor(id)*ArtV3.PX
 	var length=float(Geometry.data().controls[id+"_length_m"])*ArtV3.PX
 	if closeup:
 		pivot=control_zoom_rect().position+Vector2(65+100*["brake","throttle","gear","start"].find(id),225)
@@ -3588,7 +3605,7 @@ func add_world_hits(id: String, index: int, transform: Transform2D) -> void:
 			grip_hits.append({"id":"pump","side":-1.0,"position":transform*(model.handcar.pose().grip_left*ArtV3.PX)})
 		if id=="sail":
 			var geo = art.sail_geometry(model)
-			var a = transform * art.sail_point(float(geo.mast_x) + 0.2 * float(geo.fwd), 0.5)
+			var a = transform * art.sail_point(float(geo.mast_x) + 0.2 * float(geo.fwd), 1.0)
 			var b = transform * art.sail_point(float(geo.mast_x) - 1.8 * float(geo.fwd), 3.8)
 			sail_rect = Rect2(a, Vector2.ZERO).expand(b).grow(10.0)
 		if id=="pneumatic":

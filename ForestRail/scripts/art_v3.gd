@@ -373,11 +373,14 @@ func draw_steam_overlay(canvas: Node2D, model) -> void:
 		var puff = steam_point(origin.x - age * 1.4, origin.y + age * 0.7)
 		canvas.draw_circle(puff, (0.10 + age * 0.22) * PX, Color(0.86, 0.86, 0.82, (0.35 + 0.35 * throttle) * (1.0 - age)))
 
-# The sail car's mast and sail, drawn live (placeholder picture): the mast stands at the front end in
-# the direction of travel, the boom runs back from it; the wider the sail is open the shorter the boom
-# looks from the side. A badly trimmed sail flaps.
+# The sail car's mast, rigging, sail and sailor, drawn live over the painted platform
+# (tools/make_sail_art.py). The mast stands at the front end in the direction of travel, the boom runs
+# back from it; the wider the sail is open the shorter the boom looks from the side. The cloth bellies
+# with the wind and ripples along its trailing edge when the trim does not suit the wind.
 const SAIL_MAST_X = 0.5
 const SAIL_BOOM = 1.6
+const SAIL_FOOT_Y = 1.25
+const SAIL_TOP_Y = 3.7
 func sail_point(x: float, y: float) -> Vector2:
 	return Vector2(x, -(y - 0.21)) * PX
 
@@ -385,33 +388,89 @@ func sail_geometry(model) -> Dictionary:
 	var fwd = float(int(model.state.direction)) if not model.state.is_empty() else 1.0
 	var trim = float(model.sail_trim)
 	var boom = SAIL_BOOM * cos(trim * PI * 0.5)
-	return {"fwd": fwd, "mast_x": SAIL_MAST_X * fwd, "boom_end_x": (SAIL_MAST_X - boom) * fwd, "foot_y": 1.05, "top_y": 3.6}
+	return {"fwd": fwd, "mast_x": SAIL_MAST_X * fwd, "boom_end_x": (SAIL_MAST_X * fwd) - fwd * boom, "foot_y": SAIL_FOOT_Y, "top_y": SAIL_TOP_Y, "boom": boom}
 
 func draw_sail_overlay(canvas: Node2D, model) -> void:
 	if model == null or model.state.is_empty(): return
 	var g = sail_geometry(model)
+	var fwd = float(g.fwd)
 	var t = Time.get_ticks_msec() / 1000.0
 	var info: Dictionary = model.sail_info
-	var flap = 0.0
-	if not info.is_empty(): flap = (1.0 - float(info.quality)) * 0.12
-	var mast_foot = sail_point(g.mast_x, 0.6)
-	var mast_top = sail_point(g.mast_x, g.top_y)
-	canvas.draw_line(mast_foot, mast_top, Color("6a4a2a"), 0.07 * PX, true)
-	canvas.draw_line(sail_point(g.mast_x, g.foot_y), sail_point(g.boom_end_x, g.foot_y), Color("8a6a3a"), 0.05 * PX, true)
-	var wobble = Vector2(sin(t * 11.0), cos(t * 9.0)) * flap * PX
-	var leech = sail_point(g.boom_end_x, g.foot_y) + wobble
-	var belly = sail_point((g.mast_x + g.boom_end_x) * 0.5, (g.foot_y + g.top_y) * 0.42) + wobble * 0.6 + Vector2(0, -0.1 * PX) * float(model.sail_trim)
-	var cloth = PackedVector2Array([sail_point(g.mast_x, g.foot_y), sail_point(g.mast_x, g.top_y), belly, leech])
-	if absf(float(g.mast_x) - float(g.boom_end_x)) > 0.06:
-		canvas.draw_colored_polygon(cloth, Color(0.93, 0.89, 0.8, 0.94))
-		canvas.draw_polyline(PackedVector2Array([cloth[1], cloth[2], cloth[3]]), Color(0.5, 0.42, 0.3), 1.6, true)
+	var quality = float(info.quality) if not info.is_empty() else 1.0
+	var pull = clampf(float(info.force) / 220.0, -0.3, 1.0) if not info.is_empty() else 0.0
+	var ripple = (1.0 - quality) * 0.16 + 0.015
+	var mast_x = float(g.mast_x)
+	var wood = Color("7a5530")
+	var wood_light = Color("a67c46")
+	var mast_top = sail_point(mast_x, g.top_y)
+	# rigging first, behind the cloth: forestay to the bow, backstay to the stern
+	canvas.draw_line(mast_top, sail_point(1.15 * fwd, 0.62), Color(0.2, 0.15, 0.1, 0.9), 0.012 * PX, true)
+	canvas.draw_line(mast_top, sail_point(-1.15 * fwd, 0.62), Color(0.2, 0.15, 0.1, 0.9), 0.012 * PX, true)
+	# the mast, tapering, with brass bands
+	canvas.draw_line(sail_point(mast_x, 0.8), sail_point(mast_x, 2.6), wood, 0.085 * PX, true)
+	canvas.draw_line(sail_point(mast_x, 2.6), mast_top, wood, 0.055 * PX, true)
+	canvas.draw_line(sail_point(mast_x - 0.02 * fwd, 0.8), sail_point(mast_x - 0.02 * fwd, 3.6), wood_light, 0.014 * PX, true)
+	for band in [1.05, 1.9, 2.8, 3.55]:
+		canvas.draw_line(sail_point(mast_x - 0.05, band), sail_point(mast_x + 0.05, band), Color("c9a24e"), 0.03 * PX, true)
+	# the boom from the gooseneck
+	var boom_end = sail_point(float(g.boom_end_x), g.foot_y)
+	canvas.draw_line(sail_point(mast_x, g.foot_y), boom_end, wood, 0.06 * PX, true)
+	canvas.draw_line(sail_point(mast_x, g.foot_y + 0.01), boom_end + Vector2(0, -0.01 * PX), wood_light, 0.014 * PX, true)
+	canvas.draw_circle(sail_point(mast_x, g.foot_y), 0.04 * PX, Color("c9a24e"))
+	# the cloth: luff on the mast, foot on the boom, a curved leech, belly with the pull of the wind
+	var width = float(g.boom)
+	if width > 0.05:
+		var rows = 14
+		var luff = PackedVector2Array()
+		var leech = PackedVector2Array()
+		for i in range(rows + 1):
+			var u = float(i) / float(rows)
+			var y = lerpf(g.foot_y, g.top_y, u)
+			var extent = width * pow(1.0 - u, 0.85) * (1.0 + 0.06 * sin(PI * u))
+			var belly = 0.10 * pull * sin(PI * u) * width
+			var wave = ripple * sin(t * 9.0 + u * 8.0) * width * u
+			luff.append(sail_point(mast_x, y))
+			leech.append(sail_point(mast_x - fwd * (extent + belly + wave), y))
+		# shading in vertical bands from the mast to the leech, lighter in the belly
+		var bands = 6
+		for k in range(bands):
+			var f0 = float(k) / float(bands)
+			var f1 = float(k + 1) / float(bands)
+			var shade = 0.88 + 0.12 * sin(PI * (f0 + f1) * 0.5) * (0.4 + 0.6 * clampf(pull + 0.4, 0.0, 1.0))
+			var strip = PackedVector2Array()
+			for i in range(rows + 1): strip.append(luff[i].lerp(leech[i], f0))
+			for i in range(rows, -1, -1): strip.append(luff[i].lerp(leech[i], f1))
+			canvas.draw_colored_polygon(strip, Color(0.94 * shade, 0.90 * shade, 0.80 * shade, 0.96))
+		# seams, a patch and the stitched edge
+		for i in range(2, rows, 3): canvas.draw_line(luff[i], leech[i], Color(0.55, 0.47, 0.34, 0.55), 1.0, true)
+		var patch_at = luff[4].lerp(leech[4], 0.45)
+		canvas.draw_rect(Rect2(patch_at - Vector2(7, 5), Vector2(14, 10)), Color(0.8, 0.72, 0.56, 0.9))
+		canvas.draw_polyline(leech, Color(0.45, 0.38, 0.28), 1.6, true)
+		canvas.draw_line(luff[0], leech[0], Color(0.45, 0.38, 0.28), 1.6, true)
 	else:
-		canvas.draw_line(sail_point(g.mast_x, g.foot_y), sail_point(g.mast_x, g.top_y), Color(0.93, 0.89, 0.8), 0.04 * PX, true)
-	# a pennant at the masthead shows where the wind is
+		canvas.draw_line(sail_point(mast_x, g.foot_y), sail_point(mast_x, g.top_y), Color(0.93, 0.89, 0.8), 0.035 * PX, true)
+	# the sheet from the boom end down to the sailor's hand, with a sag
+	var sailor_hand = sail_point(-0.78 * fwd, 1.12)
+	var sag = sail_point((float(g.boom_end_x) - 0.78 * fwd) * 0.5, 0.95)
+	var sheet = PackedVector2Array()
+	for k in range(13):
+		var u = float(k) / 12.0
+		sheet.append(boom_end * pow(1.0 - u, 2.0) + sag * 2.0 * u * (1.0 - u) + sailor_hand * u * u)
+	canvas.draw_polyline(sheet, Color(0.45, 0.34, 0.2), 0.012 * PX, true)
+	# the sailor on the bench: back, head with a cap, arm to the sheet, a leg
+	var seat = sail_point(-0.80 * fwd, 0.80)
+	canvas.draw_line(seat, seat + Vector2(0.03 * fwd, -0.45) * PX, Color("5f7a58"), 0.2 * PX, true)
+	canvas.draw_circle(seat + Vector2(0.04 * fwd, -0.60) * PX, 0.10 * PX, Color("d9b48f"))
+	canvas.draw_rect(Rect2(seat + Vector2(-0.10 + 0.04 * fwd, -0.74) * PX, Vector2(0.20, 0.07) * PX), Color("3d3a33"))
+	canvas.draw_line(seat + Vector2(0.03 * fwd, -0.38) * PX, sailor_hand, Color("5f7a58"), 0.07 * PX, true)
+	canvas.draw_line(seat, seat + Vector2(0.20 * fwd, 0.02) * PX, Color("4a3a2a"), 0.09 * PX, true)
+	# the pennant at the masthead points the way the wind blows, and flutters
 	if not info.is_empty():
 		var wv: Vector2 = info.wind
-		var dirx = float(g.fwd) * -signf(wv.x if absf(wv.x) > 0.2 else 0.2)
-		canvas.draw_line(mast_top, mast_top + Vector2(dirx * 0.35 * PX, 0.04 * PX * sin(t * 12.0)), Color("c9552f"), 0.03 * PX, true)
+		var along = wv.x if absf(wv.x) > 0.2 else 0.2
+		var dirx = fwd * signf(along)
+		var tip = mast_top + Vector2(dirx * (0.28 + 0.03 * sin(t * 13.0)) * PX, 0.03 * PX * sin(t * 11.0))
+		canvas.draw_colored_polygon(PackedVector2Array([mast_top, tip, mast_top + Vector2(0, 0.09 * PX)]), Color("c9552f"))
 
 # The pole truck's person, pole and the ground under the line, all live (placeholder figures
 # until it has its own art). Local frame: x along increasing route distance, metres above the rail.

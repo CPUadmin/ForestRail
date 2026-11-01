@@ -54,10 +54,29 @@ func run() -> void:
 			game.queue_redraw()
 			await shot("sail_trim_%d_%d" % [roundi(trim * 100), size.y])
 		check(game.sail_rect.size.x > 40.0 and game.sail_rect.size.y > 40.0, "the sail can be taken with the mouse %d" % size.y)
-		# dragging the free end of the boom sets the trim
-		var near_mast = game.sail_rect.position + game.sail_rect.size * 0.5
-		game.set_sail_from_mouse(near_mast)
-		check(game.model.sail_trim >= 0.0 and game.model.sail_trim <= 1.0, "the mouse sets a valid trim")
+		# holding the free end of the boom and moving the hand sets the trim, whatever the car does
+		var grab = game.sail_rect.position + game.sail_rect.size * 0.5
+		var click = InputEventMouseButton.new()
+		click.button_index = MOUSE_BUTTON_LEFT
+		click.pressed = true
+		click.position = grab
+		game._unhandled_input(click)
+		check(game.drag == "sail", "the sail is taken with the mouse %d" % size.y)
+		var before = float(game.model.sail_trim)
+		var step = InputEventMouseMotion.new()
+		step.position = grab
+		step.relative = Vector2(-60, 0)
+		game._input(step)
+		var after_back = float(game.model.sail_trim)
+		check(after_back != before, "moving the hand changes the trim (%.2f to %.2f)" % [before, after_back])
+		game.model.state.s += 25.0   # the car runs away from the camera while the mouse stays still
+		game.camera_s = float(game.model.state.s) - 25.0
+		var still = InputEventMouseMotion.new()
+		still.position = grab + Vector2(0, 0)
+		still.relative = Vector2.ZERO
+		game._input(still)
+		check(is_equal_approx(float(game.model.sail_trim), after_back), "a car running away from the camera does not move the sail by itself (%.3f vs %.3f, drag %s)" % [float(game.model.sail_trim), after_back, game.drag])
+		game.cancel_drag()
 		game.model.state.v = 0.0
 		game.model.state.s = 3000.0
 	print("SAIL VIEW CHECKS ", checks, "; FAILURES ", failures)
