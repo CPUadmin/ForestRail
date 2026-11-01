@@ -21,6 +21,11 @@ var used_fallback = false
 const KNOLL_LENGTH = 14.0
 const KNOLL_HEIGHT = 0.26
 const KNOLL_EDGE_M = 160.0
+# B2.6: every new career gets its own line. Stations move along the track by up to 15% of the leg and
+# their heights change by up to 30%, still inside each leg's grade limit.
+const SPREAD_DISTANCE = 0.15
+const SPREAD_HEIGHT = 0.30
+const SPREAD_GRADE_SHARE = 0.8   # the plain rise uses at most this share of the limit, the waves get the rest
 var knolls: Array = []
 
 # Fuel and water tanks grow with the line so that one tank still means about one
@@ -28,12 +33,12 @@ var knolls: Array = []
 func fuel_scale() -> float:
 	return float(station_x[-1]) / LENGTH_V1 if version >= 2 and not station_x.is_empty() else 1.0
 
-func generate(world_seed: int, stations: Array, line_version: int = 1, grade_limits: Array = []) -> void:
+func generate(world_seed: int, stations: Array, line_version: int = 1, grade_limits: Array = [], spread: bool = false) -> void:
 	version = line_version
 	used_fallback = false
 	station_x.clear()
 	if line_version >= 2:
-		generate_long(world_seed, stations, grade_limits if not grade_limits.is_empty() else GRADE_LIMITS_V2)
+		generate_long(world_seed, stations, grade_limits if not grade_limits.is_empty() else GRADE_LIMITS_V2, spread)
 		return
 	for station in stations: station_x.append(float(station.s_m))
 	seed_value = world_seed
@@ -72,7 +77,7 @@ func generate(world_seed: int, stations: Array, line_version: int = 1, grade_lim
 # whose size is cut to keep every stretch under its grade limit. Platforms stay flat
 # (22 m each side), the envelope makes joins exact. If a seed cannot be made to fit, the
 # waves are dropped and the plain smooth profile is used.
-func generate_long(world_seed: int, stations: Array, limits: Array) -> void:
+func generate_long(world_seed: int, stations: Array, limits: Array, spread: bool = false) -> void:
 	seed_value = world_seed
 	points.clear()
 	station_s.clear()
@@ -82,6 +87,11 @@ func generate_long(world_seed: int, stations: Array, limits: Array) -> void:
 		xs.append(float(station.s_m_v2))
 		heights.append(float(station.height_v2))
 		station_x.append(float(station.s_m_v2))
+	if spread:
+		var moved = spread_stations(world_seed, xs, heights, limits)
+		xs = moved.xs
+		heights = moved.heights
+		station_x = xs.duplicate()
 	var rng = RandomNumberGenerator.new()
 	rng.seed = world_seed
 	for segment in range(stations.size() - 1):
@@ -115,6 +125,26 @@ func generate_long(world_seed: int, stations: Array, limits: Array) -> void:
 	for x in station_x:
 		station_s.append(distance_at_x(float(x)))
 	knolls = place_knolls(world_seed, xs)
+
+# The line of this career: each leg is 85-115% of the data's length and each station (not the home one)
+# stands 70-130% of its data height. A rise steeper than the leg's limit allows is pulled back towards
+# the previous station, so the grade limits keep holding and no seed falls back to a plain profile.
+func spread_stations(world_seed: int, xs: Array, heights: Array, limits: Array) -> Dictionary:
+	var rng = RandomNumberGenerator.new()
+	rng.seed = world_seed + 4242
+	var new_xs: Array = [float(xs[0])]
+	var new_heights: Array = [float(heights[0])]
+	for i in range(1, xs.size()):
+		var leg = float(xs[i]) - float(xs[i - 1])
+		var x = float(new_xs[i - 1]) + roundf(leg * (1.0 + rng.randf_range(-SPREAD_DISTANCE, SPREAD_DISTANCE)))
+		var h = float(heights[i]) * (1.0 + rng.randf_range(-SPREAD_HEIGHT, SPREAD_HEIGHT))
+		var span = x - float(new_xs[i - 1]) - 44.0
+		var room = SPREAD_GRADE_SHARE * float(limits[i - 1]) * span * 2.0 / PI
+		var previous = float(new_heights[i - 1])
+		h = clampf(h, previous - room, previous + room)
+		new_xs.append(x)
+		new_heights.append(snappedf(h, 0.1))
+	return {"xs": new_xs, "heights": new_heights}
 
 # One knoll per leg, in the flattest place at least KNOLL_EDGE_M from the platforms; a leg with
 # no such place (grade over 2%) gets none. The same seed gives the same places.

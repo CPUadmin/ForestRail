@@ -76,9 +76,9 @@ func _init() -> void:
 
 # line_version 1 is the original 1.7 km line (what the tests use unless they ask), 2 the long
 # line of about 6.8 km that the game gives to a new career (N7.3).
-func new_game(world_seed: int = 42, line_version: int = 1, mode: String = "career") -> void:
+func new_game(world_seed: int = 42, line_version: int = 1, mode: String = "career", spread: bool = false) -> void:
 	loading_cache.clear()
-	route.generate(world_seed, data.stations, line_version)
+	route.generate(world_seed, data.stations, line_version, [], spread)
 	state = {"version": 2, "fleet_by_id": {"handcar": {"levels": {}, "fuel": 0.0, "consist": []}},
 		"wagons_by_id": {}, "selected_vehicle_id": "handcar", "consist_ids": [],
 		"money": 0, "chapter": 0, "completed_ids": [], "paid_ids": [], "active": {},
