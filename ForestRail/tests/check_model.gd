@@ -297,9 +297,9 @@ func economy_v32_checks() -> void:
 	check(m.buy_vehicle("steam") and m.state.money == 0 and m.capacity() == 2 and m.state.consist_ids == ["W01"], "steam comes with W01 and has no deck places")
 	check(m.object_stats("steam").slots == 0 and m.object_stats("motorcar").slots == 0 and m.object_stats("locomotive").slots == 0, "no deck places on steam, petrol, electric")
 	# Paid refill: half a tank of coal costs half its price; no money, no coal.
-	m.state.fleet_by_id.steam.fuel = 12.0
+	m.state.fleet_by_id.steam.fuel = 28.0
 	m.state.money = 300
-	check(m.refill_cost() == 144 and m.refuel() and m.state.money == 156 and is_equal_approx(float(m.state.fleet_by_id.steam.fuel), 24.0), "coal refill is paid")
+	check(m.refill_cost() == 144 and m.refuel() and m.state.money == 156 and is_equal_approx(float(m.state.fleet_by_id.steam.fuel), 40.0), "coal refill is paid")
 	m.state.fleet_by_id.steam.fuel = 0.0
 	m.state.money = 15
 	m.refuel()
@@ -308,6 +308,7 @@ func economy_v32_checks() -> void:
 	check(not m.start_engine(true), "no water, no fire")
 	# Missions name the weakest class; stronger machines may take them.
 	m.state.fleet_by_id.steam.water = 160.0
+	m.state.fleet_by_id.steam.fuel = float(m.object_stats("steam").tank)
 	check(m.mission_error(m.data.missions[0]) == "", "steam may run a handcar order")
 	m.state.money = 10000
 	check(m.buy_wagon() and m.state.wagons_by_id.has("W02") and m.state.money == 9650, "W02 costs 350")

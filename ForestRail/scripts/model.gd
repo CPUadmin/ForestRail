@@ -519,13 +519,13 @@ func trip_forecast(mission: Dictionary = {}) -> Dictionary:
 	var fixed = float(base.get("energy_fixed" + suffix, base.get("energy_fixed", 0.0) if suffix == "" else 0.0))
 	var water_rate = float(base.get("water_per_m" + suffix, base.get("water_per_m", 0.0)))
 	# a heavy load costs more: the rolling part of the energy grows with the cargo against the empty train
-	# (measured: logs doubling the mass of the motorcar cost it 12%, the locomotive 10% for 42%; 0.25 covers all)
+	# (measured: logs doubling the mass of the motorcar cost it 12%, the locomotive 10% for 42%; 0.35 covers all, thermal effects included)
 	var empty_mass = 0.0
 	for id in body_ids(): empty_mass += float(object_stats(id).mass)
 	var cargo_mass = 0.0
 	for stop in mission.get("dropoffs", []):
 		for entry in stop.get("cargo", []): cargo_mass += float(cargo_base(str(entry[0])).mass_kg) * float(entry[1])
-	var load_factor = 1.0 + 0.25 * cargo_mass / maxf(empty_mass, 1.0)
+	var load_factor = 1.0 + 0.35 * cargo_mass / maxf(empty_mass, 1.0)
 	return {"far_m": far, "leg_m": leg, "need": (fixed + leg * rate) * load_factor, "load_factor": load_factor, "have": float(fleet.fuel), "tank": float(stats.tank),
 		"water_leg_m": water_leg, "water_need": water_leg * water_rate if float(stats.water) > 0 else 0.0,
 		"water_have": float(fleet.get("water", 0)), "water_tank": float(stats.water), "unit": str(base.energy_unit)}
@@ -974,6 +974,8 @@ func start_engine(value: bool) -> bool:
 	if vehicle_id() == "locomotive": return true
 	if vehicle_id() == "steam": return light_fire() if value else douse_fire()
 	if value:
+		if vehicle_id() == "motorcar" and engine_temp() > TEMP_RESTART:
+			return fail("Двигатель слишком горячий (%d%%): подожди, пока остынет" % roundi(engine_temp() * 100.0))
 		if int(state.gear) != 0:
 			return fail("Для запуска нужна нейтраль Н")
 		if float(state.throttle) > 0.01:
@@ -985,6 +987,54 @@ func start_engine(value: bool) -> bool:
 	state.engine = value
 	events.append("gear")
 	return true
+
+# --- B3.4: temperature of the petrol engine and the electric motor ---
+# One number 0..1 per machine (fleet entry "temp"). It warms with the work done and cools with the
+# speed of the air going past (Newton cooling), so a long climb at a crawl overheats and a run
+# at speed does not. Over 0.85 the pull weakens; the petrol engine stalls at 1.0 and will not start
+# again until it is under 0.6.
+const TEMP_AMBIENT = 0.1
+const TEMP_HOT = 0.85
+const TEMP_RESTART = 0.6
+
+func has_temperature(id: String = "") -> bool:
+	return (id if id != "" else vehicle_id()) in ["motorcar", "locomotive"]
+
+func engine_temp() -> float:
+	if not has_temperature(): return 0.0
+	return float(state.fleet_by_id[vehicle_id()].get("temp", TEMP_AMBIENT))
+
+# Heat the machine makes per second at the moment.
+func heat_rate(fleet: Dictionary) -> float:
+	var throttle = float(state.throttle)
+	if vehicle_id() == "motorcar":
+		if not state.engine: return 0.0
+		var gear = int(state.gear)
+		var low_gear = 1.0 + 0.1 * float(4 - gear) if gear >= 1 and gear <= 4 else (1.3 if gear == 5 else 1.0)
+		return 0.035 * (0.1 + 0.9 * throttle) * low_gear
+	# electric: the current heats it (squared), regeneration heats it too
+	var cfg = vehicle_base()
+	return float(cfg.get("heat_per_s", 0.07)) * throttle * throttle + (0.02 if regen_kw > 0.01 else 0.0)
+
+func thermal_step(dt: float, fleet: Dictionary) -> void:
+	if not has_temperature(): return
+	var temp = float(fleet.get("temp", TEMP_AMBIENT))
+	var cooling = (0.03 + 0.004 * absf(float(state.v))) * (temp - TEMP_AMBIENT)
+	temp = clampf(temp + (heat_rate(fleet) * (1.0 if state.phase == "route" else 0.3) - cooling) * dt, TEMP_AMBIENT * 0.5, 1.0)
+	fleet.temp = temp
+	if vehicle_id() == "motorcar" and temp >= 1.0 and bool(state.engine):
+		state.engine = false
+		events.append("gear")
+		message = "Двигатель перегрелся и заглох. Подожди, пока остынет, потом пуск"
+
+# Multiplier of the pull from the temperature: a cold petrol engine is weak for a moment, a hot one weaker.
+func thermal_factor() -> float:
+	if not has_temperature(): return 1.0
+	var temp = engine_temp()
+	var hot = lerpf(1.0, 0.7 if vehicle_id() == "motorcar" else 0.6, clampf((temp - TEMP_HOT) / (1.0 - TEMP_HOT), 0.0, 1.0))
+	var cold = 1.0
+	if vehicle_id() == "motorcar" and temp < 0.2: cold = lerpf(0.8, 1.0, clampf((temp - TEMP_AMBIENT) / (0.2 - TEMP_AMBIENT), 0.0, 1.0))
+	return hot * cold
 
 # --- Petrol gearbox (N5): gears 1-4, N, R(=5) ---
 
@@ -1123,7 +1173,7 @@ func boiler_cfg() -> Dictionary:
 # The boiler lives in the steam fleet entry; old saves get cold defaults.
 func boiler() -> Dictionary:
 	var fleet = state.fleet_by_id.steam
-	for key in ["firebox", "heat", "pressure"]:
+	for key in ["firebox", "heat", "pressure", "chill"]:
 		if not fleet.has(key): fleet[key] = 0.0
 	for key in ["lit", "door", "venting"]:
 		if not fleet.has(key): fleet[key] = false
@@ -1176,6 +1226,8 @@ func stoke() -> bool:
 	var kg = minf(minf(float(cfg.portion_kg), room), float(fleet.fuel))
 	fleet.fuel = float(fleet.fuel) - kg
 	b.firebox = float(b.firebox) + kg
+	# fresh coal cools the fire for a moment, the more the bigger the portion
+	b.chill = float(cfg.get("chill_s", 5.0)) * kg / float(cfg.portion_kg)
 	events.append("cargo")
 	return true
 
@@ -1216,13 +1268,21 @@ func steam_step(dt: float, fleet: Dictionary) -> float:
 	var water = float(fleet.get("water", 0))
 	if bool(b.lit) and float(b.firebox) <= 0.0: b.lit = false
 	var burning = bool(b.lit)
-	b.heat = move_toward(float(b.heat), 1.0 if burning else 0.0, dt / float(cfg.heat_rise_s if burning else cfg.heat_fall_s))
+	# B3.4: the heat follows the coal on the grate, a thin fire is a weak one; a fresh portion chills it
+	var fill = float(b.firebox) / float(cfg.firebox_kg)
+	b.chill = maxf(0.0, float(b.chill) - dt)
+	var heat_target = 0.0
+	if burning:
+		heat_target = smoothstep(0.0, float(cfg.get("thin_fire", 0.3)), fill) * (1.0 - float(cfg.get("chill_loss", 0.3)) * clampf(float(b.chill) / float(cfg.get("chill_s", 5.0)), 0.0, 1.0))
+	b.heat = move_toward(float(b.heat), heat_target, dt / float(cfg.heat_rise_s if heat_target > float(b.heat) else cfg.heat_fall_s))
 	if burning:
 		b.firebox = maxf(0.0, float(b.firebox) - (float(cfg.idle_burn_kg_s) + float(cfg.load_burn_kg_s) * valve) * dt)
 	# Steam appears only from fire AND water; the tap limits how fast.
 	var feed_k = clampf(float(b.feed) / float(cfg.feed_full), 0.0, 1.0) if water > 0.0 else 0.0
 	var door_k = float(cfg.door_open_loss) if bool(b.door) else 1.0
-	var made = float(cfg.steam_per_s) * float(b.heat) * feed_k * door_k * dt
+	# an overfull firebox chokes: up to 30% less steam
+	var choke = 1.0 - float(cfg.get("choke_loss", 0.3)) * clampf((fill - float(cfg.get("choke_from", 0.85))) / (1.0 - float(cfg.get("choke_from", 0.85))), 0.0, 1.0)
+	var made = float(cfg.steam_per_s) * float(b.heat) * feed_k * door_k * choke * dt
 	var p = float(b.pressure)
 	var spent = minf(p + made, float(cfg.use_per_s) * valve * dt)
 	var cooling = float(cfg.cooling_per_s) * (1.0 - float(b.heat)) * dt
@@ -1425,6 +1485,7 @@ func physics_step(dt: float) -> void:
 			# engaged and only the battery charge or the air pressure limits it.
 			state.gear = 1
 			state.engine = float(fleet.fuel) > 0
+		thermal_step(dt, fleet)
 		if vehicle_id() == "steam": drive = steam_step(dt, fleet)
 		elif vehicle_id() == "sail":
 			drive = sail_step(dt)
@@ -1440,7 +1501,7 @@ func physics_step(dt: float) -> void:
 				var reverse_gear = vehicle_id() == "motorcar" and gear == 4
 				if reverse_gear: gear = 0
 				if vehicle_id() == "motorcar" and not reverse_gear: petrol_stall_check(gear, stats, dt)
-				var traction = float(stats.traction[gear]) * maxf(0, 1 - pow(absf(float(state.v)) / float(stats.speeds[gear]), 2)) * charge_traction_factor() * petrol_lug(gear, stats) * pneumatic_factor()
+				var traction = float(stats.traction[gear]) * maxf(0, 1 - pow(absf(float(state.v)) / float(stats.speeds[gear]), 2)) * charge_traction_factor() * petrol_lug(gear, stats) * pneumatic_factor() * thermal_factor()
 				traction = minf(traction, power_limit_force(charge_traction_factor()))
 				if shift_cut > 0.0: traction = 0.0
 				var adhesion = 0.35 * float(stats.mass) * G * cos(route.slope(float(state.s)))

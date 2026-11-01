@@ -182,7 +182,7 @@ func _ready() -> void:
 				# Tests and debugging runs are silent: nobody listens to the clicks and the engine.
 				AudioServer.set_bus_mute(0, true)
 				var suite = arg.trim_prefix("--qa-suite=")
-				if suite not in ["check_model", "check_physics", "check_interaction", "drive_campaign", "check_presentation", "check_handcar_revision", "check_art_v3", "check_instruments", "check_station_service", "check_world_geometry", "check_mechanism", "check_mechanism_bench", "check_handcar_drive", "check_handcar_input", "check_motor_controls", "check_loading_selection", "check_layout_p7", "check_steam", "check_steam_view", "check_gearbox", "check_petrol_view", "check_skins", "check_perf", "check_cab", "check_sound", "check_forecast", "check_line_v2", "check_line_spread", "check_speeds", "check_creative", "check_settings", "check_pneumatic", "check_pneumatic_view", "check_pole", "check_pole_view", "check_air", "check_sail", "check_sail_view", "check_loading_flow", "check_depot_entry", "check_forecast_long", "drive_long", "check_forecast_view", "check_soak_p8", "check_save_p8"]: get_tree().quit(2); return
+				if suite not in ["check_model", "check_physics", "check_interaction", "drive_campaign", "check_presentation", "check_handcar_revision", "check_art_v3", "check_instruments", "check_station_service", "check_world_geometry", "check_mechanism", "check_mechanism_bench", "check_handcar_drive", "check_handcar_input", "check_motor_controls", "check_loading_selection", "check_layout_p7", "check_steam", "check_steam_view", "check_gearbox", "check_petrol_view", "check_skins", "check_perf", "check_cab", "check_sound", "check_forecast", "check_line_v2", "check_line_spread", "check_thermal", "check_speeds", "check_creative", "check_settings", "check_pneumatic", "check_pneumatic_view", "check_pole", "check_pole_view", "check_air", "check_sail", "check_sail_view", "check_loading_flow", "check_depot_entry", "check_forecast_long", "drive_long", "check_forecast_view", "check_soak_p8", "check_save_p8"]: get_tree().quit(2); return
 				get_tree().root.set_meta("qa_running", true)
 				set_process(false)
 				set_physics_process(false)
@@ -1511,6 +1511,12 @@ func draw_steam_panel(rect: Rect2) -> void:
 	if not cab_active(): draw_style_box(style(Color(0.12+0.5*glow,0.07+0.2*glow,0.05),fire_edge,6),fire)
 	draw_string(font,fire.position+Vector2(0,24),"ТОПКА",HORIZONTAL_ALIGNMENT_CENTER,130,16,PAPER)
 	draw_string(font,fire.position+Vector2(0,50),"%.1f / %d кг" % [float(b.firebox),int(cfg.firebox_kg)],HORIZONTAL_ALIGNMENT_CENTER,130,17,GOLD)
+	# B3.4: the fire is good between a third and 85% of the grate: thinner burns out, fuller chokes
+	var fill=clampf(float(b.firebox)/float(cfg.firebox_kg),0.0,1.0)
+	var bar=Rect2(fire.position+Vector2(12,56),Vector2(106,6))
+	draw_rect(bar,Color("141a17"))
+	draw_rect(Rect2(bar.position+Vector2(bar.size.x*float(cfg.thin_fire),0),Vector2(bar.size.x*(float(cfg.choke_from)-float(cfg.thin_fire)),bar.size.y)),Color("27402f"))
+	draw_rect(Rect2(bar.position,Vector2(bar.size.x*fill,bar.size.y)),Color("5cc17f") if fill>=float(cfg.thin_fire) and fill<=float(cfg.choke_from) else Color("e0564a"))
 	draw_style_box(style(INK,GOLD if bool(b.door) else Color("66796b"),6),door_button)
 	draw_string(font,door_button.position+Vector2(0,20),"Дверца: открыта" if bool(b.door) else "Дверца: закрыта",HORIZONTAL_ALIGNMENT_CENTER,130,14,PAPER)
 	var center=rect.position+Vector2(360,322)
@@ -1772,9 +1778,7 @@ func _process(dt: float) -> void:
 	else:
 		cab_joint = -999999
 	if screen == "game" and not model.state.is_empty() and model.vehicle_id() == "motorcar":
-		var running = bool(model.state.engine)
-		var heat_target = (0.30 + 0.42 * clampf(model.engine_rpm_fraction() * 0.8 + float(model.state.throttle) * 0.2, 0.0, 1.0)) if running else 0.05
-		cab_temp = move_toward(cab_temp, heat_target, dt * (0.03 if running else 0.012))
+		cab_temp = model.engine_temp()   # B3.4: the real engine temperature, not a picture of one
 	if ui != null and ui.visible == cab_active(): ui.visible = not cab_active()
 	if art_world != null and art_world.visible == cab_active(): art_world.visible = not cab_active()
 	update_pult_transform()
@@ -2879,6 +2883,9 @@ func draw_electric_cab_extras(size: Vector2, layout: Dictionary) -> void:
 		draw_circle(at, 7, lamps[lamp][2] if lamps[lamp][1] else lamps[lamp][2].darkened(0.78))
 		if lamps[lamp][1]: draw_circle(at, 15, Color(lamps[lamp][2], 0.2))
 		draw_string(font, at + Vector2(-30, 24), lamps[lamp][0], HORIZONTAL_ALIGNMENT_CENTER, 60, 9, Color("a9a589"))
+	# motor temperature: over 85% the pull weakens
+	var motor_temp = model.engine_temp()
+	draw_round_gauge(Vector2(cx + 190.0 + 190.0 + 52.0 + 112.0, top + 56.0), clampf((layout.rect.position.x - 70.0) * 0.22, 46.0, 92.0) * 0.42, motor_temp, "МОТОР", "%d°" % roundi(20.0 + motor_temp * 100.0), [[0.7, Color("5cc17f")], [0.85, Color("e6b34a")], [1.0, Color("e0564a")]], 4)
 	# the red mushroom emergency stop: a real button, it drops traction and pulls the brake
 	var button = Vector2(cx + 190 + 190 + 52, top + 38)
 	draw_circle(button, 28, Color("3a1512"))
@@ -2946,7 +2953,7 @@ func draw_petrol_cab_extras(size: Vector2, layout: Dictionary) -> void:
 	var temp_x = oil_x + small_r * 2.0 + 16.0
 	var oil = clampf(0.12 + model.engine_rpm_fraction() * 0.75, 0.0, 1.0) if running else 0.0
 	draw_round_gauge(Vector2(oil_x, gauge_y), small_r, oil, "МАСЛО", "%.1f" % (oil * 5.0), [[0.2, Color("e0564a")], [0.9, Color("5cc17f")], [1.0, Color("e6b34a")]], 4)
-	draw_round_gauge(Vector2(temp_x, gauge_y), small_r, cab_temp, "ТЕМП.", "%d°" % roundi(20.0 + cab_temp * 100.0), [[0.7, Color("5cc17f")], [0.88, Color("e6b34a")], [1.0, Color("e0564a")]], 4)
+	draw_round_gauge(Vector2(temp_x, gauge_y), small_r, cab_temp, "ТЕМП.", "%d°" % roundi(20.0 + cab_temp * 100.0), [[0.7, Color("5cc17f")], [0.85, Color("e6b34a")], [1.0, Color("e0564a")]], 4)
 	# gear lamps under the nameplate: the engaged gear is lit
 	var labels = ["1", "2", "3", "4", "N", "R"]
 	var gears = [1, 2, 3, 4, 0, 5]
