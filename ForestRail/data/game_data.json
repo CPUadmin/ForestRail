@@ -355,6 +355,7 @@
       "max_wagons": 3,
       "brake_n": 6000,
       "battery_kwh": 0.35,
+      "regen_fraction": 0.75,
       "refill_price": 320,
       "energy_per_m": 0.000115,
       "energy_per_m_v2": 0.000107,

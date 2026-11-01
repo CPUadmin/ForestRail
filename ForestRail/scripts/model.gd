@@ -1476,7 +1476,7 @@ func physics_step(dt: float) -> void:
 			# No idle draw: an electric drive without a start switch must not
 			# bleed the battery while parked.
 			used=shaft_work/0.82
-			recovered=0.25*brake_work if float(state.throttle)<0.01 else 0.0
+			recovered=float(vehicle_base().get("regen_fraction",0.25))*brake_work if float(state.throttle)<0.01 else 0.0
 			recovered=minf(recovered,maxf(0,(float(stats.tank)-before)*3600000.0+used))
 			fleet.fuel=clampf(before+(recovered-used)/3600000.0,0,float(stats.tank))
 			regen_kw=recovered/dt/1000.0

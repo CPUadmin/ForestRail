@@ -435,17 +435,20 @@ func draw_sail_overlay(canvas: Node2D, model) -> void:
 			var belly = 0.10 * pull * sin(PI * u) * width
 			var wave = ripple * sin(t * 9.0 + u * 8.0) * width * u
 			luff.append(sail_point(mast_x, y))
-			leech.append(sail_point(mast_x - fwd * (extent + belly + wave), y))
-		# shading in vertical bands from the mast to the leech, lighter in the belly
+			# the trailing edge never crosses the mast, or the cloth would fold over itself
+			leech.append(sail_point(mast_x - fwd * maxf(extent + belly + wave, 0.03 * width), y))
+		# shading in vertical bands from the mast to the leech, lighter in the belly; drawn quad by quad so
+		# that a thin or folded patch is simply skipped (one bad polygon used to make the whole sail vanish)
 		var bands = 6
 		for k in range(bands):
 			var f0 = float(k) / float(bands)
 			var f1 = float(k + 1) / float(bands)
 			var shade = 0.88 + 0.12 * sin(PI * (f0 + f1) * 0.5) * (0.4 + 0.6 * clampf(pull + 0.4, 0.0, 1.0))
-			var strip = PackedVector2Array()
-			for i in range(rows + 1): strip.append(luff[i].lerp(leech[i], f0))
-			for i in range(rows, -1, -1): strip.append(luff[i].lerp(leech[i], f1))
-			canvas.draw_colored_polygon(strip, Color(0.94 * shade, 0.90 * shade, 0.80 * shade, 0.96))
+			var color = Color(0.94 * shade, 0.90 * shade, 0.80 * shade, 0.96)
+			for i in range(rows):
+				var q = PackedVector2Array([luff[i].lerp(leech[i], f0), luff[i].lerp(leech[i], f1), luff[i + 1].lerp(leech[i + 1], f1), luff[i + 1].lerp(leech[i + 1], f0)])
+				var area = (q[1] - q[0]).cross(q[3] - q[0]) * 0.5 + (q[2] - q[1]).cross(q[3] - q[1]) * 0.5
+				if absf(area) > 0.6 and q[0].distance_to(q[1]) > 0.2: canvas.draw_colored_polygon(q, color)
 		# seams, a patch and the stitched edge
 		for i in range(2, rows, 3): canvas.draw_line(luff[i], leech[i], Color(0.55, 0.47, 0.34, 0.55), 1.0, true)
 		var patch_at = luff[4].lerp(leech[4], 0.45)
