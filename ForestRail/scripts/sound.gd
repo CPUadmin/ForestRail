@@ -7,6 +7,7 @@ const MECHANISM_CLIPS = ["pump", "rail_clack", "rail_clack_a", "rail_clack_b", "
 const CLIP_NAMES = ["pump", "rail_clack", "rail_clack_a", "rail_clack_b", "gear", "cargo", "coins", "finale", "ui_click", "sting_start", "steam_chuff", "steam_blow", "petrol_start", "petrol_stall", "contactor", "coupler_clank", "bird_1", "bird_2", "bird_3", "bird_4"]
 const LOOP_NAMES = ["amb_wind", "amb_insects", "amb_water", "music_menu", "steam_hiss", "fire_crackle", "petrol_idle", "petrol_run", "electric_hum", "electric_whine", "brake"]
 const MACHINE_LOOPS = ["steam_hiss", "fire_crackle", "petrol_idle", "petrol_run", "electric_hum", "electric_whine", "brake"]
+const INTERFACE_CLIPS = ["coins", "finale", "ui_click", "sting_start"]
 const JOINT_SPACING = 12.0
 const CHUFF_SPACING = 0.43
 
@@ -78,6 +79,7 @@ func play(name: String, gain: float = 1.0, pitch: float = 1.0) -> void:
 	var level = master * gain
 	if name in MECHANISM_CLIPS: level *= float(settings.get("mechanisms", 0.7))
 	elif name.begins_with("bird"): level *= float(settings.get("forest", 0.6))
+	elif name in INTERFACE_CLIPS: level *= float(settings.get("interface", 0.8))
 	for voice in voices:
 		if not voice.playing:
 			voice.stream = clips[name]

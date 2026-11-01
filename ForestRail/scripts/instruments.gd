@@ -34,7 +34,7 @@ var redraw_clock = 0.0
 
 func _process(delta: float) -> void:
 	redraw_clock += delta
-	if full_map or redraw_clock >= 1.0 / 30.0:
+	if full_map or redraw_clock >= 1.0 / float(game.settings.instrument_hz):
 		redraw_clock = 0.0
 		queue_redraw()
 

@@ -49,7 +49,17 @@ var tab = "Рейсы"
 var selected_object = "handcar"
 var paused = false
 var modal_kind = ""
-var settings = {"master": 0.65, "mechanisms": 0.7, "forest": 0.6, "music": 0.25, "sensitivity": 1.0, "text_scale": 1.0, "fullscreen": false}
+# Every key here is read by the game; the settings menu (N9) edits exactly these.
+const DEFAULT_SETTINGS = {"master": 0.65, "mechanisms": 0.7, "forest": 0.6, "music": 0.25, "interface": 0.8,
+	"sensitivity": 1.0, "text_scale": 1.0, "fullscreen": false, "borderless": false, "window_size": 1,
+	"vsync": true, "fps_cap": 0, "msaa": 0, "instrument_hz": 30, "reduce_motion": false, "cab_shake": 1.0,
+	"autosave": 60, "keys": {"map": KEY_M, "pult": KEY_C, "cab": KEY_E}}
+const WINDOW_SIZES = [Vector2i(1280, 720), Vector2i(1600, 900), Vector2i(1920, 1080)]
+const SETTINGS_TABS = ["Звук", "Графика", "Управление", "Игра", "Доступность", "Служебное"]
+var settings = DEFAULT_SETTINGS.duplicate(true)
+var settings_backup: Dictionary = {}
+var settings_tab = "Звук"
+var awaiting_key = ""
 var camera_s = 0.0
 var camera_y = 0.0
 var camera_x = 0.0
@@ -149,7 +159,7 @@ func _ready() -> void:
 		for arg in qa_args:
 			if arg.begins_with("--qa-suite="):
 				var suite = arg.trim_prefix("--qa-suite=")
-				if suite not in ["check_model", "check_physics", "check_interaction", "drive_campaign", "check_presentation", "check_handcar_revision", "check_art_v3", "check_instruments", "check_station_service", "check_world_geometry", "check_mechanism", "check_mechanism_bench", "check_handcar_drive", "check_handcar_input", "check_motor_controls", "check_loading_selection", "check_layout_p7", "check_steam", "check_steam_view", "check_gearbox", "check_petrol_view", "check_skins", "check_perf", "check_cab", "check_sound", "check_forecast", "check_line_v2", "check_speeds", "check_creative", "check_forecast_long", "drive_long", "check_forecast_view", "check_soak_p8", "check_save_p8"]: get_tree().quit(2); return
+				if suite not in ["check_model", "check_physics", "check_interaction", "drive_campaign", "check_presentation", "check_handcar_revision", "check_art_v3", "check_instruments", "check_station_service", "check_world_geometry", "check_mechanism", "check_mechanism_bench", "check_handcar_drive", "check_handcar_input", "check_motor_controls", "check_loading_selection", "check_layout_p7", "check_steam", "check_steam_view", "check_gearbox", "check_petrol_view", "check_skins", "check_perf", "check_cab", "check_sound", "check_forecast", "check_line_v2", "check_speeds", "check_creative", "check_settings", "check_forecast_long", "drive_long", "check_forecast_view", "check_soak_p8", "check_save_p8"]: get_tree().quit(2); return
 				get_tree().root.set_meta("qa_running", true)
 				set_process(false)
 				set_physics_process(false)
@@ -250,24 +260,202 @@ func load_settings() -> void:
 	if FileAccess.file_exists(settings_path):
 		var saved = JSON.parse_string(FileAccess.get_file_as_string(settings_path))
 		if saved is Dictionary:
-			for key in settings:
-				if saved.has(key) and ((key=="fullscreen" and saved[key] is bool) or (key!="fullscreen" and saved[key] is float and is_finite(saved[key])) or (key!="fullscreen" and saved[key] is int)):
-					settings[key] = saved[key]
+			for key in DEFAULT_SETTINGS:
+				if not saved.has(key): continue
+				var value = saved[key]
+				var fallback = DEFAULT_SETTINGS[key]
+				if fallback is bool:
+					if value is bool: settings[key] = value
+				elif fallback is Dictionary:
+					if value is Dictionary:
+						for action in fallback:
+							if value.has(action) and (value[action] is int or value[action] is float) and is_finite(float(value[action])):
+								settings[key][action] = int(value[action])
+				elif (value is int or value is float) and is_finite(float(value)):
+					settings[key] = value
 	apply_settings()
 
 func apply_settings() -> void:
-	for key in ["master","mechanisms","forest","music"]:
+	for key in ["master", "mechanisms", "forest", "music", "interface"]:
 		settings[key] = clampf(float(settings[key]), 0, 1)
 	settings.fullscreen = settings.fullscreen is bool and settings.fullscreen
+	settings.borderless = settings.borderless is bool and settings.borderless
+	settings.vsync = settings.vsync is bool and settings.vsync
+	settings.reduce_motion = settings.reduce_motion is bool and settings.reduce_motion
 	settings.text_scale = clampf(float(settings.text_scale), 1, 1.5)
 	settings.sensitivity = clampf(float(settings.sensitivity), 0.5, 2)
-	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN if settings.fullscreen else DisplayServer.WINDOW_MODE_WINDOWED)
+	settings.cab_shake = clampf(float(settings.cab_shake), 0, 1)
+	settings.window_size = clampi(int(settings.window_size), 0, WINDOW_SIZES.size() - 1)
+	settings.fps_cap = int(settings.fps_cap) if int(settings.fps_cap) in [0, 30, 60, 120, 144] else 0
+	settings.msaa = int(settings.msaa) if int(settings.msaa) in [0, 2, 4] else 0
+	settings.instrument_hz = 60 if int(settings.instrument_hz) >= 60 else 30
+	settings.autosave = int(settings.autosave) if int(settings.autosave) in [0, 30, 60, 120, 300] else 60
+	# Hot keys: valid, never Escape (it always pauses), never twice; otherwise back to the defaults.
+	var keys: Dictionary = settings.keys
+	var seen: Array = []
+	var valid = true
+	for action in DEFAULT_SETTINGS.keys:
+		var code = int(keys.get(action, 0))
+		if code <= 0 or code == KEY_ESCAPE or code in seen: valid = false
+		seen.append(code)
+	if not valid:
+		for action in DEFAULT_SETTINGS.keys: keys[action] = int(DEFAULT_SETTINGS.keys[action])
+	else:
+		for action in DEFAULT_SETTINGS.keys: keys[action] = int(keys[action])
+	var mode = DisplayServer.WINDOW_MODE_FULLSCREEN if settings.fullscreen else DisplayServer.WINDOW_MODE_WINDOWED
+	if DisplayServer.window_get_mode() != mode: DisplayServer.window_set_mode(mode)
+	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_BORDERLESS, bool(settings.borderless) and not bool(settings.fullscreen))
+	DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_ENABLED if settings.vsync else DisplayServer.VSYNC_DISABLED)
+	Engine.max_fps = int(settings.fps_cap)
+	get_viewport().msaa_2d = {0: Viewport.MSAA_DISABLED, 2: Viewport.MSAA_2X, 4: Viewport.MSAA_4X}[int(settings.msaa)]
 
 func save_settings() -> void:
 	var file = FileAccess.open(settings_path, FileAccess.WRITE)
 	if file:
 		file.store_string(JSON.stringify(settings))
 	apply_settings()
+
+# Settings menu helpers: changes apply at once, "Применить" saves them, "Отменить" (or
+# Esc) puts back what was there when the menu opened.
+func copy_settings(target: Dictionary, source: Dictionary) -> void:
+	for key in source:
+		target[key] = source[key].duplicate(true) if source[key] is Dictionary else source[key]
+
+func settings_changed() -> bool:
+	return JSON.stringify(settings) != JSON.stringify(settings_backup)
+
+func apply_window_size() -> void:
+	if not bool(settings.fullscreen): DisplayServer.window_set_size(WINDOW_SIZES[int(settings.window_size)])
+
+func key_name(action: String) -> String:
+	return OS.get_keycode_string(int(settings.keys[action]))
+
+func key_is(event: InputEvent, action: String) -> bool:
+	var code = int(settings.keys[action])
+	return event is InputEventKey and (event.physical_keycode == code or event.keycode == code)
+
+func bind_key(code: int) -> void:
+	var action = awaiting_key
+	awaiting_key = ""
+	if code != KEY_ESCAPE and action != "":
+		for other in settings.keys:
+			if other != action and int(settings.keys[other]) == code: settings.keys[other] = int(settings.keys[action])
+		settings.keys[action] = code
+		apply_settings()
+	rebuild()
+
+func setting_matches(current, option) -> bool:
+	if current is bool or option is bool: return current == option
+	return is_equal_approx(float(current), float(option))
+
+func settings_slider(box: VBoxContainer, key: String, title: String, low: float, high: float, step: float) -> void:
+	var value_label = add_label(box, "", 20)
+	var slider = HSlider.new()
+	slider.min_value = low
+	slider.max_value = high
+	slider.step = step
+	slider.value = float(settings[key])
+	slider.custom_minimum_size.y = 28
+	box.add_child(slider)
+	var refresh = func(): value_label.text = "%s: %d%%" % [title, roundi(float(settings[key]) * 100.0)]
+	refresh.call()
+	slider.value_changed.connect(func(value):
+		settings[key] = value
+		apply_settings()
+		refresh.call())
+
+func settings_choice(box: VBoxContainer, key: String, title: String, options: Array, after: Callable = Callable()) -> void:
+	add_label(box, title, 20)
+	var row = HBoxContainer.new()
+	box.add_child(row)
+	for option in options:
+		var button = add_button(row, str(option[1]), func():
+			settings[key] = option[0]
+			apply_settings()
+			if after.is_valid(): after.call()
+			rebuild(), false, setting_matches(settings[key], option[0]))
+		button.add_theme_font_size_override("font_size", int(18 * float(settings.text_scale)))
+
+func settings_toggle(box: VBoxContainer, key: String, title: String) -> void:
+	add_button(box, "%s: %s" % [title, "вкл." if settings[key] else "выкл."], func():
+		settings[key] = not settings[key]
+		apply_settings()
+		rebuild())
+
+func settings_key(box: VBoxContainer, action: String, title: String) -> void:
+	var waiting = awaiting_key == action
+	add_button(box, "%s: %s" % [title, "нажми новую клавишу (Esc отмена)" if waiting else key_name(action)], func():
+		awaiting_key = action
+		rebuild())
+
+func build_settings(box: VBoxContainer) -> void:
+	add_label(box, "Настройки", 32)
+	var actions = HBoxContainer.new()
+	box.add_child(actions)
+	add_button(actions, "Применить", func():
+		save_settings()
+		settings_backup = settings.duplicate(true)
+		notify("Настройки сохранены")
+		close_modal())
+	add_button(actions, "Отменить", close_modal)
+	add_button(actions, "По умолчанию", func():
+		copy_settings(settings, DEFAULT_SETTINGS)
+		apply_settings()
+		apply_window_size()
+		rebuild())
+	var tabs = GridContainer.new()
+	tabs.columns = 3
+	box.add_child(tabs)
+	for tab_name in SETTINGS_TABS:
+		var tab_button = add_button(tabs, tab_name, func():
+			settings_tab = tab_name
+			awaiting_key = ""
+			rebuild(), false, tab_name == settings_tab)
+		tab_button.add_theme_font_size_override("font_size", int(18 * float(settings.text_scale)))
+	if settings_tab == "Звук":
+		settings_slider(box, "master", "Общая громкость", 0, 1, 0.05)
+		settings_slider(box, "music", "Музыка", 0, 1, 0.05)
+		settings_slider(box, "forest", "Эмбиент (лес, ветер, вода, птицы)", 0, 1, 0.05)
+		settings_slider(box, "mechanisms", "Машины и рельсы", 0, 1, 0.05)
+		settings_slider(box, "interface", "Интерфейс (клики, монеты)", 0, 1, 0.05)
+		add_label(box, "Проверить звук:", 20)
+		var row = HBoxContainer.new()
+		box.add_child(row)
+		add_button(row, "Музыка", func(): sound.play("sting_start", 0.55))
+		add_button(row, "Эмбиент", func(): sound.play("bird_%d" % randi_range(1, 4), 0.8))
+		add_button(row, "Машины", func(): sound.play("rail_clack_a", 0.6))
+		add_button(row, "Интерфейс", func(): sound.play("coins", 0.6))
+	elif settings_tab == "Графика":
+		settings_toggle(box, "fullscreen", "Полный экран")
+		settings_toggle(box, "borderless", "Окно без рамки")
+		settings_choice(box, "window_size", "Размер окна (если не на весь экран)", [[0, "1280×720"], [1, "1600×900"], [2, "1920×1080"]], apply_window_size)
+		settings_toggle(box, "vsync", "Вертикальная синхронизация")
+		settings_choice(box, "fps_cap", "Ограничение кадров", [[0, "Без ограничения"], [30, "30"], [60, "60"], [120, "120"], [144, "144"]])
+		settings_choice(box, "msaa", "Сглаживание краёв", [[0, "Выкл."], [2, "2×"], [4, "4×"]])
+		settings_choice(box, "instrument_hz", "Частота обновления приборов", [[30, "30 Гц"], [60, "60 Гц"]])
+	elif settings_tab == "Управление":
+		settings_slider(box, "sensitivity", "Чувствительность ручной дрезины", 0.5, 2, 0.05)
+		add_label(box, "Клавиши (Esc всегда пауза):", 20)
+		settings_key(box, "map", "Карта")
+		settings_key(box, "pult", "Пульт")
+		settings_key(box, "cab", "Кабина")
+	elif settings_tab == "Игра":
+		settings_choice(box, "autosave", "Автосохранение раз в", [[0, "Выкл."], [30, "30 с"], [60, "60 с"], [120, "2 мин"], [300, "5 мин"]])
+		if screen != "menu" and not model.state.is_empty():
+			add_button(box, "Подсказки: " + ("вкл." if model.state.tutorial else "выкл."), func():
+				model.state.tutorial = not model.state.tutorial
+				save_game()
+				rebuild())
+		else:
+			add_label(box, "Подсказки включаются в паузе во время игры.", 18, MUTED_INK)
+	elif settings_tab == "Доступность":
+		settings_choice(box, "text_scale", "Размер текста", [[1.0, "100%"], [1.25, "125%"], [1.5, "150%"]])
+		settings_toggle(box, "reduce_motion", "Без тряски и мерцания")
+		settings_slider(box, "cab_shake", "Тряска кабины", 0, 1, 0.05)
+	else:
+		add_label(box, "Версия игры %s" % ProjectSettings.get_setting("application/config/version"), 20)
+		add_label(box, "Сохранения и настройки: %s" % ProjectSettings.globalize_path(saves.directory), 17, MUTED_INK)
+		add_button(box, "Открыть папку сохранений", func(): OS.shell_open(ProjectSettings.globalize_path(saves.directory)))
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_CLOSE_REQUEST:
@@ -757,9 +945,9 @@ func build_hud(size: Vector2) -> void:
 	pause_row.size = Vector2(buttons_width, 46)
 	pause_row.add_theme_constant_override("separation",10)
 	ui.add_child(pause_row)
-	map_button = add_button(pause_row, "Карта [M]", toggle_map)
-	if model.vehicle_id()!="handcar": add_button(pause_row,"Пульт [C]",toggle_control_zoom)
-	if model.vehicle_id()!="handcar": add_button(pause_row,"Кабина [E]",toggle_cab_view)
+	map_button = add_button(pause_row, "Карта [%s]" % key_name("map"), toggle_map)
+	if model.vehicle_id()!="handcar": add_button(pause_row,"Пульт [%s]" % key_name("pult"),toggle_control_zoom)
+	if model.vehicle_id()!="handcar": add_button(pause_row,"Кабина [%s]" % key_name("cab"),toggle_cab_view)
 	add_button(pause_row, "Пауза", pause_game)
 	for button in pause_row.get_children():
 		for state_name in ["normal","hover","pressed","disabled","focus"]:
@@ -969,7 +1157,7 @@ func draw_steam_cab_props(bucket: Rect2, fire: Rect2, door_button: Rect2, boiler
 	# firebox door: an iron arch with the fire behind it; the fire lights the dashboard
 	var heat = float(boiler.heat)
 	if heat > 0.05:
-		var flicker = 0.7 + 0.3 * sin(time * 9.0) * sin(time * 3.7)
+		var flicker = 1.0 if settings.reduce_motion else 0.7 + 0.3 * sin(time * 9.0) * sin(time * 3.7)
 		for ring in range(5): draw_circle(fire.get_center(), 60.0 + ring * 38.0, Color(1.0, 0.5, 0.12, 0.05 * heat * flicker))
 	var door_open = bool(boiler.door)
 	draw_rect(fire, Color("0a0b0b"))
@@ -1141,10 +1329,19 @@ func show_modal(kind: String) -> void:
 	cab_view = false
 	control_zoom=false
 	if screen != "menu": paused = true
+	if kind == "settings":
+		settings_backup = settings.duplicate(true)
+		awaiting_key = ""
 	modal_kind = kind
 	rebuild()
 
 func close_modal() -> void:
+	if modal_kind == "settings" and settings_changed():
+		# Closed without "Применить": put back what the menu found.
+		copy_settings(settings, settings_backup)
+		apply_settings()
+		apply_window_size()
+	awaiting_key = ""
 	resume_prompt=false
 	modal_kind = ""
 	paused = false
@@ -1167,7 +1364,7 @@ func build_modal(size: Vector2) -> void:
 		close_row.position = Vector2(size.x-close_width-50,38)
 		close_row.size = Vector2(close_width,48)
 		overlay.add_child(close_row)
-		add_button(close_row,"Закрыть [M / Esc]",close_modal)
+		add_button(close_row,"Закрыть [%s / Esc]" % key_name("map"),close_modal)
 		return
 	var shade = ColorRect.new()
 	shade.color = Color(0.08, 0.13, 0.11, 0.76)
@@ -1204,24 +1401,7 @@ func build_modal(size: Vector2) -> void:
 			else: rebuild()))
 		add_button(box, "В главное меню", func(): save_game(); screen = "menu"; close_modal())
 	elif modal_kind == "settings":
-		add_label(box, "Настройки", 32)
-		for key in ["master", "mechanisms", "forest", "music", "sensitivity"]:
-			var names = {"master": "Общая громкость", "mechanisms": "Механизмы", "forest": "Лес", "music": "Музыка", "sensitivity": "Чувствительность ручной дрезины"}
-			add_label(box, names[key], 21)
-			var slider = HSlider.new()
-			slider.min_value = 0.5 if key == "sensitivity" else 0
-			slider.max_value = 2 if key == "sensitivity" else 1
-			slider.step = 0.05
-			slider.value = float(settings[key])
-			slider.custom_minimum_size.y = 28
-			box.add_child(slider)
-			slider.value_changed.connect(func(value): settings[key] = value; save_settings())
-		add_button(box, "Полный экран: " + ("вкл." if settings.fullscreen else "выкл."), func(): settings.fullscreen = not settings.fullscreen; save_settings(); rebuild())
-		var row = HBoxContainer.new()
-		box.add_child(row)
-		for scale_value in [1.0, 1.25, 1.5]:
-			add_button(row, "Текст %d%%" % (scale_value * 100), func(): settings.text_scale = scale_value; save_settings(); rebuild())
-		add_button(box, "Готово", close_modal)
+		build_settings(box)
 	elif modal_kind == "help":
 		add_label(box, "Как играть", 32)
 		add_label(box, "1. В депо выбери рейс и нажми «К погрузке». Перетащи каждый предмет с площадки в свободное место на машине или вагоне. Отправляйся, когда всё погружено.\n\n2. Отпусти тормоз: веди красную рукоять по дуге к 0%. На ручной дрезине веди любой конец деревянного рычага по его дуге. На спуске можно катиться по инерции.\n\n3. Перед станцией плавно переведи тормоз к 100%. Остановись в пределах платформы, затяни тормоз до 100% и перетащи нужные грузы на площадку. У каждого предмета указана станция.\n\n4. После последней доставки убери подачу, разверни пустой состав кнопкой на станции и вернись в Лесную. Деньги выдаются в домашнем депо.\n\n5. Парк растёт так: ручная дрезина → паровоз (500) → бензиновая машина (1000) → электровоз (3000). У трёх последних нет мест на кузове: груз едет в вагонах. Первый вагон W01 входит в покупку, W02 и W03 покупаются отдельно. Не хватает денег — бери свободные рейсы: сильная машина платит за них больше.\n\n6. Паровоз: разожги котёл тумблером (режим Н, регулятор 0%), выбери отсечку 1 и открой регулятор. Он тратит уголь и воду. Бензиновая машина запускается так же и тратит бензин. Электровоз тратит заряд; ниже 75% заряда тяга слабеет, торможение возвращает часть энергии. Пополнение в депо платное: уголь, бензин и зарядка стоят денег.\n\n7. Вагоны в депо стоят на пути. Щёлкни по сцепке между составом и вагоном: хвостовой вагон отъедет, ближайший стоящий подкатится и сцепится. Улучшения следуют за ID вагона. Для финального рейса нужны шесть мест.\n\nЗадний ход: остановись, затяни тормоз и выбери стрелку направления. На ручной дрезине направление задаётся усилием на рычаге с отпущенным тормозом. Обратное усилие сначала замедляет движение. В мёртвой точке потяни край платформы, чтобы подтолкнуть машину. Состав при этом сохраняет положение и груз.\n\nКолесо мыши — приблизить машину. Esc — пауза. При потере фокуса игра останавливается. Если застрял или кончилась энергия, вызови помощь депо из паузы.", 20)
@@ -1330,20 +1510,24 @@ func _physics_process(dt: float) -> void:
 	if screen == "game" and not paused:
 		model.physics_step(dt)
 		autosave += dt
-		if autosave >= 60 and drag == "":
+		if float(settings.autosave) > 0.0 and autosave >= float(settings.autosave) and drag == "":
 			autosave = 0
 			save_game()
 
 func _input(event: InputEvent) -> void:
-	if event is InputEventKey and event.pressed and not event.echo and (event.physical_keycode==KEY_C or event.keycode==KEY_C) and screen=="game" and not paused:
+	if awaiting_key != "" and event is InputEventKey and event.pressed and not event.echo:
+		bind_key(event.keycode)
+		get_viewport().set_input_as_handled()
+		return
+	if event is InputEventKey and event.pressed and not event.echo and key_is(event,"pult") and screen=="game" and not paused:
 		toggle_control_zoom()
 		get_viewport().set_input_as_handled()
 		return
-	if event is InputEventKey and event.pressed and not event.echo and (event.physical_keycode==KEY_E or event.keycode==KEY_E) and screen=="game" and not paused:
+	if event is InputEventKey and event.pressed and not event.echo and key_is(event,"cab") and screen=="game" and not paused:
 		toggle_cab_view()
 		get_viewport().set_input_as_handled()
 		return
-	if event is InputEventKey and event.pressed and not event.echo and (event.physical_keycode==KEY_M or event.keycode==KEY_M) and screen=="game":
+	if event is InputEventKey and event.pressed and not event.echo and key_is(event,"map") and screen=="game":
 		toggle_map()
 		get_viewport().set_input_as_handled()
 		return
@@ -1779,7 +1963,7 @@ func cab_shake() -> Vector2:
 	var tremble = Vector2(sin(time * 61.0), sin(time * 53.0 + 1.3)) * ((0.5 + 0.7 * float(model.state.throttle)) if vibrating else 0.0)
 	var clack = Vector2(0.0, sin(time * 38.0) * cab_jolt * 3.4)
 	var sway = Vector2(sin(time * 1.3) * minf(speed * 0.18, 2.0), 0.0)
-	return tremble + clack + sway
+	return (tremble + clack + sway) * (0.0 if settings.reduce_motion else float(settings.cab_shake))
 
 # Needles are springs: they overshoot a little and settle, and tremble while the
 # machine runs, instead of jumping to the value.
@@ -1789,7 +1973,7 @@ func cab_needle(key: String, target: float) -> float:
 	state.v = float(state.v) + accel * cab_dt
 	state.x = float(state.x) + float(state.v) * cab_dt
 	needle_state[key] = state
-	var tremble = sin(time * 37.0 + key.length()) * 0.004 if bool(model.state.engine) and model.vehicle_id() != "locomotive" and key in ["СКОРОСТЬ", "ОБОРОТЫ", "ДАВЛЕНИЕ"] else 0.0
+	var tremble = sin(time * 37.0 + key.length()) * 0.004 if bool(model.state.engine) and model.vehicle_id() != "locomotive" and key in ["СКОРОСТЬ", "ОБОРОТЫ", "ДАВЛЕНИЕ"] and not settings.reduce_motion else 0.0
 	return clampf(float(state.x) + tremble, -0.05, 1.05)
 
 func cab_hash(i: int, salt: float = 0.0) -> float:
@@ -2062,7 +2246,7 @@ func draw_cab_frame(size: Vector2, top: float) -> void:
 	var dark = Color("1f2f27")
 	var brass = Color("c9a85a")
 	var running_engine = bool(model.state.engine) and model.vehicle_id() != "locomotive"
-	var lamp_flicker = 1.0 - (0.22 * (0.5 + 0.5 * sin(time * 27.0)) if running_engine else 0.0)
+	var lamp_flicker = 1.0 - (0.22 * (0.5 + 0.5 * sin(time * 27.0)) if running_engine and not settings.reduce_motion else 0.0)
 	var roof = size.y * 0.075
 	draw_polygon(PackedVector2Array([Vector2(0, 0), Vector2(size.x, 0), Vector2(size.x, roof), Vector2(0, roof)]), PackedColorArray([dark, dark, green, green]))
 	for plank in range(1, 24):
