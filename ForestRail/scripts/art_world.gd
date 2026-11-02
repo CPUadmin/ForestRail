@@ -125,7 +125,9 @@ func draw_day_night(canvas: Node2D, size: Vector2) -> void:
 	for i in range(model.data.stations.size()):
 		var at = game.world_point(float(model.route.station_s[i])) + Vector2(0, -1.6 * art.PX * sc)
 		glow(canvas, at, Vector2(1.5, 0.9) * art.PX * sc, Color(1.0, 0.8, 0.45, 0.5 * lit))
-	# the headlamp of the lead machine: a warm cone ahead
+	# the headlamp of the lead machine: a warm cone ahead, when it is lit
+	if not game.lights_lit(): return
+	lit = clampf(0.55 + night * 0.45, 0.0, 1.0)
 	var dir = float(int(model.state.direction))
 	var front = game.world_point(float(model.state.s)) + Vector2(dir * 1.9 * art.PX * sc, -0.9 * art.PX * sc)
 	var far = 11.0 * art.PX * sc

@@ -303,6 +303,14 @@ def make_petrol():
     t = tt(0.4)
     clunk = np.sin(2 * np.pi * 120 * t) * np.exp(-t * 28) + 0.7 * band(noise(0.4), 600, 3500) * np.exp(-t * 110) + 0.3 * np.sin(2 * np.pi * 880 * t) * np.exp(-t * 40)
     write("gear.wav", clunk, peak=0.8)
+    # the horn of the petrol car: two stacked tones, a car-like buzz
+    t = tt(0.9)
+    horn = np.zeros_like(t)
+    for f0 in (415.0, 523.0):
+        for k, amp in ((1, 1.0), (2, 0.5), (3, 0.33), (4, 0.2), (5, 0.12)):
+            horn += amp * np.sin(2 * np.pi * f0 * k * t)
+    horn *= np.minimum(1.0, t / 0.03) * np.minimum(1.0, (0.9 - t) / 0.12)
+    write("horn.wav", horn, peak=0.6)
 
 
 def make_electric():

@@ -87,6 +87,10 @@ var cab_blend = 0.0
 # B3.1: arriving at a platform in the cab lowers it so that the platform and the load are in view;
 # moving off again raises it back. Pressing E by hand cancels the automatic return.
 var cab_resume = false
+# B-cab: the dashboard buttons of the steam cab. The headlamp is lit by itself at night until the driver
+# takes it over (lamp_manual 1 on, 0 off, -1 by itself); the wipers only matter in rain.
+var lamp_manual = -1
+var wiper_on = false
 var mini_button: Button   # the invisible button over the minimap; the cab dashboard has its own gauges there
 var was_docked = false
 var cab_hits: Array = []
@@ -1545,6 +1549,19 @@ func draw_steam_panel(rect: Rect2) -> void:
 # Clicks on the dashboard buttons: the direction switch (steam, electric) and the
 # emergency stop (electric). The direction rules are the same as the buttons outside.
 func cab_button(id: String) -> void:
+	if id == "light":
+		lamp_manual = 0 if lights_lit() else 1
+		notify("Фара включена" if lamp_manual == 1 else "Фара выключена")
+		sound.play("gear", 0.5, 1.2)
+		return
+	if id == "wiper":
+		wiper_on = not wiper_on
+		notify("Дворники включены" if wiper_on else "Дворники выключены")
+		sound.play("gear", 0.5, 0.8)
+		return
+	if id == "whistle":
+		sound.play("horn", 0.9)
+		return
 	if id == "forward" or id == "back":
 		if model.set_reverser(1 if id == "forward" else -1): save_game()
 		else: notify(model.message)
@@ -2199,6 +2216,10 @@ func finish_drag(mouse: Vector2) -> void:
 		if not model.start_engine(not model.state.engine): notify(model.message)
 	cancel_drag()
 
+func lights_lit() -> bool:
+	if lamp_manual >= 0: return lamp_manual == 1
+	return model.night_amount() > 0.3 or float(model.weather().fog) * model.weather_effect > 0.5
+
 # The weather as the player's settings show it: normal, weaker, or none.
 func shown_weather() -> Dictionary:
 	var w = model.weather()
@@ -2477,11 +2498,13 @@ func draw_cab_scene(size: Vector2) -> void:
 	# B4.1: the glass at night and at dawn
 	var night = model.night_amount()
 	if model.twilight() > 0.01: draw_rect(view, Color(1.0, 0.5, 0.25, 0.16 * minf(1.0, model.twilight())))
-	art_world.draw_weather(self, view, shown_weather(), time, bool(settings.reduce_motion))
+	var glass_weather = shown_weather()
+	if wiper_on and dash_v2(): glass_weather = {"cloud": float(glass_weather.cloud), "rain": float(glass_weather.rain) * 0.35, "fog": float(glass_weather.fog)}
+	art_world.draw_weather(self, view, glass_weather, time, bool(settings.reduce_motion))
 	if night > 0.01:
 		draw_rect(view, Color(0.02, 0.04, 0.12, night_shade() * 0.97))
-		if night > 0.25:
-			var beam = Color(1.0, 0.88, 0.55, 0.22 * clampf((night - 0.25) / 0.5, 0.0, 1.0))
+		if lights_lit():
+			var beam = Color(1.0, 0.88, 0.55, 0.22 * clampf(0.5 + night * 0.5, 0.0, 1.0))
 			draw_polygon(PackedVector2Array([Vector2(view.size.x * 0.5, view.size.y), Vector2(view.size.x * 0.28, view.size.y * 0.62), Vector2(view.size.x * 0.72, view.size.y * 0.62)]), PackedColorArray([beam, Color(beam, 0.0), Color(beam, 0.0)]))
 	draw_set_transform_matrix(Transform2D.IDENTITY)
 	draw_cab_frame(size, top)
@@ -2791,8 +2814,10 @@ func draw_cab_frame(size: Vector2, top: float) -> void:
 	# windscreen wipers resting at the bottom of the glass
 	for wiper_x in [0.36, 0.64]:
 		var pivot = Vector2(size.x * wiper_x, top - 6)
-		draw_line(pivot, pivot + Vector2(size.x * 0.1, -size.y * 0.08), Color("101412"), 5.0, true)
-		draw_line(pivot + Vector2(size.x * 0.02, -size.y * 0.016), pivot + Vector2(size.x * 0.1, -size.y * 0.08), Color("050605"), 7.0, true)
+		var sweep = -0.95 * (0.5 - 0.5 * cos(time * 3.2)) if (wiper_on and dash_v2()) else 0.0
+		var tip = pivot + Vector2(size.x * 0.1, -size.y * 0.08).rotated(sweep)
+		draw_line(pivot, tip, Color("101412"), 5.0, true)
+		draw_line(pivot + Vector2(size.x * 0.02, -size.y * 0.016).rotated(sweep), tip, Color("050605"), 7.0, true)
 		draw_circle(pivot, 6, brass)
 	# glass: sheen, reflections and a few specks of dust
 	draw_colored_polygon(PackedVector2Array([Vector2(pillar * 1.6, roof), Vector2(pillar * 2.6, roof), Vector2(pillar * 1.6, top), Vector2(pillar * 0.7, top)]), Color(1, 1, 1, 0.05))
@@ -2804,21 +2829,18 @@ func draw_cab_frame(size: Vector2, top: float) -> void:
 	for grain in range(0, int(size.x), 70):
 		draw_line(Vector2(grain, top - 20), Vector2(grain + 40, top - 7), Color(0, 0, 0, 0.18), 1.5)
 	draw_line(Vector2(0, top - 22), Vector2(size.x, top - 22), brass, 3.0)
-	draw_polygon(PackedVector2Array([Vector2(0, top - 4), Vector2(size.x, top - 4), Vector2(size.x, size.y), Vector2(0, size.y)]), PackedColorArray([Color("3a4a41"), Color("3a4a41"), Color("151d19"), Color("151d19")]))
-	draw_line(Vector2(0, top - 4), Vector2(size.x, top - 4), Color(0, 0, 0, 0.55), 3.0)
-	for rivet in range(int(size.x / 50.0)):
-		draw_circle(Vector2(25 + rivet * 50.0, top + 8), 2.5, Color("a98a4a"))
-	for screw in range(int(size.x / 50.0)):
-		draw_circle(Vector2(25 + screw * 50.0, size.y - 10), 3.0, Color("0c100e"))
-		draw_line(Vector2(25 + screw * 50.0 - 2, size.y - 12), Vector2(25 + screw * 50.0 + 2, size.y - 8), Color("55645a"), 1.2)
+	if dash_v2():
+		draw_dash_panel_v2(size, top)
+	else:
+		draw_polygon(PackedVector2Array([Vector2(0, top - 4), Vector2(size.x, top - 4), Vector2(size.x, size.y), Vector2(0, size.y)]), PackedColorArray([Color("3a4a41"), Color("3a4a41"), Color("151d19"), Color("151d19")]))
+		draw_line(Vector2(0, top - 4), Vector2(size.x, top - 4), Color(0, 0, 0, 0.55), 3.0)
+		for rivet in range(int(size.x / 50.0)):
+			draw_circle(Vector2(25 + rivet * 50.0, top + 8), 2.5, Color("a98a4a"))
+		for screw in range(int(size.x / 50.0)):
+			draw_circle(Vector2(25 + screw * 50.0, size.y - 10), 3.0, Color("0c100e"))
+			draw_line(Vector2(25 + screw * 50.0 - 2, size.y - 12), Vector2(25 + screw * 50.0 + 2, size.y - 8), Color("55645a"), 1.2)
 
-# Small dashboard details: nameplate, indicator lamps, clock, vents, cables, and the
-# vehicle-specific bits (water glass and whistle cord on the steam engine).
-func draw_cab_dash_details(size: Vector2, layout: Dictionary) -> void:
-	var top = float(layout.dash_top)
-	var pult: Rect2 = layout.rect
-	var brass = Color("c9a85a")
-	var kind = model.vehicle_id()
+func draw_plain_header(size: Vector2, top: float, kind: String, brass: Color) -> void:
 	# nameplate
 	var plate = Rect2(size.x * 0.5 - 150, top + 12, 300, 26)
 	draw_style_box(style(Color("2a2218"), brass, 4), plate)
@@ -2836,6 +2858,100 @@ func draw_cab_dash_details(size: Vector2, layout: Dictionary) -> void:
 		draw_circle(at, 7, lamps[i][2] if lamps[i][1] else lamps[i][2].darkened(0.75))
 		if lamps[i][1]: draw_circle(at, 16, Color(lamps[i][2], 0.22))
 		draw_string(font, at + Vector2(-40, 25), lamps[i][0], HORIZONTAL_ALIGNMENT_CENTER, 80, 10, Color("a9a589"))
+
+
+# ===== Petrol cab dashboard, dark gunmetal with copper trim (the owner's reference picture) =====
+func dash_v2() -> bool:
+	return model.vehicle_id() == "motorcar" and cab_active()
+
+func draw_dash_panel_v2(size: Vector2, top: float) -> void:
+	var copper = Color("b9793a")
+	var copper_light = Color("e0a15f")
+	draw_polygon(PackedVector2Array([Vector2(0, top - 4), Vector2(size.x, top - 4), Vector2(size.x, size.y), Vector2(0, size.y)]), PackedColorArray([Color("1d1c1a"), Color("1d1c1a"), Color("080808"), Color("080808")]))
+	# brushed metal: faint vertical streaks
+	for streak in range(120):
+		var x = size.x * cab_hash(streak, 31.0)
+		draw_line(Vector2(x, top + 6), Vector2(x + 2.0, size.y - 8), Color(1, 1, 1, 0.012 + 0.02 * cab_hash(streak, 32.0)), 1.0)
+	# the worn copper rim of the panel and an inner line
+	var frame = Rect2(10, top + 2, size.x - 20, size.y - top - 14)
+	draw_rect(frame, copper, false, 4.0)
+	draw_rect(frame.grow(-5.0), Color(0, 0, 0, 0.65), false, 2.0)
+	draw_line(frame.position + Vector2(6, 2), Vector2(frame.end.x - 6, frame.position.y + 2), copper_light, 1.5)
+	for wear in range(70):
+		var along = cab_hash(wear, 33.0)
+		var on_top = cab_hash(wear, 34.0) < 0.5
+		var at = Vector2(lerpf(frame.position.x, frame.end.x, along), frame.position.y if on_top else frame.end.y)
+		draw_line(at, at + Vector2(6.0 + 10.0 * cab_hash(wear, 35.0), 0), Color("1d1c1a"), 3.0)
+	for corner in [frame.position, Vector2(frame.end.x, frame.position.y), Vector2(frame.position.x, frame.end.y), frame.end]:
+		draw_circle(corner, 5.0, copper_light)
+		draw_circle(corner, 2.0, Color("2a1a0c"))
+
+# A recessed module in the dashboard: dark inset with a thin copper edge.
+func draw_dash_module(rect: Rect2) -> void:
+	draw_rect(rect, Color("0b0b0a"))
+	draw_rect(rect, Color("8a5a2c"), false, 2.0)
+	draw_rect(rect.grow(-3.0), Color(0, 0, 0, 0.6), false, 1.0)
+
+func draw_petrol_header_v2(size: Vector2, top: float) -> void:
+	var copper = Color("b9793a")
+	var gold = Color("e6cf8b")
+	# the box of lamps, left: power, work, engine, overheating, alarm
+	var box = Rect2(30, top + 12, 340, 70)
+	draw_dash_module(box)
+	var fleet = model.state.fleet_by_id.motorcar
+	var tank = float(model.object_stats("motorcar").tank)
+	var low_fuel = float(fleet.fuel) / maxf(0.001, tank) < 0.15
+	var lamps = [["ПИТАНИЕ", float(fleet.fuel) > 0.0, Color("5cc17f")], ["РАБОТА", bool(model.state.engine) and float(model.state.throttle) > 0.02, Color("e6b34a")], ["ДВИГАТЕЛЬ", bool(model.state.engine), Color("f0eed0")], ["ПЕРЕГРЕВ", model.engine_temp() > Model.TEMP_HOT, Color("e0564a")], ["АВАРИЯ", low_fuel or (model.engine_temp() >= 0.98), Color("e0564a")]]
+	for i in range(lamps.size()):
+		var at = Vector2(box.position.x + 36 + i * 66, box.position.y + 26)
+		draw_circle(at, 12, Color("1a1a18"))
+		draw_arc(at, 12, 0, TAU, 20, Color("8a5a2c"), 1.5, true)
+		draw_circle(at, 9, lamps[i][2] if lamps[i][1] else lamps[i][2].darkened(0.8))
+		if lamps[i][1]:
+			draw_circle(at, 20, Color(lamps[i][2], 0.2))
+			draw_circle(at + Vector2(-3, -3), 3, Color(1, 1, 1, 0.5))
+		draw_string(font, at + Vector2(-32, 31), lamps[i][0], HORIZONTAL_ALIGNMENT_CENTER, 64, 10, Color("c7c3a0"))
+	# the nameplate with chevrons on both sides
+	var plate = Rect2(size.x * 0.5 - 205, top + 10, 410, 30)
+	draw_polygon(PackedVector2Array([plate.position + Vector2(14, 0), Vector2(plate.end.x - 14, plate.position.y), plate.end, Vector2(plate.position.x, plate.end.y)]), PackedColorArray([Color("141413"), Color("141413"), Color("0a0a09"), Color("0a0a09")]))
+	draw_polyline(PackedVector2Array([plate.position + Vector2(0, plate.size.y), plate.position + Vector2(14, 0), Vector2(plate.end.x - 14, plate.position.y), plate.end]), copper, 2.0, true)
+	for side in [-1.0, 1.0]:
+		for k in range(3):
+			var cx = size.x * 0.5 + side * (162.0 + k * 9.0)
+			draw_line(Vector2(cx, plate.position.y + 8 + k * 3), Vector2(cx + side * 16.0, plate.position.y + 8 + k * 3), gold, 1.6)
+	draw_string(font, plate.position + Vector2(0, 21), "ЛЕСНАЯ КОЛЕЯ — БЕНЗИНОВАЯ", HORIZONTAL_ALIGNMENT_CENTER, plate.size.x, 16, gold)
+	# the three working buttons, bottom right: headlamp, wipers, horn
+	var specs = [["light", lights_lit()], ["wiper", wiper_on], ["whistle", false]]
+	for i in range(specs.size()):
+		var rect = Rect2(size.x - 330 + i * 80, size.y - 96, 64, 64)
+		var lit = bool(specs[i][1])
+		draw_rect(rect, Color("0d0d0c"))
+		draw_rect(rect, Color("e0a15f") if lit else Color("6a4524"), false, 3.0)
+		draw_rect(rect.grow(-4.0), Color(0, 0, 0, 0.55), false, 1.0)
+		var c = rect.get_center()
+		var ink = Color("ffd98a") if lit else Color("9a8a6a")
+		match str(specs[i][0]):
+			"light":
+				draw_arc(c + Vector2(-6, 0), 14, -PI * 0.5, PI * 0.5, 14, ink, 3.0, true)
+				for r in range(3): draw_line(c + Vector2(10, -10 + r * 10), c + Vector2(24, -12 + r * 12), ink, 2.0)
+			"wiper":
+				draw_arc(c + Vector2(0, 14), 24, -PI * 0.85, -PI * 0.15, 14, ink, 2.0, true)
+				draw_line(c + Vector2(0, 14), c + Vector2(14, -10), ink, 3.5, true)
+			"whistle":
+				draw_rect(Rect2(c + Vector2(-14, -4), Vector2(18, 12)), ink)
+				draw_colored_polygon(PackedVector2Array([c + Vector2(4, -4), c + Vector2(18, -12), c + Vector2(18, 16), c + Vector2(4, 8)]), ink)
+		cab_hits.append({"id": str(specs[i][0]), "rect": rect})
+		draw_string(font, rect.position + Vector2(-8, 82), {"light": "ФАРА", "wiper": "ДВОРНИКИ", "whistle": "СИГНАЛ"}[str(specs[i][0])], HORIZONTAL_ALIGNMENT_CENTER, 80, 10, Color("a9a589"))
+
+# Small dashboard details: nameplate, indicator lamps, clock, vents, cables, and the
+# vehicle-specific bits (water glass and whistle cord on the steam engine).
+func draw_cab_dash_details(size: Vector2, layout: Dictionary) -> void:
+	var top = float(layout.dash_top)
+	var pult: Rect2 = layout.rect
+	var brass = Color("c9a85a")
+	var kind = model.vehicle_id()
+	if kind == "motorcar": draw_petrol_header_v2(size, top)
+	else: draw_plain_header(size, top, kind, brass)
 	# brass clock on the right of the ledge
 	var clock = Vector2(size.x - 70, top + 26)
 	draw_circle(clock, 22, brass)
@@ -3022,11 +3138,12 @@ func draw_petrol_cab_extras(size: Vector2, layout: Dictionary) -> void:
 
 func draw_round_gauge(center: Vector2, radius: float, fraction: float, title: String, readout: String, zones: Array, ticks: int = 10, scale_text: Array = []) -> void:
 	fraction = cab_needle(title, fraction)
+	var v2 = dash_v2()
 	draw_circle(center + Vector2(2, 3), radius + 8, Color(0, 0, 0, 0.4))
-	draw_circle(center, radius + 8, Color("a98a4a"))
-	draw_arc(center, radius + 8, PI * 1.1, PI * 1.6, 12, Color("e6cf8b"), 2.0, true)
-	draw_circle(center, radius + 6, Color("2a2218"))
-	draw_circle(center, radius + 4, Color("0f1a1c"))
+	draw_circle(center, radius + 8, Color("b9793a") if v2 else Color("a98a4a"))
+	draw_arc(center, radius + 8, PI * 1.1, PI * 1.6, 12, Color("f0c088") if v2 else Color("e6cf8b"), 2.0, true)
+	draw_circle(center, radius + 6, Color("2a1a0c") if v2 else Color("2a2218"))
+	draw_circle(center, radius + 4, Color("08090a") if v2 else Color("0f1a1c"))
 	for screw in range(4):
 		var screw_at = center + Vector2.from_angle(PI / 4 + screw * PI / 2) * (radius + 6.5)
 		draw_circle(screw_at, 2.2, Color("d9bb6a"))
@@ -3054,8 +3171,15 @@ func draw_round_gauge(center: Vector2, radius: float, fraction: float, title: St
 	draw_circle(center, radius * 0.04, Color("1a1612"))
 	# glare on the glass
 	draw_arc(center, radius - 2, PI * 1.12, PI * 1.45, 10, Color(1, 1, 1, 0.14), radius * 0.16, true)
-	draw_string(font, center + Vector2(-radius, radius * 0.38), title, HORIZONTAL_ALIGNMENT_CENTER, radius * 2, clampi(roundi(radius * 0.15), 9, 14), Color("c7c3a0"))
-	draw_string(font, center + Vector2(-radius, radius * 0.66), readout, HORIZONTAL_ALIGNMENT_CENTER, radius * 2, clampi(roundi(radius * 0.21), 12, 20), GOLD)
+	draw_string(font, center + Vector2(-radius, radius * (0.34 if v2 else 0.38)), title, HORIZONTAL_ALIGNMENT_CENTER, radius * 2, clampi(roundi(radius * 0.15), 9, 14), Color("c7c3a0"))
+	if v2:
+		# the readout stands in its own box, as on the reference dashboard
+		var box = Rect2(center + Vector2(-radius * 0.6, radius * 0.45), Vector2(radius * 1.2, radius * 0.42))
+		draw_rect(box, Color("0e0e0d"))
+		draw_rect(box, Color("b9793a"), false, 1.5)
+		draw_string(font, box.position + Vector2(0, box.size.y * 0.72), readout, HORIZONTAL_ALIGNMENT_CENTER, box.size.x, clampi(roundi(radius * 0.2), 11, 18), GOLD)
+	else:
+		draw_string(font, center + Vector2(-radius, radius * 0.66), readout, HORIZONTAL_ALIGNMENT_CENTER, radius * 2, clampi(roundi(radius * 0.21), 12, 20), GOLD)
 
 func draw_cab_gauges(size: Vector2, layout: Dictionary) -> void:
 	var pult: Rect2 = layout.rect

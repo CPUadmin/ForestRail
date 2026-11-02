@@ -225,6 +225,32 @@ func run() -> void:
 	await key(KEY_E)
 	for i in range(4): await frame()
 	check(game.cab_view, "the cab raised by hand at a platform stays")
+	# the petrol dashboard: lamp, wipers and horn buttons really work
+	context = "petrol buttons "
+	await prepare("motorcar")
+	await key(KEY_E)
+	for i in range(8): await frame()
+	var wanted = {}
+	for hit in game.cab_hits:
+		if hit.id in ["light", "wiper", "whistle"]: wanted[hit.id] = hit.rect
+	check(wanted.size() == 3 and game.get_viewport_rect().encloses(wanted.light) and game.get_viewport_rect().encloses(wanted.whistle), "the three buttons are on the dashboard and on the screen")
+	var lit_before = game.lights_lit()
+	await mouse(wanted.light.get_center(), true)
+	await mouse(wanted.light.get_center(), false)
+	check(game.lights_lit() != lit_before and game.lamp_manual >= 0, "the lamp button switches the headlamp")
+	await mouse(wanted.wiper.get_center(), true)
+	await mouse(wanted.wiper.get_center(), false)
+	check(game.wiper_on, "the wiper button switches the wipers on")
+	await mouse(wanted.whistle.get_center(), true)
+	await mouse(wanted.whistle.get_center(), false)
+	check(game.cab_active(), "the horn button leaves the cab as it was")
+	game.model.state.stats.seconds = 18.0 * 60.0
+	game.lamp_manual = 1
+	for i in range(6): await frame()
+	await shot("petrol_night_lamp")
+	game.lamp_manual = -1
+	game.wiper_on = false
+	await key(KEY_E)
 	# B4.1: the time of day. A day is 24 minutes of driving, it starts at seven and is the same for a save.
 	context = "daynight "
 	var clock = Model.new()
