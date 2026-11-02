@@ -25,11 +25,11 @@ foreach ($tag in $tags) {
     if ($version -match 'preview') { $args += "--prerelease" }
     & gh @args
     Write-Host "created $tag"
-    # the game itself: a zip with the Windows exe, made from the installed build (outputselease is not in git)
-    $zip = "outputselease\ForestRail-$version-windows.zip"
+    # the game itself: a zip with the Windows exe, made from the installed build (outputs\release is not in git)
+    $zip = "outputs\release\ForestRail-$version-windows.zip"
     if (-not (Test-Path $zip)) {
         $exe = Join-Path $env:LOCALAPPDATA "Programs\ForestRail\$version\ForestRail.exe"
-        if (Test-Path $exe) { New-Item -ItemType Directory -Force "outputselease" | Out-Null; Compress-Archive -Path $exe -DestinationPath $zip }
+        if (Test-Path $exe) { New-Item -ItemType Directory -Force "outputs\release" | Out-Null; Compress-Archive -Path $exe -DestinationPath $zip }
     }
     if (Test-Path $zip) { & gh release upload $tag $zip; Write-Host "attached $zip" } else { Write-Host "no build found for $version, release has no exe" }
 }
