@@ -31,6 +31,7 @@ const GROUNDS = {
 	"roots": {"g": 1.25, "name": "корни"}}
 
 var segments: Array = []   # [start_s, end_s, type]
+var wet = 0.0              # rain, 0..1: the ground is slicker, the clay most of all
 var built_for = ""
 var mode = "free"
 var tip = 1.5              # tip place relative to the platform, forward positive
@@ -77,6 +78,7 @@ func ground_at(s: float) -> Dictionary:
 	var type = str(segments[low][2]) if not segments.is_empty() else "dense"
 	var info = GROUNDS[type].duplicate()
 	info.type = type
+	info.g = float(info.g) * (1.0 - wet * (0.4 if type == "clay" else 0.25))
 	return info
 
 func reset() -> void:

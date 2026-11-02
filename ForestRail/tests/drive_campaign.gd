@@ -73,7 +73,7 @@ func run() -> void:
 			# The controller only manipulates the same inputs as a human. It never moves s.
 			var brake_force = 0.0
 			for id in m.body_ids(): brake_force += float(m.object_stats(id).brake)
-			var braking_distance = speed * speed / (2 * brake_force / m.train_mass()) + 0.3
+			var braking_distance = speed * speed / (2 * brake_force * (1.0 - 0.2 * m.rain_effect()) / m.train_mass()) + 0.3   # a careful driver brakes earlier on wet rails
 			var stopping = remaining < maxf(0.5, braking_distance)
 			# Standing short of the platform: let the brake off and go on, as a person would.
 			if speed < 0.05 and remaining > 0.6: stopping = false

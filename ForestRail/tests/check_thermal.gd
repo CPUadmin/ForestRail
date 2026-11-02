@@ -120,5 +120,77 @@ func run() -> void:
 	chilled.boiler().firebox = 2.0
 	chilled.set_door(true)
 	check(chilled.stoke() and float(chilled.boiler().chill) > 3.0, "stoking chills the fire (%.1f s)" % float(chilled.boiler().chill))
+	# B4.3: what the weather does. Rain: grip and brake; fog: sight; cold: electric, frost, steam, petrol.
+	var dry = setup("motorcar")
+	var wet = setup("motorcar")
+	wet.weather_force = {"cloud": 1.0, "rain": 1.0, "fog": 0.0}
+	check(is_equal_approx(dry.grip_factor(), 1.0) and is_equal_approx(wet.grip_factor(), 0.7), "wet rails grip 30% worse (%.2f)" % wet.grip_factor())
+	wet.weather_effect = 0.0
+	check(is_equal_approx(wet.grip_factor(), 1.0), "the setting 'no weather' switches the effect off")
+	wet.weather_effect = 1.0
+	var stops: Array = []
+	for m in [dry, wet]:
+		m.state.phase = "route"
+		m.state.s = 100.0
+		m.state.v = 15.0
+		m.state.throttle = 0.0
+		m.state.brake = 1.0
+		var start = float(m.state.s)
+		for i in range(60 * 30):
+			m.physics_step(1.0 / 60)
+			if absf(float(m.state.v)) < 0.05: break
+		stops.append(float(m.state.s) - start)
+	check(stops[1] > stops[0] * 1.1, "the braking distance in rain is longer (%.1f m against %.1f m)" % [stops[1], stops[0]])
+	var foggy = setup("motorcar")
+	foggy.weather_force = {"cloud": 1.0, "rain": 0.0, "fog": 1.0}
+	check(is_equal_approx(foggy.sight_m(), 150.0) and is_equal_approx(dry.sight_m(), 400.0), "fog shortens the sight to 150 m")
+	var night = setup("locomotive", 9)
+	var day = setup("locomotive", 9)
+	night.weather_force = {"cloud": 0.0, "rain": 0.0, "fog": 0.0}
+	day.weather_force = night.weather_force
+	night.state.stats.seconds = 18.0 * 60.0
+	day.state.stats.seconds = 6.0 * 60.0   # one o'clock in the afternoon
+	night.state.fleet_by_id.locomotive.temp = 0.95
+	day.state.fleet_by_id.locomotive.temp = 0.95
+	check(night.cold() > 0.5 and day.cold() < 0.01, "the night is cold, the day is not (%.2f)" % night.cold())
+	check(night.thermal_factor() < day.thermal_factor(), "the electric pull is weaker in the cold (%.2f against %.2f)" % [night.thermal_factor(), day.thermal_factor()])
+	var pn = setup("pneumatic", 5)
+	var pd = setup("pneumatic", 5)
+	pn.weather_force = {"cloud": 0.0, "rain": 0.0, "fog": 0.0}
+	pd.weather_force = pn.weather_force
+	pn.state.stats.seconds = 18.0 * 60.0
+	pd.state.stats.seconds = 6.0 * 60.0
+	for m in [pn, pd]:
+		m.state.phase = "route"
+		m.state.v = 5.0
+		m.state.throttle = 1.0
+		for i in range(600): m.update_frost(m.state.fleet_by_id.pneumatic, 1.0 / 60.0)
+	check(pn.frost() > pd.frost() * 1.4, "ice grows faster in the cold (%.3f against %.3f)" % [pn.frost(), pd.frost()])
+	var steam_cold = setup("steam", 2)
+	var steam_warm = setup("steam", 2)
+	steam_cold.weather_force = {"cloud": 0.0, "rain": 0.0, "fog": 0.0}
+	steam_warm.weather_force = steam_cold.weather_force
+	steam_cold.state.stats.seconds = 18.0 * 60.0
+	steam_warm.state.stats.seconds = 6.0 * 60.0
+	for m in [steam_cold, steam_warm]:
+		Fixtures.fire_up(m)
+		m.boiler().lit = false
+		m.boiler().heat = 1.0
+		for i in range(60 * 8): m.steam_step(1.0 / 60.0, m.state.fleet_by_id.steam)
+	check(float(steam_cold.boiler().heat) < float(steam_warm.boiler().heat), "the fire loses heat faster in the cold (%.2f against %.2f)" % [float(steam_cold.boiler().heat), float(steam_warm.boiler().heat)])
+	var pole_dry = setup("handcar")
+	var pole_wet = setup("handcar")
+	pole_dry.pole.build(42, 6800.0, pole_dry.route.station_s)
+	pole_wet.pole.build(42, 6800.0, pole_wet.route.station_s)
+	pole_wet.pole.wet = 1.0
+	var clay_at = -1.0
+	for seg in pole_dry.pole.segments:
+		if str(seg[2]) == "clay": clay_at = float(seg[0]) + 1.0
+	if clay_at >= 0.0:
+		check(float(pole_wet.pole.ground_at(clay_at).g) < float(pole_dry.pole.ground_at(clay_at).g) * 0.7, "wet clay is much slicker for the pole")
+	var wind_dry = setup("handcar")
+	var wind_wet = setup("handcar")
+	wind_wet.weather_force = {"cloud": 1.0, "rain": 1.0, "fog": 0.0}
+	check(wind_wet.wind_here(500.0).length() > wind_dry.wind_here(500.0).length() + 1.0, "a rain squall blows harder")
 	print("THERMAL CHECKS ", checks, "; FAILURES ", failures)
 	get_tree().quit(0 if failures.is_empty() else 1)

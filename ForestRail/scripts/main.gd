@@ -1755,6 +1755,7 @@ func cancel_drag() -> void:
 
 func _process(dt: float) -> void:
 	time += dt
+	model.weather_effect = [1.0, 0.5, 0.0][clampi(int(settings.weather), 0, 2)]
 	if depot_anim != "": advance_depot_anim(dt)
 	if screen != "game" or model.human_powered(): cab_view = false
 	if screen == "game" and not paused and not model.human_powered() and not model.state.is_empty():
@@ -2491,7 +2492,7 @@ func draw_cab_scene(size: Vector2) -> void:
 	cab_exit_rect = Rect2(size.x - 206, 14, 190, 40)
 	draw_style_box(style(Color(0.08, 0.12, 0.10, 0.86), GOLD, 8), cab_exit_rect)
 	draw_string(font, cab_exit_rect.position + Vector2(0, 27), "Выйти [E]", HORIZONTAL_ALIGNMENT_CENTER, cab_exit_rect.size.x, 19, PAPER)
-	var ahead = instruments.climb_ahead(400.0) if instruments != null else {}
+	var ahead = instruments.climb_ahead(model.sight_m()) if instruments != null else {}
 	var text = "Впереди без крутых подъёмов" if ahead.is_empty() else ("Подъём +%.1f%% — сейчас" % ahead.grade if ahead.distance < 10 else "Подъём +%.1f%% через %d м" % [ahead.grade, ahead.distance])
 	draw_string(font, Vector2(0, 44), model.journey_heading() + "  ·  " + text, HORIZONTAL_ALIGNMENT_CENTER, size.x - 240, 18, Color(PAPER, 0.92))
 

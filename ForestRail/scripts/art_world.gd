@@ -117,9 +117,10 @@ func draw_day_night(canvas: Node2D, size: Vector2) -> void:
 	if tw > 0.01: canvas.draw_rect(Rect2(Vector2.ZERO, size), Color(1.0, 0.5, 0.25, 0.16 * tw))
 	if night > 0.01: canvas.draw_rect(Rect2(Vector2.ZERO, size), Color(0.02, 0.04, 0.12, game.night_shade()))
 	draw_weather(canvas, Rect2(Vector2.ZERO, size), game.shown_weather(), Time.get_ticks_msec() / 1000.0, bool(game.settings.reduce_motion))
-	if night < 0.25: return
+	# the lights burn at night and, brighter than the fog, in a thick fog by day
+	var lit = maxf(clampf((night - 0.25) / 0.5, 0.0, 1.0), clampf(float(game.shown_weather().fog) * 1.2, 0.0, 1.0))
+	if lit < 0.05: return
 	var sc = game.view_scale()
-	var lit = clampf((night - 0.25) / 0.5, 0.0, 1.0)
 	# windows of the stations
 	for i in range(model.data.stations.size()):
 		var at = game.world_point(float(model.route.station_s[i])) + Vector2(0, -1.6 * art.PX * sc)

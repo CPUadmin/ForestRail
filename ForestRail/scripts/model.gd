@@ -1026,7 +1026,11 @@ func weather_noise(channel: int, days: float) -> float:
 	var i = floori(x)
 	return lerpf(weather_knot(channel, i), weather_knot(channel, i + 1), smoothstep(0.0, 1.0, x - float(i)))
 
+var weather_force: Dictionary = {}   # tests (and nothing else) may fix the weather
+var weather_effect = 1.0             # the player's setting: 1 normal, 0.5 weaker, 0 none (rain, fog and cold of the weather)
+
 func weather_at(seconds: float) -> Dictionary:
+	if not weather_force.is_empty(): return weather_force
 	var days = (DAY_START_HOUR / 24.0) + seconds / DAY_SECONDS
 	var early = smoothstep(0.05, 0.4, seconds / DAY_SECONDS)
 	var n = weather_noise(1, days)
@@ -1040,6 +1044,25 @@ func weather_at(seconds: float) -> Dictionary:
 func weather() -> Dictionary:
 	if state.is_empty(): return {"cloud": 0.0, "rain": 0.0, "fog": 0.0}
 	return weather_at(float(state.stats.seconds))
+
+# B4.3: what the weather does to the game (physics). All of it is scaled by the player's setting.
+func rain_effect() -> float:
+	return float(weather().rain) * weather_effect
+
+func fog_effect() -> float:
+	return float(weather().fog) * weather_effect
+
+# 0..1: the cold of the night (60%) and of the rain (20%).
+func cold() -> float:
+	return clampf(night_amount() * 0.6 + float(weather().rain) * 0.2, 0.0, 1.0) * weather_effect
+
+# Wet rails: the wheels grip up to 30% worse, and the brake is up to 20% weaker.
+func grip_factor() -> float:
+	return 1.0 - 0.3 * rain_effect()
+
+# How far ahead the driver can read the line: 400 m, in a thick fog 150 m.
+func sight_m() -> float:
+	return 400.0 - 250.0 * fog_effect()
 
 func weather_name() -> String:
 	var w = weather()
@@ -1082,9 +1105,11 @@ func heat_rate(fleet: Dictionary) -> float:
 
 func thermal_step(dt: float, fleet: Dictionary) -> void:
 	if not has_temperature(): return
+	# in the cold the machine settles at a lower temperature, so it is cold for longer
+	var ambient = TEMP_AMBIENT * (1.0 - 0.6 * cold())
 	var temp = float(fleet.get("temp", TEMP_AMBIENT))
-	var cooling = (0.03 + 0.004 * absf(float(state.v))) * (temp - TEMP_AMBIENT)
-	temp = clampf(temp + (heat_rate(fleet) * (1.0 if state.phase == "route" else 0.3) - cooling) * dt, TEMP_AMBIENT * 0.5, 1.0)
+	var cooling = (0.03 + 0.004 * absf(float(state.v))) * (temp - ambient)
+	temp = clampf(temp + (heat_rate(fleet) * (1.0 if state.phase == "route" else 0.3) - cooling) * dt, ambient * 0.5, 1.0)
 	fleet.temp = temp
 	if vehicle_id() == "motorcar" and temp >= 1.0 and bool(state.engine):
 		state.engine = false
@@ -1098,6 +1123,7 @@ func thermal_factor() -> float:
 	var hot = lerpf(1.0, 0.7 if vehicle_id() == "motorcar" else 0.6, clampf((temp - TEMP_HOT) / (1.0 - TEMP_HOT), 0.0, 1.0))
 	var cold = 1.0
 	if vehicle_id() == "motorcar" and temp < 0.2: cold = lerpf(0.8, 1.0, clampf((temp - TEMP_AMBIENT) / (0.2 - TEMP_AMBIENT), 0.0, 1.0))
+	if vehicle_id() == "locomotive": hot *= 1.0 - 0.2 * cold()
 	return hot * cold
 
 # --- Petrol gearbox: forward gears 1-5, N (0), R (=6). The fifth is an overdrive, B3.6 ---
@@ -1146,7 +1172,7 @@ func update_frost(fleet: Dictionary, dt: float) -> void:
 	var running = absf(float(state.v)) > 0.3 and float(state.throttle) > 0.0
 	var weights = [1.0, 0.8, 0.6, 0.4]
 	for i in range(spots.size()):
-		if running: spots[i] = minf(1.0, float(spots[i]) + 0.02 * float(state.throttle) * (float(fleet.fuel) / float(object_stats("pneumatic").tank)) * float(weights[i]) * dt)
+		if running: spots[i] = minf(1.0, float(spots[i]) + 0.02 * (1.0 + 0.8 * cold()) * float(state.throttle) * (float(fleet.fuel) / float(object_stats("pneumatic").tank)) * float(weights[i]) * dt)
 		elif absf(float(state.v)) < 0.1: spots[i] = maxf(0.0, float(spots[i]) - 0.01 * dt)
 	fleet.ice_spots = spots
 
@@ -1338,7 +1364,8 @@ func steam_step(dt: float, fleet: Dictionary) -> float:
 	var heat_target = 0.0
 	if burning:
 		heat_target = smoothstep(0.0, float(cfg.get("thin_fire", 0.3)), fill) * (1.0 - float(cfg.get("chill_loss", 0.3)) * clampf(float(b.chill) / float(cfg.get("chill_s", 5.0)), 0.0, 1.0))
-	b.heat = move_toward(float(b.heat), heat_target, dt / float(cfg.heat_rise_s if heat_target > float(b.heat) else cfg.heat_fall_s))
+	var chill_k = 1.0 + 0.4 * cold()   # in the cold the fire and the boiler lose heat faster
+	b.heat = move_toward(float(b.heat), heat_target, dt * (1.0 if heat_target > float(b.heat) else chill_k) / float(cfg.heat_rise_s if heat_target > float(b.heat) else cfg.heat_fall_s))
 	if burning:
 		b.firebox = maxf(0.0, float(b.firebox) - (float(cfg.idle_burn_kg_s) + float(cfg.load_burn_kg_s) * valve) * dt)
 	# Steam appears only from fire AND water; the tap limits how fast.
@@ -1349,7 +1376,7 @@ func steam_step(dt: float, fleet: Dictionary) -> float:
 	var made = float(cfg.steam_per_s) * float(b.heat) * feed_k * door_k * choke * dt
 	var p = float(b.pressure)
 	var spent = minf(p + made, float(cfg.use_per_s) * valve * dt)
-	var cooling = float(cfg.cooling_per_s) * (1.0 - float(b.heat)) * dt
+	var cooling = float(cfg.cooling_per_s) * (1.0 - float(b.heat)) * dt * chill_k
 	var after = p + made - spent - cooling
 	var vented = maxf(0.0, after - 1.0)
 	b.pressure = clampf(after, 0.0, 1.0)
@@ -1363,7 +1390,7 @@ func steam_step(dt: float, fleet: Dictionary) -> float:
 	var vmax = lerpf(float(stats.speeds[0]), float(stats.speeds[1]), smoothstep(low, 1.0, float(b.pressure)))
 	var pull = float(stats.traction[0]) * strong * valve * maxf(0.0, 1.0 - pow(absf(float(state.v)) / vmax, 2))
 	pull = minf(pull, power_limit_force(boiler_cap_scale()))
-	var adhesion = 0.35 * float(stats.mass) * G * cos(route.slope(float(state.s)))
+	var adhesion = 0.35 * float(stats.mass) * G * cos(route.slope(float(state.s))) * grip_factor()
 	return float(drive_direction()) * minf(pull, adhesion)
 
 func grab_pump() -> void:
@@ -1414,6 +1441,8 @@ func wind_here(s: float = -9999.0) -> Vector2:
 	wind_ready()
 	var place = float(state.s) if s < -9000.0 else s
 	var vector = wind.at(place, float(state.stats.seconds))
+	# a rain squall is gusty: up to 2 m/s more along the wind
+	if vector.length() > 0.1: vector += vector.normalized() * 2.0 * rain_effect()
 	return Vector2(vector.x * float(int(state.direction)), vector.y)
 
 func set_sail_trim(value: float) -> void:
@@ -1555,6 +1584,7 @@ func physics_step(dt: float) -> void:
 			drive = sail_step(dt)
 		elif vehicle_id() == "pole":
 			pole.build(int(route.seed_value), float(route.length_m), route.station_s)
+			pole.wet = rain_effect()
 			drive = pole.step(dt, float(state.s), float(state.v), int(state.direction))
 		elif fleet.fuel <= 0: state.engine = false
 		if vehicle_id() != "steam" and state.engine and fleet.fuel > 0:
@@ -1568,10 +1598,10 @@ func physics_step(dt: float) -> void:
 				var traction = float(stats.traction[gear]) * maxf(0, 1 - pow(absf(float(state.v)) / float(stats.speeds[gear]), 2)) * charge_traction_factor() * petrol_lug(gear, stats) * pneumatic_factor() * thermal_factor()
 				traction = minf(traction, power_limit_force(charge_traction_factor()))
 				if shift_cut > 0.0: traction = 0.0
-				var adhesion = 0.35 * float(stats.mass) * G * cos(route.slope(float(state.s)))
+				var adhesion = 0.35 * float(stats.mass) * G * cos(route.slope(float(state.s))) * grip_factor()
 				drive = float(drive_direction()) * (-1.0 if reverse_gear else 1.0) * float(state.throttle) * minf(traction, adhesion)
 	var drag = drag_coefficient()
-	var brake = float(state.brake) * max_brake + engine_brake_force()
+	var brake = float(state.brake) * max_brake * (1.0 - 0.2 * rain_effect()) + engine_brake_force()
 	if air_fly and not human_powered():
 		# The wheels are off the rail: no drive, no brake, no rolling friction.
 		drive = 0.0
