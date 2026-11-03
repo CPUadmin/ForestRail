@@ -377,6 +377,7 @@ func draw_steam_overlay(canvas: Node2D, model) -> void:
 # (tools/make_sail_art.py). The mast stands at the front end in the direction of travel, the boom runs
 # back from it; the wider the sail is open the shorter the boom looks from the side. The cloth bellies
 # with the wind and ripples along its trailing edge when the trim does not suit the wind.
+var sail_cloth: Dictionary = {}   # the state of the free cloth of the sail (points, velocities, time)
 const SAIL_MAST_X = 0.5
 const SAIL_BOOM = 1.6
 const SAIL_FOOT_Y = 1.25
@@ -390,7 +391,8 @@ func sail_geometry(model) -> Dictionary:
 	# a sail that nobody holds flogs: the boom swings about on its own
 	var trim = float(model.sail_trim) if model.sail_engaged() else 0.5 + 0.42 * sin(time * 5.7) * sin(time * 2.3)
 	var boom = SAIL_BOOM * cos(trim * PI * 0.5)
-	return {"fwd": fwd, "mast_x": SAIL_MAST_X * fwd, "boom_end_x": (SAIL_MAST_X * fwd) - fwd * boom, "foot_y": SAIL_FOOT_Y, "top_y": SAIL_TOP_Y, "boom": boom}
+	var lift = float(model.sail_lift) if model.sail_engaged() else 0.22 * sin(time * 4.1) * sin(time * 1.7)
+	return {"fwd": fwd, "mast_x": SAIL_MAST_X * fwd, "boom_end_x": (SAIL_MAST_X * fwd) - fwd * boom, "foot_y": SAIL_FOOT_Y, "top_y": SAIL_TOP_Y, "boom": boom, "lift": lift}
 
 func draw_sail_overlay(canvas: Node2D, model) -> void:
 	if model == null or model.state.is_empty(): return
@@ -418,45 +420,95 @@ func draw_sail_overlay(canvas: Node2D, model) -> void:
 	for band in [1.05, 1.9, 2.8, 3.55]:
 		canvas.draw_line(sail_point(mast_x - 0.05, band), sail_point(mast_x + 0.05, band), Color("c9a24e"), 0.03 * PX, true)
 	# the boom from the gooseneck
-	var boom_end = sail_point(float(g.boom_end_x), g.foot_y)
+	var boom_end = sail_point(float(g.boom_end_x), g.foot_y + float(g.lift))
 	canvas.draw_line(sail_point(mast_x, g.foot_y), boom_end, wood, 0.06 * PX, true)
 	canvas.draw_line(sail_point(mast_x, g.foot_y + 0.01), boom_end + Vector2(0, -0.01 * PX), wood_light, 0.014 * PX, true)
 	canvas.draw_circle(sail_point(mast_x, g.foot_y), 0.04 * PX, Color("c9a24e"))
-	# the cloth: luff on the mast, foot on the boom, a curved leech, belly with the pull of the wind
+	# the cloth: a grid of free points, fixed along the mast and along the boom, loose elsewhere. The wind shakes it,
+	# the neighbours pass the wave on, the tension of a good trim stiffens it, a flogging sail flaps (B6.4, free cloth)
 	var width = float(g.boom)
 	if width > 0.05:
 		var rows = 14
+		var cols = 6
+		var strain = float(info.get("strain", 0.0)) if not info.is_empty() else 0.0
+		var apparent = float(info.get("apparent", 0.0)) if not info.is_empty() else 0.0
 		var luff = PackedVector2Array()
-		var leech = PackedVector2Array()
+		var rest_leech = PackedVector2Array()
 		for i in range(rows + 1):
 			var u = float(i) / float(rows)
 			var y = lerpf(g.foot_y, g.top_y, u)
 			var extent = width * pow(1.0 - u, 0.85) * (1.0 + 0.06 * sin(PI * u))
-			var belly = 0.10 * pull * sin(PI * u) * width
-			var wave = ripple * sin(t * 9.0 + u * 8.0) * width * u
 			luff.append(sail_point(mast_x, y))
-			# the trailing edge never crosses the mast, or the cloth would fold over itself
-			leech.append(sail_point(mast_x - fwd * maxf(extent + belly + wave, 0.03 * width), y))
-		# shading in vertical bands from the mast to the leech, lighter in the belly; drawn quad by quad so
-		# that a thin or folded patch is simply skipped (one bad polygon used to make the whole sail vanish)
-		var bands = 6
-		for k in range(bands):
-			var f0 = float(k) / float(bands)
-			var f1 = float(k + 1) / float(bands)
+			# the free corner drags the leech with it: held high, the whole trailing edge rises, less toward the top
+			rest_leech.append(sail_point(mast_x - fwd * maxf(extent, 0.03 * width), y + float(g.lift) * (1.0 - u)))
+		var count = (rows + 1) * (cols + 1)
+		if int(sail_cloth.get("n", -1)) != count:
+			sail_cloth = {"n": count, "d": PackedVector2Array(), "v": PackedVector2Array(), "t": t}
+			sail_cloth.d.resize(count)
+			sail_cloth.v.resize(count)
+		var dt = clampf(t - float(sail_cloth.t), 0.0, 0.05)
+		sail_cloth.t = t
+		var wind_k = clampf(apparent / 8.0, 0.15, 1.6)
+		var tight = clampf(quality * (0.35 + 0.65 * clampf(pull + 0.3, 0.0, 1.0)), 0.0, 1.0) if model.sail_engaged() else 0.0
+		var stiff = lerpf(5.0, 75.0, tight)
+		var damp = lerpf(1.3, 5.5, tight)
+		var amp = (0.03 + 0.45 * (1.0 - tight)) * (1.0 + 2.0 * strain) * wind_k * PX
+		var d: PackedVector2Array = sail_cloth.d
+		var v: PackedVector2Array = sail_cloth.v
+		for step in range(2):
+			var h = dt * 0.5
+			if h <= 0.0: break
+			var accel = PackedVector2Array()
+			accel.resize(count)
+			for i in range(1, rows + 1):
+				for c in range(1, cols + 1):
+					var idx = i * (cols + 1) + c
+					var u = float(i) / float(rows)
+					var f = float(c) / float(cols)
+					# a taut sail holds a belly (the leech curves aft); a loose one has none
+					var belly = Vector2(-fwd * 0.1 * clampf(pull, 0.0, 1.0) * sin(PI * u) * sin(PI * f * 0.5) * width * PX, 0.0)
+					var force = Vector2(sin(t * 7.3 + float(i) * 0.9 - float(c) * 0.6) + 0.6 * sin(t * 11.7 + float(i) * 0.4 + float(c) * 1.3), 0.5 * sin(t * 9.1 + float(i) * 0.5 + float(c) * 0.9)) * amp * (0.35 + 0.65 * u) * f
+					var near = (d[idx - 1] + d[idx + (1 if c < cols else 0)] + d[idx - (cols + 1)] + d[idx + ((cols + 1) if i < rows else 0)]) * 0.25
+					accel[idx] = -stiff * (d[idx] - belly) - damp * v[idx] + 24.0 * (near - d[idx]) + force * (stiff + 12.0)
+			for i in range(1, rows + 1):
+				for c in range(1, cols + 1):
+					var idx = i * (cols + 1) + c
+					v[idx] += accel[idx] * h
+					d[idx] += v[idx] * h
+					# never wander farther than a third of the sail's width
+					if d[idx].length() > 0.45 * width * PX: d[idx] = d[idx].normalized() * 0.45 * width * PX
+		sail_cloth.d = d
+		sail_cloth.v = v
+		var grid = PackedVector2Array()
+		grid.resize(count)
+		for i in range(rows + 1):
+			for c in range(cols + 1):
+				var idx = i * (cols + 1) + c
+				var p = luff[i].lerp(rest_leech[i], float(c) / float(cols)) + d[idx]
+				# the cloth never crosses the mast, or it would fold over itself
+				if (p.x - luff[i].x) * (-fwd) < 0.02 * width * PX: p.x = luff[i].x - fwd * 0.02 * width * PX
+				grid[idx] = p
+		# shading by bands from the mast to the leech; drawn quad by quad so that a thin or folded patch is skipped
+		for k in range(cols):
+			var f0 = float(k) / float(cols)
+			var f1 = float(k + 1) / float(cols)
 			var shade = 0.88 + 0.12 * sin(PI * (f0 + f1) * 0.5) * (0.4 + 0.6 * clampf(pull + 0.4, 0.0, 1.0))
 			# the far side of the car is a little darker, so that the side of the boom is seen at a glance
 			var tone = shade * (0.82 if model.sail_side > 0 else 1.0)
 			var color = Color(0.94 * tone, 0.90 * tone, 0.80 * tone, 0.96)
 			for i in range(rows):
-				var q = PackedVector2Array([luff[i].lerp(leech[i], f0), luff[i].lerp(leech[i], f1), luff[i + 1].lerp(leech[i + 1], f1), luff[i + 1].lerp(leech[i + 1], f0)])
-				var area = (q[1] - q[0]).cross(q[3] - q[0]) * 0.5 + (q[2] - q[1]).cross(q[3] - q[1]) * 0.5
-				if absf(area) > 0.6 and q[0].distance_to(q[1]) > 0.2: canvas.draw_colored_polygon(q, color)
-		# seams, a patch and the stitched edge
-		for i in range(2, rows, 3): canvas.draw_line(luff[i], leech[i], Color(0.55, 0.47, 0.34, 0.55), 1.0, true)
-		var patch_at = luff[4].lerp(leech[4], 0.45)
+				var q = PackedVector2Array([grid[i * (cols + 1) + k], grid[i * (cols + 1) + k + 1], grid[(i + 1) * (cols + 1) + k + 1], grid[(i + 1) * (cols + 1) + k]])
+				# two triangles per patch: a free cloth can fold, and a folded quad cannot be filled, a triangle always can
+				if absf((q[1] - q[0]).cross(q[2] - q[0])) > 0.5: canvas.draw_colored_polygon(PackedVector2Array([q[0], q[1], q[2]]), color)
+				if absf((q[2] - q[0]).cross(q[3] - q[0])) > 0.5: canvas.draw_colored_polygon(PackedVector2Array([q[0], q[2], q[3]]), color)
+		# seams, a patch and the stitched edge follow the cloth
+		for i in range(2, rows, 3): canvas.draw_line(grid[i * (cols + 1)], grid[i * (cols + 1) + cols], Color(0.55, 0.47, 0.34, 0.55), 1.0, true)
+		var patch_at = grid[4 * (cols + 1)].lerp(grid[4 * (cols + 1) + cols], 0.45)
 		canvas.draw_rect(Rect2(patch_at - Vector2(7, 5), Vector2(14, 10)), Color(0.8, 0.72, 0.56, 0.9))
-		canvas.draw_polyline(leech, Color(0.45, 0.38, 0.28), 1.6, true)
-		canvas.draw_line(luff[0], leech[0], Color(0.45, 0.38, 0.28), 1.6, true)
+		var leech_line = PackedVector2Array()
+		for i in range(rows + 1): leech_line.append(grid[i * (cols + 1) + cols])
+		canvas.draw_polyline(leech_line, Color(0.45, 0.38, 0.28), 1.6, true)
+		canvas.draw_line(luff[0], grid[cols], Color(0.45, 0.38, 0.28), 1.6, true)
 	else:
 		canvas.draw_line(sail_point(mast_x, g.foot_y), sail_point(mast_x, g.top_y), Color(0.93, 0.89, 0.8), 0.035 * PX, true)
 	# the sheet from the boom end down to the sailor's hand, with a sag

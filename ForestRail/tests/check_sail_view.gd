@@ -69,6 +69,11 @@ func run() -> void:
 		game._input(step)
 		var after_back = float(game.model.sail_trim)
 		check(after_back != before, "moving the hand changes the trim (%.2f to %.2f)" % [before, after_back])
+		var up = InputEventMouseMotion.new()
+		up.position = grab
+		up.relative = Vector2(0, -50)
+		game._input(up)
+		check(game.model.sail_lift > 0.05, "moving the hand up lifts the free corner (%.2f m)" % game.model.sail_lift)
 		game.model.state.s += 25.0   # the car runs away from the camera while the mouse stays still
 		game.camera_s = float(game.model.state.s) - 25.0
 		var still = InputEventMouseMotion.new()

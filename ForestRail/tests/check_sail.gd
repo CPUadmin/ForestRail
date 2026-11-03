@@ -199,5 +199,18 @@ func run() -> void:
 	free_lock.sail_cleat()
 	check(free_lock.sail_cleated and is_equal_approx(free_lock.sail_trim, 0.3), "with the lock gadget the cleat holds the sheet at any opening")
 	check(Model.SAIL_AREA_M2 > 6.0 and Model.SAIL_GRIP_N > 220.0, "the sail was made stronger")
+	# the free corner moves up and down as well: held high it spills the wind
+	var low = sail_game()
+	var high = sail_game()
+	for pair in [[low, 0.0], [high, 0.9]]:
+		var s = pair[0]
+		fixed_wind(s, 6.0, 0.0)
+		s.sail_grab()
+		s.set_sail_trim(1.0)
+		s.set_sail_lift(pair[1])
+		for i in range(60): s.physics_step(1.0 / 60.0)
+	check(float(high.sail_info.force) < float(low.sail_info.force) * 0.65 and float(high.sail_info.force) > 0.0, "a corner held high spills the wind (%.0f against %.0f N)" % [float(high.sail_info.force), float(low.sail_info.force)])
+	low.set_sail_lift(5.0)
+	check(is_equal_approx(low.sail_lift, 0.9), "the corner can go no higher than 0.9 m")
 	print("SAIL CHECKS ", checks, "; FAILURES ", failures)
 	get_tree().quit(0 if failures.is_empty() else 1)

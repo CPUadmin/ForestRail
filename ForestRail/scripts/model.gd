@@ -37,6 +37,7 @@ const SAIL_NOTCHES = [0.0, 0.5, 1.0]
 var sail_held = false
 var sail_cleated = false
 var sail_over = 0.0
+var sail_lift = 0.0   # how high the free corner of the sail is held above its place on the boom, metres (-0.35 .. 0.9)
 var sail_side = 1   # which side of the car the boom is swung to: 1 the far side, -1 the near side
 var sail_info: Dictionary = {}
 # B1.1: the brake was set by the platform itself, not by the player
@@ -1458,6 +1459,9 @@ func wind_here(s: float = -9999.0) -> Vector2:
 func set_sail_trim(value: float) -> void:
 	if vehicle_id() == "sail": sail_trim = clampf(value, 0.0, 1.0)
 
+func set_sail_lift(value: float) -> void:
+	if vehicle_id() == "sail": sail_lift = clampf(value, -0.35, 0.9)
+
 func sail_set_side(value: int) -> void:
 	if vehicle_id() == "sail": sail_side = 1 if value >= 0 else -1
 
@@ -1516,6 +1520,8 @@ func sail_step(dt: float = 1.0 / 60.0) -> float:
 	if absf(uc) > 0.5 and float(sail_side) * signf(uc) < 0.0: quality *= 0.5
 	var area = SAIL_AREA_M2 * float(effects("sail").get("sail_area_multiplier", 1.0))
 	var pulled = 0.5 * 1.2 * area * apparent * apparent * sail_pull(beta) * (quality if sail_pull(beta) > 0.0 else 1.0)
+	# the corner held high or low twists the cloth and spills some of the wind
+	pulled *= 1.0 - 0.5 * absf(sail_lift) / 0.9
 	var engaged = sail_engaged()
 	# a sail nobody holds flogs and gives no pull, only a little drag against the way the car goes
 	var force = pulled if engaged else -0.05 * 0.5 * 1.2 * area * forward_speed * absf(forward_speed)
@@ -1530,7 +1536,7 @@ func sail_step(dt: float = 1.0 / 60.0) -> float:
 			events.append("land")
 	else:
 		sail_over = maxf(0.0, sail_over - dt)
-	sail_info = {"wind": w, "apparent": apparent, "beta": beta, "quality": quality, "force": force, "pulled": pulled, "engaged": sail_engaged(), "held": sail_held, "cleated": sail_cleated, "trim": sail_trim, "side": sail_side, "gust": wind.gust_ahead(float(state.s), float(state.stats.seconds))}
+	sail_info = {"wind": w, "apparent": apparent, "beta": beta, "quality": quality, "force": force, "pulled": pulled, "engaged": sail_engaged(), "held": sail_held, "cleated": sail_cleated, "trim": sail_trim, "lift": sail_lift, "side": sail_side, "strain": clampf(sail_over / (0.8 if sail_held else 0.4), 0.0, 1.0), "gust": wind.gust_ahead(float(state.s), float(state.stats.seconds))}
 	return force * float(int(state.direction))
 
 # --- Pole truck (N12): the controls only aim, drop, lift and lean on a real pole ---
