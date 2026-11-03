@@ -417,8 +417,8 @@ func upgrade(id: String, branch_id: String) -> bool:
 			return fail("Это улучшение другой машины")
 		var object = object_state(id)
 		var lv = int(object.levels.get(branch_id, 0))
-		if lv >= 2:
-			return fail("Достигнут максимальный уровень")
+		if lv >= int(branch.get("levels", 2)):
+			return fail("Уже установлено" if branch.get("gadget", false) else "Достигнут максимальный уровень")
 		var cost = int(branch.level_costs[lv])
 		if state.money < cost:
 			return fail("Не хватает %d монет" % (cost - state.money))
@@ -1561,11 +1561,14 @@ func sail_cleat() -> void:
 	events.append("gear")
 
 # How well the trim suits the angle of the apparent wind: 1 is perfect, 0 is no pull.
-func sail_quality(beta: float, trim: float) -> float:
+func sail_best_trim(beta: float) -> float:
 	var best = 1.0
 	if beta > 0.52: best = lerpf(1.0, 0.45, clampf((beta - 0.52) / (PI * 0.5 - 0.52), 0.0, 1.0))
 	if beta > PI * 0.5: best = lerpf(0.45, 0.25, clampf((beta - PI * 0.5) / (PI * 0.5), 0.0, 1.0))
-	return maxf(0.0, 1.0 - pow((trim - best) / 0.4, 2.0))
+	return best
+
+func sail_quality(beta: float, trim: float) -> float:
+	return maxf(0.0, 1.0 - pow((trim - sail_best_trim(beta)) / 0.4, 2.0))
 
 # The pull coefficient by the angle of the apparent wind (0 tail wind, PI head wind): the best on a
 # run and a beam reach, falling away to nothing close to the wind, a little drag dead against it.
@@ -1583,6 +1586,10 @@ func sail_step(dt: float = 1.0 / 60.0) -> float:
 	var uc = w.y
 	var apparent = sqrt(ua * ua + uc * uc)
 	var beta = atan2(absf(uc), ua)
+	# the autopilot gadget trims the sheet made fast on the cleat by itself, a little slower than a good hand
+	var gadgets = effects("sail")
+	var autopilot = bool(gadgets.get("sail_autopilot", false))
+	if autopilot and sail_cleated: sail_trim = move_toward(sail_trim, sail_best_trim(beta), 0.5 * dt)
 	var quality = sail_quality(beta, sail_trim)
 	# a boom swung to the windward side is backed by the wind: half the pull. Wind from ahead or behind does not mind the side.
 	if absf(uc) > 0.5 and float(sail_side) * signf(uc) < 0.0: quality *= 0.5
@@ -1590,11 +1597,15 @@ func sail_step(dt: float = 1.0 / 60.0) -> float:
 	var pulled = 0.5 * 1.2 * area * apparent * apparent * sail_pull(beta) * (quality if sail_pull(beta) > 0.0 else 1.0)
 	# the corner held high or low twists the cloth and spills some of the wind
 	pulled *= 1.0 - 0.5 * absf(sail_lift) / 0.9
+	# the spinnaker: a huge sail for the tail wind (1.8 times the pull), no good across the wind, and it tears loose sooner
+	var spinnaker = float(gadgets.get("sail_spinnaker", 0)) > 0.0
+	if spinnaker: pulled *= 1.8 if beta < 0.7 else 0.85
+	if autopilot and sail_cleated: pulled *= 0.8
 	var engaged = sail_engaged()
 	# a sail nobody holds flogs and gives no pull, only a little drag against the way the car goes
 	var force = pulled if engaged else -0.05 * 0.5 * 1.2 * area * forward_speed * absf(forward_speed)
 	# a gust the hand cannot hold tears the sheet away; the cleat gives way to a harder pull
-	var limit = (SAIL_GRIP_N if sail_held else SAIL_CLEAT_N) * float(effects("sail").get("sail_hold_multiplier", 1.0))
+	var limit = (SAIL_GRIP_N if sail_held else SAIL_CLEAT_N) * float(gadgets.get("sail_hold_multiplier", 1.0)) * (0.7 if spinnaker else 1.0)
 	if engaged and absf(pulled) > limit:
 		sail_over += dt
 		if sail_over > (0.8 if sail_held else 0.4):

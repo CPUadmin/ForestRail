@@ -996,13 +996,15 @@ func build_upgrades(right: VBoxContainer) -> void:
 	for branch in branches:
 		var lv = int(model.object_state(selected_object).levels.get(branch.id, 0))
 		var name = upgrade_branch_name(selected_object, branch)
-		var c = card(right, GOLD if str(branch.id) == workshop_branch else (GREEN if lv >= 2 else CARD_EDGE))
-		add_label(c, "%s  ·  %s" % [name, ["○ ○", "● ○", "● ●"][lv]], 22)
-		if lv < 2:
+		var levels = int(branch.get("levels", 2))
+		var gadget = bool(branch.get("gadget", false))
+		var c = card(right, GOLD if str(branch.id) == workshop_branch else (GREEN if lv >= levels else (Color("c9a24e") if gadget else CARD_EDGE)))
+		add_label(c, ("ГАДЖЕТ  ·  %s  ·  %s" % [name, "● установлен" if lv >= 1 else "○"]) if gadget else ("%s  ·  %s" % [name, ["○ ○", "● ○", "● ●"][lv]]), 22)
+		if lv < levels:
 			var preview = upgrade_preview(selected_object, branch)
 			add_label(c, preview, 17, MUTED_INK)
 			var cost = int(branch.level_costs[lv])
-			add_button(c, "Улучшить до %s · %d монет" % ["I" if lv == 0 else "II", cost], func():
+			add_button(c, ("Установить гаджет · %d монет" % cost) if gadget else ("Улучшить до %s · %d монет" % ["I" if lv == 0 else "II", cost]), func():
 				var id = selected_object
 				confirm("%s: %s\nЦена %d. Останется %d монет." % [id, preview, cost, maxi(0, int(model.state.money) - cost)], func():
 					if model.upgrade(id, branch.id): save_game(); rebuild()
@@ -1049,7 +1051,7 @@ func draw_workshop_spots(id: String, transform: Transform2D) -> void:
 	draw_set_transform_matrix(Transform2D.IDENTITY)
 	var spot_index = 0
 	for branch in model.data.upgrade_catalog:
-		if branch.target_type != target: continue
+		if branch.target_type != target or branch.get("gadget", false): continue
 		spot_index += 1
 		var part = str(branch.id).get_slice("_", 1)
 		var place = workshop_spot_place(part, length, axles)
@@ -1084,10 +1086,11 @@ func upgrade_preview(id: String, branch: Dictionary) -> String:
 	object.levels[branch.id] = lv + 1
 	var after_ef = model.effects(id)
 	object.levels[branch.id] = lv
-	var words = {"pole_force_multiplier": "Сила толчка", "pole_grip_multiplier": "Хватка наконечника", "sail_area_multiplier": "Площадь паруса", "sail_hold_multiplier": "Держит порыв", "steam_power_multiplier": "Пар", "fire_burn_multiplier": "Расход угля в топке", "water_capacity_multiplier": "Запас воды", "frost_multiplier": "Рост инея"}
+	var words = {"sail_spinnaker": "Спинакер: тяга на попутном ветре ×1,8 (в бейдевинд хуже, рвётся раньше)", "sail_autopilot": "Парус сам держит угол, шкот фиксируется в любом положении (80% тяги)", "pole_force_multiplier": "Сила толчка", "pole_grip_multiplier": "Хватка наконечника", "sail_area_multiplier": "Площадь паруса", "sail_hold_multiplier": "Держит порыв", "steam_power_multiplier": "Пар", "fire_burn_multiplier": "Расход угля в топке", "water_capacity_multiplier": "Запас воды", "frost_multiplier": "Рост инея"}
 	for key in words:
 		if not after_ef.has(key): continue
-		parts.append("%s: ×%.2f → ×%.2f" % [words[key], float(before_ef.get(key, 1.0)), float(after_ef[key])])
+		if after_ef[key] is bool or key == "sail_spinnaker": parts.append(str(words[key]))
+		else: parts.append("%s: ×%.2f → ×%.2f" % [words[key], float(before_ef.get(key, 1.0)), float(after_ef[key])])
 	return "\n".join(parts)
 
 func build_missions(right: VBoxContainer) -> void:

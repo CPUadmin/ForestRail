@@ -390,7 +390,7 @@ func sail_geometry(model) -> Dictionary:
 	var time = Time.get_ticks_msec() / 1000.0
 	# a sail that nobody holds flogs: the boom swings about on its own
 	var trim = float(model.sail_trim) if model.sail_engaged() else 0.5 + 0.42 * sin(time * 5.7) * sin(time * 2.3)
-	var boom = SAIL_BOOM * cos(trim * PI * 0.5)
+	var boom = SAIL_BOOM * cos(trim * PI * 0.5) * (1.25 if float(model.effects("sail").get("sail_spinnaker", 0)) > 0.0 else 1.0)
 	var lift = float(model.sail_lift) if model.sail_engaged() else 0.22 * sin(time * 4.1) * sin(time * 1.7)
 	return {"fwd": fwd, "mast_x": SAIL_MAST_X * fwd, "boom_end_x": (SAIL_MAST_X * fwd) - fwd * boom, "foot_y": SAIL_FOOT_Y, "top_y": SAIL_TOP_Y, "boom": boom, "lift": lift}
 

@@ -42,7 +42,7 @@ func run() -> void:
 	var base = game("pole")
 	var branches: Array = []
 	for b in base.data.upgrade_catalog:
-		if b.target_type in ["pole", "sail", "steam", "pneumatic"]: branches.append(b)
+		if b.target_type in ["pole", "sail", "steam", "pneumatic"] and not b.get("gadget", false): branches.append(b)
 	check(branches.size() == 16, "sixteen new branches in the catalog (%d)" % branches.size())
 	for b in branches:
 		var m = game(str(b.target_type))
@@ -115,5 +115,41 @@ func run() -> void:
 		for i in range(600): pn.update_frost(pn.state.fleet_by_id.pneumatic, 1.0 / 60.0)
 		frost.append(pn.frost())
 	check(frost[1] < frost[0] * 0.8, "insulated pipes frost more slowly (%.3f against %.3f)" % [frost[1], frost[0]])
+	# the gadgets of the sail car: one level, a lot of money, no mark on the machine
+	var shop = game("sail")
+	shop.state.phase = "depot"
+	shop.state.money = 1000
+	check(not shop.upgrade("sail", "sail_spinnaker") and shop.message.contains("Не хватает"), "a gadget is out of reach without the money")
+	shop.state.money = 5000
+	check(shop.upgrade("sail", "sail_spinnaker") and not shop.upgrade("sail", "sail_spinnaker"), "the spinnaker is bought once")
+	check(shop.upgrade("sail", "sail_autopilot"), "and the autopilot too")
+	check(not shop.upgrade("pole", "sail_spinnaker") and not shop.upgrade("steam", "sail_spinnaker"), "a gadget belongs to its own type only")
+	var pull: Array = []
+	for spinnaker in [false, true]:
+		var s = game("sail")
+		s.state.phase = "route"
+		s.state.s = 600.0
+		s.state.brake = 0.0
+		s.wind.build(42, s.route.station_s)
+		s.wind = FixedWind.new(6.0, 0.0, s.route.station_s)
+		if spinnaker: s.object_state("sail").levels["sail_spinnaker"] = 1
+		s.sail_grab()
+		s.set_sail_trim(1.0)
+		s.physics_step(1.0 / 60.0)
+		pull.append(float(s.sail_info.pulled))
+	check(pull[1] > pull[0] * 1.6, "the spinnaker pulls much more in a tail wind (%.0f against %.0f N)" % [pull[1], pull[0]])
+	var pilot = game("sail")
+	pilot.state.phase = "route"
+	pilot.state.s = 600.0
+	pilot.state.brake = 0.0
+	pilot.wind.build(42, pilot.route.station_s)
+	pilot.wind = FixedWind.new(5.0, 5.0, pilot.route.station_s)
+	pilot.object_state("sail").levels["sail_autopilot"] = 1
+	pilot.sail_grab()
+	pilot.set_sail_trim(0.3)
+	pilot.sail_cleat()
+	check(is_equal_approx(pilot.sail_trim, 0.3), "with the autopilot the sheet is made fast at any opening")
+	for i in range(60 * 4): pilot.physics_step(1.0 / 60.0)
+	check(absf(pilot.sail_trim - 0.3) > 0.1, "and the autopilot trims it by itself (%.2f)" % pilot.sail_trim)
 	print("NEW UPGRADES CHECKS ", checks, "; FAILURES ", failures)
 	get_tree().quit(0 if failures.is_empty() else 1)
