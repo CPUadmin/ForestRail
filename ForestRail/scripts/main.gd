@@ -186,7 +186,7 @@ func _ready() -> void:
 				# Tests and debugging runs are silent: nobody listens to the clicks and the engine.
 				AudioServer.set_bus_mute(0, true)
 				var suite = arg.trim_prefix("--qa-suite=")
-				if suite not in ["check_model", "check_physics", "check_interaction", "drive_campaign", "check_presentation", "check_handcar_revision", "check_art_v3", "check_instruments", "check_station_service", "check_world_geometry", "check_mechanism", "check_mechanism_bench", "check_handcar_drive", "check_handcar_input", "check_motor_controls", "check_loading_selection", "check_layout_p7", "check_steam", "check_steam_view", "check_gearbox", "check_petrol_view", "check_skins", "check_perf", "check_cab", "check_sound", "check_forecast", "check_line_v2", "check_line_spread", "check_thermal", "check_upgrades_new", "check_speeds", "check_creative", "check_settings", "check_pneumatic", "check_pneumatic_view", "check_pole", "check_pole_view", "check_air", "check_sail", "check_sail_view", "check_loading_flow", "check_depot_entry", "check_forecast_long", "drive_long", "check_forecast_view", "check_soak_p8", "check_save_p8"]: get_tree().quit(2); return
+				if suite not in ["check_model", "check_physics", "check_interaction", "drive_campaign", "check_presentation", "check_handcar_revision", "check_art_v3", "check_instruments", "check_station_service", "check_world_geometry", "check_mechanism", "check_mechanism_bench", "check_handcar_drive", "check_handcar_input", "check_motor_controls", "check_loading_selection", "check_layout_p7", "check_steam", "check_steam_view", "check_gearbox", "check_petrol_view", "check_skins", "check_perf", "check_cab", "check_sound", "check_forecast", "check_line_v2", "check_line_spread", "check_thermal", "check_upgrades_new", "check_deadlines", "check_speeds", "check_creative", "check_settings", "check_pneumatic", "check_pneumatic_view", "check_pole", "check_pole_view", "check_air", "check_sail", "check_sail_view", "check_loading_flow", "check_depot_entry", "check_forecast_long", "drive_long", "check_forecast_view", "check_soak_p8", "check_save_p8"]: get_tree().quit(2); return
 				get_tree().root.set_meta("qa_running", true)
 				set_process(false)
 				set_physics_process(false)
@@ -1138,6 +1138,11 @@ func mission_notice(parent: Node, mission: Dictionary, kind: String, take_text: 
 	var bottom = HBoxContainer.new()
 	notice.add_child(bottom)
 	add_label(bottom, "Награда до %d" % int(mission.reward), 20, GOLD.darkened(0.25))
+	if Model.order_rules and not model.creative():
+		var minutes = model.mission_budget_s(mission) / 60.0
+		var rule = "Срок %d:%02d езды: раньше +10–25%%, опоздал штраф" % [int(minutes), int(fposmod(minutes, 1.0) * 60.0)]
+		if not mission.get("free", false): rule = "Срок %d:%02d езды: раньше +10–25%%, опоздал рейс отменится" % [int(minutes), int(fposmod(minutes, 1.0) * 60.0)]
+		add_label(notice, rule, 15, MUTED_INK)
 	var road = add_label(bottom, road_text, 16, RED if hard else (GREEN if grade <= 0.02 else MUTED_INK))
 	road.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	if problem != "": add_label(notice, problem, 16, RED)
@@ -1289,7 +1294,7 @@ func update_hud() -> void:
 	var returning = not state.active.is_empty() and state.active.phase == "return"
 	var stop_index = model.station_index()
 	var at_station = model.station_name(model.data.stations[stop_index].id) if stop_index >= 0 else ""
-	hud.text = "%s · %d м · %s · %s" % [model.journey_heading(),absf(target_s-float(state.s)),model.clock_text(),model.weather_name() if int(settings.weather) != 2 else "ясно"]
+	hud.text = "%s · %d м · %s · %s" % [model.journey_heading(),absf(target_s-float(state.s)),model.clock_text(),model.weather_name() if int(settings.weather) != 2 else "ясно"] + deadline_text()
 	order_label.text=order
 	var hint = ""
 	if state.phase == "loading":
@@ -1764,7 +1769,8 @@ func build_modal(size: Vector2) -> void:
 		var result = model.state.get("last_result", {})
 		add_label(box, "Линия работает" if result.get("final", false) else "С возвращением", 38)
 		add_label(box, "Линия работает. До Дальнего бора снова ходят поезда. А дома тебя ждёт следующий рейс." if result.get("final", false) else str(result.get("title", "Рейс окончен")), 25)
-		add_label(box, "Оплата: %d монет\nВсего доставлено: %d предметов\nПройдено: %.1f км\nОсновные рейсы: %d / 10" % [result.get("reward", 0), model.state.stats.deliveries, float(model.state.stats.distance) / 1000, model.state.chapter], 23)
+		var notes_text = "\n" + "\n".join(result.get("notes", [])) if not result.get("notes", []).is_empty() else ""
+		add_label(box, "Оплата: %d монет%s\nВсего доставлено: %d предметов\nПройдено: %.1f км\nОсновные рейсы: %d / 10" % [result.get("reward", 0), notes_text, model.state.stats.deliveries, float(model.state.stats.distance) / 1000, model.state.chapter], 23)
 		add_button(box, "Продолжить перевозки", close_modal)
 		add_button(box, "В главное меню", func(): screen = "menu"; close_modal())
 	else:
@@ -1794,6 +1800,7 @@ func cancel_drag() -> void:
 func _process(dt: float) -> void:
 	time += dt
 	model.weather_effect = [1.0, 0.5, 0.0][clampi(int(settings.weather), 0, 2)]
+	Model.order_rules = not test_mode   # deadlines and bonuses of the orders only in the real game (tests keep the old numbers)
 	if depot_anim != "": advance_depot_anim(dt)
 	if screen != "game" or model.human_powered(): cab_view = false
 	if screen == "game" and not paused and not model.human_powered() and not model.state.is_empty():
@@ -2261,6 +2268,13 @@ func shown_weather() -> Dictionary:
 # Darkness of the night over the glass and the world; the setting makes it lighter.
 func night_shade() -> float:
 	return 0.62 * model.night_amount() * (1.0 - 0.5 * float(settings.night_light))
+
+# The time left to the deadline of the order on the road, for the header ("" when there is none).
+func deadline_text() -> String:
+	var left = model.deadline_left()
+	if left > 1.0e8: return ""
+	if left < 0.0: return " · СРОК ВЫШЕЛ"
+	return " · срок %d:%02d" % [int(left / 60.0), int(fposmod(left, 60.0))]
 
 func world_point(s: float) -> Vector2:
 	var size = get_viewport_rect().size

@@ -71,6 +71,11 @@ var stationary_station = 0
 # calibrated for; they set this to get the old full-size tanks (B2.2 halved petrol and battery and cut
 # the air tank to a third). The game itself never sets it.
 static var legacy_tanks = false
+# B4.4: deadlines and bonuses of the orders. The tests of the older numbers leave it off; the game switches it on.
+static var order_rules = false
+const DEADLINE_GRACE = 1.05     # up to 5% over the time is still "on time"
+const DEADLINE_FINE = 0.25      # the fine of a late free order, of its reward
+const NIGHT_BONUS = 0.30
 
 func _init() -> void:
 	data = JSON.parse_string(FileAccess.get_file_as_string("res://data/game_data.json"))
@@ -630,6 +635,26 @@ func free_reward(dropoffs: Array) -> int:
 		for pair in stop.cargo: total += (25.0 + 0.06 * distance) * int(pair[1])
 	return roundi(total * float(vehicle_base().get("free_reward_multiplier", 1.0)))
 
+# The time the order allows, in the game time of the road: the way there and back at 55% of the top speed
+# and a minute and a half at the platforms, so that a careful driver is on time and a quick one is early.
+func mission_budget_s(mission: Dictionary) -> float:
+	var top = maxf(5.0, top_speed_kmh() / 3.6)
+	var stops = mission.get("dropoffs", []).size()
+	return 2.0 * mission_far_s(mission) / (0.55 * top) + 90.0 + 40.0 * float(stops)
+
+# A heavy or big load pays more: from 300 kg +10%, from 600 kg +20%, and five places and more +10%.
+func cargo_bonus(items: Array) -> float:
+	var kilos = 0.0
+	for item in items: kilos += float(cargo_base(item.type).mass_kg)
+	var bonus = 0.2 if kilos >= 600.0 else (0.1 if kilos >= 300.0 else 0.0)
+	if items.size() >= 5: bonus += 0.1
+	return bonus
+
+# Seconds left to the deadline of the order on the road; a large number when there is none.
+func deadline_left() -> float:
+	if state.active.is_empty() or not state.active.has("budget_s") or float(state.active.get("t_start", -1.0)) < 0.0: return 1.0e9
+	return float(state.active.budget_s) * DEADLINE_GRACE - (float(state.stats.seconds) - float(state.active.t_start))
+
 func accept_mission(mission: Dictionary) -> bool:
 	if not mission.get("free", false): mission = scaled_mission(mission)
 	if not depot_editable():
@@ -658,6 +683,9 @@ func accept_mission(mission: Dictionary) -> bool:
 					"slot": "", "delivered": false, "health": 1.0})
 				serial += 1
 	state.active.offered_count=state.cargo.size()
+	if order_rules and not creative():
+		state.active.budget_s = mission_budget_s(mission)
+		state.active.t_start = -1.0
 	state.active.offer_value=0.0
 	for cargo in state.cargo: state.active.offer_value+=cargo_value(cargo)
 	loading_cache.clear()
@@ -830,6 +858,11 @@ func depart() -> bool:
 		loading_cache.clear()
 	state.phase = "route"
 	state.active.phase = "outbound"
+	if state.active.has("budget_s") and float(state.active.get("t_start", -1.0)) < 0.0:
+		# the clock starts with the first departure; the load decides the bonus for a heavy cargo
+		state.active.t_start = float(state.stats.seconds)
+		state.active.night_start = night_amount() >= 0.6
+		state.active.cargo_bonus = cargo_bonus(state.cargo)
 	return true
 
 func back_to_depot() -> bool:
@@ -910,20 +943,55 @@ func settle() -> bool:
 	if id in state.paid_ids or state.active.get("paid", false):
 		return false
 	var reward = int(state.active.pending_reward)
+	# B4.4: early pays extra, on time is 100%, late costs a fine and the order burns (a story order is only cancelled)
+	var late = false
+	var story = not state.active.get("free", false)
+	var notes: Array = []
+	if state.active.has("budget_s") and float(state.active.get("t_start", -1.0)) >= 0.0 and not creative():
+		var budget = maxf(1.0, float(state.active.budget_s))
+		var ratio = (float(state.stats.seconds) - float(state.active.t_start)) / budget
+		if ratio > DEADLINE_GRACE:
+			late = true
+		else:
+			var bonus = 0.0
+			if ratio <= 0.75:
+				bonus += 0.25
+				notes.append("раньше срока +25%")
+			elif ratio <= 0.9:
+				bonus += 0.10
+				notes.append("раньше срока +10%")
+			if bool(state.active.get("night_start", false)):
+				bonus += NIGHT_BONUS
+				notes.append("ночной рейс +30%")
+			var heavy = float(state.active.get("cargo_bonus", 0.0))
+			if heavy > 0.0:
+				bonus += heavy
+				notes.append("тяжёлый и большой груз +%d%%" % roundi(heavy * 100.0))
+			reward = roundi(float(reward) * (1.0 + bonus))
+	if late:
+		if story:
+			reward = 0
+			notes.append("срок вышел: рейс отменён, начни его заново")
+		else:
+			var fine = mini(int(state.money), roundi(DEADLINE_FINE * float(state.active.reward)))
+			reward = -fine
+			notes.append("опоздал: штраф %d, заказ сгорел" % fine)
 	state.money += reward
-	state.stats.earned += reward
-	if not creative(): state.paid_ids.append(id)
+	state.stats.earned += maxi(0, reward)
+	if not creative() and not (late and story): state.paid_ids.append(id)
 	state.active.paid = true
-	if not state.active.get("free", false) and not creative():
+	if not state.active.get("free", false) and not creative() and not late:
 		state.completed_ids.append(id)
 		state.chapter = mini(int(state.chapter) + 1, 10)
-	if state.active.get("final", false) and not creative():
+	if late:
+		events.append("land")
+	elif state.active.get("final", false) and not creative():
 		state.finale = true
 		events.append("finale")
 	else:
 		events.append("coins")
 	if creative(): state.money = CREATIVE_MONEY
-	state.last_result = {"title": state.active.title, "reward": reward, "final": state.active.get("final", false) and not creative(),"left_on_warehouse":state.active.get("warehouse_cargo",[]).size()}
+	state.last_result = {"title": state.active.title, "reward": reward, "final": state.active.get("final", false) and not creative() and not late, "late": late, "notes": notes, "left_on_warehouse":state.active.get("warehouse_cargo",[]).size()}
 	state.active = {}
 	state.cargo = []
 	drop_temporary_wagon()
@@ -933,7 +1001,7 @@ func settle() -> bool:
 	state.throttle = 0.0
 	state.gear = 0
 	cool_boiler()
-	message = "Рейс окончен. Заработано %d монет" % reward
+	message = ("Рейс окончен. Заработано %d монет" % reward if reward >= 0 else "Рейс окончен с штрафом: %d монет" % -reward) + (" · " + ", ".join(notes) if not notes.is_empty() else "")
 	return true
 
 func rescue() -> void:
