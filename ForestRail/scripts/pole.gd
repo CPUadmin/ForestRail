@@ -31,6 +31,8 @@ const GROUNDS = {
 	"roots": {"g": 1.25, "name": "корни"}}
 
 var segments: Array = []   # [start_s, end_s, type]
+var force_scale = 1.0         # upgrades: a stronger push
+var grip_scale = 1.0          # upgrades: a better tip
 var wet = 0.0              # rain, 0..1: the ground is slicker, the clay most of all
 var built_for = ""
 var mode = "free"
@@ -78,7 +80,7 @@ func ground_at(s: float) -> Dictionary:
 	var type = str(segments[low][2]) if not segments.is_empty() else "dense"
 	var info = GROUNDS[type].duplicate()
 	info.type = type
-	info.g = float(info.g) * (1.0 - wet * (0.4 if type == "clay" else 0.25))
+	info.g = float(info.g) * (1.0 - wet * (0.4 if type == "clay" else 0.25)) * grip_scale
 	return info
 
 func reset() -> void:
@@ -158,7 +160,7 @@ func step(dt: float, s: float, v: float, direction: int) -> float:
 	# A person pushes weaker the faster his hands travel along the pole in the push direction.
 	var hand_speed = forward_speed * sign_value * cos_phi
 	var fade = clampf(1.0 - hand_speed / V_HAND, 0.0, 1.5)
-	var axial = F_MAX * absf(effort) * fade
+	var axial = F_MAX * force_scale * absf(effort) * fade
 	var horizontal = axial * cos_phi
 	# Pulling toward a tip ahead or pushing off from a tip behind draws the tip out of the
 	# ground; the opposite pairing presses it in.

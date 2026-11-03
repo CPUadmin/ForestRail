@@ -186,7 +186,7 @@ func _ready() -> void:
 				# Tests and debugging runs are silent: nobody listens to the clicks and the engine.
 				AudioServer.set_bus_mute(0, true)
 				var suite = arg.trim_prefix("--qa-suite=")
-				if suite not in ["check_model", "check_physics", "check_interaction", "drive_campaign", "check_presentation", "check_handcar_revision", "check_art_v3", "check_instruments", "check_station_service", "check_world_geometry", "check_mechanism", "check_mechanism_bench", "check_handcar_drive", "check_handcar_input", "check_motor_controls", "check_loading_selection", "check_layout_p7", "check_steam", "check_steam_view", "check_gearbox", "check_petrol_view", "check_skins", "check_perf", "check_cab", "check_sound", "check_forecast", "check_line_v2", "check_line_spread", "check_thermal", "check_speeds", "check_creative", "check_settings", "check_pneumatic", "check_pneumatic_view", "check_pole", "check_pole_view", "check_air", "check_sail", "check_sail_view", "check_loading_flow", "check_depot_entry", "check_forecast_long", "drive_long", "check_forecast_view", "check_soak_p8", "check_save_p8"]: get_tree().quit(2); return
+				if suite not in ["check_model", "check_physics", "check_interaction", "drive_campaign", "check_presentation", "check_handcar_revision", "check_art_v3", "check_instruments", "check_station_service", "check_world_geometry", "check_mechanism", "check_mechanism_bench", "check_handcar_drive", "check_handcar_input", "check_motor_controls", "check_loading_selection", "check_layout_p7", "check_steam", "check_steam_view", "check_gearbox", "check_petrol_view", "check_skins", "check_perf", "check_cab", "check_sound", "check_forecast", "check_line_v2", "check_line_spread", "check_thermal", "check_upgrades_new", "check_speeds", "check_creative", "check_settings", "check_pneumatic", "check_pneumatic_view", "check_pole", "check_pole_view", "check_air", "check_sail", "check_sail_view", "check_loading_flow", "check_depot_entry", "check_forecast_long", "drive_long", "check_forecast_view", "check_soak_p8", "check_save_p8"]: get_tree().quit(2); return
 				get_tree().root.set_meta("qa_running", true)
 				set_process(false)
 				set_physics_process(false)
@@ -862,9 +862,11 @@ func build_depot(size: Vector2) -> void:
 	# the button says "full" only when the tank really is full; in the creative mode the refill is free
 	var room = model.tank_missing() > 0.0001
 	var refill_text = ({"locomotive": "Зарядить", "pneumatic": "Накачать"}.get(model.vehicle_id(), "Заправить")) + (" · %d монет" % refill if refill > 0 else (" · бесплатно" if room else " · полон"))
-	add_button(service, refill_text, func():
-		if model.refuel(): save_game(); rebuild(); notify(model.message if model.message != "" else "Запас пополнен"); model.message = ""
-		else: notify(model.message), model.human_powered() or not room)
+	# a person and the wind need no fuel: no refill button for them
+	if not model.human_powered():
+		add_button(service, refill_text, func():
+			if model.refuel(): save_game(); rebuild(); notify(model.message if model.message != "" else "Запас пополнен"); model.message = ""
+			else: notify(model.message), not room)
 	add_button(service, "Улучшить", func(): selected_object = model.vehicle_id(); tab = "Улучшения"; rebuild())
 	if model.state.active.is_empty(): add_button(service, "Просто поехать →", take_free_ride)
 	positioned_label("Нажми на машину или вагон, чтобы выбрать его улучшения.", Rect2(46, size.y - 83, left_width - 30, 60), 17)
@@ -1025,6 +1027,13 @@ func workshop_spot_place(part: String, length: float, axles: Array) -> Vector2:
 		"gearbox": return Vector2(-length * 0.02, 0.95)
 		"tank": return Vector2(-length * 0.30, 0.95)
 		"suspension": return Vector2(length * 0.22, 0.42)
+		"shaft": return Vector2(length * 0.15, 1.5)
+		"tip": return Vector2(front, 0.5)
+		"cloth": return Vector2(length * 0.25, 2.4)
+		"rigging": return Vector2(-length * 0.15, 1.6)
+		"boiler": return Vector2(length * 0.25, 1.1)
+		"firebox": return Vector2(-length * 0.2, 1.0)
+		"pipes": return Vector2(length * 0.05, 0.6)
 	return Vector2(0.0, 0.8)
 
 # B1.2c: pulsing markers on the machine, one for each part that can be improved, with its level.
@@ -1069,6 +1078,15 @@ func upgrade_preview(id: String, branch: Dictionary) -> String:
 		if not before.has(key) or before[key] == after[key]: continue
 		var label = {"slots": "Места", "mass": "Масса, кг", "brake": "Тормоз, Н", "tank": "Батарея, кВт·ч" if id == "locomotive" else "Бак, л", "power": "Мощность, Вт", "rolling": "Качение", "shock": "Повреждение посуды", "traction": "Тяга, Н", "speeds": "Скорость, м/с"}[key]
 		parts.append("%s: %s → %s" % [label, str(before[key]), str(after[key])])
+	# parts of a machine that are not a stat of the table above: the strength of the push, the sail, the fire...
+	var before_ef = model.effects(id)
+	object.levels[branch.id] = lv + 1
+	var after_ef = model.effects(id)
+	object.levels[branch.id] = lv
+	var words = {"pole_force_multiplier": "Сила толчка", "pole_grip_multiplier": "Хватка наконечника", "sail_area_multiplier": "Площадь паруса", "sail_hold_multiplier": "Держит порыв", "steam_power_multiplier": "Пар", "fire_burn_multiplier": "Расход угля в топке", "water_capacity_multiplier": "Запас воды", "frost_multiplier": "Рост инея"}
+	for key in words:
+		if not after_ef.has(key): continue
+		parts.append("%s: ×%.2f → ×%.2f" % [words[key], float(before_ef.get(key, 1.0)), float(after_ef[key])])
 	return "\n".join(parts)
 
 func build_missions(right: VBoxContainer) -> void:

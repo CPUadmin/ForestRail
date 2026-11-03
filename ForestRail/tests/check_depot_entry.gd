@@ -103,6 +103,22 @@ func run() -> void:
 		for i in range(6): await get_tree().process_frame
 		await RenderingServer.frame_post_draw
 		get_tree().root.get_texture().get_image().save_png(output_dir.path_join("workshop_%d.png" % get_tree().root.size.y))
+	# the pole truck, the sail car, the steam engine and the pneumatic train have their own parts to improve
+	var home = game.model.vehicle_id()
+	game.model.state.money = 100000
+	for kind in ["pole", "sail", "steam", "pneumatic"]:
+		if not game.model.state.fleet_by_id.has(kind): game.model.buy_vehicle(kind)
+		game.model.select_vehicle(kind)
+		game.selected_object = kind
+		game.workshop_branch = ""
+		game.rebuild()
+		for i in range(6): await get_tree().process_frame
+		await RenderingServer.frame_post_draw
+		check(game.workshop_hits.size() == 4, "%s shows four improvable parts on the machine (%d)" % [kind, game.workshop_hits.size()])
+		get_tree().root.get_texture().get_image().save_png(output_dir.path_join("workshop_%s_%d.png" % [kind, get_tree().root.size.y]))
+	game.model.select_vehicle(home)
+	game.selected_object = home
+	game.rebuild()
 	# B1.2d: the job board shows notices with a route, goods, reward and the road
 	game.tab = "Рейсы"
 	game.rebuild()

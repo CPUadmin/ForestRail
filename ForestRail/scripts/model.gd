@@ -223,7 +223,7 @@ func object_stats(id: String) -> Dictionary:
 		"brake": brake_base * float(ef.get("brake_multiplier", 1.0)) + float(ef.get("add_brake_n", 0)),
 		"shock": float(ef.get("cargo_shock_multiplier", 1.0)), "power": 220.0,
 		"tank": float(base.get("battery_kwh", base.get("coal_kg", base.get("fuel_l", base.get("air_bar", 0))))) * float(ef.get("fuel_capacity_multiplier", 1.0)) * (1.0 if base.has("air_bar") else line_tank_scale(base)),
-		"water": float(base.get("water_l", 0)) * line_tank_scale(base, true)}
+		"water": float(base.get("water_l", 0)) * line_tank_scale(base, true) * float(ef.get("water_capacity_multiplier", 1.0))}
 	if not wagon and not human_powered(id):
 		result.traction = [float(base.traction_n[0]) * float(ef.get("traction_multiplier", 1)) * float(ef.get("low_gear_multiplier", 1)),
 			float(base.traction_n[1]) * float(ef.get("traction_multiplier", 1))]
@@ -1177,7 +1177,7 @@ func update_frost(fleet: Dictionary, dt: float) -> void:
 	var running = absf(float(state.v)) > 0.3 and float(state.throttle) > 0.0
 	var weights = [1.0, 0.8, 0.6, 0.4]
 	for i in range(spots.size()):
-		if running: spots[i] = minf(1.0, float(spots[i]) + 0.02 * (1.0 + 0.8 * cold()) * float(state.throttle) * (float(fleet.fuel) / float(object_stats("pneumatic").tank)) * float(weights[i]) * dt)
+		if running: spots[i] = minf(1.0, float(spots[i]) + 0.02 * float(effects("pneumatic").get("frost_multiplier", 1.0)) * (1.0 + 0.8 * cold()) * float(state.throttle) * (float(fleet.fuel) / float(object_stats("pneumatic").tank)) * float(weights[i]) * dt)
 		elif absf(float(state.v)) < 0.1: spots[i] = maxf(0.0, float(spots[i]) - 0.01 * dt)
 	fleet.ice_spots = spots
 
@@ -1372,13 +1372,13 @@ func steam_step(dt: float, fleet: Dictionary) -> float:
 	var chill_k = 1.0 + 0.4 * cold()   # in the cold the fire and the boiler lose heat faster
 	b.heat = move_toward(float(b.heat), heat_target, dt * (1.0 if heat_target > float(b.heat) else chill_k) / float(cfg.heat_rise_s if heat_target > float(b.heat) else cfg.heat_fall_s))
 	if burning:
-		b.firebox = maxf(0.0, float(b.firebox) - (float(cfg.idle_burn_kg_s) + float(cfg.load_burn_kg_s) * valve) * dt)
+		b.firebox = maxf(0.0, float(b.firebox) - (float(cfg.idle_burn_kg_s) + float(cfg.load_burn_kg_s) * valve) * float(effects("steam").get("fire_burn_multiplier", 1.0)) * dt)
 	# Steam appears only from fire AND water; the tap limits how fast.
 	var feed_k = clampf(float(b.feed) / float(cfg.feed_full), 0.0, 1.0) if water > 0.0 else 0.0
 	var door_k = float(cfg.door_open_loss) if bool(b.door) else 1.0
 	# an overfull firebox chokes: up to 30% less steam
 	var choke = 1.0 - float(cfg.get("choke_loss", 0.3)) * clampf((fill - float(cfg.get("choke_from", 0.85))) / (1.0 - float(cfg.get("choke_from", 0.85))), 0.0, 1.0)
-	var made = float(cfg.steam_per_s) * float(b.heat) * feed_k * door_k * choke * dt
+	var made = float(cfg.steam_per_s) * float(effects("steam").get("steam_power_multiplier", 1.0)) * float(b.heat) * feed_k * door_k * choke * dt
 	var p = float(b.pressure)
 	var spent = minf(p + made, float(cfg.use_per_s) * valve * dt)
 	var cooling = float(cfg.cooling_per_s) * (1.0 - float(b.heat)) * dt * chill_k
@@ -1498,13 +1498,13 @@ func sail_step(dt: float = 1.0 / 60.0) -> float:
 	var apparent = sqrt(ua * ua + uc * uc)
 	var beta = atan2(absf(uc), ua)
 	var quality = sail_quality(beta, sail_trim)
-	var area = 6.0
+	var area = 6.0 * float(effects("sail").get("sail_area_multiplier", 1.0))
 	var pulled = 0.5 * 1.2 * area * apparent * apparent * sail_pull(beta) * (quality if sail_pull(beta) > 0.0 else 1.0)
 	var engaged = sail_engaged()
 	# a sail nobody holds flogs and gives no pull, only a little drag against the way the car goes
 	var force = pulled if engaged else -0.05 * 0.5 * 1.2 * area * forward_speed * absf(forward_speed)
 	# a gust the hand cannot hold tears the sheet away; the cleat gives way to a harder pull
-	var limit = SAIL_GRIP_N if sail_held else SAIL_CLEAT_N
+	var limit = (SAIL_GRIP_N if sail_held else SAIL_CLEAT_N) * float(effects("sail").get("sail_hold_multiplier", 1.0))
 	if engaged and absf(pulled) > limit:
 		sail_over += dt
 		if sail_over > (0.8 if sail_held else 0.4):
@@ -1590,6 +1590,8 @@ func physics_step(dt: float) -> void:
 		elif vehicle_id() == "pole":
 			pole.build(int(route.seed_value), float(route.length_m), route.station_s)
 			pole.wet = rain_effect()
+			pole.force_scale = float(effects("pole").get("pole_force_multiplier", 1.0))
+			pole.grip_scale = float(effects("pole").get("pole_grip_multiplier", 1.0))
 			drive = pole.step(dt, float(state.s), float(state.v), int(state.direction))
 		elif fleet.fuel <= 0: state.engine = false
 		if vehicle_id() != "steam" and state.engine and fleet.fuel > 0:

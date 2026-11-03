@@ -1041,6 +1041,183 @@
         ]
       },
       "scope": "selected_wagon_id"
+    },
+    {
+      "id": "pole_shaft",
+      "target_type": "pole",
+      "name": "Шест",
+      "level_costs": [30, 60],
+      "levels": 2,
+      "effects_at_level": {
+        "pole_force_multiplier": [1.12, 1.25]
+      },
+      "scope": "selected_vehicle_id"
+    },
+    {
+      "id": "pole_tip",
+      "target_type": "pole",
+      "name": "Наконечник",
+      "level_costs": [25, 50],
+      "levels": 2,
+      "effects_at_level": {
+        "pole_grip_multiplier": [1.2, 1.45]
+      },
+      "scope": "selected_vehicle_id"
+    },
+    {
+      "id": "pole_bearings",
+      "target_type": "pole",
+      "name": "Колёса платформы",
+      "level_costs": [25, 50],
+      "levels": 2,
+      "effects_at_level": {
+        "rolling_multiplier": [0.85, 0.7]
+      },
+      "scope": "selected_vehicle_id"
+    },
+    {
+      "id": "pole_brakes",
+      "target_type": "pole",
+      "name": "Тормоз",
+      "level_costs": [20, 40],
+      "levels": 2,
+      "effects_at_level": {
+        "brake_multiplier": [1.3, 1.6]
+      },
+      "scope": "selected_vehicle_id"
+    },
+    {
+      "id": "sail_cloth",
+      "target_type": "sail",
+      "name": "Парус",
+      "level_costs": [40, 80],
+      "levels": 2,
+      "effects_at_level": {
+        "sail_area_multiplier": [1.15, 1.3]
+      },
+      "scope": "selected_vehicle_id"
+    },
+    {
+      "id": "sail_rigging",
+      "target_type": "sail",
+      "name": "Оснастка",
+      "level_costs": [35, 70],
+      "levels": 2,
+      "effects_at_level": {
+        "sail_hold_multiplier": [1.25, 1.5]
+      },
+      "scope": "selected_vehicle_id"
+    },
+    {
+      "id": "sail_bearings",
+      "target_type": "sail",
+      "name": "Колёса платформы",
+      "level_costs": [25, 50],
+      "levels": 2,
+      "effects_at_level": {
+        "rolling_multiplier": [0.8, 0.65]
+      },
+      "scope": "selected_vehicle_id"
+    },
+    {
+      "id": "sail_brakes",
+      "target_type": "sail",
+      "name": "Тормоз",
+      "level_costs": [20, 40],
+      "levels": 2,
+      "effects_at_level": {
+        "brake_multiplier": [1.3, 1.6]
+      },
+      "scope": "selected_vehicle_id"
+    },
+    {
+      "id": "steam_boiler",
+      "target_type": "steam",
+      "name": "Котёл",
+      "level_costs": [90, 170],
+      "levels": 2,
+      "effects_at_level": {
+        "steam_power_multiplier": [1.15, 1.3]
+      },
+      "scope": "selected_vehicle_id"
+    },
+    {
+      "id": "steam_firebox",
+      "target_type": "steam",
+      "name": "Топка",
+      "level_costs": [80, 150],
+      "levels": 2,
+      "effects_at_level": {
+        "fire_burn_multiplier": [0.85, 0.7]
+      },
+      "scope": "selected_vehicle_id"
+    },
+    {
+      "id": "steam_tank",
+      "target_type": "steam",
+      "name": "Тендер",
+      "level_costs": [60, 110],
+      "levels": 2,
+      "effects_at_level": {
+        "fuel_capacity_multiplier": [1.25, 1.5],
+        "water_capacity_multiplier": [1.25, 1.5]
+      },
+      "scope": "selected_vehicle_id"
+    },
+    {
+      "id": "steam_brakes",
+      "target_type": "steam",
+      "name": "Тормоза",
+      "level_costs": [60, 110],
+      "levels": 2,
+      "effects_at_level": {
+        "brake_multiplier": [1.3, 1.6]
+      },
+      "scope": "selected_vehicle_id"
+    },
+    {
+      "id": "pneumatic_tank",
+      "target_type": "pneumatic",
+      "name": "Баллон",
+      "level_costs": [100, 190],
+      "levels": 2,
+      "effects_at_level": {
+        "fuel_capacity_multiplier": [1.2, 1.4]
+      },
+      "scope": "selected_vehicle_id"
+    },
+    {
+      "id": "pneumatic_pipes",
+      "target_type": "pneumatic",
+      "name": "Утепление труб",
+      "level_costs": [90, 170],
+      "levels": 2,
+      "effects_at_level": {
+        "frost_multiplier": [0.8, 0.6]
+      },
+      "scope": "selected_vehicle_id"
+    },
+    {
+      "id": "pneumatic_engine",
+      "target_type": "pneumatic",
+      "name": "Пневмодвигатель",
+      "level_costs": [100, 190],
+      "levels": 2,
+      "effects_at_level": {
+        "traction_multiplier": [1.12, 1.25]
+      },
+      "scope": "selected_vehicle_id"
+    },
+    {
+      "id": "pneumatic_brakes",
+      "target_type": "pneumatic",
+      "name": "Тормоза",
+      "level_costs": [70, 130],
+      "levels": 2,
+      "effects_at_level": {
+        "brake_multiplier": [1.3, 1.6]
+      },
+      "scope": "selected_vehicle_id"
     }
   ],
   "upgrade_rules": {
