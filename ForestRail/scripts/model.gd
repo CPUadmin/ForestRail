@@ -1440,19 +1440,30 @@ func steam_step(dt: float, fleet: Dictionary) -> float:
 	# B3.4: the heat follows the coal on the grate, a thin fire is a weak one; a fresh portion chills it
 	var fill = float(b.firebox) / float(cfg.firebox_kg)
 	b.chill = maxf(0.0, float(b.chill) - dt)
+	if float(effects("steam").get("steam_stoker", 0)) > 0.0: b.chill = 0.0
 	var heat_target = 0.0
 	if burning:
 		heat_target = smoothstep(0.0, float(cfg.get("thin_fire", 0.3)), fill) * (1.0 - float(cfg.get("chill_loss", 0.3)) * clampf(float(b.chill) / float(cfg.get("chill_s", 5.0)), 0.0, 1.0))
+	var gadgets = effects("steam")
+	var superheater = float(gadgets.get("steam_superheater", 0)) > 0.0
+	var stoker = float(gadgets.get("steam_stoker", 0)) > 0.0
+	# the mechanical stoker feeds the fire from the bucket by itself and keeps it at about half a grate, without chilling it
+	if stoker and burning and bool(b.lit):
+		var want = 0.55 * float(cfg.firebox_kg)
+		if float(b.firebox) < want - 0.4 and float(fleet.fuel) > 0.0:
+			var feed = minf(minf(0.18 * dt, want - float(b.firebox)), float(fleet.fuel))
+			fleet.fuel = float(fleet.fuel) - feed
+			b.firebox = float(b.firebox) + feed
 	var chill_k = 1.0 + 0.4 * cold()   # in the cold the fire and the boiler lose heat faster
 	b.heat = move_toward(float(b.heat), heat_target, dt * (1.0 if heat_target > float(b.heat) else chill_k) / float(cfg.heat_rise_s if heat_target > float(b.heat) else cfg.heat_fall_s))
 	if burning:
-		b.firebox = maxf(0.0, float(b.firebox) - (float(cfg.idle_burn_kg_s) + float(cfg.load_burn_kg_s) * valve) * float(effects("steam").get("fire_burn_multiplier", 1.0)) * dt)
+		b.firebox = maxf(0.0, float(b.firebox) - (float(cfg.idle_burn_kg_s) + float(cfg.load_burn_kg_s) * valve) * float(effects("steam").get("fire_burn_multiplier", 1.0)) * (0.7 if float(effects("steam").get("steam_superheater", 0)) > 0.0 else 1.0) * (1.2 if float(effects("steam").get("steam_stoker", 0)) > 0.0 else 1.0) * dt)
 	# Steam appears only from fire AND water; the tap limits how fast.
 	var feed_k = clampf(float(b.feed) / float(cfg.feed_full), 0.0, 1.0) if water > 0.0 else 0.0
 	var door_k = float(cfg.door_open_loss) if bool(b.door) else 1.0
 	# an overfull firebox chokes: up to 30% less steam
 	var choke = 1.0 - float(cfg.get("choke_loss", 0.3)) * clampf((fill - float(cfg.get("choke_from", 0.85))) / (1.0 - float(cfg.get("choke_from", 0.85))), 0.0, 1.0)
-	var made = float(cfg.steam_per_s) * float(effects("steam").get("steam_power_multiplier", 1.0)) * float(b.heat) * feed_k * door_k * choke * dt
+	var made = float(cfg.steam_per_s) * float(effects("steam").get("steam_power_multiplier", 1.0)) * (1.1 if superheater else 1.0) * float(b.heat) * feed_k * door_k * choke * dt
 	var p = float(b.pressure)
 	var spent = minf(p + made, float(cfg.use_per_s) * valve * dt)
 	var cooling = float(cfg.cooling_per_s) * (1.0 - float(b.heat)) * dt * chill_k

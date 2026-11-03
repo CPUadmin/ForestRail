@@ -151,5 +151,28 @@ func run() -> void:
 	check(is_equal_approx(pilot.sail_trim, 0.3), "with the autopilot the sheet is made fast at any opening")
 	for i in range(60 * 4): pilot.physics_step(1.0 / 60.0)
 	check(absf(pilot.sail_trim - 0.3) > 0.1, "and the autopilot trims it by itself (%.2f)" % pilot.sail_trim)
+	# the gadgets of the steam engine: the superheater and the mechanical stoker
+	var steam_shop = game("steam", 2)
+	steam_shop.state.phase = "depot"
+	steam_shop.state.money = 10000
+	check(steam_shop.upgrade("steam", "steam_superheater") and steam_shop.upgrade("steam", "steam_stoker") and not steam_shop.upgrade("steam", "steam_stoker"), "the steam gadgets are bought once")
+	check(not steam_shop.upgrade("sail", "steam_stoker"), "a steam gadget belongs to the steam engine only")
+	var coal: Array = []
+	var box: Array = []
+	for kind in ["plain", "superheater", "stoker"]:
+		var st = game("steam", 2)
+		Fixtures.fire_up(st)
+		st.state.phase = "route"
+		st.boiler().firebox = 5.0
+		st.boiler().chill = 0.0
+		var bucket_before = float(st.state.fleet_by_id.steam.fuel)
+		if kind == "superheater": st.object_state("steam").levels["steam_superheater"] = 1
+		if kind == "stoker": st.object_state("steam").levels["steam_stoker"] = 1
+		for i in range(60 * 60): st.steam_step(1.0 / 60.0, st.state.fleet_by_id.steam)
+		coal.append(bucket_before - float(st.state.fleet_by_id.steam.fuel))
+		box.append(float(st.boiler().firebox))
+	check(box[1] > box[0], "the superheater burns less coal (%.2f against %.2f kg left in the firebox)" % [box[1], box[0]])
+	check(box[2] > 5.0 and coal[2] > 0.5 and box[2] > box[0] + 2.0, "the stoker feeds the fire from the bucket by itself (%.2f kg in the firebox, %.2f from the bucket)" % [box[2], coal[2]])
+	check(coal[0] == 0.0, "without the stoker nobody feeds the fire")
 	print("NEW UPGRADES CHECKS ", checks, "; FAILURES ", failures)
 	get_tree().quit(0 if failures.is_empty() else 1)

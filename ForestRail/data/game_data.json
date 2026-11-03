@@ -1243,6 +1243,30 @@
         "sail_autopilot": [true]
       },
       "scope": "selected_vehicle_id"
+    },
+    {
+      "id": "steam_superheater",
+      "target_type": "steam",
+      "name": "Пароперегреватель",
+      "gadget": true,
+      "level_costs": [3000],
+      "levels": 1,
+      "effects_at_level": {
+        "steam_superheater": [1]
+      },
+      "scope": "selected_vehicle_id"
+    },
+    {
+      "id": "steam_stoker",
+      "target_type": "steam",
+      "name": "Механический кочегар",
+      "gadget": true,
+      "level_costs": [4500],
+      "levels": 1,
+      "effects_at_level": {
+        "steam_stoker": [1]
+      },
+      "scope": "selected_vehicle_id"
     }
   ],
   "upgrade_rules": {

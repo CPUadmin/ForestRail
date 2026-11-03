@@ -1086,10 +1086,10 @@ func upgrade_preview(id: String, branch: Dictionary) -> String:
 	object.levels[branch.id] = lv + 1
 	var after_ef = model.effects(id)
 	object.levels[branch.id] = lv
-	var words = {"sail_spinnaker": "Спинакер: тяга на попутном ветре ×1,8 (в бейдевинд хуже, рвётся раньше)", "sail_autopilot": "Парус сам держит угол, шкот фиксируется в любом положении (80% тяги)", "pole_force_multiplier": "Сила толчка", "pole_grip_multiplier": "Хватка наконечника", "sail_area_multiplier": "Площадь паруса", "sail_hold_multiplier": "Держит порыв", "steam_power_multiplier": "Пар", "fire_burn_multiplier": "Расход угля в топке", "water_capacity_multiplier": "Запас воды", "frost_multiplier": "Рост инея"}
+	var words = {"steam_superheater": "Пароперегреватель: угля на 30% меньше, пара на 10% больше, но разогревается дольше", "steam_stoker": "Механический кочегар: сам подбрасывает уголь и держит огонь ровно, но тратит на 20% больше", "sail_spinnaker": "Спинакер: тяга на попутном ветре ×1,8 (в бейдевинд хуже, рвётся раньше)", "sail_autopilot": "Парус сам держит угол, шкот фиксируется в любом положении (80% тяги)", "pole_force_multiplier": "Сила толчка", "pole_grip_multiplier": "Хватка наконечника", "sail_area_multiplier": "Площадь паруса", "sail_hold_multiplier": "Держит порыв", "steam_power_multiplier": "Пар", "fire_burn_multiplier": "Расход угля в топке", "water_capacity_multiplier": "Запас воды", "frost_multiplier": "Рост инея"}
 	for key in words:
 		if not after_ef.has(key): continue
-		if after_ef[key] is bool or key == "sail_spinnaker": parts.append(str(words[key]))
+		if after_ef[key] is bool or key in ["sail_spinnaker", "steam_superheater", "steam_stoker"]: parts.append(str(words[key]))
 		else: parts.append("%s: ×%.2f → ×%.2f" % [words[key], float(before_ef.get(key, 1.0)), float(after_ef[key])])
 	return "\n".join(parts)
 
