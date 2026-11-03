@@ -69,7 +69,9 @@ func draw_sail_overlay(canvas: Node2D, model) -> void:
 			var f0 = float(k) / float(bands)
 			var f1 = float(k + 1) / float(bands)
 			var shade = 0.88 + 0.12 * sin(PI * (f0 + f1) * 0.5) * (0.4 + 0.6 * clampf(pull + 0.4, 0.0, 1.0))
-			var color = Color(0.94 * shade, 0.90 * shade, 0.80 * shade, 0.96)
+			# the far side of the car is a little darker, so that the side of the boom is seen at a glance
+			var tone = shade * (0.82 if model.sail_side > 0 else 1.0)
+			var color = Color(0.94 * tone, 0.90 * tone, 0.80 * tone, 0.96)
 			for i in range(rows):
 				var q = PackedVector2Array([luff[i].lerp(leech[i], f0), luff[i].lerp(leech[i], f1), luff[i + 1].lerp(leech[i + 1], f1), luff[i + 1].lerp(leech[i + 1], f0)])
 				var area = (q[1] - q[0]).cross(q[3] - q[0]) * 0.5 + (q[2] - q[1]).cross(q[3] - q[1]) * 0.5

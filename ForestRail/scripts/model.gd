@@ -28,11 +28,16 @@ var wind = Wind.new()
 var sail_trim = 0.6
 # Holding (as with the handcar lever): the sail pulls only while the hand holds the free corner or the
 # sheet is made fast on the cleat; let go and it flogs like a flag and pulls nothing.
-const SAIL_GRIP_N = 220.0
-const SAIL_CLEAT_N = 320.0
+# 03.11.2026: the sail was made stronger (a bigger cloth, a firmer grip and cleat)
+const SAIL_GRIP_N = 280.0
+const SAIL_CLEAT_N = 400.0
+const SAIL_AREA_M2 = 8.0
+# Without the gadget the cleat holds the sheet only at these openings; with it, at any
+const SAIL_NOTCHES = [0.0, 0.5, 1.0]
 var sail_held = false
 var sail_cleated = false
 var sail_over = 0.0
+var sail_side = 1   # which side of the car the boom is swung to: 1 the far side, -1 the near side
 var sail_info: Dictionary = {}
 # B1.1: the brake was set by the platform itself, not by the player
 var auto_brake = false
@@ -1453,6 +1458,9 @@ func wind_here(s: float = -9999.0) -> Vector2:
 func set_sail_trim(value: float) -> void:
 	if vehicle_id() == "sail": sail_trim = clampf(value, 0.0, 1.0)
 
+func sail_set_side(value: int) -> void:
+	if vehicle_id() == "sail": sail_side = 1 if value >= 0 else -1
+
 func sail_engaged() -> bool:
 	return sail_held or sail_cleated
 
@@ -1472,6 +1480,12 @@ func sail_cleat() -> void:
 	sail_cleated = true
 	sail_held = false
 	sail_over = 0.0
+	# the plain cleat holds the sheet in its notches; the gadget lets it hold anywhere
+	if not bool(effects("sail").get("sail_any_lock", false)):
+		var nearest = SAIL_NOTCHES[0]
+		for notch in SAIL_NOTCHES:
+			if absf(float(notch) - sail_trim) < absf(float(nearest) - sail_trim): nearest = notch
+		sail_trim = float(nearest)
 	events.append("gear")
 
 # How well the trim suits the angle of the apparent wind: 1 is perfect, 0 is no pull.
@@ -1498,7 +1512,9 @@ func sail_step(dt: float = 1.0 / 60.0) -> float:
 	var apparent = sqrt(ua * ua + uc * uc)
 	var beta = atan2(absf(uc), ua)
 	var quality = sail_quality(beta, sail_trim)
-	var area = 6.0 * float(effects("sail").get("sail_area_multiplier", 1.0))
+	# a boom swung to the windward side is backed by the wind: half the pull. Wind from ahead or behind does not mind the side.
+	if absf(uc) > 0.5 and float(sail_side) * signf(uc) < 0.0: quality *= 0.5
+	var area = SAIL_AREA_M2 * float(effects("sail").get("sail_area_multiplier", 1.0))
 	var pulled = 0.5 * 1.2 * area * apparent * apparent * sail_pull(beta) * (quality if sail_pull(beta) > 0.0 else 1.0)
 	var engaged = sail_engaged()
 	# a sail nobody holds flogs and gives no pull, only a little drag against the way the car goes
@@ -1514,7 +1530,7 @@ func sail_step(dt: float = 1.0 / 60.0) -> float:
 			events.append("land")
 	else:
 		sail_over = maxf(0.0, sail_over - dt)
-	sail_info = {"wind": w, "apparent": apparent, "beta": beta, "quality": quality, "force": force, "pulled": pulled, "engaged": sail_engaged(), "held": sail_held, "cleated": sail_cleated, "trim": sail_trim, "gust": wind.gust_ahead(float(state.s), float(state.stats.seconds))}
+	sail_info = {"wind": w, "apparent": apparent, "beta": beta, "quality": quality, "force": force, "pulled": pulled, "engaged": sail_engaged(), "held": sail_held, "cleated": sail_cleated, "trim": sail_trim, "side": sail_side, "gust": wind.gust_ahead(float(state.s), float(state.stats.seconds))}
 	return force * float(int(state.direction))
 
 # --- Pole truck (N12): the controls only aim, drop, lift and lean on a real pole ---

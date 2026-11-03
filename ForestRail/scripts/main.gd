@@ -49,6 +49,7 @@ var tab = "Рейсы"
 var selected_object = "handcar"
 var pole_press_rel = 0.0
 var sail_cleat_point = Vector2.ZERO   # the screen place of the cleat, where the sheet is made fast
+var sail_side_acc = 0.0   # the hand moving up or down swings the boom to the other side
 var sail_hold = 0.0   # how far behind the mast the boom end is held, metres
 var sail_rect = Rect2()   # where the sail can be taken (B6.4)
 var workshop_hits: Array = []   # B1.2c: the parts of the machine in the workshop that can be pointed at
@@ -1301,7 +1302,7 @@ func update_hud() -> void:
 	elif stop_index >= 0 and model.stopped():
 		hint = "Станция «%s». Перетащи груз для этой станции на площадку внизу." % at_station
 	elif model.vehicle_id() == "sail":
-		hint = "Зажми нижний угол паруса мышью и держи: к мачте — парус раскрыт, назад — ребром. Отпустил — парус полощет и не тянет; отпусти над утёй у кормы (медная скоба) — шкот закреплён. Попутный ветер — раскрой, боковой — наполовину. Тормоз — красный рычаг у носа или клавиша %s."  % key_name("brake")
+		hint = "Зажми нижний угол паруса мышью и держи: к мачте — парус раскрыт, назад — ребром; вверх или вниз — парус на дальний или ближний борт (ветер сбоку наполняет парус на подветренном борту). Отпустил — парус полощет и не тянет; отпусти над утёй у кормы (медная скоба) — шкот закреплён в ближайшей из трёх засечек (с гаджетом — в любом положении). Попутный ветер — раскрой, боковой — наполовину. Тормоз — красный рычаг у носа или клавиша %s."  % key_name("brake")
 	elif model.vehicle_id() == "pole":
 		hint = "Веди мышью — шест следует за ней. Щелчок втыкает его; держи и тяни мышь назад — едешь, вперёд — встаёшь на шест. Отпустил — шест поднят. Красный рычаг — тормоз."
 	elif model.vehicle_id() == "handcar":
@@ -1992,6 +1993,14 @@ func _input(event: InputEvent) -> void:
 			var moved = outer_sail.affine_inverse().basis_xform(event.relative * float(settings.sensitivity)).x / ArtV3.PX * float(int(model.state.direction))
 			if not is_finite(moved): moved = 0.0
 			sail_hold = clampf(sail_hold - moved, 0.0, ArtV3.SAIL_BOOM)
+			# the hand moved down or up: the boom goes to the near or to the far side (with a little play)
+			sail_side_acc = clampf(sail_side_acc + event.relative.y * float(settings.sensitivity), -60.0, 60.0)
+			if sail_side_acc > 40.0 and model.sail_side != -1:
+				model.sail_set_side(-1)
+				notify("Парус на ближний борт")
+			elif sail_side_acc < -40.0 and model.sail_side != 1:
+				model.sail_set_side(1)
+				notify("Парус на дальний борт")
 			model.set_sail_trim(acos(clampf(sail_hold / ArtV3.SAIL_BOOM, 0.0, 1.0)) * 2.0 / PI)
 			get_viewport().set_input_as_handled()
 			return
@@ -2187,6 +2196,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			Input.set_default_cursor_shape(Input.CURSOR_DRAG)
 			# the hand takes the free end of the boom and holds it where it is; only the motion of the mouse moves it
 			model.sail_grab()
+			sail_side_acc = 0.0 if model.sail_side > 0 else 0.0
 			sail_hold = ArtV3.SAIL_BOOM * cos(float(model.sail_trim) * PI * 0.5)
 			get_viewport().set_input_as_handled()
 			return

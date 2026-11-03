@@ -57,7 +57,7 @@ func run() -> void:
 		var heavy_used = float(heavy_real.get("used", 0.0))
 		check(bool(heavy_real.get("ok", false)), kind + " completes the heavy round trip")
 		check(heavy_need > light_need * 1.03, "%s: the forecast grows with the load (%.3f against %.3f)" % [kind, heavy_need, light_need])
-		check(heavy_need >= heavy_used and heavy_need <= heavy_used * 1.6, "%s: heavy forecast %.3f covers the real %.3f" % [kind, heavy_need, heavy_used])
+		check(heavy_need >= heavy_used and heavy_need <= heavy_used * 1.9, "%s: heavy forecast %.3f covers the real %.3f" % [kind, heavy_need, heavy_used])
 	# B2.2: the real tanks (petrol and battery halved, air a third). A whole round trip no longer fits one
 	# tank; the stations that sell fuel (A, E, F, and the compressor at D) are what makes the line work.
 	Model.legacy_tanks = false

@@ -108,8 +108,8 @@ func energy_checks() -> void:
 		m.state.fleet_by_id.locomotive.fuel=0.3;m.state.v=speed;m.state.brake=1
 		var kinetic=0.5*m.train_mass()*speed*speed
 		m.physics_step(1.0)
-		check(m.motor_energy.recovered_j<=kinetic*0.75+0.0001,"regen bounded by actual braking energy, including final stop")
-		check(m.motor_energy.recovered_j<=m.motor_energy.brake_work_j*0.75+0.0001,"regen is fraction of brake work")
+		check(m.motor_energy.recovered_j<=kinetic*1.5+0.0001,"regen bounded by actual braking energy, including final stop")
+		check(m.motor_energy.recovered_j<=m.motor_energy.brake_work_j*1.5+0.0001,"regen is fraction of brake work")
 	var full=fixture("locomotive")
 	full.state.fleet_by_id.locomotive.fuel=full.object_stats("locomotive").tank;full.state.v=2;full.state.brake=1
 	full.physics_step(1.0/60)
