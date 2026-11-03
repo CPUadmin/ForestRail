@@ -469,6 +469,11 @@ func refuel() -> bool:
 	message = "Пополнено за %d монет" % cost if amount >= missing - 0.0001 else "Хватило денег только на часть запаса: %d монет" % cost
 	return true
 
+# How much room is left in the tank (in its own unit); 0 when it is full.
+func tank_missing() -> float:
+	if human_powered(): return 0.0
+	return maxf(0.0, float(object_stats(vehicle_id()).tank) - float(state.fleet_by_id[vehicle_id()].fuel))
+
 func refill_cost() -> int:
 	if creative(): return 0
 	var stats = object_stats(vehicle_id())

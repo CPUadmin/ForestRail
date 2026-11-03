@@ -859,10 +859,12 @@ func build_depot(size: Vector2) -> void:
 	service.size = Vector2(left_width - 25, 50)
 	ui.add_child(service)
 	var refill = model.refill_cost() if not model.human_powered() else 0
-	var refill_text = ({"locomotive": "Зарядить", "pneumatic": "Накачать"}.get(model.vehicle_id(), "Заправить")) + (" · %d монет" % refill if refill > 0 else " · полон")
+	# the button says "full" only when the tank really is full; in the creative mode the refill is free
+	var room = model.tank_missing() > 0.0001
+	var refill_text = ({"locomotive": "Зарядить", "pneumatic": "Накачать"}.get(model.vehicle_id(), "Заправить")) + (" · %d монет" % refill if refill > 0 else (" · бесплатно" if room else " · полон"))
 	add_button(service, refill_text, func():
 		if model.refuel(): save_game(); rebuild(); notify(model.message if model.message != "" else "Запас пополнен"); model.message = ""
-		else: notify(model.message), model.human_powered() or refill <= 0)
+		else: notify(model.message), model.human_powered() or not room)
 	add_button(service, "Улучшить", func(): selected_object = model.vehicle_id(); tab = "Улучшения"; rebuild())
 	if model.state.active.is_empty(): add_button(service, "Просто поехать →", take_free_ride)
 	positioned_label("Нажми на машину или вагон, чтобы выбрать его улучшения.", Rect2(46, size.y - 83, left_width - 30, 60), 17)
@@ -2281,10 +2283,11 @@ func update_cargo_actions(interaction: Dictionary) -> void:
 		var cost=model.refill_cost()
 		var water_short=float(model.object_stats(model.vehicle_id()).water)>0 and offer.services.has("water") and float(model.state.fleet_by_id[model.vehicle_id()].get("water",0))<float(model.object_stats(model.vehicle_id()).water)-0.0001
 		var label=""
-		if model.fuel_service_mult(offer.services)>=0.0: label=({"locomotive":"Зарядить","pneumatic":"Накачать"}.get(model.vehicle_id(),"Заправить"))+(" · %d монет" % cost if cost>0 else " · полон")
+		var room=model.tank_missing()>0.0001
+		if model.fuel_service_mult(offer.services)>=0.0: label=({"locomotive":"Зарядить","pneumatic":"Накачать"}.get(model.vehicle_id(),"Заправить"))+(" · %d монет" % cost if cost>0 else (" · бесплатно" if room else " · полон"))
 		if water_short: label+=(" + " if label!="" else "")+"вода"
 		if label!="":
-			var service_button=add_button(cargo_actions,label,use_station_service,cost<=0 and not water_short)
+			var service_button=add_button(cargo_actions,label,use_station_service,not room and not water_short)
 			service_button.add_theme_font_size_override("font_size",int(18*float(settings.text_scale)))
 
 func use_station_service() -> void:

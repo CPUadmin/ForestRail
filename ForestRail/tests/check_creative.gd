@@ -41,6 +41,8 @@ func run() -> void:
 	var last = m.scaled_mission(m.data.missions[9])
 	check(m.refill_cost() == 0, "fuel costs nothing")
 	m.state.fleet_by_id.locomotive.fuel = 0.01
+	m.state.fleet_by_id.locomotive.fuel = 0.2
+	check(m.refill_cost() == 0 and m.tank_missing() > 0.5, "in the creative mode the refill costs nothing, but the tank is not full (so the button must work)")
 	check(m.refuel() and float(m.state.fleet_by_id.locomotive.fuel) >= float(m.object_stats("locomotive").tank) - 0.0001 and int(m.state.money) >= 1000000, "refuelling fills the tank for nothing")
 	check(load_and_go(m, last), "the last career order can be taken first, with a machine of its own class")
 	come_home(m, 1000)
