@@ -1301,5 +1301,349 @@
     "W01": 200,
     "W02": 350,
     "W03": 600
+  },
+  "casino": {
+    "cards_only": false,
+    "spin_cost": 5,
+    "pity_max": 500,
+    "pity_per_spin": 1,
+    "pity_per_trip": 1,
+    "pity_per_trip_hard": 1,
+    "card_bias": 0.6,
+    "streak_step": 0.0005,
+    "streak_cap": 0.003,
+    "dupe_tokens": 40,
+    "coin_min": 100,
+    "coin_max": 200,
+    "sectors": [
+      {
+        "id": "empty",
+        "kind": "empty",
+        "weight": 326,
+        "tokens": 0
+      },
+      {
+        "id": "tokens1",
+        "kind": "tokens",
+        "weight": 200,
+        "tokens": 5
+      },
+      {
+        "id": "tokens2",
+        "kind": "tokens",
+        "weight": 100,
+        "tokens": 10
+      },
+      {
+        "id": "junk",
+        "kind": "junk",
+        "weight": 160,
+        "tokens": 0
+      },
+      {
+        "id": "coins",
+        "kind": "coins",
+        "weight": 100,
+        "tokens": 0
+      },
+      {
+        "id": "repair",
+        "kind": "repair",
+        "weight": 65,
+        "tokens": 0
+      },
+      {
+        "id": "golden",
+        "kind": "golden",
+        "weight": 35,
+        "tokens": 0
+      },
+      {
+        "id": "bonus",
+        "kind": "bonus",
+        "weight": 12,
+        "tokens": 0
+      },
+      {
+        "id": "card",
+        "kind": "card",
+        "weight": 2,
+        "tokens": 0
+      }
+    ],
+    "junk": [
+      {
+        "id": "rusty_bolt",
+        "name": "Ржавый болт",
+        "tokens": 1,
+        "coins": 2,
+        "kind": "track",
+        "machine": ""
+      },
+      {
+        "id": "track_spike",
+        "name": "Путевой костыль",
+        "tokens": 2,
+        "coins": 4,
+        "kind": "track",
+        "machine": ""
+      },
+      {
+        "id": "fishplate",
+        "name": "Стыковая накладка",
+        "tokens": 3,
+        "coins": 6,
+        "kind": "track",
+        "machine": ""
+      },
+      {
+        "id": "tie_plate",
+        "name": "Подкладка",
+        "tokens": 2,
+        "coins": 4,
+        "kind": "track",
+        "machine": ""
+      },
+      {
+        "id": "brake_shoe",
+        "name": "Тормозной башмак",
+        "tokens": 4,
+        "coins": 8,
+        "kind": "track",
+        "machine": ""
+      },
+      {
+        "id": "rail_clip",
+        "name": "Клемма",
+        "tokens": 3,
+        "coins": 6,
+        "kind": "track",
+        "machine": ""
+      },
+      {
+        "id": "bearing_cover",
+        "name": "Буксовая крышка",
+        "tokens": 5,
+        "coins": 10,
+        "kind": "track",
+        "machine": ""
+      },
+      {
+        "id": "lever_bolt",
+        "name": "Болт от рычага",
+        "tokens": 1,
+        "coins": 2,
+        "kind": "machine",
+        "machine": "handcar"
+      },
+      {
+        "id": "pole_tip",
+        "name": "Кончик шеста",
+        "tokens": 2,
+        "coins": 4,
+        "kind": "machine",
+        "machine": "pole"
+      },
+      {
+        "id": "sail_block",
+        "name": "Блок и тросик",
+        "tokens": 2,
+        "coins": 4,
+        "kind": "machine",
+        "machine": "sail"
+      },
+      {
+        "id": "grate_bar",
+        "name": "Колосник",
+        "tokens": 3,
+        "coins": 6,
+        "kind": "machine",
+        "machine": "steam"
+      },
+      {
+        "id": "spark_plug",
+        "name": "Свеча",
+        "tokens": 3,
+        "coins": 6,
+        "kind": "machine",
+        "machine": "motorcar"
+      },
+      {
+        "id": "seal",
+        "name": "Сальник",
+        "tokens": 2,
+        "coins": 4,
+        "kind": "machine",
+        "machine": "pneumatic"
+      },
+      {
+        "id": "brush",
+        "name": "Щётка",
+        "tokens": 3,
+        "coins": 6,
+        "kind": "machine",
+        "machine": "locomotive"
+      },
+      {
+        "id": "golden_bolt",
+        "name": "Золочёный болт",
+        "tokens": 20,
+        "coins": 40,
+        "kind": "rare",
+        "machine": ""
+      },
+      {
+        "id": "stationmaster_watch",
+        "name": "Часы стрелочника",
+        "tokens": 12,
+        "coins": 24,
+        "kind": "rare",
+        "machine": ""
+      },
+      {
+        "id": "cracked_lantern",
+        "name": "Фонарь с трещиной",
+        "tokens": 8,
+        "coins": 16,
+        "kind": "rare",
+        "machine": ""
+      },
+      {
+        "id": "mikhalych_seal",
+        "name": "Печать Михалыча",
+        "tokens": 50,
+        "coins": 100,
+        "kind": "rare",
+        "machine": ""
+      }
+    ],
+    "cards": [
+      {
+        "id": "fool",
+        "arcana": "0",
+        "name": "Шут",
+        "upgrade": "pole_pogo",
+        "machine": "pole"
+      },
+      {
+        "id": "magician",
+        "arcana": "I",
+        "name": "Маг",
+        "upgrade": "steam_stoker",
+        "machine": "steam"
+      },
+      {
+        "id": "priestess",
+        "arcana": "II",
+        "name": "Верховная жрица",
+        "upgrade": "sail_autopilot",
+        "machine": "sail"
+      },
+      {
+        "id": "empress",
+        "arcana": "III",
+        "name": "Императрица",
+        "upgrade": "pneumatic_spare_tank",
+        "machine": "pneumatic"
+      },
+      {
+        "id": "emperor",
+        "arcana": "IV",
+        "name": "Император",
+        "upgrade": "motorcar_automatic",
+        "machine": "motorcar"
+      },
+      {
+        "id": "hierophant",
+        "arcana": "V",
+        "name": "Иерофант",
+        "upgrade": "pneumatic_auto_reducer",
+        "machine": "pneumatic"
+      },
+      {
+        "id": "lovers",
+        "arcana": "VI",
+        "name": "Влюблённые",
+        "upgrade": "handcar_ratchet",
+        "machine": "handcar"
+      },
+      {
+        "id": "chariot",
+        "arcana": "VII",
+        "name": "Колесница",
+        "upgrade": "locomotive_supercap",
+        "machine": "locomotive"
+      },
+      {
+        "id": "strength",
+        "arcana": "VIII",
+        "name": "Сила",
+        "upgrade": "motorcar_nitro",
+        "machine": "motorcar"
+      },
+      {
+        "id": "hermit",
+        "arcana": "IX",
+        "name": "Отшельник",
+        "upgrade": "zeppelin_trim",
+        "machine": "zeppelin"
+      },
+      {
+        "id": "wheel",
+        "arcana": "X",
+        "name": "Колесо Фортуны",
+        "upgrade": "handcar_flywheel",
+        "machine": "handcar"
+      },
+      {
+        "id": "justice",
+        "arcana": "XI",
+        "name": "Справедливость",
+        "upgrade": "locomotive_cooling",
+        "machine": "locomotive"
+      },
+      {
+        "id": "hanged",
+        "arcana": "XII",
+        "name": "Повешенный",
+        "upgrade": "pole_grapnel",
+        "machine": "pole"
+      },
+      {
+        "id": "death",
+        "arcana": "XIII",
+        "name": "Смерть",
+        "upgrade": "jet_double_chute",
+        "machine": "jet"
+      },
+      {
+        "id": "temperance",
+        "arcana": "XIV",
+        "name": "Умеренность",
+        "upgrade": "steam_superheater",
+        "machine": "steam"
+      },
+      {
+        "id": "devil",
+        "arcana": "XV",
+        "name": "Дьявол",
+        "upgrade": "jet_afterburner",
+        "machine": "jet"
+      },
+      {
+        "id": "tower",
+        "arcana": "XVI",
+        "name": "Башня",
+        "upgrade": "sail_spinnaker",
+        "machine": "sail"
+      },
+      {
+        "id": "star",
+        "arcana": "XVII",
+        "name": "Звезда",
+        "upgrade": "zeppelin_flaps",
+        "machine": "zeppelin"
+      }
+    ]
   }
 }

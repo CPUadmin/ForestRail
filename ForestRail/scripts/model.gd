@@ -5,6 +5,7 @@ const StationInteraction = preload("res://scripts/station_interaction.gd")
 const HandcarMechanism = preload("res://scripts/handcar_mechanism.gd")
 const HandcarDrive = preload("res://scripts/handcar_drive.gd")
 const Pole = preload("res://scripts/pole.gd")
+const Casino = preload("res://scripts/casino.gd")
 const Wind = preload("res://scripts/wind.gd")
 const G = 9.81
 const BUFFER_SAFE_SPEED = 1.0
@@ -407,7 +408,11 @@ func _claim_consist() -> void:
 		for wagon in state.consist_ids: stored.erase(wagon)
 		state.fleet_by_id[id].consist = stored
 
-func upgrade(id: String, branch_id: String) -> bool:
+# The casino (bolts, tokens, the wheel, the cards of the gadgets): a short-lived helper over the state.
+func casino() -> Object:
+	return Casino.new(self)
+
+func upgrade(id: String, branch_id: String, via_card: bool = false) -> bool:
 	if not depot_editable() or object_state(id).is_empty():
 		return fail("Улучшения доступны в депо до погрузки")
 	for branch in data.upgrade_catalog:
@@ -415,6 +420,8 @@ func upgrade(id: String, branch_id: String) -> bool:
 			continue
 		if branch.target_type != ("wagon" if id.begins_with("W") else id):
 			return fail("Это улучшение другой машины")
+		if branch.get("gadget", false) and bool(data.casino.cards_only) and not via_card:
+			return fail("Гаджет выбивается только в лудке: найди карточку в казике")
 		var object = object_state(id)
 		var lv = int(object.levels.get(branch_id, 0))
 		if lv >= int(branch.get("levels", 2)):
@@ -980,6 +987,7 @@ func settle() -> bool:
 	state.stats.earned += maxi(0, reward)
 	if not creative() and not (late and story): state.paid_ids.append(id)
 	state.active.paid = true
+	if not late and not creative(): casino().trip_done(bool(state.active.get("night_start", false)) or rain_effect() > 0.3)
 	if not state.active.get("free", false) and not creative() and not late:
 		state.completed_ids.append(id)
 		state.chapter = mini(int(state.chapter) + 1, 10)
@@ -1792,6 +1800,8 @@ func physics_step(dt: float) -> void:
 	update_air(dt, float(state.s) - movement)
 	update_auto_hold()
 	state.stats.distance += absf(movement)
+	var travelled = state.fleet_by_id[vehicle_id()]
+	travelled.km = float(travelled.get("km", 0.0)) + absf(movement) / 1000.0   # for the wheel, which favours the machine driven most
 	rail_distance += absf(movement)
 	# Bound the head so that every trailing body remains on the shared curve.
 	var rear_span = body_offset(body_ids().size()-1)
@@ -1920,6 +1930,7 @@ func restore(saved: Dictionary) -> bool:
 	if not state.active.is_empty(): state.active.origin_station_id=state.active.get("origin_station_id","A")
 	route.restore(state.route, data.stations)
 	state.erase("route")
+	casino().migrate()
 	pump_angle = float(state.get("pump_angle", 0))
 	handcar = HandcarMechanism.new()
 	hand_drive = HandcarDrive.new()
