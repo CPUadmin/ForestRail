@@ -1083,11 +1083,24 @@ func build_upgrades(right: VBoxContainer) -> void:
 		var levels = int(branch.get("levels", 2))
 		var gadget = bool(branch.get("gadget", false))
 		var c = card(right, GOLD if str(branch.id) == workshop_branch else (GREEN if lv >= levels else (Color("c9a24e") if gadget else CARD_EDGE)))
-		if gadget: gadget_icon(c, str(branch.id))
+		var tarot = model.casino().card_for_upgrade(str(branch.id)) if gadget else {}
+		if not tarot.is_empty(): gadget_icon(c, str(tarot.id))
 		add_label(c, ("ГАДЖЕТ  ·  %s  ·  %s" % [name, "● установлен" if lv >= 1 else "○"]) if gadget else ("%s  ·  %s" % [name, ["○ ○", "● ○", "● ●"][lv]]), 22)
 		if lv < levels:
 			var preview = upgrade_preview(selected_object, branch)
 			add_label(c, preview, 17, MUTED_INK)
+			if not tarot.is_empty():
+				var card_id = str(tarot.id)
+				if model.casino().card_owned(card_id):
+					add_button(c, "Установить по карте", func():
+						if model.casino().install(card_id):
+							save_game()
+							rebuild()
+						else:
+							notify("Гаджет можно установить в депо до погрузки"), not model.depot_editable())
+					continue
+				add_label(c, "Карта ещё не найдена", 17, MUTED_INK)
+			if gadget and bool(model.data.casino.cards_only): continue
 			var cost = int(branch.level_costs[lv])
 			add_button(c, ("Установить гаджет · %d монет" % cost) if gadget else ("Улучшить до %s · %d монет" % ["I" if lv == 0 else "II", cost]), func():
 				var id = selected_object
@@ -1102,22 +1115,28 @@ func build_upgrades(right: VBoxContainer) -> void:
 						if model.upgrade(id, branch.id, false, true): save_game(); rebuild()
 						else: notify(model.message)))
 		else:
-			add_label(c, "Максимальный уровень", 17, GREEN)
+			if not tarot.is_empty() and str(tarot.id) in model.casino().st().installed:
+				var card_id = str(tarot.id)
+				add_button(c, "Снять карту", func():
+					if model.casino().uninstall(card_id):
+						save_game()
+						rebuild()
+					else:
+						notify("Гаджет можно снять в депо до погрузки"), not model.depot_editable())
+			elif not gadget:
+				add_label(c, "Максимальный уровень", 17, GREEN)
 
 # the picture of a gadget (the same one as on the back of its Tarot card) above its card in the workshop
-func gadget_icon(box: VBoxContainer, upgrade_id: String) -> void:
-	for card_def in model.data.casino.cards:
-		if str(card_def.upgrade) != upgrade_id: continue
-		var path = "res://assets/art_kazik/gadget_icons/%s.png" % str(card_def.id)
-		if not ResourceLoader.exists(path): return
-		var icon = TextureRect.new()
-		icon.texture = load(path)
-		icon.custom_minimum_size = Vector2(72, 72)
-		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		box.add_child(icon)
-		return
+func gadget_icon(box: VBoxContainer, card_id: String) -> void:
+	var path = "res://assets/art_kazik/gadget_icons/%s.png" % card_id
+	if not ResourceLoader.exists(path): return
+	var icon = TextureRect.new()
+	icon.texture = load(path)
+	icon.custom_minimum_size = Vector2(72, 72)
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.add_child(icon)
 
 # B6.11 c: the receiving desk: the bag with the price of every kind, sell one or all, or all the common ones at once.
 func build_receiving(box: VBoxContainer) -> void:

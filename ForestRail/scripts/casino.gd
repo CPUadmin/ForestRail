@@ -134,6 +134,11 @@ func card_available(card: Dictionary) -> bool:
 func card_owned(id: String) -> bool:
 	return id in st().cards
 
+func card_for_upgrade(upgrade_id: String) -> Dictionary:
+	for card in cfg().cards:
+		if str(card.upgrade) == upgrade_id: return card
+	return {}
+
 func unowned_available() -> Array:
 	var result: Array = []
 	for card in cfg().cards:
@@ -255,15 +260,18 @@ func spin() -> Dictionary:
 # ---- putting a card on the machine (the only way to get a gadget)
 
 func install(card_id: String) -> bool:
+	if not m.depot_editable(): return false
 	var card = card_def(card_id)
 	if card.is_empty() or not card_owned(card_id) or not card_available(card): return false
 	var machine = str(card.machine)
 	if not m.state.fleet_by_id.has(machine): return false
+	if int(m.object_state(machine).levels.get(str(card.upgrade), 0)) > 0: return false
 	m.object_state(machine).levels[str(card.upgrade)] = 1
 	if not card_id in st().installed: st().installed.append(card_id)
 	return true
 
 func uninstall(card_id: String) -> bool:
+	if not m.depot_editable(): return false
 	var card = card_def(card_id)
 	if card.is_empty() or not card_id in st().installed: return false
 	var machine = str(card.machine)
