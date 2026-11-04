@@ -4,11 +4,15 @@
 import os
 import re
 import sys
-from PIL import Image
+from PIL import Image, ImageEnhance
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC = os.path.join(ROOT, "tools", "art_sources", "inbox", "P10_tarot_cards")
 DST = os.path.join(ROOT, "ForestRail", "assets", "art_kazik", "cards")
+# приглушаем картины GPT: они слишком яркие и насыщенные для тёмного казино (решение владельца 04.11.2026)
+SATURATION = 0.80
+BRIGHTNESS = 0.90
+CONTRAST = 1.04
 ALIAS = {"wheel_of_fortune": "wheel", "hanged_man": "hanged"}
 
 os.makedirs(DST, exist_ok=True)
@@ -20,6 +24,9 @@ for name in sorted(os.listdir(SRC)):
     cid = ALIAS.get(m.group(2), m.group(2))
     im = Image.open(os.path.join(SRC, name)).convert("RGB")
     im.thumbnail((900, 900), Image.LANCZOS)
+    im = ImageEnhance.Color(im).enhance(SATURATION)
+    im = ImageEnhance.Brightness(im).enhance(BRIGHTNESS)
+    im = ImageEnhance.Contrast(im).enhance(CONTRAST)
     im.save(os.path.join(DST, cid + ".png"), optimize=True)
     done.append("%s (%dx%d)" % (cid, im.width, im.height))
 print("карточек: %d: %s" % (len(done), ", ".join(done)))
