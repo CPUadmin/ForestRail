@@ -128,13 +128,26 @@ func draw_day_night(canvas: Node2D, size: Vector2) -> void:
 	# the headlamp of the lead machine: a warm cone ahead, when it is lit
 	if not game.lights_lit(): return
 	lit = clampf(0.55 + night * 0.45, 0.0, 1.0)
-	var dir = float(int(model.state.direction))
-	var front = game.world_point(float(model.state.s)) + Vector2(dir * 1.9 * art.PX * sc, -0.9 * art.PX * sc)
-	var far = 11.0 * art.PX * sc
-	var beam = Color(1.0, 0.88, 0.55, 0.36 * lit)
-	var fade = Color(beam, 0.0)
-	canvas.draw_polygon(PackedVector2Array([front, front + Vector2(dir * far, -2.2 * art.PX * sc), front + Vector2(dir * far, 2.6 * art.PX * sc)]), PackedColorArray([beam, fade, fade]))
-	glow(canvas, front, Vector2(0.7, 0.5) * art.PX * sc, Color(1.0, 0.9, 0.6, 0.6 * lit))
+	var id: String = model.vehicle_id()
+	var body: Transform2D = game.body_transform(id, model.body_s_render(0))
+	var front = body * art.headlamp_point(id)
+	var forward = body.x.normalized()
+	var down = Vector2.DOWN
+	var unit = art.PX * sc
+	var centers = [front, front + (forward * 2.8 + down * 0.35) * unit, front + (forward * 8.0 + down * 0.85) * unit]
+	var widths = [0.035, 0.64, 1.45]
+	var color = Color(1.0, 0.88, 0.55, 0.32 * lit)
+	var colors = [color, Color(color, 0.13 * lit), Color(color, 0.0)]
+	for i in range(2):
+		for side in [-1, 1]:
+			var a: Vector2 = centers[i]
+			var b: Vector2 = centers[i + 1]
+			var far_edge = b + down * float(widths[i + 1]) * unit * side
+			var near_edge = a + down * float(widths[i]) * unit * side
+			canvas.draw_polygon(PackedVector2Array([a, b, far_edge, near_edge]), PackedColorArray([colors[i], colors[i + 1], Color(color, 0.0), Color(color, 0.0)]))
+	var ground = game.world_point(float(model.body_s_render(0)) + float(model.state.direction) * 4.3)
+	glow(canvas, ground, Vector2(1.9, 0.16) * unit, Color(1.0, 0.88, 0.55, 0.17 * lit))
+	glow(canvas, front, Vector2(0.28, 0.24) * unit, Color(1.0, 0.9, 0.6, 0.72 * lit))
 
 # B4.2: clouds, rain and fog over a rectangle of the screen (the world, or the glass of the cab).
 func draw_weather(canvas: CanvasItem, rect: Rect2, weather: Dictionary, time: float, calm: bool = false) -> void:

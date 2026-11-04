@@ -169,7 +169,9 @@ func run() -> void:
 	prepare("motorcar",5)
 	for control in ["brake","throttle"]:
 		var g = game.lever_geometry(control)
-		check(absf(g.pivot.distance_to(g.grip)/96-float(Geometry.data().controls[control+"_length_m"]))<0.001,"physical handle length "+control)
+		var length_key = control + "_length_m"
+		var expected_length = Geometry.body("motorcar").get(length_key, Geometry.data().controls[length_key])
+		check(absf(g.pivot.distance_to(g.grip)/96-float(expected_length))<0.001,"physical handle length "+control)
 	prepare("handcar",0)
 	var sheet = ScaleSheet.new()
 	sheet.game = game
@@ -228,13 +230,27 @@ func run() -> void:
 			game.zoom_level = zoom
 			for tick in range(20): game.model.physics_step(1.0/60)
 			await shot(vehicle+"_zoom_"+str(zoom))
+			for id in game.model.body_ids():
+				var previous_end = -INF
+				for local_box in game.cargo_layout(id):
+					check(is_equal_approx(local_box.end.y, game.art.deck_y(id)), "cargo contacts deck " + id)
+					check(local_box.position.x >= previous_end, "cargo boxes do not overlap " + id)
+					var half_width = game.art.body_width(id) * 0.5
+					check(local_box.position.x >= -half_width and local_box.end.x <= half_width, "cargo fits deck " + id)
+					previous_end = local_box.end.x
 			for item in game.model.state.cargo:
 				var box = game.cargo_visuals[item.id]
 				var sprite = game.model.cargo_base(item.type).sprite
-				var size = game.art.cargo_size(sprite,box.size.x/box.size.y)
 				check(box.size.x>20 and box.size.y>20,"visible load "+str(item.id))
-				var expected = game.art.cargo_size(sprite,float(game.visual_layout[sprite][2])/float(game.visual_layout[sprite][3]))
-				check((box.size-Vector2.ONE*8).distance_to(expected*zoom)<1,"cargo dimensions at zoom "+str(zoom))
+				var slot = str(item.slot).split(":")
+				var local_box = game.cargo_layout(slot[0])[int(slot[1])]
+				var bounds = game.visual_layout[sprite]
+				var ratio = float(bounds[2] - bounds[0]) / float(bounds[3] - bounds[1])
+				var nominal = game.art.cargo_size(sprite, ratio)
+				check(is_equal_approx(local_box.size.aspect(), nominal.aspect()) and local_box.size.y <= nominal.y, "cargo preserves sprite proportions")
+				var body_index = game.model.body_ids().find(slot[0])
+				var outer = game.body_transform(slot[0], game.model.body_s_render(body_index))
+				check(box.is_equal_approx((outer * local_box).grow(4)), "cargo hitbox matches load at zoom " + str(zoom))
 			var controls = game.world_control_ids()
 			for id in controls:
 				var point = grip(id)

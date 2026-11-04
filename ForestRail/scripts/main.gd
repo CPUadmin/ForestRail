@@ -854,7 +854,8 @@ func build_depot(size: Vector2) -> void:
 		elif model.vehicle_id() == "handcar":
 			details += "\nРучной привод · без топлива\nМаховик сохраняет накат"
 		else:
-			details += "\nПередачи R / N / 1–5 · до %.0f км/ч\n" % model.top_speed_kmh() + energy_text() + "\n" + forecast_line(model.current_mission())
+			var drive = {"motorcar":"Передачи R / N / 1–5","steam":"Паровой вентиль","pneumatic":"Воздушный вентиль","locomotive":"Регулятор электротяги"}
+			details += "\n%s · до %.0f км/ч\n" % [drive[model.vehicle_id()], model.top_speed_kmh()] + energy_text() + "\n" + forecast_line(model.current_mission())
 		var details_y = maxf(info_top + 88, info_top + 7 + line_height(32) + 6)
 		var details_lines = wrapped_lines(details, left_width - 20, 19)
 		positioned_label(details, Rect2(46, details_y, left_width - 20, maxf(105, details_lines * line_height(19))), 19)
@@ -873,6 +874,7 @@ func build_depot(size: Vector2) -> void:
 			if model.refuel(): save_game(); rebuild(); notify(model.message if model.message != "" else "Запас пополнен"); model.message = ""
 			else: notify(model.message), not room)
 	add_button(service, "Улучшить", func(): selected_object = model.vehicle_id(); tab = "Улучшения"; rebuild())
+	add_button(service, "Приёмка (%d)" % model.casino().bolt_total(), func(): show_modal("receiving"))
 	if model.state.active.is_empty(): add_button(service, "Просто поехать →", take_free_ride)
 	positioned_label("Нажми на машину или вагон, чтобы выбрать его улучшения.", Rect2(46, size.y - 83, left_width - 30, 60), 17)
 
@@ -1014,8 +1016,57 @@ func build_upgrades(right: VBoxContainer) -> void:
 				confirm("%s: %s\nЦена %d. Останется %d монет." % [id, preview, cost, maxi(0, int(model.state.money) - cost)], func():
 					if model.upgrade(id, branch.id): save_game(); rebuild()
 					else: notify(model.message)))
+			var plan = model.casino().bolt_plan(cost)
+			if not gadget and int(plan.count) > 0:
+				add_button(c, "Доплатить болтами · %d монет + %d болтов" % [cost - int(plan.coins), int(plan.count)], func():
+					var id = selected_object
+					confirm("%s: %s\nПлатишь %d монет и %d болтов вместо %d монет." % [id, preview, cost - int(plan.coins), int(plan.count), cost], func():
+						if model.upgrade(id, branch.id, false, true): save_game(); rebuild()
+						else: notify(model.message)))
 		else:
 			add_label(c, "Максимальный уровень", 17, GREEN)
+
+# B6.11 c: the receiving desk: the bag with the price of every kind, sell one or all, or all the common ones at once.
+func build_receiving(box: VBoxContainer) -> void:
+	var casino = model.casino()
+	add_label(box, "Приёмка болтов", 34)
+	add_label(box, "Монет: %d · жетонов: %d\nПлатит мало: болты лучше беречь для ремонта, улучшений и лудки." % [int(model.state.money), casino.tokens()], 19)
+	var bag = casino.bag()
+	if bag.is_empty(): add_label(box, "В мешке пусто. Болты находят на дороге: у рельса блестит, а рейс приносит хлам.", 21)
+	for entry in bag:
+		var id = str(entry.id)
+		var rare = str(entry.kind) == "rare"
+		var line = HBoxContainer.new()
+		line.add_theme_constant_override("separation", 8)
+		box.add_child(line)
+		var label = add_label(line, "%s ×%d" % [entry.name, int(entry.count)], 20)
+		label.custom_minimum_size.x = 330
+		var each = add_label(line, "по %d" % int(entry.coins), 18, MUTED_INK)
+		each.custom_minimum_size.x = 70
+		add_button(line, "Продать 1", func(): sell_bolts(id, 1, rare))
+		add_button(line, "Все · %d монет" % (int(entry.coins) * int(entry.count)), func(): sell_bolts(id, model.casino().junk_count(id), rare))
+	var common = 0
+	for entry in bag:
+		if str(entry.kind) != "rare": common += int(entry.coins) * int(entry.count)
+	if common > 0:
+		add_button(box, "Продать всё обычное · %d монет (редкое останется)" % common, func():
+			var got = model.casino().sell_common_here()
+			notify("Продано: +%d монет" % got if got > 0 else model.message)
+			save_game()
+			rebuild())
+	add_button(box, "Закрыть", close_modal)
+
+func sell_bolts(id: String, count: int, rare: bool) -> void:
+	var def = model.casino().junk_def(id)
+	var action = func():
+		var got = model.casino().sell_here(id, count)
+		notify("Продано: +%d монет" % got if got > 0 else model.message)
+		save_game()
+		rebuild()
+	if rare:
+		confirm("%s стоит %d жетонов в казике, а здесь дают %d монет. Продать?" % [def.name, int(def.tokens), int(def.coins) * count], action)
+	else:
+		action.call()
 
 # B5.6: the window "Состояние": the nodes of the chosen machine or wagon with their bars, and the ways to mend them.
 func wear_color(value: float) -> Color:
@@ -1693,11 +1744,12 @@ func world_control_ids() -> Array:
 # A forged lever: mounting plate, brass pivot, tapered steel arm with a collar and
 # an enamel ball grip. Drawn in the local frame of `base`, hinged at `pivot`.
 func draw_lever(base: Transform2D, pivot: Vector2, length: float, angle: float, knob: Color, active: bool) -> void:
-	draw_set_transform_matrix(base * Transform2D(angle, pivot))
 	var w = clampf(length * 0.06, 2.0, 5.0)
+	draw_set_transform_matrix(base * Transform2D(0.0, pivot))
 	var plate = Rect2(Vector2(-w * 2.6, -w * 0.6), Vector2(w * 5.2, w * 2.6))
 	draw_rect(plate, Color("2b3430"))
 	draw_rect(plate, Color("918363"), false, 1.0)
+	draw_set_transform_matrix(base * Transform2D(angle, pivot))
 	var arm = PackedVector2Array([Vector2(-w, 0), Vector2(w, 0), Vector2(w * 0.55, -length), Vector2(-w * 0.55, -length)])
 	draw_colored_polygon(arm, Color("8d9a98"))
 	draw_line(Vector2(-w * 0.45, -2), Vector2(-w * 0.3, -length + 2), Color("d6dedb"), 1.2, true)
@@ -1850,6 +1902,8 @@ func build_modal(size: Vector2) -> void:
 				show_modal("result")
 			else: rebuild()))
 		add_button(box, "В главное меню", func(): save_game(); screen = "menu"; close_modal())
+	elif modal_kind == "receiving":
+		build_receiving(box)
 	elif modal_kind == "settings":
 		build_settings(box)
 	elif modal_kind == "help":
@@ -2440,7 +2494,7 @@ func update_cargo_actions(interaction: Dictionary) -> void:
 		if cargo.id==selected_cargo and not cargo.delivered and cargo.slot!="": item=cargo
 	var available=not item.is_empty() and interaction.can_transfer and (interaction.station_id=="A" or selected_cargo in interaction.eligible)
 	var offer=model.service_offer()
-	var key=selected_cargo+str(available)+str(item.is_empty())+str(offer.get("station",""))+str(model.refill_cost())+str(roundi(float(model.state.money)))
+	var key=selected_cargo+str(available)+str(item.is_empty())+str(offer.get("station",""))+str(model.refill_cost())+str(roundi(float(model.state.money)))+str(model.casino().bolt_total())
 	if key==cargo_action_key: return
 	cargo_action_key=key
 	clear_children(cargo_actions)
@@ -2460,6 +2514,12 @@ func update_cargo_actions(interaction: Dictionary) -> void:
 		if label!="":
 			var service_button=add_button(cargo_actions,label,use_station_service,not room and not water_short)
 			service_button.add_theme_font_size_override("font_size",int(18*float(settings.text_scale)))
+	if interaction.can_transfer and model.casino().receiving_possible() and model.casino().bolt_total() > 0:
+		var desk_button=add_button(cargo_actions,"Приёмка болтов (%d)" % model.casino().bolt_total(),use_station_receiving_button)
+		desk_button.add_theme_font_size_override("font_size",int(18*float(settings.text_scale)))
+
+func use_station_receiving_button() -> void:
+	show_modal("receiving")
 
 func use_station_service() -> void:
 	if model.refuel():
@@ -3376,7 +3436,7 @@ func draw_cab_gauges(size: Vector2, layout: Dictionary) -> void:
 		draw_round_gauge(Vector2(pult.end.x + 36.0 + radius + 8.0, y), radius, amount / float(stats.tank), "БЕНЗИН", "%.2f л" % amount, low_bad, 4, ["0", "", "1/2", "", "П"])
 	elif kind == "pneumatic":
 		draw_round_gauge(Vector2(left + radius * 1.1, y), radius, amount / float(stats.tank), "ДАВЛЕНИЕ", "%.0f бар" % amount, [[0.4, Color("e0564a")], [0.7, Color("e6b34a")], [1.0, Color("5cc17f")]], 10, [0, int(stats.tank * 0.2), int(stats.tank * 0.4), int(stats.tank * 0.6), int(stats.tank * 0.8), int(stats.tank)])
-		draw_round_gauge(Vector2(right - radius * 0.9, y), radius, model.frost(), "ИНЕЙ", "%d%%" % roundi(model.frost() * 100.0), [[0.3, Color("5cc17f")], [0.6, Color("e6b34a")], [1.0, Color("e0564a")]], 4, ["0", "", "1/2", "", "П"])
+		draw_round_gauge(Vector2(right - radius * 0.9, y), radius, model.frost(), "ИНЕЙ", "%d%%" % roundi(model.frost() * 100.0), [[0.3, Color("5cc17f")], [0.6, Color("e6b34a")], [1.0, Color("e0564a")]], 4, ["0", "", "50", "", "100"])
 	elif kind == "steam":
 		var work = float(model.boiler_cfg().work_pressure_bar) / float(model.boiler_cfg().max_pressure_bar)
 		draw_round_gauge(Vector2(left + radius * 1.1, y), radius, float(model.boiler().pressure), "ДАВЛЕНИЕ", "%.1f бар" % model.pressure_bar(), [[work, Color("e6b34a")], [0.9, Color("5cc17f")], [1.0, Color("e0564a")]], 10, [0, 2, 4, 6, 8, 10])
@@ -3713,48 +3773,51 @@ func body_transform(id: String, s: float) -> Transform2D:
 func draw_coupler(a: Vector2, b: Vector2) -> void:
 	var tex = art.textures["vehicles/coupler"]
 	var span = a.distance_to(b)
-	var height = span*float(tex.get_height())/float(tex.get_width())
+	var height = maxf(5.0 * view_scale(), span * float(tex.get_height()) / float(tex.get_width()))
 	draw_set_transform((a+b)*0.5,(b-a).angle())
+	draw_line(Vector2(-span * 0.5, 0), Vector2(span * 0.5, 0), Color("3d3427"), height * 0.72, true)
 	draw_texture_rect(tex,Rect2(-span*0.5,-height*0.5,span,height),false)
+	for end in [-1, 1]:
+		var mount = Vector2(end * (span * 0.5 - minf(2.0, span * 0.25)), 0)
+		draw_circle(mount, height * 0.44, Color("5a503c"))
+		draw_circle(mount, height * 0.23, Color("ba9e67"))
 	draw_set_transform_matrix(Transform2D.IDENTITY)
 
 func draw_body(id: String, s: float, controls: bool) -> void:
-	var body_scale = view_scale()
-	var body_transform = body_transform(id,s)
-	var air_height = float(model.air_z) if screen == "game" else 0.0   # B5.5: the shadow stays on the rail, smaller and paler in the air
+	var outer = body_transform(id, s)
+	var air_height = float(model.air_z) if screen == "game" else 0.0
 	ellipse(Vector2(10, 7 + air_height * ArtV3.PX), Vector2(art.body_width(id)*0.48/(1.0 + air_height * 0.8), 7.0/(1.0 + air_height * 0.8)), Color(0.05, 0.08, 0.05, 0.23/(1.0 + air_height * 1.5)))
-	art.draw_vehicle(self,id,s,int(model.state.direction) if screen!="depot" else 1,body_transform,model,controls)
-	if id=="locomotive" and screen=="game": draw_charge_strip(body_transform)
-	var stats = model.object_stats(id)
-	for index in range(int(stats.slots)):
-		var loc = slot_local(id, index)
+	art.draw_vehicle(self, id, s, int(model.state.direction) if screen != "depot" else 1, outer, model, controls, {}, false)
+	if not id.begins_with("W"): art.draw_added_headlamp(self, id)
+	if id == "locomotive" and screen == "game": draw_charge_strip(outer)
+	var boxes = cargo_layout(id)
+	for index in range(boxes.size()):
+		var box: Rect2 = boxes[index]
 		var key = id + ":" + str(index)
 		var item = find_slot_cargo(key)
-		var slot_hover=(body_transform*loc).distance_to(get_global_mouse_position())<45
-		if controls and item.is_empty() and (screen=="depot" or model.state.phase=="loading" or drag=="cargo" or slot_hover):
-			draw_style_box(style(Color(0.9, 0.87, 0.65, 0.35), Color("d1bd71"), 5), Rect2(loc - Vector2(32, 39), Vector2(64, 62)))
-		if not item.is_empty():
-			var sway = clampf(-model.acceleration * 0.04, -0.07, 0.07)
-			var slide = model.live.cargo_p(item.id) * ArtV3.PX * float(model.state.direction) if screen == "game" and Model.live_effects else 0.0   # B5.3: the load slides on its straps
-			var sprite_id = str(model.cargo_base(item.type).sprite)
-			var bounds = visual_layout[sprite_id]
-			var ratio = float(bounds[2]-bounds[0])/maxf(1,float(bounds[3]-bounds[1]))
-			var height = art.cargo_size(sprite_id,ratio).y
-			var foot=loc+Vector2(-sway*10+slide,19)
-			var local_rect=Rect2(foot-Vector2(height*ratio*0.5,height),Vector2(height*ratio,height))
-			var screen_rect=Rect2(body_transform*local_rect.position,Vector2.ZERO)
-			for corner in [local_rect.end,Vector2(local_rect.end.x,local_rect.position.y),Vector2(local_rect.position.x,local_rect.end.y)]: screen_rect=screen_rect.expand(body_transform*corner)
-			cargo_visuals[item.id]=screen_rect.grow(4)
-			if item.id!=drag_item:
-				grounded_sprite(sprite_id,foot,height)
-				# Straps follow the load instead of fixed screen-sized crosses.
-				for side in [-1,1]:
-					var x = height*ratio*0.28*side
-					draw_line(foot+Vector2(x,-height*0.85),foot+Vector2(x,0),Color("806e49"),1.6,true)
-	if id.begins_with("W"): art.draw_wagon_front(self,id,body_transform)
-	if id.begins_with("W") and screen=="depot": draw_string(font,Vector2(-25,art.deck_y(id)+34),id,HORIZONTAL_ALIGNMENT_CENTER,50,15,PAPER)
-	if id == model.vehicle_id() and controls:
-		draw_controls(body_transform)
+		var on_screen = outer * box
+		if item.is_empty():
+			var hover = on_screen.grow(8).has_point(get_global_mouse_position())
+			if controls and (screen == "depot" or model.state.phase == "loading" or drag == "cargo" or hover):
+				draw_style_box(style(Color(0.9, 0.87, 0.65, 0.35), Color("d1bd71"), 5), box.grow(3))
+			continue
+		cargo_visuals[item.id] = on_screen.grow(4)
+		if item.id == drag_item: continue
+		var foot = Vector2(box.get_center().x, box.end.y)
+		ellipse(foot, Vector2(box.size.x * 0.47, 3), Color(0.07, 0.05, 0.03, 0.38))
+		grounded_sprite(str(model.cargo_base(item.type).sprite), foot, box.size.y)
+		for side in [-1, 1]:
+			var strap = foot + Vector2(box.size.x * 0.28 * side, 0)
+			var anchor = strap + Vector2(side * 2, 4)
+			draw_line(strap - Vector2(0, box.size.y * 0.82), anchor, Color("4a3c29"), 2.5, true)
+			draw_line(strap - Vector2(0, box.size.y * 0.82), anchor, Color("a48a57"), 1.0, true)
+			draw_circle(anchor, 2.3, Color("6e593d"))
+	if id == "pole": art.draw_pole_overlay(self, model)
+	if id == "sail": art.draw_sail_overlay(self, model)
+	if id.begins_with("W"): art.draw_wagon_front(self, id, outer)
+	if id.begins_with("W") and screen == "depot":
+		draw_string(font, Vector2(-25, art.deck_y(id) + 34), id, HORIZONTAL_ALIGNMENT_CENTER, 50, 15, PAPER)
+	if id == model.vehicle_id() and controls: draw_controls(outer)
 
 func wheel_rotation(distance: float, facing: int) -> float:
 	# Positive rotation is clockwise in Godot. Mirrored bodies invert the local angle.
@@ -3765,29 +3828,37 @@ func find_slot_cargo(key: String) -> Dictionary:
 		if item.slot == key and not item.delivered: return item
 	return {}
 
-func slot_local(id: String, index: int) -> Vector2:
+# Pack occupied and empty slots in one row so every load has a deck contact.
+# When an upgraded deck is crowded, fit the whole row without changing slot IDs.
+func cargo_layout(id: String) -> Array[Rect2]:
 	var count = int(model.object_stats(id).slots)
-	var item = find_slot_cargo(id+":"+str(index))
-	var sprite_id = str(model.cargo_base(item.type).sprite) if not item.is_empty() else "sack"
-	var position = art.slot_position(id,index,count,sprite_id)
-	# A wide bundle rests on both columns. Smaller cargo rests on its own
-	# column; removing a lower item settles the remaining stack onto the deck.
-	var levels = [0.0,0.0]
-	for previous in range(index+1):
-		var cargo = find_slot_cargo(id+":"+str(previous))
-		if previous<index and cargo.is_empty(): continue
-		var sprite_id_at = str(model.cargo_base(cargo.type).sprite) if not cargo.is_empty() else sprite_id
-		var wide = sprite_id_at=="log_bundle"
-		var row = maxf(levels[0],levels[1]) if wide else float(levels[previous%2])
-		if previous==index:
-			position.y = art.deck_y(id)-19-row
-			break
-		var bounds = visual_layout[sprite_id_at]
-		var ratio = float(bounds[2]-bounds[0])/float(bounds[3]-bounds[1])
-		var height = art.cargo_size(sprite_id_at,ratio).y
-		if wide: levels=[row+height,row+height]
-		else: levels[previous%2]=row+height
-	return position
+	var sizes: Array[Vector2] = []
+	var total_width = 0.0
+	for index in range(count):
+		var item = find_slot_cargo(id + ":" + str(index))
+		var sprite_id = "sack" if item.is_empty() else str(model.cargo_base(item.type).sprite)
+		var bounds = visual_layout[sprite_id]
+		var ratio = float(bounds[2] - bounds[0]) / maxf(1.0, float(bounds[3] - bounds[1]))
+		var size = art.cargo_size(sprite_id, ratio)
+		if item.is_empty(): size.x = maxf(size.x, 0.38 * ArtV3.PX)
+		sizes.append(size)
+		total_width += size.x
+	var boxes: Array[Rect2] = []
+	if count == 0: return boxes
+	var gap = 0.10 * ArtV3.PX
+	var space = art.body_width(id) - 0.16 * ArtV3.PX - gap * (count - 1)
+	var fit = minf(1.0, space / total_width)
+	var x = -(total_width * fit + gap * (count - 1)) * 0.5
+	var deck = art.deck_y(id)
+	for index in range(count):
+		var size = sizes[index] * fit
+		var item = find_slot_cargo(id + ":" + str(index))
+		var slide = 0.0
+		if not item.is_empty() and screen == "game" and Model.live_effects:
+			slide = clampf(model.live.cargo_p(item.id) * ArtV3.PX * float(model.state.direction), -gap * 0.4, gap * 0.4)
+		boxes.append(Rect2(Vector2(x + slide, deck - size.y), size))
+		x += size.x + gap
+	return boxes
 
 # What kind of mouse control a pult element is: an arc lever, a rotary hand
 # wheel (steam regulator and water tap), an H-gate (petrol gearbox) or a toggle.
@@ -3940,7 +4011,9 @@ func control_geometry(id: String, closeup: bool = false) -> Dictionary:
 		var turn=(float(model.boiler().feed) if id=="gear" else float(model.state.throttle))*WHEEL_SWEEP
 		return {"pivot":center,"grip":center+Vector2(0,-radius).rotated(turn),"angle":turn,"radius":radius}
 	var pivot=control_anchor(id)*ArtV3.PX
-	var length=float(Geometry.data().controls[id+"_length_m"])*ArtV3.PX
+	var length_key = id + "_length_m"
+	var body_spec = Geometry.body(model.vehicle_id())
+	var length = float(body_spec.get(length_key, Geometry.data().controls[length_key])) * ArtV3.PX
 	if closeup:
 		pivot=control_zoom_rect().position+Vector2(65+100*["brake","throttle","gear","start"].find(id),225)
 		length=42.0 if id=="start" else 78.0
@@ -4017,13 +4090,13 @@ func add_world_hits(id: String, index: int, transform: Transform2D) -> void:
 		if id=="pneumatic":
 			for i in range(ArtV3.FROST_SPOTS.size()):
 				ice_hits.append({"spot": i, "position": transform * art.steam_point(ArtV3.FROST_SPOTS[i].x, ArtV3.FROST_SPOTS[i].y)})
-	for slot in model.slots():
-		if slot.owner != id: continue
-		var p = transform * slot_local(id, int(slot.index))
-		var rect = Rect2(p - Vector2(37, 45) * zoom_level, Vector2(74, 80) * zoom_level)
-		slot_hits.append({"key": slot.key, "rect": rect})
-		var item = find_slot_cargo(slot.key)
-		if not item.is_empty(): cargo_hits.append({"id": item.id, "rect": cargo_visuals.get(item.id,rect)})
+	var boxes = cargo_layout(id)
+	for i in range(boxes.size()):
+		var key = id + ":" + str(i)
+		var rect = (transform * boxes[i]).grow(5)
+		slot_hits.append({"key": key, "rect": rect})
+		var item = find_slot_cargo(key)
+		if not item.is_empty(): cargo_hits.append({"id": item.id, "rect": cargo_visuals.get(item.id, rect)})
 
 func draw_map(size: Vector2) -> void:
 	var left = 80.0
@@ -4100,14 +4173,12 @@ func draw_cargo_feedback() -> void:
 # zoom, colour only, exact numbers on hover.
 func draw_charge_strip(body_transform: Transform2D) -> void:
 	var fraction=charge_fraction()
-	var bounds=art.body_bounds("locomotive")
-	var anchor=body_transform*Vector2(bounds.position.x+bounds.size.x*0.68,art.deck_y("locomotive")-10)
-	var rect=Rect2(anchor-Vector2(36,5),Vector2(72,10))
-	draw_set_transform_matrix(Transform2D.IDENTITY)
-	draw_style_box(style(Color(INK,0.9),Color(0.96,0.93,0.84,0.55),4),rect.grow(2))
-	if fraction>0: draw_style_box(style(charge_color(fraction),Color.TRANSPARENT,3),Rect2(rect.position,Vector2(rect.size.x*fraction,rect.size.y)))
 	draw_set_transform_matrix(body_transform)
-	charge_strip_rect=rect.grow(10)
+	var anchor = Vector2(0.70 * ArtV3.PX, art.deck_y("locomotive") - 0.37 * ArtV3.PX)
+	var rect = Rect2(anchor - Vector2(20, 3), Vector2(40, 6))
+	draw_style_box(style(Color("242b24"), Color("897658"), 2), rect.grow(3))
+	if fraction > 0: draw_rect(Rect2(rect.position, Vector2(rect.size.x * fraction, rect.size.y)), charge_color(fraction))
+	charge_strip_rect = (body_transform * rect).grow(10)
 
 func charge_fraction() -> float:
 	return clampf(float(model.state.fleet_by_id.locomotive.fuel)/maxf(0.000001,float(model.object_stats("locomotive").tank)),0,1)

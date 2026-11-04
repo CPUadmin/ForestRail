@@ -8,6 +8,28 @@ const LARGE_WHEELS = ["locomotive", "steam", "pneumatic"]
 const Geometry = preload("res://scripts/world_geometry.gd")
 const Mechanism = preload("res://scripts/handcar_mechanism.gd")
 const PX = Geometry.PX
+const WORKER_TEXTURE = preload("res://assets/art_consists/rail_worker_side.png")
+const WORKER_REGION = Rect2(382, 21, 357, 1273)
+const STOCK_MOTORS = preload("res://assets/art_consists/stock_motor_bodies.png")
+const STOCK_FLATBEDS = preload("res://assets/art_consists/stock_flatbeds.png")
+# Source rectangle, deck line and axle line in each atlas. The deck and the
+# running gear remain fixed while the upper body and frame are fitted separately.
+const STOCK_BODY = {
+	"handcar": [Rect2(50, 207, 802, 168), 210.0, 328.0],
+	"pole": [Rect2(926, 210, 801, 164), 213.0, 327.0],
+	"sail": [Rect2(47, 564, 804, 166), 566.0, 681.0],
+	"wagon": [Rect2(919, 565, 817, 165), 568.0, 683.0],
+	"steam": [Rect2(57, 28, 788, 394), 314.0, 386.0],
+	"motorcar": [Rect2(944, 47, 779, 375), 315.0, 386.0],
+	"locomotive": [Rect2(55, 464, 780, 391), 745.0, 815.0],
+	"pneumatic": [Rect2(936, 480, 789, 374), 746.0, 816.0],
+}
+const STOCK_LAMPS = {
+	"steam": Vector2(808, 282),
+	"motorcar": Vector2(1670, 141),
+	"locomotive": Vector2(789, 702),
+	"pneumatic": Vector2(1673, 554),
+}
 var manifest: Dictionary
 var assets: Dictionary
 var textures: Dictionary = {}
@@ -271,11 +293,38 @@ func hand_grip(model) -> Vector2:
 	var p = mechanism_pose(model)
 	return p.grip_right*PX
 
-func draw_vehicle(canvas: Node2D, id: String, distance: float, facing: int, outer: Transform2D, model, active: bool, pose_override: Dictionary = {}) -> void:
-	draw_part(canvas, body_key(id), Vector2(0, axis_height(id)), 0, scale_for(body_key(id)), outer)
-	if id=="locomotive":
-		# Reuse the supplied body, adding visible battery compartments and
-		# electrical markings in game coordinates rather than repainting it.
+func stock_body_point(id: String, point: Vector2) -> Vector2:
+	var kind = "wagon" if id.begins_with("W") else id
+	var spec = STOCK_BODY[kind]
+	var source: Rect2 = spec[0]
+	var deck = deck_y(id)
+	var y = remap(point.y, spec[1], spec[2], deck, axis_height(id))
+	if point.y < spec[1]:
+		var roof = deck - (spec[1] - source.position.y) * body_width(id) / source.size.x
+		if STOCK_LAMPS.has(id): roof = body_bounds(id).position.y
+		y = remap(point.y, source.position.y, spec[1], roof, deck)
+	return Vector2((point.x - source.get_center().x) * body_width(id) / source.size.x, y)
+
+func draw_stock_body(canvas: Node2D, id: String, outer: Transform2D) -> void:
+	var kind = "wagon" if id.begins_with("W") else id
+	var spec = STOCK_BODY[kind]
+	var region: Rect2 = spec[0]
+	var seam = Vector2(region.position.x, spec[1])
+	var upper = Rect2(region.position, Vector2(region.size.x, seam.y - region.position.y))
+	var lower = Rect2(seam, Vector2(region.size.x, region.end.y - seam.y))
+	var texture = STOCK_MOTORS if STOCK_LAMPS.has(id) else STOCK_FLATBEDS
+	canvas.draw_set_transform_matrix(outer)
+	for strip in [upper, lower]:
+		var start = stock_body_point(id, strip.position)
+		var end = stock_body_point(id, strip.end)
+		canvas.draw_texture_rect_region(texture, Rect2(start, end - start), strip)
+
+func draw_vehicle(canvas: Node2D, id: String, distance: float, facing: int, outer: Transform2D, model, active: bool, pose_override: Dictionary = {}, draw_open_rig: bool = true) -> void:
+	if is_skinned(id):
+		draw_part(canvas, body_key(id), Vector2(0, axis_height(id)), 0, scale_for(body_key(id)), outer)
+	else:
+		draw_stock_body(canvas, id, outer)
+	if id=="locomotive" and is_skinned(id):
 		for x in [0.70,1.35]:
 			var box=Rect2(Vector2(x-0.26,-1.08)*PX,Vector2(0.52,0.40)*PX)
 			var casing=StyleBoxFlat.new()
@@ -288,8 +337,8 @@ func draw_vehicle(canvas: Node2D, id: String, distance: float, facing: int, oute
 	var p = mechanism_pose(model) if id=="handcar" and pose_override.is_empty() else pose_override
 	if id=="steam": draw_steam_overlay(canvas, model)
 	if id=="pneumatic": draw_pneumatic_overlay(canvas, model)
-	if id=="pole": draw_pole_overlay(canvas, model)
-	if id=="sail": draw_sail_overlay(canvas, model)
+	if draw_open_rig and id=="pole": draw_pole_overlay(canvas, model)
+	if draw_open_rig and id=="sail": draw_sail_overlay(canvas, model)
 	if id=="motorcar": draw_petrol_overlay(canvas, model)
 	var wheel_id = skin_wheel.get(id, "vehicles/steam_wheel" if id == "steam" else "vehicles/petrol_wheel" if id == "motorcar" else ("vehicles/wheel_large" if id in LARGE_WHEELS else "vehicles/wheel_small"))
 	var radius = PX * (0.55 if id in LARGE_WHEELS else 0.42) * 0.5
@@ -303,6 +352,37 @@ func draw_vehicle(canvas: Node2D, id: String, distance: float, facing: int, oute
 	if id == "motorcar": draw_side_rod(canvas, id, distance, facing, outer)
 	if id == "handcar": draw_mechanism(canvas, model, outer,p)
 
+func headlamp_point(id: String) -> Vector2:
+	if STOCK_LAMPS.has(id) and not is_skinned(id): return stock_body_point(id, STOCK_LAMPS[id])
+	if id == "motorcar":
+		var lamp = skin_point(id, "lamp_m", Vector2(1.58, 1.40))
+		return petrol_point(lamp.x, lamp.y)
+	if id in ["steam", "pneumatic"]:
+		var fallback = Vector2(1.43, 0.60 if id == "steam" else 1.57)
+		var lamp = skin_point(id, "lamp_m", fallback)
+		return steam_point(lamp.x, lamp.y)
+	return Vector2(body_width(id) * 0.43, deck_y(id) - (0.45 if id == "locomotive" else 0.13) * PX)
+
+func draw_added_headlamp(canvas: Node2D, id: String) -> void:
+	if id in ["motorcar", "steam", "pneumatic"]: return
+	if id == "locomotive" and not is_skinned(id): return
+	var at = headlamp_point(id)
+	canvas.draw_line(at + Vector2(0, 4), at + Vector2(0, 0.15 * PX), Color("443e30"), 4.0, true)
+	canvas.draw_circle(at, 0.078 * PX, Color("383a32"))
+	canvas.draw_circle(at, 0.054 * PX, Color("a78449"))
+	canvas.draw_circle(at + Vector2(1, -1), 0.031 * PX, Color("e9d396"))
+
+func draw_worker(canvas: Node2D, feet: Vector2, height: float, hand: Vector2) -> void:
+	var width = height * WORKER_REGION.size.x / WORKER_REGION.size.y
+	var target = Rect2(feet - Vector2(width * 0.5, height), Vector2(width, height))
+	canvas.draw_texture_rect_region(WORKER_TEXTURE, target, WORKER_REGION)
+	var shoulder = feet + Vector2(width * 0.08, -height * 0.73)
+	var elbow = shoulder.lerp(hand, 0.56) + Vector2(-5, 5)
+	var arm = PackedVector2Array([shoulder, elbow, hand])
+	canvas.draw_polyline(arm, Color("393b2e"), height * 0.07, true)
+	canvas.draw_polyline(arm, Color("62604a"), height * 0.048, true)
+	canvas.draw_circle(hand, height * 0.024, Color("ae8767"))
+
 # Petrol locomotive live parts: headlamp glow and exhaust smoke (positions in
 # metres above the rail, axle at 0.21 m), plus a side rod between the wheels.
 func petrol_point(x: float, rail_y: float) -> Vector2:
@@ -312,15 +392,14 @@ func draw_petrol_overlay(canvas: Node2D, model) -> void:
 	if model == null or model.state.is_empty() or not model.state.get("engine", false): return
 	var t = Time.get_ticks_msec() / 1000.0
 	var load = clampf(float(model.state.get("throttle", 0)), 0.0, 1.0)
-	var lamp = petrol_point(1.58, 1.17)
-	var lamp_at = skin_point("motorcar", "lamp_m", Vector2(1.58, 1.17))
-	if not is_skinned("motorcar") or skin_config.get("motorcar", {}).has("lamp_m"): lamp = petrol_point(lamp_at.x, lamp_at.y)
+	var lamp = headlamp_point("motorcar")
 	for i in range(5 if (not is_skinned("motorcar") or skin_config.get("motorcar", {}).has("lamp_m")) else 0):
 		canvas.draw_circle(lamp, (0.13 + 0.07 * i) * PX, Color(1.0, 0.85, 0.45, 0.11 - 0.018 * i))
 	for i in range(5):
 		var age = fposmod(t * (0.8 + 0.6 * load) + i / 5.0, 1.0)
 		var origin = skin_point("motorcar", "stack_m", Vector2(0.701, 1.97))
-		var puff = petrol_point(origin.x - age * 0.9, origin.y + age * 0.6)
+		var stack = petrol_point(origin.x, origin.y) if is_skinned("motorcar") else stock_body_point("motorcar", Vector2(1324, 155))
+		var puff = stack + Vector2(-age * 0.9, -age * 0.6) * PX
 		canvas.draw_circle(puff, (0.05 + age * 0.16) * PX, Color(0.82, 0.82, 0.8, (0.25 + 0.35 * load) * (1.0 - age)))
 
 func draw_side_rod(canvas: Node2D, id: String, distance: float, facing: int, outer: Transform2D) -> void:
@@ -355,8 +434,12 @@ func draw_steam_overlay(canvas: Node2D, model) -> void:
 			canvas.draw_rect(Rect2(steam_point(-0.62, 0.66), Vector2(0.26, 0.035) * PX), Color(1.0, 0.62, 0.22, 0.55 * heat))
 	if plain and door_open: canvas.draw_rect(door, Color("f1d890"), false, 2.0)
 	var center = steam_point(-0.568, 1.86)
+	if not is_skinned("steam"): center = stock_body_point("steam", Vector2(365, 160))
 	var needle = deg_to_rad(150.0) + deg_to_rad(240.0) * float(boiler.get("pressure", 0.0))
 	if plain:
+		if not is_skinned("steam"):
+			canvas.draw_circle(center, 9.0, Color("9f834c"))
+			canvas.draw_circle(center, 7.5, Color("dfd3ad"))
 		canvas.draw_line(center, center + Vector2.from_angle(needle) * 0.075 * PX, Color("a8231c"), 2.0, true)
 		canvas.draw_circle(center, 2.0, Color("2a2a2a"))
 	var t = Time.get_ticks_msec() / 1000.0
@@ -370,7 +453,8 @@ func draw_steam_overlay(canvas: Node2D, model) -> void:
 	for i in range(6):
 		var age = fposmod(t * 0.9 + i / 6.0, 1.0)
 		var origin = skin_point("steam", "stack_m", Vector2(1.168, 2.30))
-		var puff = steam_point(origin.x - age * 1.4, origin.y + age * 0.7)
+		var stack = steam_point(origin.x, origin.y) if is_skinned("steam") else stock_body_point("steam", Vector2(706, 34))
+		var puff = stack + Vector2(-age * 1.4, -age * 0.7) * PX
 		canvas.draw_circle(puff, (0.10 + age * 0.22) * PX, Color(0.86, 0.86, 0.82, (0.35 + 0.35 * throttle) * (1.0 - age)))
 
 # The sail car's mast, rigging, sail and sailor, drawn live over the painted platform
@@ -524,13 +608,7 @@ func draw_sail_overlay(canvas: Node2D, model) -> void:
 		var u = float(k) / 12.0
 		sheet.append(boom_end * pow(1.0 - u, 2.0) + sag * 2.0 * u * (1.0 - u) + sailor_hand * u * u)
 	canvas.draw_polyline(sheet, Color(0.45, 0.34, 0.2), 0.012 * PX, true)
-	# the sailor on the bench: back, head with a cap, arm to the sheet, a leg
-	var seat = sail_point(-0.80 * fwd, 0.80)
-	canvas.draw_line(seat, seat + Vector2(0.03 * fwd, -0.45) * PX, Color("5f7a58"), 0.2 * PX, true)
-	canvas.draw_circle(seat + Vector2(0.04 * fwd, -0.60) * PX, 0.10 * PX, Color("d9b48f"))
-	canvas.draw_rect(Rect2(seat + Vector2(-0.10 + 0.04 * fwd, -0.74) * PX, Vector2(0.20, 0.07) * PX), Color("3d3a33"))
-	canvas.draw_line(seat + Vector2(0.03 * fwd, -0.38) * PX, sailor_hand, Color("5f7a58"), 0.07 * PX, true)
-	canvas.draw_line(seat, seat + Vector2(0.20 * fwd, 0.02) * PX, Color("4a3a2a"), 0.09 * PX, true)
+	draw_worker(canvas, Vector2(-0.71 * fwd * PX, deck_y("sail")), 1.65 * PX, sailor_hand)
 	# the pennant at the masthead points the way the wind blows, and flutters
 	if not info.is_empty():
 		var wv: Vector2 = info.wind
@@ -564,15 +642,11 @@ func draw_pole_overlay(canvas: Node2D, model) -> void:
 	var hands = pole_point(0.0, 1.45)
 	var tip = pole_point(tip_x, 0.0)
 	var axis = (hands - tip).normalized()
-	# Person: legs, body, arms to the hands, head.
-	var feet = pole_point(-0.15, 0.62)
-	canvas.draw_line(feet, pole_point(-0.15, 1.2), Color("5a4a3a"), 0.12 * PX, true)
-	canvas.draw_line(pole_point(-0.15, 1.2), pole_point(-0.10, 1.95), Color("6d7f5f"), 0.22 * PX, true)
-	canvas.draw_circle(pole_point(-0.08, 2.15), 0.11 * PX, Color("d9b48f"))
-	canvas.draw_line(pole_point(-0.10, 1.85), hands, Color("6d7f5f"), 0.08 * PX, true)
+	draw_worker(canvas, Vector2(-0.16 * PX, deck_y("pole")), 1.75 * PX, hands)
 	# Pole: wooden, 4 m, sliding through the hands, with an iron tip.
 	var top = tip + axis * 4.0 * PX
-	canvas.draw_line(tip, top, Color("b08a52"), 0.07 * PX, true)
+	canvas.draw_line(tip, top, Color("6d5033"), 0.075 * PX, true)
+	canvas.draw_line(tip + Vector2(1,-1), top + Vector2(1,-1), Color("bd985f"), 0.035 * PX, true)
 	canvas.draw_line(tip, tip + axis * 0.18 * PX, Color("3d4446"), 0.08 * PX, true)
 	canvas.draw_circle(hands, 0.05 * PX, Color("d9b48f"))
 	if pole.planted():
@@ -589,7 +663,7 @@ const FROST_SPOTS = [Vector2(1.36, 0.62), Vector2(1.28, 0.93), Vector2(1.20, 1.2
 func draw_pneumatic_overlay(canvas: Node2D, model) -> void:
 	if model == null or model.state.is_empty() or not model.state.fleet_by_id.has("pneumatic"): return
 	var fleet = model.state.fleet_by_id.pneumatic
-	var center = steam_point(-0.30, 1.88)
+	var center = stock_body_point("pneumatic", Vector2(1419, 562))
 	var needle = deg_to_rad(150.0) + deg_to_rad(240.0) * clampf(float(fleet.get("fuel", 0.0)) / float(model.object_stats("pneumatic").tank), 0.0, 1.0)
 	canvas.draw_line(center, center + Vector2.from_angle(needle) * 0.075 * PX, Color("a8231c"), 2.0, true)
 	canvas.draw_circle(center, 2.0, Color("2a2a2a"))
