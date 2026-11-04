@@ -1,0 +1,61 @@
+{
+ "schema": 1,
+ "statuses": [
+  "в списке",
+  "промпт готов",
+  "запрошено",
+  "получено",
+  "принято",
+  "отклонено",
+  "подключено"
+ ],
+ "packages": {
+  "П2": {
+   "name": "Шестовая и парусная",
+   "brief": "tools/art_sources/briefs/P2_pole_sail/BRIEF_RU.md",
+   "inbox": "tools/art_sources/inbox/P2_pole_sail/"
+  }
+ },
+ "assets": [
+  {
+   "id": "P2-A1",
+   "file": "pole_parts.png",
+   "package": "П2",
+   "element": "V2",
+   "format": "3:2",
+   "background": "magenta",
+   "status": "промпт готов",
+   "note": ""
+  },
+  {
+   "id": "P2-A2",
+   "file": "worker_arm_parts.png",
+   "package": "П2",
+   "element": "V2",
+   "format": "1:1",
+   "background": "magenta",
+   "status": "промпт готов",
+   "note": ""
+  },
+  {
+   "id": "P2-A3",
+   "file": "sail_cloth.png",
+   "package": "П2",
+   "element": "V3",
+   "format": "3:2",
+   "background": "full-bleed",
+   "status": "промпт готов",
+   "note": ""
+  },
+  {
+   "id": "P2-A4",
+   "file": "sail_hardware.png",
+   "package": "П2",
+   "element": "V3",
+   "format": "1:1",
+   "background": "magenta",
+   "status": "промпт готов",
+   "note": ""
+  }
+ ]
+}
