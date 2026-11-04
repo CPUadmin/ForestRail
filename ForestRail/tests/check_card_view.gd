@@ -66,7 +66,7 @@ func run() -> void:
 	var probe = CardView.new()
 	probe.card_id = "lovers"
 	check(probe.found_line().contains("Нинка") and probe.found_line().contains("храпел"), "the Lovers make Mikhalych remember his wife")
-	for own in ["magician", "empress", "hierophant", "strength"]:
+	for own in ["magician", "empress", "hierophant", "strength", "death", "devil"]:
 		probe.card_id = own
 		check(probe.found_line() != str(CardView.QUOTE.get(own, "")), "card %s has its own line when found" % own)
 	probe.card_id = "lovers"
