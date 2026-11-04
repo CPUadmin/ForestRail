@@ -9,6 +9,7 @@ var revealed = true            # false: карточка лежит рубашк
 var art: Texture2D
 var frame: Texture2D
 var back: Texture2D
+var icon: Texture2D            # the picture of the gadget: it lies on the back of the card
 
 # окно картинки и таблички в долях рамки (измерено по прозрачному окну card_frame.png)
 const WINDOW = Rect2(0.076, 0.182, 0.846, 0.486)
@@ -60,6 +61,8 @@ const QUOTE = {
 func _ready() -> void:
 	frame = load("res://assets/art_kazik/card_frame.png")
 	back = load("res://assets/art_kazik/sector_card.png")
+	var icon_path = "res://assets/art_kazik/gadget_icons/%s.png" % card_id
+	if ResourceLoader.exists(icon_path): icon = load(icon_path)
 	var path = "res://assets/art_kazik/cards/%s.png" % card_id
 	if ResourceLoader.exists(path): art = load(path)
 
@@ -94,7 +97,8 @@ func _draw() -> void:
 	if not revealed:
 		draw_rect(window, Color(0.10, 0.16, 0.12))
 		var side = minf(window.size.x, window.size.y) * 0.55
-		draw_texture_rect(back, Rect2(window.get_center() - Vector2(side, side) * 0.5, Vector2(side, side)), false, Color(1, 1, 1, 0.9))
+		var mark: Texture2D = icon if icon != null else back
+		draw_texture_rect(mark, Rect2(window.get_center() - Vector2(side, side) * 0.5, Vector2(side, side)), false, Color(1, 1, 1, 0.9))
 	elif art != null:
 		var ts = Vector2(art.get_width(), art.get_height())
 		var k = maxf(window.size.x / ts.x, window.size.y / ts.y)

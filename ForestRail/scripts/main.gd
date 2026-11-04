@@ -1076,6 +1076,7 @@ func build_upgrades(right: VBoxContainer) -> void:
 		var levels = int(branch.get("levels", 2))
 		var gadget = bool(branch.get("gadget", false))
 		var c = card(right, GOLD if str(branch.id) == workshop_branch else (GREEN if lv >= levels else (Color("c9a24e") if gadget else CARD_EDGE)))
+		if gadget: gadget_icon(c, str(branch.id))
 		add_label(c, ("ГАДЖЕТ  ·  %s  ·  %s" % [name, "● установлен" if lv >= 1 else "○"]) if gadget else ("%s  ·  %s" % [name, ["○ ○", "● ○", "● ●"][lv]]), 22)
 		if lv < levels:
 			var preview = upgrade_preview(selected_object, branch)
@@ -1095,6 +1096,21 @@ func build_upgrades(right: VBoxContainer) -> void:
 						else: notify(model.message)))
 		else:
 			add_label(c, "Максимальный уровень", 17, GREEN)
+
+# the picture of a gadget (the same one as on the back of its Tarot card) above its card in the workshop
+func gadget_icon(box: VBoxContainer, upgrade_id: String) -> void:
+	for card_def in model.data.casino.cards:
+		if str(card_def.upgrade) != upgrade_id: continue
+		var path = "res://assets/art_kazik/gadget_icons/%s.png" % str(card_def.id)
+		if not ResourceLoader.exists(path): return
+		var icon = TextureRect.new()
+		icon.texture = load(path)
+		icon.custom_minimum_size = Vector2(72, 72)
+		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		box.add_child(icon)
+		return
 
 # B6.11 c: the receiving desk: the bag with the price of every kind, sell one or all, or all the common ones at once.
 func build_receiving(box: VBoxContainer) -> void:
