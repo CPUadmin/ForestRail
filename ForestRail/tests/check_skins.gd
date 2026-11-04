@@ -39,9 +39,15 @@ func run() -> void:
 	var skinned = Art.new(dir)
 	for kind in ["steam", "motorcar", "locomotive"]:
 		check(skinned.is_skinned(kind), kind + " skin is picked up")
-		var a = reference.wheel_positions(kind)
-		var b = skinned.wheel_positions(kind)
-		check(a.size() == b.size() and a[0].distance_to(b[0]) < 1.5 and a[1].distance_to(b[1]) < 1.5, kind + " wheels stay on the standard axle places")
+		var spec = Geometry.body(kind)
+		var region = spec.region_px
+		var centre_x = float(region[0]) + float(region[2]) * 0.5
+		var scale = float(spec.length_m) * Art.PX / float(region[2])
+		var wheels = skinned.wheel_positions(kind)
+		check(wheels.size() == spec.axles_px.size(), kind + " keeps its standard axle count")
+		for i in range(mini(wheels.size(), spec.axles_px.size())):
+			var expected = Vector2((float(spec.axles_px[i][0]) - centre_x) * scale, -float(spec.wheel_diameter_m) * Art.PX * 0.5)
+			check(wheels[i].distance_to(expected) < 1.5, kind + " skin keeps its standard axle position")
 		check(absf(reference.deck_y(kind) - skinned.deck_y(kind)) < 1.5, kind + " floor height is standard")
 		check(absf(reference.body_width(kind) - skinned.body_width(kind)) < 0.5, kind + " keeps the standard platform length")
 	# A broken picture falls back to the built-in one and says so.

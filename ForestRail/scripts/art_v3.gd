@@ -53,6 +53,13 @@ const STOCK_LAMPS = {
 	"locomotive": Vector2(1291, 245),
 	"pneumatic": Vector2(1673, 554),
 }
+# Bearing centres measured on the stock cab artwork, in atlas pixels.
+const STOCK_CAB_AXLES = {
+	"steam": Vector2(276, 663),
+	"motorcar": Vector2(1158, 1546),
+	"locomotive": Vector2(398, 1004),
+	"pneumatic": Vector2(1162, 1547),
+}
 var manifest: Dictionary
 var assets: Dictionary
 var textures: Dictionary = {}
@@ -267,6 +274,13 @@ func body_bounds(id: String) -> Rect2:
 	return result.expand(Vector2(-body_width(id)*0.5,0)).expand(Vector2(body_width(id)*0.5,0))
 
 func wheel_positions(id: String) -> Array:
+	if STOCK_CAB_AXLES.has(id) and not is_skinned(id):
+		var axle_x: Vector2 = STOCK_CAB_AXLES[id]
+		var axle_y: float = STOCK_BODY[id][2]
+		return [
+			stock_body_point(id, Vector2(axle_x.x, axle_y)),
+			stock_body_point(id, Vector2(axle_x.y, axle_y)),
+		]
 	var meta = assets[body_key(id)]
 	var positions: Array = []
 	for point in meta.wheel_centres_px:
