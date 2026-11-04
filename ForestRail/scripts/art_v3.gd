@@ -33,6 +33,8 @@ const SAIL_CLEAT = preload("res://assets/art_pole_sail/sail_cleat.png")
 const SAIL_PENNANT = preload("res://assets/art_pole_sail/sail_pennant.png")
 const STOCK_MOTORS = preload("res://assets/art_consists/stock_motor_bodies.png")
 const STOCK_FLATBEDS = preload("res://assets/art_consists/stock_flatbeds.png")
+# P5 (GPT, 05.11.2026): the battery locomotive has its own picture; the deck line and the axle line are measured on it
+const STOCK_LOCO = preload("res://assets/art_electric/electric_loco_body.png")
 # Source rectangle, deck line and axle line in each atlas. The deck and the
 # running gear remain fixed while the upper body and frame are fitted separately.
 const STOCK_BODY = {
@@ -42,13 +44,13 @@ const STOCK_BODY = {
 	"wagon": [Rect2(919, 565, 817, 165), 568.0, 683.0],
 	"steam": [Rect2(57, 28, 788, 394), 314.0, 386.0],
 	"motorcar": [Rect2(944, 47, 779, 375), 315.0, 386.0],
-	"locomotive": [Rect2(55, 464, 780, 391), 745.0, 815.0],
+	"locomotive": [Rect2(0, 0, 1357, 844), 652.0, 783.0],
 	"pneumatic": [Rect2(936, 480, 789, 374), 746.0, 816.0],
 }
 const STOCK_LAMPS = {
 	"steam": Vector2(808, 282),
 	"motorcar": Vector2(1670, 141),
-	"locomotive": Vector2(789, 702),
+	"locomotive": Vector2(1282, 143),
 	"pneumatic": Vector2(1673, 554),
 }
 var manifest: Dictionary
@@ -333,7 +335,7 @@ func draw_stock_body(canvas: Node2D, id: String, outer: Transform2D) -> void:
 	var seam = Vector2(region.position.x, spec[1])
 	var upper = Rect2(region.position, Vector2(region.size.x, seam.y - region.position.y))
 	var lower = Rect2(seam, Vector2(region.size.x, region.end.y - seam.y))
-	var texture = STOCK_MOTORS if STOCK_LAMPS.has(id) else STOCK_FLATBEDS
+	var texture = STOCK_LOCO if id == "locomotive" else (STOCK_MOTORS if STOCK_LAMPS.has(id) else STOCK_FLATBEDS)
 	canvas.draw_set_transform_matrix(outer)
 	for strip in [upper, lower]:
 		var start = stock_body_point(id, strip.position)
