@@ -17,13 +17,55 @@ var tokens_target = 0
 var glow = 0.0
 var spin_button: Button
 var dep_button: Button
+var back_button: Button
 var tex = {}
 
 const SECTOR_TEXT = {"empty": "пусто", "tokens1": "+5", "tokens2": "+10", "junk": "шлак", "coins": "монеты", "repair": "ремнабор", "golden": "золото", "bonus": "бонуска", "card": "КАРТА"}
-const SECTOR_COLOR = {"empty": Color("2a3a30"), "tokens1": Color("b08a3c"), "tokens2": Color("d1a846"), "junk": Color("6b4a2e"), "coins": Color("c8b04a"), "repair": Color("3e7d78"), "golden": Color("f0c640"), "bonus": Color("7a4d8c"), "card": Color("d03a2e")}
+const SECTOR_COLOR = {"empty": Color("5a4a38"), "tokens1": Color("b08a3c"), "tokens2": Color("d1a846"), "junk": Color("6b4a2e"), "coins": Color("c8b04a"), "repair": Color("3e7d78"), "golden": Color("f0c640"), "bonus": Color("7a4d8c"), "card": Color("d03a2e")}
 # какая картинка листа шлака ближе всего к виду хлама (для строки в мешке)
 const JUNK_PICTURE = {"rusty_bolt": 1, "bearing_cover": 2, "tie_plate": 4, "brake_shoe": 6, "rail_clip": 7, "cracked_lantern": 8, "stationmaster_watch": 9, "track_spike": 1, "fishplate": 5}
 const BONUS_NAME = {"spin": "халявная крутка", "x2": "иксы на ставку", "junk": "шлак в мешок", "tea": "чайку!"}
+
+var plaque_cache = {}
+
+func plaque_box(alpha: float) -> StyleBoxFlat:
+	var key = str(alpha)
+	if plaque_cache.has(key): return plaque_cache[key]
+	var box = StyleBoxFlat.new()
+	box.bg_color = Color(0.10, 0.065, 0.03, alpha)
+	box.border_color = Color("c9a24e")
+	box.set_border_width_all(3)
+	box.set_corner_radius_all(12)
+	box.shadow_color = Color(0, 0, 0, 0.45)
+	box.shadow_size = 8
+	box.shadow_offset = Vector2(0, 4)
+	plaque_cache[key] = box
+	return box
+
+# wood-and-brass buttons instead of the flat green ones
+func brass_button(button: Button, hot: bool) -> void:
+	for state in ["normal", "hover", "pressed", "disabled", "focus"]:
+		var box = StyleBoxFlat.new()
+		var base = Color("6b4423") if hot else Color("3b2814")
+		if state == "hover": base = base.lightened(0.15)
+		if state == "pressed": base = base.darkened(0.2)
+		if state == "disabled": base = Color("2a2118")
+		box.bg_color = base
+		box.border_color = Color("d8b258") if state != "disabled" else Color("6b5a3a")
+		box.set_border_width_all(3)
+		box.set_corner_radius_all(10)
+		box.content_margin_left = 16
+		box.content_margin_right = 16
+		box.content_margin_top = 8
+		box.content_margin_bottom = 8
+		box.shadow_color = Color(0, 0, 0, 0.45)
+		box.shadow_size = 5
+		box.shadow_offset = Vector2(0, 3)
+		button.add_theme_stylebox_override(state, box)
+	button.add_theme_color_override("font_color", Color("fff1cc"))
+	button.add_theme_color_override("font_hover_color", Color("ffffff"))
+	button.add_theme_color_override("font_disabled_color", Color("8a7c5c"))
+	button.add_theme_font_size_override("font_size", 20)
 
 func cas():
 	return game.model.casino()
@@ -37,12 +79,15 @@ func _ready() -> void:
 	tokens_target = cas().tokens()
 	var row = HBoxContainer.new()
 	row.add_theme_constant_override("separation", 12)
-	row.position = Vector2(size.x * 0.30, size.y - 78.0)
+	row.position = Vector2(size.x * 0.30, size.y - 74.0)
 	row.size = Vector2(size.x * 0.66, 56)
 	add_child(row)
 	spin_button = game.add_button(row, "Крутануть", Callable(self, "on_spin"))
 	dep_button = game.add_button(row, "Деп", Callable(self, "on_deposit"))
-	game.add_button(row, "Назад в депо", game.close_modal)
+	back_button = game.add_button(row, "Назад в депо", game.close_modal)
+	brass_button(spin_button, true)
+	brass_button(dep_button, false)
+	brass_button(back_button, false)
 	refresh_buttons()
 
 # ---- the sectors by their weights
@@ -190,73 +235,126 @@ func plural(n: int, one: String, few: String, many: String) -> String:
 	if r10 >= 2 and r10 <= 4: return few
 	return many
 
+func plaque(rect: Rect2, alpha: float = 0.92) -> void:
+	draw_style_box(plaque_box(alpha), rect)
+	draw_rect(rect.grow(-5.0), Color(1, 0.85, 0.5, 0.10), false, 1.5)
+
+# the painted-looking sector: the colour deepens towards the hub, a light edge at the rim, brass dividers
+func draw_sector(i: int, r0: float, r1: float) -> void:
+	var s = sectors()[i]
+	var b = sector_bounds(i)
+	var base: Color = SECTOR_COLOR.get(str(s.id), Color.GRAY)
+	var steps = maxi(2, ceili((b.y - b.x) / 0.08))
+	var rings = 12
+	for ring in range(rings):
+		var ra = lerpf(r0, r1, float(ring) / float(rings))
+		var rb = lerpf(r0, r1, float(ring + 1) / float(rings))
+		var shade = lerpf(0.66, 1.10, float(ring + 1) / float(rings))
+		var points = PackedVector2Array()
+		for k in range(steps + 1): points.append(Vector2.from_angle(b.x - PI * 0.5 + (b.y - b.x) * float(k) / float(steps)) * rb)
+		for k in range(steps, -1, -1): points.append(Vector2.from_angle(b.x - PI * 0.5 + (b.y - b.x) * float(k) / float(steps)) * ra)
+		draw_colored_polygon(points, Color(clampf(base.r * shade, 0, 1), clampf(base.g * shade, 0, 1), clampf(base.b * shade, 0, 1), 1.0))
+	# a light line on the rim side and a dark one near the hub give the carved look
+	var rim = PackedVector2Array()
+	var hub = PackedVector2Array()
+	for k in range(steps + 1):
+		var a = b.x - PI * 0.5 + (b.y - b.x) * float(k) / float(steps)
+		rim.append(Vector2.from_angle(a) * (r1 - 2.0))
+		hub.append(Vector2.from_angle(a) * (r0 + 2.0))
+	draw_polyline(rim, Color(1, 0.92, 0.7, 0.35), 3.0, true)
+	draw_polyline(hub, Color(0, 0, 0, 0.5), 3.0, true)
+
 func _draw() -> void:
-	draw_cover(tex.interior, Color(0.72, 0.68, 0.62))
-	draw_rect(Rect2(Vector2.ZERO, size), Color(0.03, 0.02, 0.01, 0.30))
-	# Михалыч стоит слева за стойкой
+	draw_cover(tex.interior, Color(0.70, 0.66, 0.60))
+	draw_rect(Rect2(Vector2.ZERO, size), Color(0.03, 0.02, 0.01, 0.34))
+	# Михалыч стоит слева, поменьше: главное тут колесо
 	var m: Texture2D = tex.mikhalych
-	var mh = size.y * 0.80
+	var mh = size.y * 0.70
 	var mw = mh * float(m.get_width()) / float(m.get_height())
-	var mpos = Vector2(size.x * 0.02, size.y - mh - 6.0 + (2.0 * sin(Time.get_ticks_msec() / 900.0)))
+	var mpos = Vector2(size.x * 0.015, size.y - mh - 8.0 + (2.0 * sin(Time.get_ticks_msec() / 900.0)))
 	draw_texture_rect(m, Rect2(mpos, Vector2(mw, mh)), false)
 	# колесо
-	var center = Vector2(size.x * 0.60, size.y * 0.46)
-	var diameter = minf(size.y * 0.66, size.x * 0.40)
+	var center = Vector2(size.x * 0.635, size.y * 0.43)
+	var diameter = minf(size.y * 0.70, size.x * 0.40)
 	var wheel: Texture2D = tex.wheel
-	var scale = diameter / float(wheel.get_width())
 	var radius = diameter * 0.5
 	if glow > 0.02:
 		var g = diameter * (1.5 + 0.3 * glow)
 		draw_texture_rect(tex.glow, Rect2(center - Vector2(g, g) * 0.5, Vector2(g, g)), false, Color(1, 1, 1, clampf(glow, 0.0, 1.0)))
+	# a soft shadow of the wheel on the wall
+	draw_circle(center + Vector2(10, 14), radius * 1.02, Color(0, 0, 0, 0.35))
 	draw_set_transform(center, angle, Vector2.ONE)
-	draw_texture_rect(wheel, Rect2(-Vector2(diameter, diameter * float(wheel.get_height()) / float(wheel.get_width())) * 0.5, Vector2(diameter, diameter * float(wheel.get_height()) / float(wheel.get_width()))), false)
+	var wh = diameter * float(wheel.get_height()) / float(wheel.get_width())
+	draw_texture_rect(wheel, Rect2(-Vector2(diameter, wh) * 0.5, Vector2(diameter, wh)), false)
 	var r0 = radius * 0.19
 	var r1 = radius * 0.80
+	for i in range(sectors().size()): draw_sector(i, r0, r1)
+	# the brass dividers with a stud at the rim end
+	for i in range(sectors().size()):
+		var b = sector_bounds(i)
+		var a = b.x - PI * 0.5
+		draw_line(Vector2.from_angle(a) * r0, Vector2.from_angle(a) * r1, Color(0.08, 0.05, 0.02, 0.9), 5.0, true)
+		draw_line(Vector2.from_angle(a) * r0, Vector2.from_angle(a) * r1, Color("d8b258"), 2.2, true)
+		draw_circle(Vector2.from_angle(a) * (r1 + 2.0), 6.0, Color("2a1a08"))
+		draw_circle(Vector2.from_angle(a) * (r1 + 2.0), 4.4, Color("e8c66a"))
+		draw_circle(Vector2.from_angle(a) * (r1 + 1.0) + Vector2(-1.2, -1.2), 1.6, Color("fff4c8"))
+	# the labels read upright on both halves of the wheel
 	for i in range(sectors().size()):
 		var s = sectors()[i]
 		var b = sector_bounds(i)
-		var steps = maxi(2, ceili((b.y - b.x) / 0.12))
-		var points = PackedVector2Array()
-		for k in range(steps + 1): points.append(Vector2.from_angle(b.x - PI * 0.5 + (b.y - b.x) * float(k) / float(steps)) * r1)
-		for k in range(steps, -1, -1): points.append(Vector2.from_angle(b.x - PI * 0.5 + (b.y - b.x) * float(k) / float(steps)) * r0)
-		draw_colored_polygon(points, Color(SECTOR_COLOR.get(str(s.id), Color.GRAY), 0.96))
-		draw_polyline(points, Color(0.1, 0.07, 0.04, 0.9), 2.0, true)
 		var width = b.y - b.x
 		var mid = (b.x + b.y) * 0.5 - PI * 0.5
 		if width > 0.30:
-			draw_set_transform(center, angle + mid, Vector2.ONE)
-			draw_string(game.font, Vector2(radius * 0.30, 7.0), str(SECTOR_TEXT.get(str(s.id), "")), HORIZONTAL_ALIGNMENT_LEFT, -1, 19 if width > 0.5 else 15, Color("fff6dc"))
+			var text = str(SECTOR_TEXT.get(str(s.id), ""))
+			var font_size = 24 if width > 0.7 else 18
+			var on_left = cos(angle + mid) < 0.0
+			var text_width = game.font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
+			draw_set_transform(center, angle + mid + (PI if on_left else 0.0), Vector2.ONE)
+			var x = radius * 0.60 + text_width * 0.5 if on_left else radius * 0.30
+			for off in [Vector2(-2, 0), Vector2(2, 0), Vector2(0, -2), Vector2(0, 2), Vector2(2, 2)]:
+				draw_string(game.font, Vector2(-x, 8.0) + off, text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, Color(0.06, 0.03, 0.01, 0.85)) if on_left else draw_string(game.font, Vector2(x, 8.0) + off, text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, Color(0.06, 0.03, 0.01, 0.85))
+			if on_left: draw_string(game.font, Vector2(-x, 8.0), text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, Color("fff1cc"))
+			else: draw_string(game.font, Vector2(x, 8.0), text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, Color("fff1cc"))
 			draw_set_transform(center, angle, Vector2.ONE)
 		elif width > 0.0:
-			draw_line(Vector2.from_angle(mid) * r0, Vector2.from_angle(mid) * r1, Color("ffe08a"), 3.0, true)
+			draw_line(Vector2.from_angle(mid) * (r0 + 6.0), Vector2.from_angle(mid) * (r1 - 4.0), Color("ffe08a"), 3.0, true)
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
-	# указатель сверху
+	# light from the upper left over the whole face: the wheel is one object, not a picture with a sticker
+	draw_circle(center + Vector2(-radius * 0.22, -radius * 0.26), radius * 0.62, Color(1, 0.95, 0.8, 0.06))
+	# the pointer on top, larger
 	var pointer: Texture2D = tex.pointer
-	var ph = diameter * 0.17
+	var ph = diameter * 0.20
 	var pw = ph * float(pointer.get_width()) / float(pointer.get_height())
-	draw_texture_rect(pointer, Rect2(center + Vector2(-pw * 0.5, -radius - ph * 0.55), Vector2(pw, ph)), false)
-	# жетоны, гарант, строка Михалыча
-	var token: Texture2D = tex.token
-	draw_texture_rect(token, Rect2(Vector2(size.x * 0.40, 26.0), Vector2(46, 46)), false)
-	draw_text(Vector2(size.x * 0.40 + 56.0, 60.0), "Жетоны: %d" % int(round(shown_tokens)), 28, Color("ffe9b0"))
+	draw_texture_rect(pointer, Rect2(center + Vector2(-pw * 0.5, -radius - ph * 0.60), Vector2(pw, ph)), false)
+	# the tokens and the guarantee on a plaque at the top, to the left of the wheel
+	var tp = Rect2(Vector2(size.x * 0.30, 18.0), Vector2(size.x * 0.20, 82.0))
+	plaque(tp)
+	draw_texture_rect(tex.token, Rect2(tp.position + Vector2(12, 14), Vector2(54, 54)), false)
+	draw_text(tp.position + Vector2(76, 42), "Жетоны: %d" % int(round(shown_tokens)), 30, Color("ffe9b0"))
 	var pity = cas().pity()
 	var pity_max = int(game.model.data.casino.pity_max)
-	draw_text(Vector2(size.x * 0.40 + 56.0, 88.0), "До гарантированной карточки: %d из %d" % [pity, pity_max], 17, Color("d9cdb0"))
-	draw_text(Vector2(size.x * 0.34, size.y - 104.0), line, 21, Color("fff2c8"), size.x * 0.62, HORIZONTAL_ALIGNMENT_CENTER)
+	draw_text(tp.position + Vector2(76, 68), "гарант карточки: %d из %d" % [pity, pity_max], 16, Color("d9cdb0"))
+	# the result and the words of Mikhalych on a plaque under the wheel
+	var rp = Rect2(Vector2(size.x * 0.40, size.y * 0.795), Vector2(size.x * 0.46, size.y * 0.085))
+	plaque(rp)
 	if spin_t < 0.0 and not result.is_empty():
-		draw_text(Vector2(size.x * 0.34, center.y + radius + 34.0), result_text(), 24, Color("ffe08a"), size.x * 0.52, HORIZONTAL_ALIGNMENT_CENTER)
-	# мешок шлака справа сверху
+		draw_text(rp.position + Vector2(16, rp.size.y * 0.42), result_text(), 22, Color("ffe08a"), rp.size.x - 32.0, HORIZONTAL_ALIGNMENT_CENTER)
+		draw_text(rp.position + Vector2(16, rp.size.y * 0.80), line, 17, Color("fff2c8"), rp.size.x - 32.0, HORIZONTAL_ALIGNMENT_CENTER)
+	else:
+		draw_text(rp.position + Vector2(16, rp.size.y * 0.62), line, 20, Color("fff2c8"), rp.size.x - 32.0, HORIZONTAL_ALIGNMENT_CENTER)
+	# the bag of junk on a plaque at the right
 	var bag = cas().bag()
-	var bx = size.x * 0.835
-	var by = 28.0
-	draw_rect(Rect2(bx - 14.0, by - 6.0, size.x * 0.165 - 12.0, 36.0 + 28.0 * float(maxi(1, mini(bag.size(), 10)))), Color(0.05, 0.04, 0.02, 0.62))
-	draw_text(Vector2(bx, by + 18.0), "Мешок шлака", 19, Color("ffe9b0"))
-	var row = 1
+	var rows = maxi(1, mini(bag.size(), 8))
+	var bag_w = maxf(size.x * 0.14, 210.0)
+	var bp = Rect2(Vector2(size.x - bag_w - 12.0, 18.0), Vector2(bag_w, 52.0 + 28.0 * float(rows)))
+	plaque(bp)
+	draw_text(bp.position + Vector2(14, 30), "Мешок шлака", 19, Color("ffe9b0"))
+	var row = 0
 	for entry in bag:
-		if row > 10: break
+		if row >= 8: break
 		var pic = int(JUNK_PICTURE.get(str(entry.id), 1))
 		var jt: Texture2D = tex["junk_%d" % pic]
-		draw_texture_rect(jt, Rect2(Vector2(bx, by + 8.0 + 28.0 * float(row)), Vector2(22, 22)), false)
-		draw_text(Vector2(bx + 30.0, by + 26.0 + 28.0 * float(row)), "%s ×%d" % [entry.name, int(entry.count)], 15, Color("e8dcc0"))
+		draw_texture_rect(jt, Rect2(bp.position + Vector2(12, 42.0 + 28.0 * float(row)), Vector2(24, 24)), false)
+		draw_text(bp.position + Vector2(44, 60.0 + 28.0 * float(row)), "%s ×%d" % [entry.name, int(entry.count)], 14, Color("e8dcc0"))
 		row += 1
-	if bag.is_empty(): draw_text(Vector2(bx, by + 46.0), "пусто, ищи у рельса", 15, Color("c9bda0"))
+	if bag.is_empty(): draw_text(bp.position + Vector2(14, 66), "пусто: ищи у рельса", 15, Color("c9bda0"))
