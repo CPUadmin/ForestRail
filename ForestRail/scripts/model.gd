@@ -1668,6 +1668,56 @@ func pole_lift() -> void:
 func pole_effort(value: float) -> void:
 	if vehicle_id() == "pole": pole.set_effort(value)
 
+# --- B5.4: the grip of the wheels. The brake holds only as much as the wheels grip the rail (the same number
+# as the drive): a harder pull locks the wheels, which then slide and hold less. In rain it grips less.
+const BRAKE_MU = 0.35
+const SLIDE_RATIO = 0.7
+var wheel_lock = false   # the wheels are locked and slide (the brake is pulled harder than the rail holds)
+var wheel_slip = false   # the driving wheels spin (more pull than the rail holds)
+
+# The most that all the wheels of the train can brake (the brake works through the whole train).
+func brake_cap(total: float = -1.0) -> float:
+	if total < 0.0: total = train_mass()
+	return BRAKE_MU * total * G * cos(route.slope(float(state.s))) * grip_factor()
+
+func brake_total() -> float:
+	var sum = 0.0
+	for id in body_ids(): sum += float(object_stats(id).brake)
+	return sum
+
+# What the lever asks for, before the grip decides (the pads weaken a little in the rain).
+func brake_demand(max_brake: float) -> float:
+	return float(state.brake) * max_brake * (1.0 - 0.2 * rain_effect())
+
+# What the brake really does this moment: up to the grip in full, past it the wheels lock and slide.
+func braking_force(max_brake: float, total: float) -> float:
+	var demand = brake_demand(max_brake)
+	var cap = brake_cap(total)
+	var speed = absf(float(state.v))
+	if wheel_lock:
+		if demand < 0.8 * cap or speed < 0.5: wheel_lock = false
+	elif demand > cap and speed > 1.0:
+		wheel_lock = true
+		events.append("skid")
+	if wheel_lock: return minf(demand, cap * SLIDE_RATIO)
+	return minf(demand, cap)
+
+# The lever position (0..1) that brakes as hard as possible without locking the wheels.
+func brake_safe() -> float:
+	var full = brake_total() * (1.0 - 0.2 * rain_effect())
+	if full <= 0.0: return 1.0
+	return clampf(0.95 * brake_cap() / full, 0.0, 1.0)
+
+# How far the train rolls with the best braking from a speed (m/s, the current one by default), on this grade.
+func stopping_distance(speed: float = -1.0) -> float:
+	if speed < 0.0: speed = absf(float(state.v))
+	var total = train_mass()
+	var force = minf(brake_total() * (1.0 - 0.2 * rain_effect()), 0.95 * brake_cap(total)) + total * 0.004 * G   # with a little margin before the wheels lock
+	var along = G * sin(route.slope(float(state.s))) * float(state.direction) * signf(float(state.v))   # going uphill helps to stop
+	var decel = force / maxf(1.0, total) + along
+	if decel < 0.2: return 9999.0
+	return speed * speed / (2.0 * decel)
+
 func physics_step(dt: float) -> void:
 	if state.is_empty() or dt<=0:
 		return
@@ -1698,12 +1748,14 @@ func physics_step(dt: float) -> void:
 		grade -= mass * G * sin(slope)
 		rolling += mass * G * cos(slope) * float(stats.rolling)
 		max_brake += float(stats.brake)
+	var brake_applied = braking_force(max_brake, total)
+	wheel_slip = false
 	var stats = object_stats(vehicle_id())
 	var drive = 0.0
 	regen_kw = 0.0
 	var hand_result: Dictionary = {}
 	if vehicle_id() == "handcar":
-		hand_result=hand_drive.step(handcar,float(state.v),total,int(state.direction),0.21,dt,grade,rolling+float(vehicle_base().get("drag",0.0))*float(state.v)*float(state.v),float(state.brake)*max_brake,minf(220.0,float(stats.power)),float(effects(vehicle_id()).get("work_multiplier",1.0)),handcar_potential_at)
+		hand_result=hand_drive.step(handcar,float(state.v),total,int(state.direction),0.21,dt,grade,rolling+float(vehicle_base().get("drag",0.0))*float(state.v)*float(state.v),brake_applied,minf(220.0,float(stats.power)),float(effects(vehicle_id()).get("work_multiplier",1.0)),handcar_potential_at)
 		pump_angle=handcar.pose().angle
 		pump_work=maxf(0,float(hand_result.hand_work))
 		output_power=pump_work/dt
@@ -1737,9 +1789,10 @@ func physics_step(dt: float) -> void:
 				traction = minf(traction, power_limit_force(charge_traction_factor()))
 				if shift_cut > 0.0: traction = 0.0
 				var adhesion = 0.35 * float(stats.mass) * G * cos(route.slope(float(state.s))) * grip_factor()
+				wheel_slip = float(state.throttle) * traction > adhesion * 1.02 and absf(float(state.v)) < 12.0
 				drive = float(drive_direction()) * (-1.0 if reverse_gear else 1.0) * float(state.throttle) * minf(traction, adhesion)
 	var drag = drag_coefficient()
-	var brake = float(state.brake) * max_brake * (1.0 - 0.2 * rain_effect()) + engine_brake_force()
+	var brake = brake_applied + engine_brake_force()
 	if air_fly and not human_powered():
 		# The wheels are off the rail: no drive, no brake, no rolling friction.
 		drive = 0.0

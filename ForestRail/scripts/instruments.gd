@@ -335,7 +335,7 @@ func draw_status() -> void:
 	put("Груз  %d кг" % (m.train_mass()-dry_mass),r.position+Vector2(r.size.x*0.5+8,62*f),half,15)
 	var grade=tan(m.route.slope(float(m.state.s)))*100
 	put("Уклон  %+.1f%%" % grade,r.position+Vector2(16,88*f),half,14,slope_color(grade))
-	put("Тормоз  %d%%" % roundi(float(m.state.brake)*100),r.position+Vector2(r.size.x*0.5+8,88*f),half,14,Color("e0564a") if m.state.brake>0.9 else (Color("e6b34a") if m.state.brake>0.05 else MUTED))
+	put("Тормоз  %d%%%s" % [roundi(float(m.state.brake)*100),"  ЮЗ" if m.wheel_lock else ""],r.position+Vector2(r.size.x*0.5+8,88*f),half,14,Color("e0564a") if m.state.brake>0.9 else (Color("e6b34a") if m.state.brake>0.05 else MUTED))
 
 func map_area() -> Rect2:
 	return Rect2(90,size.y*0.24,size.x-180,size.y*0.2)

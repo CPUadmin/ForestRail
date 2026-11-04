@@ -187,7 +187,7 @@ func _ready() -> void:
 				# Tests and debugging runs are silent: nobody listens to the clicks and the engine.
 				AudioServer.set_bus_mute(0, true)
 				var suite = arg.trim_prefix("--qa-suite=")
-				if suite not in ["check_model", "check_physics", "check_interaction", "drive_campaign", "check_presentation", "check_handcar_revision", "check_art_v3", "check_instruments", "check_station_service", "check_world_geometry", "check_mechanism", "check_mechanism_bench", "check_handcar_drive", "check_handcar_input", "check_motor_controls", "check_loading_selection", "check_layout_p7", "check_steam", "check_steam_view", "check_gearbox", "check_petrol_view", "check_skins", "check_perf", "check_cab", "check_sound", "check_forecast", "check_line_v2", "check_line_spread", "check_thermal", "check_upgrades_new", "check_deadlines", "check_casino", "check_live", "check_live_view", "check_speeds", "check_creative", "check_settings", "check_pneumatic", "check_pneumatic_view", "check_pole", "check_pole_view", "check_air", "check_sail", "check_sail_view", "check_loading_flow", "check_depot_entry", "check_forecast_long", "drive_long", "check_forecast_view", "check_soak_p8", "check_save_p8"]: get_tree().quit(2); return
+				if suite not in ["check_model", "check_physics", "check_interaction", "drive_campaign", "check_presentation", "check_handcar_revision", "check_art_v3", "check_instruments", "check_station_service", "check_world_geometry", "check_mechanism", "check_mechanism_bench", "check_handcar_drive", "check_handcar_input", "check_motor_controls", "check_loading_selection", "check_layout_p7", "check_steam", "check_steam_view", "check_gearbox", "check_petrol_view", "check_skins", "check_perf", "check_cab", "check_sound", "check_forecast", "check_line_v2", "check_line_spread", "check_thermal", "check_upgrades_new", "check_deadlines", "check_casino", "check_live", "check_live_view", "check_grip", "check_speeds", "check_creative", "check_settings", "check_pneumatic", "check_pneumatic_view", "check_pole", "check_pole_view", "check_air", "check_sail", "check_sail_view", "check_loading_flow", "check_depot_entry", "check_forecast_long", "drive_long", "check_forecast_view", "check_soak_p8", "check_save_p8"]: get_tree().quit(2); return
 				get_tree().root.set_meta("qa_running", true)
 				set_process(false)
 				set_physics_process(false)
@@ -1287,6 +1287,19 @@ func draw_zone_label() -> void:
 	draw_style_box(style(Color(INK,0.86),info.color,10),box)
 	draw_string(font,box.position+Vector2(14,22),info.text,HORIZONTAL_ALIGNMENT_LEFT,width-20,16,info.color)
 
+# B5.4: how far the train still rolls with the best braking, a warning when the stop is near, and the state of the wheels.
+func brake_hint_text(target_s: float) -> String:
+	var text = ""
+	var speed = absf(float(model.state.v))
+	if speed >= 3.0:
+		var stop_m = model.stopping_distance()
+		text = " · торм. путь %d м" % roundi(minf(stop_m, 999.0))
+		var ahead = (target_s - float(model.state.s)) * int(model.state.direction)
+		if ahead > 0.0 and float(model.state.v) * int(model.state.direction) > 0.0 and stop_m * 1.1 >= ahead: text += " — ТОРМОЗИ"
+	if model.wheel_lock: text += " · ЮЗ: колёса заблокированы"
+	elif model.wheel_slip and float(model.state.throttle) > 0.05: text += " · колёса буксуют"
+	return text
+
 func update_hud() -> void:
 	if screen != "game" or hud == null:
 		return
@@ -1298,7 +1311,7 @@ func update_hud() -> void:
 	var returning = not state.active.is_empty() and state.active.phase == "return"
 	var stop_index = model.station_index()
 	var at_station = model.station_name(model.data.stations[stop_index].id) if stop_index >= 0 else ""
-	hud.text = "%s · %d м · %s · %s" % [model.journey_heading(),absf(target_s-float(state.s)),model.clock_text(),model.weather_name() if int(settings.weather) != 2 else "ясно"] + deadline_text()
+	hud.text = "%s · %d м · %s · %s" % [model.journey_heading(),absf(target_s-float(state.s)),model.clock_text(),model.weather_name() if int(settings.weather) != 2 else "ясно"] + deadline_text() + brake_hint_text(target_s)
 	order_label.text=order
 	var hint = ""
 	if state.phase == "loading":
@@ -1882,6 +1895,9 @@ func _process(dt: float) -> void:
 			# B5.2: a coupler takes up the slack with a knock, harder when the jerk is
 			sound.play("coupler_clank", clampf(0.25 + float(model.last_clank) * 0.5, 0.25, 0.9), randf_range(0.92, 1.08))
 			cab_jolt = maxf(cab_jolt, clampf(float(model.last_clank), 0.0, 0.6))
+		elif event_name == "skid":
+			notify("Юз: колёса заблокированы. Отпусти тормоз и затяни слабее")
+			sound.play("brake", 0.5, 1.3)
 		elif event_name == "cargo_hit":
 			sound.play("cargo", clampf(0.3 + float(model.last_cargo_hit) * 0.4, 0.3, 0.9), randf_range(0.85, 1.0))
 		else: sound.play(event_name, 0.6)

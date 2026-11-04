@@ -103,9 +103,7 @@ func run() -> void:
 			var destination=m.next_destination()
 			var index=game.station_number(destination)
 			var remaining=(m.service_stop(index)-float(m.state.s))*int(m.state.direction)
-			var brake_force=0.0
-			for id in m.body_ids(): brake_force+=float(m.object_stats(id).brake)
-			var stop_distance=float(m.state.v)*float(m.state.v)*m.train_mass()/(2*brake_force)
+			var stop_distance=m.stopping_distance(absf(float(m.state.v)))
 			var interaction=game.station_state()
 			if interaction.can_transfer and interaction.station_id==destination:
 				station_visits+=1
@@ -115,7 +113,7 @@ func run() -> void:
 				game.save_game()
 				if m.state.active.get("phase","")=="return" and destination!="A": check(await click_button("Развернуть"),"soak turns consist through UI")
 			elif remaining<maxf(1.4,stop_distance+0.7):
-				await brake(1.0)
+				await brake(m.brake_safe() if absf(float(m.state.v)) > 1.2 else 1.0)
 			else:
 				await brake(0.0)
 				if m.can_push_handcar():

@@ -28,12 +28,10 @@ static func round_trip(m, station: String, count: int, cargo_type: String = "sac
 		var target_s = m.service_stop(index_of(m, destination))
 		var remaining = (target_s - float(m.state.s)) * int(m.state.direction)
 		var speed = absf(float(m.state.v))
-		var brake_force = 0.0
-		for id in m.body_ids(): brake_force += float(m.object_stats(id).brake)
-		var braking_distance = speed * speed / (2 * brake_force * (1.0 - 0.2 * m.rain_effect()) / m.train_mass()) + 0.3   # a careful driver brakes earlier on wet rails
+		var braking_distance = m.stopping_distance(speed) + 0.3   # a careful driver brakes earlier on wet rails and downhill
 		if remaining < maxf(0.5, braking_distance) and not (speed < 0.05 and remaining > 0.6):
 			m.state.throttle = 0
-			m.state.brake = 1.0
+			m.state.brake = m.brake_safe() if speed > 1.2 else 1.0   # as hard as the rail holds, no locked wheels; slow: all the way
 		else:
 			m.state.brake = 0
 			if steam:

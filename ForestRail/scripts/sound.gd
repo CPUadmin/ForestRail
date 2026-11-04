@@ -168,7 +168,7 @@ func update(model, paused: bool, in_menu: bool, dt: float, in_cab: bool = false)
 				var level = (0.10 + 0.03 * minf(speed, 8.0)) * loud * pow(0.93, float(axles[k].body)) * randf_range(0.8, 1.15)
 				play(["rail_tick_a", "rail_tick_b", "rail_tick_c"][(joint + k) % 3], level, (0.9 + minf(speed, 10.0) * 0.02) * randf_range(0.95, 1.05))
 				clack_gap = 0.03
-	run_loop("brake", machine * 0.3 * brake * minf(1.0, speed / 5.0), brake > 0.1 and speed > 0.8, 0.9 + speed * 0.03)
+	run_loop("brake", machine * 0.3 * brake * minf(1.0, speed / 5.0) * (1.8 if model.wheel_lock else 1.0), brake > 0.1 and speed > 0.8, (0.9 + speed * 0.03) * (1.2 if model.wheel_lock else 1.0))
 	last_pump -= dt
 	if model.pump_work > 0.1 and last_pump <= 0:
 		play("pump", 0.35)
