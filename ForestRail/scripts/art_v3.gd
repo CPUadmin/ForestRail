@@ -5,6 +5,17 @@ const ROOT = "res://assets/art_v3/"
 # needle, smoke and rods are drawn live in draw_steam_overlay / draw_steam_motion.
 const BODY = {"handcar": "vehicles/handcar_body", "pole": "vehicles/pole_body", "sail": "vehicles/sail_body", "steam": "vehicles/steam_locomotive_body", "motorcar": "vehicles/petrol_motorcar_body", "locomotive": "vehicles/battery_locomotive_body", "pneumatic": "vehicles/pneumatic_body"}
 const LARGE_WHEELS = ["locomotive", "steam", "pneumatic"]
+# Opaque tread diameters measured horizontally and vertically in the painted sprites.
+const PAINTED_WHEEL_TREAD = {
+	"vehicles/wheel_large": Vector2(1090, 1102),
+	"vehicles/wheel_small": Vector2(1102, 1110),
+}
+const STOCK_WHEEL_TINT = {
+	"locomotive": Color("e3e8d8"),
+	"steam": Color("fff0cf"),
+	"pneumatic": Color("c2d4e1"),
+	"motorcar": Color("f0b8a5"),
+}
 const Geometry = preload("res://scripts/world_geometry.gd")
 const Mechanism = preload("res://scripts/handcar_mechanism.gd")
 const PX = Geometry.PX
@@ -377,14 +388,21 @@ func draw_vehicle(canvas: Node2D, id: String, distance: float, facing: int, oute
 	if draw_open_rig and id=="pole": draw_pole_overlay(canvas, model)
 	if draw_open_rig and id=="sail": draw_sail_overlay(canvas, model)
 	if id=="motorcar": draw_petrol_overlay(canvas, model)
-	var wheel_id = skin_wheel.get(id, "vehicles/steam_wheel" if id == "steam" else "vehicles/petrol_wheel" if id == "motorcar" else ("vehicles/wheel_large" if id in LARGE_WHEELS else "vehicles/wheel_small"))
-	var radius = PX * (0.55 if id in LARGE_WHEELS else 0.42) * 0.5
+	var wheel_id = skin_wheel.get(id, "vehicles/wheel_large" if id in LARGE_WHEELS else "vehicles/wheel_small")
+	var radius = -axis_height(id)
 	for position in wheel_positions(id):
 		var wheel_angle = fposmod(p.wheel_angle,TAU) if id=="handcar" else fposmod(distance*PX/radius*facing,TAU)
-		draw_part(canvas, wheel_id, position, wheel_angle, scale_for(wheel_id), outer)
-		canvas.draw_set_transform_matrix(outer * Transform2D(wheel_angle, position))
-		if id not in ["steam", "motorcar"]: canvas.draw_circle(Vector2(0, -radius * 0.72), 1.8, Color("c9af73"))
-		canvas.draw_set_transform_matrix(outer)
+		if PAINTED_WHEEL_TREAD.has(wheel_id):
+			var meta = assets[wheel_id]
+			var region = meta.region_px
+			var tread: Vector2 = PAINTED_WHEEL_TREAD[wheel_id]
+			var fit = Vector2(2.0 * radius, 2.0 * radius) / tread
+			var centre = pivot(wheel_id) - Vector2(region[0], region[1])
+			canvas.draw_set_transform_matrix(outer * Transform2D(wheel_angle, position))
+			canvas.draw_texture_rect(textures[wheel_id], Rect2(-centre * fit, Vector2(region[2], region[3]) * fit), false, STOCK_WHEEL_TINT.get(id, Color.WHITE))
+			canvas.draw_set_transform_matrix(outer)
+		else:
+			draw_part(canvas, wheel_id, position, wheel_angle, scale_for(wheel_id), outer)
 	if id == "steam" or id == "pneumatic": draw_steam_motion(canvas, distance, facing, outer, id)
 	if id == "motorcar": draw_side_rod(canvas, id, distance, facing, outer)
 	if id == "handcar": draw_mechanism(canvas, model, outer,p)
