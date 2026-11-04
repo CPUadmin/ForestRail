@@ -56,7 +56,25 @@ func run() -> void:
 	view.show_card("magician")
 	check(view.detail != null, "a click opens the big card")
 	await shot("album_detail")
+	# the big card turns over: the width shrinks to a line, then the back (only the icon of the gadget) comes up
+	var big = view.detail_card
+	check(not big.show_back and big.flip_p < 0.0, "the big card lies face up and still")
+	big.flip()
+	check(big.flip_p == 0.0, "a click starts the turn")
+	big._process(0.14)
+	await shot("album_flip_middle")
+	big._process(0.14)
+	check(big.show_back, "the other side is up after the half of the turn")
+	big._process(0.4)
+	check(big.flip_p < 0.0 and big.show_back, "the turn is over and the card lies on its back")
+	await shot("album_back")
+	big.flip(true)
+	check(not big.show_back, "with less motion the card turns at once")
 	view.on_close()
 	check(view.detail == null, "the first back closes the big card")
+	# a card that is not found is only a slot: it cannot be turned over
+	var slot = view.views.tower
+	slot.flip()
+	check(slot.flip_p < 0.0 and not slot.show_back, "an empty slot does not turn")
 	print("ALBUM VIEW CHECKS ", checks, "; FAILURES ", failures)
 	get_tree().quit(0 if failures.is_empty() else 1)

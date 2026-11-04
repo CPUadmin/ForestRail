@@ -20,6 +20,7 @@ var spin_button: Button
 var dep_button: Button
 var back_button: Button
 var tex = {}
+var drop: Control              # the found card on the screen (nothing while no card is shown)
 var mood = "calm"              # calm, happy, sad, surprised, pouring: which picture of Mikhalych is shown
 
 const SECTOR_TEXT = {"empty": "пусто", "tokens1": "+5", "tokens2": "+10", "junk": "шлак", "coins": "монеты", "repair": "ремнабор", "golden": "золото", "bonus": "бонуска", "card": "КАРТА"}
@@ -154,6 +155,7 @@ func on_deposit() -> void:
 
 func on_spin() -> void:
 	if spin_t >= 0.0: return
+	close_drop()
 	var before = cas().tokens()
 	result = cas().spin()
 	if not bool(result.get("ok", false)):
@@ -174,6 +176,44 @@ func on_spin() -> void:
 	mood = "calm"
 	line = "Крутим-вертим…"
 	refresh_buttons()
+
+# the found Tarot card: it comes out face down, turns over and the player takes it with a click
+func show_drop() -> void:
+	close_drop()
+	drop = Control.new()
+	drop.size = size
+	add_child(drop)
+	var shade = ColorRect.new()
+	shade.color = Color(0, 0, 0, 0.62)
+	shade.size = size
+	drop.add_child(shade)
+	var card = CardView.new()
+	card.game = game
+	card.card_id = str(result.get("card", ""))
+	card.show_back = true
+	var h = size.y * 0.76
+	card.size = Vector2(h / 1.59, h)
+	card.position = Vector2(size.x * 0.5 - card.size.x * 0.5, size.y * 0.08)
+	drop.add_child(card)
+	var hint = Label.new()
+	hint.text = "Нажми, чтобы забрать"
+	hint.add_theme_font_size_override("font_size", 24)
+	hint.add_theme_color_override("font_color", Color("ffe9b0"))
+	hint.size = Vector2(size.x, 36)
+	hint.position = Vector2(0, size.y * 0.08 + h + 10.0)
+	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	drop.add_child(hint)
+	var take = Button.new()
+	take.flat = true
+	take.size = size
+	take.pressed.connect(close_drop)
+	drop.add_child(take)
+	var quick = bool(game.settings.reduce_motion)
+	get_tree().create_timer(0.7).timeout.connect(func(): if is_instance_valid(card): card.flip(quick))
+
+func close_drop() -> void:
+	if drop != null and is_instance_valid(drop): drop.queue_free()
+	drop = null
 
 func result_text() -> String:
 	var r = result
@@ -197,6 +237,7 @@ func finish_spin() -> void:
 	var kind = str(result.get("kind", ""))
 	line = {"empty": "Бывает. Чайку?", "tokens": "Ну вот, а ты сомневался.", "junk": "Железо не пропадает, оно ждёт своего заноса.", "coins": "Звенит, значит живём.", "repair": "Пригодится, машина просила.", "golden": "Такой болт держит не рельсы, а мечты.", "bonus": "Талончик припрячь, пригодится.", "card": "ЗАНОС! Сорвал банк!"}.get(kind, "Ещё разок?")
 	mood = {"empty": "sad", "card": "surprised", "golden": "surprised"}.get(kind, "happy")
+	if kind == "card": show_drop()
 	if kind == "card":
 		var probe = CardView.new()
 		probe.card_id = str(result.get("card", ""))

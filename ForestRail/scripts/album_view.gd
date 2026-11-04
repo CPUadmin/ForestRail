@@ -8,6 +8,7 @@ const SECRET_IDS = ["moon", "sun", "judgement", "world"]
 var game
 var views: Dictionary = {}
 var detail: Control
+var detail_card: Control
 var close_button: Button
 
 func cas():
@@ -94,9 +95,17 @@ func show_card(id: String) -> void:
 	view.size = Vector2(h / 1.59, h)
 	view.position = Vector2(size.x * 0.5 - view.size.x - 30.0, 40.0)
 	detail.add_child(view)
+	detail_card = view
+	var turn = Button.new()
+	turn.flat = true
+	turn.size = view.size
+	turn.position = view.position
+	turn.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	turn.pressed.connect(func(): view.flip(bool(game.settings.reduce_motion)))
+	detail.add_child(turn)
 	var data = view.info()
 	var text = Label.new()
-	text.text = "%s\n\n%s\n\n«%s»\n\n— Михалыч" % [str(data.name), str(data.gadget), str(data.quote)]
+	text.text = "%s\n\n%s\n\n«%s»\n\n— Михалыч\n\nНажми на карточку, чтобы перевернуть." % [str(data.name), str(data.gadget), str(data.quote)]
 	text.add_theme_font_size_override("font_size", 26)
 	text.add_theme_color_override("font_color", Color("fff1cc"))
 	text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
