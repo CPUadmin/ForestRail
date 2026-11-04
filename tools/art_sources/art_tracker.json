@@ -979,10 +979,10 @@
    "element": "K",
    "format": "3:2",
    "background": "magenta",
-   "status": "принято",
+   "status": "получено",
    "note": "Кузов электровоза, вид сбоку",
    "notes": [],
-   "received": "2026-11-05 00:21",
+   "received": "2026-11-05 00:24",
    "outputs": [
     "accepted/P5_electric_loco/electric_loco_body.png"
    ]
@@ -994,12 +994,26 @@
    "element": "K",
    "format": "1:1",
    "background": "magenta",
-   "status": "промпт готов",
+   "status": "принято",
    "note": "Лист деталей электровоза (3 на 3)",
    "sheet": {
     "cols": 3,
     "rows": 3
-   }
+   },
+   "notes": [],
+   "received": "2026-11-05 00:24",
+   "outputs": [
+    "accepted/P5_electric_loco/electric_parts_sheet.png",
+    "accepted/P5_electric_loco/electric_parts/cell_1_1.png",
+    "accepted/P5_electric_loco/electric_parts/cell_1_2.png",
+    "accepted/P5_electric_loco/electric_parts/cell_1_3.png",
+    "accepted/P5_electric_loco/electric_parts/cell_2_1.png",
+    "accepted/P5_electric_loco/electric_parts/cell_2_2.png",
+    "accepted/P5_electric_loco/electric_parts/cell_2_3.png",
+    "accepted/P5_electric_loco/electric_parts/cell_3_1.png",
+    "accepted/P5_electric_loco/electric_parts/cell_3_2.png",
+    "accepted/P5_electric_loco/electric_parts/cell_3_3.png"
+   ]
   },
   {
    "id": "P6-A1",
@@ -1008,8 +1022,15 @@
    "element": "K",
    "format": "3:2",
    "background": "magenta",
-   "status": "промпт готов",
-   "note": "Станция E «Верхний бор»"
+   "status": "принято",
+   "note": "Станция E «Верхний бор»",
+   "notes": [
+    "ПРЕДУПРЕЖДЕНИЕ: предмет близко к краю кадра, возможно обрезан"
+   ],
+   "received": "2026-11-05 00:24",
+   "outputs": [
+    "accepted/P6_stations_ef/station_e.png"
+   ]
   },
   {
    "id": "P6-A2",
@@ -1018,8 +1039,15 @@
    "element": "K",
    "format": "3:2",
    "background": "magenta",
-   "status": "промпт готов",
-   "note": "Конечная F «Дальний бор»: крупнее, вечер"
+   "status": "принято",
+   "note": "Конечная F «Дальний бор»: крупнее, вечер",
+   "notes": [
+    "ПРЕДУПРЕЖДЕНИЕ: предмет близко к краю кадра, возможно обрезан"
+   ],
+   "received": "2026-11-05 00:24",
+   "outputs": [
+    "accepted/P6_stations_ef/station_f.png"
+   ]
   },
   {
    "id": "P6-A3",
@@ -1028,8 +1056,13 @@
    "element": "K",
    "format": "3:2",
    "background": "magenta",
-   "status": "промпт готов",
-   "note": "Малый разъезд для станции B"
+   "status": "принято",
+   "note": "Малый разъезд для станции B",
+   "notes": [],
+   "received": "2026-11-05 00:24",
+   "outputs": [
+    "accepted/P6_stations_ef/station_b_small.png"
+   ]
   }
  ],
  "help": "Фон: magenta (плоский #FF00FF), black (свет), transparent, full-bleed (текстура на весь кадр). sheet: сетка листа {cols, rows}. Статусы: в списке, промпт готов, запрошено, получено, получено с проблемами, принято, отклонено, подключено."
