@@ -366,6 +366,13 @@ def cmd_prompts(root, tr, pkg, base_url):
     lines = ["# TASK FOR GPT: pack %s (%s)\n" % (pkg, info.get("name", ""))]
     lines.append("You are the art generator for \"Лесная колея\" (Forest Rail), a cozy 2D side-view narrow-gauge forest railway game. Produce the images below ONE BY ONE, one finished image per message, following the style rules in the project instructions (hand-painted painterly look, warm and slightly worn, forest green #466c51, charcoal steel #29383b, honey wood, cream #f5ecd6, aged brass #bb964f, soft light from the upper left, strict flat side view, no letters or numbers, subject centered with margins, flat pure magenta #FF00FF background unless another is named, no shadows or glow touching the background).\n")
     lines.append("## References\nOpen each reference (or use the files the owner attached). The two ref_style_* images are the STYLE ANCHORS; match them exactly.\n")
+    lines.append("If you read the repository through a GitHub connection, the same files are in the repo at tools/art_sources/briefs/%s/ :
+" % folder)
+    for r in refs:
+        lines.append("- tools/art_sources/briefs/%s/%s" % (folder, r))
+    lines.append("
+If the repository is public, the direct links are:
+")
     for r in refs:
         lines.append("- %s/briefs/%s/%s" % (base_url, folder, r))
     lines.append("\n## First message of the pack\n")
