@@ -7,6 +7,7 @@ const HandcarDrive = preload("res://scripts/handcar_drive.gd")
 const Pole = preload("res://scripts/pole.gd")
 const Casino = preload("res://scripts/casino.gd")
 const Live = preload("res://scripts/live.gd")
+const Wear = preload("res://scripts/wear.gd")
 const Wind = preload("res://scripts/wind.gd")
 const G = 9.81
 const BUFFER_SAFE_SPEED = 1.0
@@ -78,6 +79,9 @@ static var order_rules = false
 # B5: the live train (elastic couplers, rocking, shifting cargo). The picture, the sound and the damage of the
 # fragile cargo; the main physics of the train stays rigid. The tests of the older numbers leave it off.
 static var live_effects = false
+# B5.6: wear and damage of the nodes. The tests of the older numbers leave it off (every node stays new).
+static var wear_rules = false
+var _wear = null
 var live = Live.new()
 var last_clank = 0.0
 var last_cargo_hit = 0.0
@@ -256,7 +260,19 @@ func object_stats(id: String) -> Dictionary:
 				var high = float(ef.get("high_gear_speed_multiplier", 1)) if i >= 2 else 1.0
 				result.traction.append(float(base.gears[i][0]) * float(ef.get("traction_multiplier", 1)) * low)
 				result.speeds.append(float(base.gears[i][1]) * high)
+	if wear_rules or object_state(id).has("wear"): apply_wear(id, result)
 	return result
+
+# The worn nodes weaken the numbers: the brake, the pull, the rolling resistance, the battery or the air tank, the shaking.
+func apply_wear(id: String, result: Dictionary) -> void:
+	var w = wear()
+	result.brake = float(result.brake) * w.factor(id, "brake")
+	result.rolling = float(result.rolling) * (2.0 - w.factor(id, "roll"))
+	result.shock = float(result.shock) * (2.0 - w.factor(id, "shock"))
+	result.tank = float(result.tank) * w.factor(id, "capacity")
+	if result.has("traction"):
+		var power = w.factor(id, "power")
+		for i in range(result.traction.size()): result.traction[i] = float(result.traction[i]) * power
 
 # The two classes that run on a person: no fuel, no cab, no pult, no reverser.
 func human_powered(id: String = "") -> bool:
@@ -418,6 +434,40 @@ func _claim_consist() -> void:
 # The casino (bolts, tokens, the wheel, the cards of the gadgets): a short-lived helper over the state.
 func casino() -> Object:
 	return Casino.new(self)
+
+# Wear and damage of the nodes (wear.gd); one helper for the whole model.
+func wear() -> Object:
+	if _wear == null: _wear = Wear.new(self)
+	return _wear
+
+# A hit to the node of a machine that makes the given action; only when the wear rules are on.
+func wear_hit(id: String, effect: String, amount: float, why: String = "", preferred: String = "") -> void:
+	if wear_rules and not creative(): wear().damage_effect(id, effect, amount, why, preferred)
+
+func wear_skid(speed: float) -> void:
+	if not wear_rules or creative(): return
+	wear().damage(vehicle_id(), "brake", 0.03 + 0.05 * clampf(speed / 25.0, 0.0, 1.0), "колёса заблокированы")
+	wear().damage_effect(vehicle_id(), "roll", 0.02, "колёса заблокированы")
+
+func wear_landing(impact: float) -> void:
+	if not wear_rules or creative(): return
+	var a = minf(0.12, 0.03 + 0.02 * (impact - 1.0))
+	for id in body_ids():
+		if id.begins_with("W"):
+			wear().damage(id, "suspension", a, "приземление")
+			wear().damage(id, "coupler", a * 0.7, "приземление")
+		else:
+			wear().damage_effect(id, "roll", a * 0.5, "приземление")
+
+func wear_buffer(speed: float) -> void:
+	if not wear_rules or creative(): return
+	var a = minf(0.15, 0.05 + 0.03 * (speed - BUFFER_SAFE_SPEED))
+	for id in body_ids():
+		if id.begins_with("W"):
+			wear().damage(id, "coupler", a, "удар об упор")
+			wear().damage(id, "suspension", a * 0.6, "удар об упор")
+		else:
+			wear().damage_effect(id, "roll", a * 0.4, "удар об упор")
 
 func upgrade(id: String, branch_id: String, via_card: bool = false) -> bool:
 	if not depot_editable() or object_state(id).is_empty():
@@ -1017,6 +1067,7 @@ func settle() -> bool:
 	state.throttle = 0.0
 	state.gear = 0
 	cool_boiler()
+	if wear_rules: wear().free_touch_up()
 	message = ("Рейс окончен. Заработано %d монет" % reward if reward >= 0 else "Рейс окончен с штрафом: %d монет" % -reward) + (" · " + ", ".join(notes) if not notes.is_empty() else "")
 	return true
 
@@ -1035,6 +1086,7 @@ func rescue() -> void:
 	reset_input()
 	if not settle():
 		state.phase = "depot"
+	if wear_rules: wear().free_touch_up()
 	refuel()
 	message = "Помощь доставила состав в депо. Груз и покупки сохранены"
 
@@ -1207,6 +1259,7 @@ func thermal_step(dt: float, fleet: Dictionary) -> void:
 	var cooling = (0.03 + 0.004 * absf(float(state.v))) * (temp - ambient)
 	temp = clampf(temp + (heat_rate(fleet) * (1.0 if state.phase == "route" else 0.3) - cooling) * dt, ambient * 0.5, 1.0)
 	fleet.temp = temp
+	if wear_rules and temp > TEMP_HOT: wear_hit(vehicle_id(), "power", 0.01 * (temp - TEMP_HOT) / (1.0 - TEMP_HOT) * dt, "перегрев")
 	if vehicle_id() == "motorcar" and temp >= 1.0 and bool(state.engine):
 		state.engine = false
 		events.append("gear")
@@ -1272,6 +1325,7 @@ func update_frost(fleet: Dictionary, dt: float) -> void:
 		if running: spots[i] = minf(1.0, float(spots[i]) + 0.02 * float(effects("pneumatic").get("frost_multiplier", 1.0)) * (1.0 + 0.8 * cold()) * float(state.throttle) * (float(fleet.fuel) / float(object_stats("pneumatic").tank)) * float(weights[i]) * dt)
 		elif absf(float(state.v)) < 0.1: spots[i] = maxf(0.0, float(spots[i]) - 0.01 * dt)
 	fleet.ice_spots = spots
+	if wear_rules and frost() > 0.5: wear().damage("pneumatic", "seals", 0.01 * dt / 60.0, "иней на трубках")
 
 # A click on a frosted spot knocks a quarter of the ice off it.
 func chip_ice(spot: int) -> bool:
@@ -1342,6 +1396,9 @@ func petrol_stall_check(gear: int, stats: Dictionary, dt: float) -> void:
 		stall_clock = 0.0
 		state.engine = false
 		events.append("gear")
+		if wear_rules and not creative():
+			wear().damage("motorcar", "engine", 0.02, "двигатель глох на передаче")
+			wear().damage("motorcar", "gearbox", 0.02, "двигатель глох на передаче")
 		message = "Двигатель заглох: передача слишком высокая для этого хода. Нейтраль, пуск, потом пониже"
 
 # High gears pull weakly at low engine speed: the engine lugs.
@@ -1490,6 +1547,10 @@ func steam_step(dt: float, fleet: Dictionary) -> float:
 	b.pressure = clampf(after, 0.0, 1.0)
 	b.venting = vented > 0.0
 	fleet.water = maxf(0.0, water - (made - vented) * float(cfg.water_l_per_unit))
+	if wear_rules and burning and water <= 0.0 and float(b.heat) > 0.3 and not bool(b.get("dry_hit", false)):
+		b.dry_hit = true
+		wear().damage("steam", "boiler", 0.05, "котёл без воды")
+	elif water > 0.0: b.dry_hit = false
 	state.engine = bool(b.lit)
 	if not on_route: return 0.0
 	var stats = object_stats("steam")
@@ -1634,7 +1695,7 @@ func sail_step(dt: float = 1.0 / 60.0) -> float:
 	# a sail nobody holds flogs and gives no pull, only a little drag against the way the car goes
 	var force = pulled if engaged else -0.05 * 0.5 * 1.2 * area * forward_speed * absf(forward_speed)
 	# a gust the hand cannot hold tears the sheet away; the cleat gives way to a harder pull
-	var limit = (SAIL_GRIP_N if sail_held else SAIL_CLEAT_N) * float(gadgets.get("sail_hold_multiplier", 1.0)) * (0.7 if spinnaker else 1.0)
+	var limit = (SAIL_GRIP_N if sail_held else SAIL_CLEAT_N) * float(gadgets.get("sail_hold_multiplier", 1.0)) * (0.7 if spinnaker else 1.0) * wear().factor("sail", "rig")
 	if engaged and absf(pulled) > limit:
 		sail_over += dt
 		if sail_over > (0.8 if sail_held else 0.4):
@@ -1642,6 +1703,10 @@ func sail_step(dt: float = 1.0 / 60.0) -> float:
 			sail_cleated = false
 			sail_over = 0.0
 			events.append("land")
+			if wear_rules and not creative():
+				var over = clampf((absf(pulled) - limit) / maxf(1.0, limit), 0.0, 1.0)
+				wear().damage("sail", "rigging", 0.05 + 0.1 * over, "порыв сорвал шкот")
+				wear().damage("sail", "sail", 0.03 + 0.06 * over, "порыв сорвал шкот")
 	else:
 		sail_over = maxf(0.0, sail_over - dt)
 	sail_info = {"wind": w, "apparent": apparent, "beta": beta, "quality": quality, "force": force, "pulled": pulled, "engaged": sail_engaged(), "held": sail_held, "cleated": sail_cleated, "trim": sail_trim, "lift": sail_lift, "side": sail_side, "strain": clampf(sail_over / (0.8 if sail_held else 0.4), 0.0, 1.0), "gust": wind.gust_ahead(float(state.s), float(state.stats.seconds))}
@@ -1699,6 +1764,7 @@ func braking_force(max_brake: float, total: float) -> float:
 	elif demand > cap and speed > 1.0:
 		wheel_lock = true
 		events.append("skid")
+		wear_skid(speed)
 	if wheel_lock: return minf(demand, cap * SLIDE_RATIO)
 	return minf(demand, cap)
 
@@ -1755,7 +1821,7 @@ func physics_step(dt: float) -> void:
 	regen_kw = 0.0
 	var hand_result: Dictionary = {}
 	if vehicle_id() == "handcar":
-		hand_result=hand_drive.step(handcar,float(state.v),total,int(state.direction),0.21,dt,grade,rolling+float(vehicle_base().get("drag",0.0))*float(state.v)*float(state.v),brake_applied,minf(220.0,float(stats.power)),float(effects(vehicle_id()).get("work_multiplier",1.0)),handcar_potential_at)
+		hand_result=hand_drive.step(handcar,float(state.v),total,int(state.direction),0.21,dt,grade,rolling+float(vehicle_base().get("drag",0.0))*float(state.v)*float(state.v),brake_applied,minf(220.0,float(stats.power)),float(effects(vehicle_id()).get("work_multiplier",1.0))*wear().factor("handcar","power"),handcar_potential_at)
 		pump_angle=handcar.pose().angle
 		pump_work=maxf(0,float(hand_result.hand_work))
 		output_power=pump_work/dt
@@ -1773,8 +1839,8 @@ func physics_step(dt: float) -> void:
 		elif vehicle_id() == "pole":
 			pole.build(int(route.seed_value), float(route.length_m), route.station_s)
 			pole.wet = rain_effect()
-			pole.force_scale = float(effects("pole").get("pole_force_multiplier", 1.0))
-			pole.grip_scale = float(effects("pole").get("pole_grip_multiplier", 1.0))
+			pole.force_scale = float(effects("pole").get("pole_force_multiplier", 1.0)) * wear().factor("pole", "power")
+			pole.grip_scale = float(effects("pole").get("pole_grip_multiplier", 1.0)) * wear().factor("pole", "rig")
 			drive = pole.step(dt, float(state.s), float(state.v), int(state.direction))
 		elif fleet.fuel <= 0: state.engine = false
 		if vehicle_id() != "steam" and state.engine and fleet.fuel > 0:
@@ -1791,6 +1857,7 @@ func physics_step(dt: float) -> void:
 				var adhesion = 0.35 * float(stats.mass) * G * cos(route.slope(float(state.s))) * grip_factor()
 				wheel_slip = float(state.throttle) * traction > adhesion * 1.02 and absf(float(state.v)) < 12.0
 				drive = float(drive_direction()) * (-1.0 if reverse_gear else 1.0) * float(state.throttle) * minf(traction, adhesion)
+	if wear_rules and not creative() and wear().cannot_drive(vehicle_id()): drive = 0.0   # a dead node or a stop on the road: the machine does not pull
 	var drag = drag_coefficient()
 	var brake = brake_applied + engine_brake_force()
 	if air_fly and not human_powered():
@@ -1864,6 +1931,9 @@ func physics_step(dt: float) -> void:
 	update_air(dt, float(state.s) - movement)
 	update_auto_hold()
 	state.stats.distance += absf(movement)
+	if wear_rules and not creative():
+		wear().wear_road(absf(movement))
+		wear().breakdown_step(dt)
 	var travelled = state.fleet_by_id[vehicle_id()]
 	travelled.km = float(travelled.get("km", 0.0)) + absf(movement) / 1000.0   # for the wheel, which favours the machine driven most
 	rail_distance += absf(movement)
@@ -1898,6 +1968,8 @@ func live_step(dt: float) -> void:
 	if live.clank > 0.3:
 		last_clank = live.clank
 		events.append("clank")
+		if live.clank > 1.0 and wear_rules and not creative():
+			for k in range(1, body_ids().size()): wear().damage(body_ids()[k], "coupler", 0.004 * live.clank, "рывок сцепки")
 	for hit in live.hits:
 		if str(hit.kind) != "cargo" or float(hit.speed) < 0.35: continue
 		last_cargo_hit = float(hit.speed)
@@ -1945,6 +2017,7 @@ func update_air(dt: float, old_s: float) -> void:
 
 func landing_impact(impact: float) -> void:
 	if impact <= 1.0: return
+	wear_landing(impact)
 	for item in state.cargo:
 		if item.type == "fragile" and item.slot != "" and not item.delivered:
 			var owner = str(item.slot).split(":")[0]
@@ -1952,6 +2025,7 @@ func landing_impact(impact: float) -> void:
 
 func buffer_impact(speed: float) -> bool:
 	if speed<=BUFFER_SAFE_SPEED: return false
+	wear_buffer(speed)
 	var damaged=false
 	for item in state.cargo:
 		if item.type=="fragile" and item.slot!="" and not item.delivered:

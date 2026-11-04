@@ -188,7 +188,7 @@ func _ready() -> void:
 				# Tests and debugging runs are silent: nobody listens to the clicks and the engine.
 				AudioServer.set_bus_mute(0, true)
 				var suite = arg.trim_prefix("--qa-suite=")
-				if suite not in ["check_model", "check_physics", "check_interaction", "drive_campaign", "check_presentation", "check_handcar_revision", "check_art_v3", "check_instruments", "check_station_service", "check_world_geometry", "check_mechanism", "check_mechanism_bench", "check_handcar_drive", "check_handcar_input", "check_motor_controls", "check_loading_selection", "check_layout_p7", "check_steam", "check_steam_view", "check_gearbox", "check_petrol_view", "check_skins", "check_perf", "check_cab", "check_sound", "check_forecast", "check_line_v2", "check_line_spread", "check_thermal", "check_upgrades_new", "check_deadlines", "check_casino", "check_live", "check_live_view", "check_grip", "check_speeds", "check_creative", "check_settings", "check_pneumatic", "check_pneumatic_view", "check_pole", "check_pole_view", "check_air", "check_sail", "check_sail_view", "check_loading_flow", "check_depot_entry", "check_forecast_long", "drive_long", "check_forecast_view", "check_soak_p8", "check_save_p8"]: get_tree().quit(2); return
+				if suite not in ["check_model", "check_physics", "check_interaction", "drive_campaign", "check_presentation", "check_handcar_revision", "check_art_v3", "check_instruments", "check_station_service", "check_world_geometry", "check_mechanism", "check_mechanism_bench", "check_handcar_drive", "check_handcar_input", "check_motor_controls", "check_loading_selection", "check_layout_p7", "check_steam", "check_steam_view", "check_gearbox", "check_petrol_view", "check_skins", "check_perf", "check_cab", "check_sound", "check_forecast", "check_line_v2", "check_line_spread", "check_thermal", "check_upgrades_new", "check_deadlines", "check_casino", "check_live", "check_live_view", "check_grip", "check_wear", "check_wear_view", "check_speeds", "check_creative", "check_settings", "check_pneumatic", "check_pneumatic_view", "check_pole", "check_pole_view", "check_air", "check_sail", "check_sail_view", "check_loading_flow", "check_depot_entry", "check_forecast_long", "drive_long", "check_forecast_view", "check_soak_p8", "check_save_p8"]: get_tree().quit(2); return
 				get_tree().root.set_meta("qa_running", true)
 				set_process(false)
 				set_physics_process(false)
@@ -988,6 +988,7 @@ func build_upgrades(right: VBoxContainer) -> void:
 	add_label(right, "%d мест · %d кг · тормоз %d Н" % [before.slots, before.mass, before.brake], 18)
 	if selected_object.begins_with("W"):
 		add_label(right, "Качение: %.4f · защита посуды: %d%%" % [before.rolling, roundi((1.0 - float(before.shock)) * 100)], 18)
+	build_wear_card(right)
 	var branches: Array = []
 	for branch in model.data.upgrade_catalog:
 		if branch.target_type != ("wagon" if selected_object.begins_with("W") else selected_object):
@@ -1013,6 +1014,69 @@ func build_upgrades(right: VBoxContainer) -> void:
 					else: notify(model.message)))
 		else:
 			add_label(c, "Максимальный уровень", 17, GREEN)
+
+# B5.6: the window "Состояние": the nodes of the chosen machine or wagon with their bars, and the ways to mend them.
+func wear_color(value: float) -> Color:
+	return Color("6fae5a") if value >= 0.7 else (Color("d6a73c") if value >= 0.4 else Color("c9473d"))
+
+func build_wear_card(right: VBoxContainer) -> void:
+	if not Model.wear_rules: return
+	var wear = model.wear()
+	var id = selected_object
+	var nodes = wear.nodes_of(id)
+	if nodes.is_empty(): return
+	var worst = wear.worst(id)
+	var c = card(right, wear_color(float(worst.cond)) if float(worst.cond) < 0.7 else CARD_EDGE)
+	add_label(c, "Состояние  ·  " + ("всё в порядке" if float(worst.cond) >= 0.7 else "слабое место: " + str(worst.name).to_lower()), 22)
+	for def in nodes:
+		var node = str(def.id)
+		var value = wear.condition(id, node)
+		var line = HBoxContainer.new()
+		line.add_theme_constant_override("separation", 8)
+		c.add_child(line)
+		var label = add_label(line, "%s  %d%%" % [def.name, roundi(value * 100.0)], 17)
+		label.custom_minimum_size.x = 215
+		var bar = ProgressBar.new()
+		bar.min_value = 0.0
+		bar.max_value = 100.0
+		bar.value = value * 100.0
+		bar.show_percentage = false
+		bar.custom_minimum_size = Vector2(110, 14)
+		bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		bar.add_theme_stylebox_override("fill", style(wear_color(value), wear_color(value), 3))
+		bar.add_theme_stylebox_override("background", style(Color(0.13, 0.17, 0.15), CARD_EDGE, 3))
+		line.add_child(bar)
+		if value < 0.999:
+			var gain = wear.bolts_gain(id, node)
+			add_button(line, "Болтами +%d%%" % roundi(gain * 100.0) if gain > 0.0 else "Болтов нет", func():
+				var got = model.wear().repair_bolts_auto(id, node)
+				notify("Починено болтами: +%d%%" % roundi(got * 100.0))
+				save_game()
+				rebuild(), gain <= 0.0)
+			var price = wear.money_price(id, node, 1.0 - value)
+			add_button(line, "За %d монет" % price, func():
+				var got = model.wear().repair_with_money(id, node, 1.0 - float(model.wear().condition(id, node)))
+				notify("Починено за монеты: +%d%%" % roundi(got * 100.0) if got > 0.0 else "Не хватает монет")
+				save_game()
+				rebuild(), int(model.state.money) < 3 and not model.creative())
+	var kits = int(model.casino().st().repair_kits)
+	var footer = HBoxContainer.new()
+	footer.add_theme_constant_override("separation", 8)
+	c.add_child(footer)
+	var total = wear.full_repair_price(id)
+	if total > 0:
+		add_button(footer, "Починить всё · %d монет" % total, func():
+			for def in model.wear().nodes_of(id): model.wear().repair_with_money(id, str(def.id), 1.0)
+			notify("Всё починено, что хватило денег")
+			save_game()
+			rebuild())
+	if kits > 0 and float(worst.cond) < 0.999:
+		add_button(footer, "Ремнабор +25%% · есть %d" % kits, func():
+			var got = model.wear().repair_with_kit(id, str(model.wear().worst(id).node))
+			notify("Ремнабор: +%d%%" % roundi(got * 100.0))
+			save_game()
+			rebuild())
+	add_label(c, "Узлы изнашиваются от езды и ломаются от ошибок: юз колёс, перегрев, приземления, удары. 1% стоит 3 монеты; болты: свои +5%, общие +2%, редкие +4%. На линии чинит только мастерская станции (до 50%)." , 15, MUTED_INK)
 
 func upgrade_branch_name(id: String, branch: Dictionary) -> String:
 	if id == "locomotive":
@@ -1297,6 +1361,9 @@ func brake_hint_text(target_s: float) -> String:
 		text = " · торм. путь %d м" % roundi(minf(stop_m, 999.0))
 		var ahead = (target_s - float(model.state.s)) * int(model.state.direction)
 		if ahead > 0.0 and float(model.state.v) * int(model.state.direction) > 0.0 and stop_m * 1.1 >= ahead: text += " — ТОРМОЗИ"
+	if Model.wear_rules and model.wear().warning():
+		var weak = model.wear().train_worst()
+		text += " · АВАРИЯ: %s %d%%" % [str(weak.name).to_lower(), roundi(float(weak.cond) * 100.0)]
 	if model.wheel_lock: text += " · ЮЗ: колёса заблокированы"
 	elif model.wheel_slip and float(model.state.throttle) > 0.05: text += " · колёса буксуют"
 	return text
@@ -1765,6 +1832,12 @@ func build_modal(size: Vector2) -> void:
 		add_button(box, "Сохранить", func(): save_game(); notify("Сохранено"))
 		add_button(box, "Настройки", func(): show_modal("settings"))
 		add_button(box, "Как играть", func(): show_modal("help"))
+		if Model.wear_rules and model.wear().emergency_possible() and float(model.wear().train_worst().cond) < 0.5:
+			add_button(box, "Аварийный ремонт (до 50%)", func():
+				var done = model.wear().emergency_all()
+				notify("Мастерская станции: +%d%% износа, %d монет" % [roundi(float(done.gained) * 100.0), int(done.price)])
+				save_game()
+				close_modal())
 		add_button(box, "Помощь депо", func(): confirm("Вернуть состав домой? Груз, отметки доставки и покупки сохранятся. Запас энергии пополнится.", func():
 			model.rescue()
 			screen = "depot"
@@ -1818,6 +1891,7 @@ func cancel_drag() -> void:
 func _process(dt: float) -> void:
 	time += dt
 	model.weather_effect = [1.0, 0.5, 0.0][clampi(int(settings.weather), 0, 2)]
+	Model.wear_rules = not test_mode or live_in_tests   # wear and damage of the nodes (B5.6)
 	Model.live_effects = not test_mode or live_in_tests   # the live train: couplers, rocking, shifting cargo (B5); the tests keep the rigid numbers
 	Model.order_rules = not test_mode   # deadlines and bonuses of the orders only in the real game (tests keep the old numbers)
 	if depot_anim != "": advance_depot_anim(dt)
@@ -1897,6 +1971,11 @@ func _process(dt: float) -> void:
 			# B5.2: a coupler takes up the slack with a knock, harder when the jerk is
 			sound.play("coupler_clank", clampf(0.25 + float(model.last_clank) * 0.5, 0.25, 0.9), randf_range(0.92, 1.08))
 			cab_jolt = maxf(cab_jolt, clampf(float(model.last_clank), 0.0, 0.6))
+		elif event_name == "wear_warn":
+			sound.play("coupler_clank", 0.35, 0.7)
+		elif event_name == "breakdown":
+			sound.play("petrol_stall", 0.7)
+			cab_jolt = 1.0
 		elif event_name == "skid":
 			notify("Юз: колёса заблокированы. Отпусти тормоз и затяни слабее")
 			sound.play("brake", 0.5, 1.3)

@@ -296,3 +296,9 @@
 - Рекуперация: `game_data.json` locomotive `regen_fraction` 0,75 (было зашито 0,25 в `model.gd`); модель берёт `vehicle_base().get("regen_fraction", 0.25)`; тест `check_motor_controls` проверяет потолок 0,75 от работы торможения.
 - Парус пропадал из-за полос-многоугольников со сломанной триангуляцией (в логе `Invalid polygon data, triangulation failed` из `draw_sail_overlay`): полотно теперь рисуется клетками (строка × полоса) с пропуском вырожденных, задняя кромка не меньше 3% ширины. Если после правки в тестовом логе всё ещё есть такие ошибки, смотреть в первую очередь рисование многоугольников.
 
+## Веха 5 (preview.70): живой состав, сцепление колёс, износ
+
+- `scripts/live.gd`: второй слой над жёсткой физикой (сцепки с люфтом, качание кузовов, груз на ремнях); `Model.live_effects` (игра включает, тесты нет), `Model.live` читает картинка (`body_s_render`, `body_transform`, смещение груза). Тесты `check_live`, `check_live_view`.
+- Сцепление колёс в `model.gd`: `brake_cap`, `braking_force` (юз), `brake_safe`, `stopping_distance`, флаги `wheel_lock` и `wheel_slip`; боты тестов (`trip_driver`, `drive_campaign`, `check_soak_p8`) тормозят `brake_safe()`, а ниже 1,2 м/с полным рычагом (иначе станция не считает состав остановленным: нужно ≥95%). Тест `check_grip`.
+- `scripts/wear.gd`: износ и повреждения, `Model.wear()` и `Model.wear_rules`; данные `wear` в `game_data.json`; окно «Состояние» `build_wear_card` в `main.gd`; аварийный ремонт в меню паузы. Тесты `check_wear`, `check_wear_view`. Подробнее `docs/DAMAGE_RU.md`, раздел 9а.
+- Известно: `check_forecast` не укладывается в лимит 180 с раннера (и до этих правок), `drive_campaign` идёт ~400 с (проходит 13/13, но раннер иногда обрывает).

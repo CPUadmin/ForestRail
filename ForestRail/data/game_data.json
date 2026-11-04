@@ -1645,5 +1645,261 @@
         "machine": "zeppelin"
       }
     ]
+  },
+  "wear": {
+    "nodes": {
+      "handcar": [
+        {
+          "id": "lever",
+          "name": "Рычаг",
+          "effect": "power",
+          "floor": 0.6,
+          "per_km": 0.0015
+        },
+        {
+          "id": "bearings",
+          "name": "Подшипники",
+          "effect": "roll",
+          "floor": 0.4,
+          "per_km": 0.002
+        },
+        {
+          "id": "brake",
+          "name": "Тормоз",
+          "effect": "brake",
+          "floor": 0.6,
+          "per_km": 0.0025
+        }
+      ],
+      "pole": [
+        {
+          "id": "pole",
+          "name": "Шест",
+          "effect": "power",
+          "floor": 0.6,
+          "per_km": 0.002
+        },
+        {
+          "id": "tip",
+          "name": "Наконечник",
+          "effect": "rig",
+          "floor": 0.6,
+          "per_km": 0.003
+        },
+        {
+          "id": "bearings",
+          "name": "Подшипники",
+          "effect": "roll",
+          "floor": 0.4,
+          "per_km": 0.002
+        },
+        {
+          "id": "brake",
+          "name": "Тормоз",
+          "effect": "brake",
+          "floor": 0.6,
+          "per_km": 0.0025
+        }
+      ],
+      "sail": [
+        {
+          "id": "sail",
+          "name": "Парус",
+          "effect": "rig",
+          "floor": 0.5,
+          "per_km": 0.0015
+        },
+        {
+          "id": "rigging",
+          "name": "Оснастка",
+          "effect": "rig",
+          "floor": 0.7,
+          "per_km": 0.001
+        },
+        {
+          "id": "bearings",
+          "name": "Подшипники",
+          "effect": "roll",
+          "floor": 0.4,
+          "per_km": 0.002
+        },
+        {
+          "id": "brake",
+          "name": "Тормоз",
+          "effect": "brake",
+          "floor": 0.6,
+          "per_km": 0.0025
+        }
+      ],
+      "steam": [
+        {
+          "id": "boiler",
+          "name": "Котёл",
+          "effect": "power",
+          "floor": 0.6,
+          "per_km": 0.0015
+        },
+        {
+          "id": "grate",
+          "name": "Топка",
+          "effect": "power",
+          "floor": 0.8,
+          "per_km": 0.002
+        },
+        {
+          "id": "pistons",
+          "name": "Поршни и золотники",
+          "effect": "power",
+          "floor": 0.75,
+          "per_km": 0.0015
+        },
+        {
+          "id": "bearings",
+          "name": "Подшипники",
+          "effect": "roll",
+          "floor": 0.4,
+          "per_km": 0.002
+        },
+        {
+          "id": "brake",
+          "name": "Тормоз",
+          "effect": "brake",
+          "floor": 0.6,
+          "per_km": 0.0025
+        }
+      ],
+      "motorcar": [
+        {
+          "id": "engine",
+          "name": "Двигатель",
+          "effect": "power",
+          "floor": 0.6,
+          "per_km": 0.002
+        },
+        {
+          "id": "gearbox",
+          "name": "Коробка",
+          "effect": "power",
+          "floor": 0.8,
+          "per_km": 0.0015
+        },
+        {
+          "id": "bearings",
+          "name": "Подшипники",
+          "effect": "roll",
+          "floor": 0.4,
+          "per_km": 0.002
+        },
+        {
+          "id": "brake",
+          "name": "Тормоз",
+          "effect": "brake",
+          "floor": 0.6,
+          "per_km": 0.0025
+        }
+      ],
+      "pneumatic": [
+        {
+          "id": "tank",
+          "name": "Баллон",
+          "effect": "capacity",
+          "floor": 0.7,
+          "per_km": 0.0008
+        },
+        {
+          "id": "seals",
+          "name": "Трубки и сальники",
+          "effect": "power",
+          "floor": 0.8,
+          "per_km": 0.002
+        },
+        {
+          "id": "motor",
+          "name": "Пневмодвигатель",
+          "effect": "power",
+          "floor": 0.6,
+          "per_km": 0.0015
+        },
+        {
+          "id": "bearings",
+          "name": "Подшипники",
+          "effect": "roll",
+          "floor": 0.4,
+          "per_km": 0.002
+        },
+        {
+          "id": "brake",
+          "name": "Тормоз",
+          "effect": "brake",
+          "floor": 0.6,
+          "per_km": 0.0025
+        }
+      ],
+      "locomotive": [
+        {
+          "id": "motor",
+          "name": "Мотор",
+          "effect": "power",
+          "floor": 0.6,
+          "per_km": 0.0015
+        },
+        {
+          "id": "controller",
+          "name": "Контроллер",
+          "effect": "power",
+          "floor": 0.85,
+          "per_km": 0.0012
+        },
+        {
+          "id": "battery",
+          "name": "Аккумулятор",
+          "effect": "capacity",
+          "floor": 0.7,
+          "per_km": 0.0012
+        },
+        {
+          "id": "bearings",
+          "name": "Подшипники",
+          "effect": "roll",
+          "floor": 0.4,
+          "per_km": 0.002
+        },
+        {
+          "id": "brake",
+          "name": "Тормоз",
+          "effect": "brake",
+          "floor": 0.6,
+          "per_km": 0.0025
+        }
+      ],
+      "wagon": [
+        {
+          "id": "wheels",
+          "name": "Колёса и подшипники",
+          "effect": "roll",
+          "floor": 0.4,
+          "per_km": 0.002
+        },
+        {
+          "id": "coupler",
+          "name": "Сцепка",
+          "effect": "shock",
+          "floor": 0.6,
+          "per_km": 0.0012
+        },
+        {
+          "id": "suspension",
+          "name": "Подвеска",
+          "effect": "shock",
+          "floor": 0.6,
+          "per_km": 0.0015
+        }
+      ]
+    },
+    "repair": {
+      "coins_per_pct": 3,
+      "kit_pct": 0.25,
+      "emergency_limit": 0.5
+    }
   }
 }
