@@ -945,37 +945,69 @@ func draw_depot_icon(canvas: Control, icon: String, caption: String, selected: b
 	var caption_size = int(round(15.0 * float(settings.text_scale)))
 	canvas.draw_string(font, Vector2(0, size.y - 11.0 * unit), caption, HORIZONTAL_ALIGNMENT_CENTER, size.x, caption_size, color)
 
-# The inside of the depot behind the machine: a plank wall in lamplight, rafters, hanging lamps.
+# P4: the inside of the depot painted by GPT: the plank wall, the rafters with the lamps on rings, the things of the workshop, the light.
+const DEPOT_WALL = preload("res://assets/art_depot/wall.png")
+const DEPOT_RAFTERS = preload("res://assets/art_depot/rafters.png")
+const DEPOT_GLOW = preload("res://assets/art_depot/lamp_glow.png")
+const DEPOT_PROP = {
+	"window": preload("res://assets/art_depot/prop_window.png"), "lamp": preload("res://assets/art_depot/prop_lamp.png"),
+	"shelf": preload("res://assets/art_depot/prop_shelf.png"), "tools": preload("res://assets/art_depot/prop_tools.png"),
+	"bench": preload("res://assets/art_depot/prop_bench.png"), "barrel": preload("res://assets/art_depot/prop_barrel.png"),
+	"ladder": preload("res://assets/art_depot/prop_ladder.png"), "wheels": preload("res://assets/art_depot/prop_wheels.png"),
+	"chain": preload("res://assets/art_depot/prop_chain.png")}
+
+# A picture of the workshop standing on a point (bottom middle) with the given height.
+func depot_prop(name: String, base: Vector2, height: float, tint: Color = Color(0.92, 0.88, 0.82)) -> void:
+	var tex: Texture2D = DEPOT_PROP[name]
+	var width = height * float(tex.get_width()) / float(tex.get_height())
+	draw_texture_rect(tex, Rect2(base - Vector2(width * 0.5, height), Vector2(width, height)), false, tint)
+
 func draw_depot_interior(size: Vector2) -> void:
 	var floor_y = rail_baseline()
-	var bands = 24
-	for i in range(bands):
-		var t = float(i) / float(bands - 1)
-		draw_rect(Rect2(0, floor_y * float(i) / float(bands), size.x, floor_y / float(bands) + 1.0), Color("1b1510").lerp(Color("4d3924"), t))
-	var x = 0.0
-	var plank = 0
+	# the wall: a tile as high as the wall, repeated along; the dark top and bottom keep the lamplight in the middle
+	var wall_w = floor_y * float(DEPOT_WALL.get_width()) / float(DEPOT_WALL.get_height())
+	var x = -wall_w * 0.35
 	while x < size.x:
-		var width = 58.0 + 10.0 * float((plank * 7) % 3)
-		draw_rect(Rect2(x, 0, 2.0, floor_y), Color(0, 0, 0, 0.30))
-		draw_rect(Rect2(x + 2.0, 0, width - 2.0, floor_y), Color(1.0, 0.85, 0.6, 0.015 * float((plank * 5) % 4)))
-		x += width
-		plank += 1
-	# rafters and a crossbeam
-	draw_rect(Rect2(0, 0, size.x, 42), Color("110c08"))
-	draw_rect(Rect2(0, 42, size.x, 5), Color(0, 0, 0, 0.35))
-	for beam_x in [0.12, 0.38, 0.64, 0.90]:
-		var bx = size.x * beam_x
-		draw_colored_polygon(PackedVector2Array([Vector2(bx - 8, 47), Vector2(bx + 8, 47), Vector2(bx + 44, 140), Vector2(bx + 30, 140)]), Color("1f160f"))
-		draw_colored_polygon(PackedVector2Array([Vector2(bx - 8, 47), Vector2(bx + 8, 47), Vector2(bx - 30, 140), Vector2(bx - 44, 140)]), Color("1f160f"))
-	# hanging lamps with a warm pool of light, hung below the info box so that they are seen
-	var lamp_y = maxf(depot_info_rect.end.y + 38.0, 240.0)
-	for lamp_x in [0.12, 0.36]:
-		var lx = size.x * lamp_x
-		draw_line(Vector2(lx, 47), Vector2(lx, lamp_y - 22), Color("0c0906"), 3.0)
-		draw_colored_polygon(PackedVector2Array([Vector2(lx - 10, lamp_y - 22), Vector2(lx + 10, lamp_y - 22), Vector2(lx + 22, lamp_y), Vector2(lx - 22, lamp_y)]), Color("2a2a22"))
-		for k in range(8):
-			draw_circle(Vector2(lx, lamp_y + 4.0), 170.0 - 19.0 * float(k), Color(1.0, 0.76, 0.38, 0.03))
-		draw_circle(Vector2(lx, lamp_y + 2.0), 8.0, Color("ffe9b0"))
+		draw_texture_rect(DEPOT_WALL, Rect2(x, 0, wall_w + 1.0, floor_y), false, Color(0.74, 0.66, 0.58))
+		x += wall_w
+	for i in range(8):
+		var t = float(i) / 7.0
+		draw_rect(Rect2(0, floor_y * 0.80 + floor_y * 0.20 * t, size.x, floor_y * 0.20 / 8.0 + 1.0), Color(0.02, 0.01, 0.0, 0.05 + 0.25 * t))
+		draw_rect(Rect2(0, floor_y * 0.30 * (1.0 - t), size.x, floor_y * 0.30 / 8.0 + 1.0), Color(0.02, 0.01, 0.0, 0.05 + 0.20 * t))
+	# the rafters under the roof, the lamps hang on their rings (one ring in the middle of every tile)
+	var raft_h = floor_y * 0.27
+	var raft_w = raft_h * float(DEPOT_RAFTERS.get_width()) / float(DEPOT_RAFTERS.get_height())
+	var raft_x0 = size.x * 0.17 - raft_w * 0.5
+	var rx = raft_x0
+	while rx < size.x:
+		draw_texture_rect(DEPOT_RAFTERS, Rect2(rx, 0, raft_w + 1.0, raft_h), false, Color(0.80, 0.72, 0.64))
+		rx += raft_w
+	# the things of the wall go below the info card and left of the tab panel; the machine stands in front of them
+	var free_top = maxf(depot_info_rect.end.y + 12.0, raft_h + 14.0)
+	var free_left = 24.0
+	var free_right = size.x * 0.47
+	var room = floor_y - 30.0 - free_top
+	if room > 70.0:
+		var tools_h = minf(room * 0.62, 150.0)
+		depot_prop("tools", Vector2(free_left + tools_h * 0.55, free_top + tools_h + 4.0), tools_h)
+		var shelf_h = minf(room * 0.44, 110.0)
+		depot_prop("shelf", Vector2(free_right * 0.58, free_top + shelf_h + 10.0), shelf_h)
+		if room > 140.0:
+			depot_prop("window", Vector2(free_right - 60.0, free_top + minf(room * 0.75, 190.0)), minf(room * 0.75, 190.0))
+	# the floor things stand on the floor line behind the machine
+	depot_prop("barrel", Vector2(free_left + 30.0, floor_y - 4.0), minf(floor_y * 0.20, 120.0))
+	depot_prop("ladder", Vector2(size.x * 0.455, floor_y - 4.0), minf(floor_y * 0.40, 230.0))
+	# the lamps: a chain from the ring, the shade, a pool of warm light on the wall
+	var lamp_y = maxf(free_top + 40.0, raft_h + 90.0)
+	var ring_x = raft_x0 + raft_w * 0.5
+	while ring_x < free_right + 80.0:
+		if ring_x > 30.0:
+			var lamp_h = minf(floor_y * 0.19, 120.0)
+			draw_line(Vector2(ring_x, raft_h - 6.0), Vector2(ring_x, lamp_y - lamp_h + 10.0), Color("1a120c"), 3.0)
+			var glow = floor_y * 0.95
+			draw_texture_rect(DEPOT_GLOW, Rect2(Vector2(ring_x, lamp_y - lamp_h * 0.2) - Vector2(glow, glow) * 0.5, Vector2(glow, glow)), false, Color(1, 1, 1, 0.85))
+			depot_prop("lamp", Vector2(ring_x, lamp_y), lamp_h, Color.WHITE)
+		ring_x += raft_w
 	# the floor line and a shadow under the wall
 	draw_rect(Rect2(0, floor_y - 10, size.x, 10), Color(0, 0, 0, 0.30))
 

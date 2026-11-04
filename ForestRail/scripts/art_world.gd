@@ -15,6 +15,7 @@ var scenery
 # P1: the road painted by GPT: the rail with the sleepers and the ballast, the cut of the earth under it, small things of the verge
 const ROAD_TRACK = preload("res://assets/art_road/track_tile.png")
 const ROAD_GROUND = preload("res://assets/art_road/ground_tile.png")
+const DEPOT_FLOOR = preload("res://assets/art_depot/floor.png")   # P4: in the depot the cut of the floor replaces the cut of the earth
 const ROAD_TRACK_M = 1.8       # the length of the track tile in metres (three sleepers, 0.6 m apart)
 const ROAD_GROUND_M = 3.0      # the length of the ground tile in metres
 const ROAD_LIP_OVERLAP = 26.0  # the grass lip of the ground overlaps the bottom of the ballast, in pixels at the view scale 1
@@ -244,9 +245,10 @@ func update_view() -> void:
 		var points: Array = []
 		var uv: Array = []
 		var tile_m = ROAD_TRACK_M if name == "track" else ROAD_GROUND_M
-		var tex: Texture2D = ROAD_TRACK if name == "track" else ROAD_GROUND
+		var tex: Texture2D = ROAD_TRACK if name == "track" else (DEPOT_FLOOR if game.screen == "depot" else ROAD_GROUND)
+		if name == "ground": strips[name].texture = tex
 		var depth = tile_m * art.PX * road_scale * float(tex.get_height()) / float(tex.get_width())
-		var top = 0.0 if name == "track" else track_depth - ROAD_LIP_OVERLAP * road_scale
+		var top = 0.0 if name == "track" else track_depth - (8.0 if game.screen == "depot" else ROAD_LIP_OVERLAP) * road_scale
 		for i in range(97):
 			var s = game.camera_s - 32 + i * (64.0 / 96)
 			var p = Vector2((s-game.camera_s)*art.PX+size.x*0.74,rail_y) if in_menu else game.world_point(s)
