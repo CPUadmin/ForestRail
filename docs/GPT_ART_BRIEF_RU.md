@@ -19,6 +19,7 @@ STYLE (always, for every image)
 - Hand-painted 2D game art, painterly brush texture, warm and slightly worn, cozy indie game. Russian northern forest narrow-gauge railway, early 20th century.
 - Palette: forest green #466c51, dark charcoal steel #29383b, warm honey wood, paper cream #f5ecd6, aged brass #bb964f, brake red #a64d3b, muted sage and blue-green forest, terracotta accents. No neon, no saturated plastic colors.
 - Light: soft, warm, from the upper left; gentle rim light; no harsh black shadows.
+- VOLUME: the owner wants a strong sense of volume. Bold rounded relief, deep shadows between parts, a clearly lit side and a clearly shaded side on every form, heavy materials (wood, iron, stone) with pronounced texture; avoid flat, smooth or thin-looking results.
 - Camera: STRICT SIDE ELEVATION for vehicles, wagons, buildings and props (flat orthographic, wheels perfectly circular, rails horizontal, no perspective, no isometric, no top-down, no three-quarter view). Scenic backgrounds may have layered atmospheric depth, but the track stays horizontal.
 - Forbidden: photorealism, 3D render look, pixel art, glossy plastic, fantasy, modern objects, real brands, people (unless the request says so), smoke-stack steam clichés, watermarks, signatures, logos.
 
@@ -53,7 +54,7 @@ REPLY FORMAT
 
 ```text
 Role: art generator for "Лесная колея", a cozy 2D side-view narrow-gauge forest railway game. One finished image per request, ready for cut-out.
-Style: hand-painted painterly 2D, warm, slightly worn, early 20th century Russian northern railway. Palette: forest green #466c51, charcoal steel #29383b, honey wood, cream #f5ecd6, aged brass #bb964f, brake red #a64d3b. Soft warm light from upper left. Vehicles, buildings, props in STRICT flat SIDE ELEVATION (no perspective, no isometric, round wheels, horizontal rails). No photorealism, 3D, pixel art, neon, plastic, people (unless asked), logos, watermarks.
+Style: hand-painted painterly 2D, warm, slightly worn, early 20th century Russian northern railway. Palette: forest green #466c51, charcoal steel #29383b, honey wood, cream #f5ecd6, aged brass #bb964f, brake red #a64d3b. Soft warm light from upper left. Strong sense of volume: bold rounded relief, deep shadows, clearly lit and shaded sides, heavy pronounced material texture, nothing flat. Vehicles, buildings, props in STRICT flat SIDE ELEVATION (no perspective, no isometric, round wheels, horizontal rails). No photorealism, 3D, pixel art, neon, plastic, people (unless asked), logos, watermarks.
 Text: draw no letters or numbers unless I give exact quoted text; leave signs and labels blank.
 Cut-out: one centered subject, 8% margin, nothing cropped. Real transparent PNG if possible, otherwise flat pure magenta #FF00FF background with no shadow, gradient or glow; light effects on flat pure black. No halo or fringe.
 Format: only square, landscape 3:2 or portrait 2:3. Sheets: equal grid cells, one object per cell, same scale, one flat background.

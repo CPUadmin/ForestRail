@@ -24,6 +24,11 @@
    "name": "Дорога и земля",
    "brief": "tools/art_sources/briefs/P1_road_ground/BRIEF_RU.md",
    "inbox": "tools/art_sources/inbox/P1_road_ground/"
+  },
+  "П4": {
+   "name": "Депо как комната",
+   "brief": "tools/art_sources/briefs/P4_depot_room/BRIEF_RU.md",
+   "inbox": "tools/art_sources/inbox/P4_depot_room/"
   }
  },
  "assets": [
@@ -138,12 +143,12 @@
    "format": "3:2",
    "background": "magenta",
    "tile": true,
-   "status": "подключено",
-   "note": "подключено в preview.75",
+   "status": "получено",
+   "note": "заменён вариантом track_tile_depth.png",
    "notes": [
     "шов тайла в порядке"
    ],
-   "received": "2026-11-04 17:16",
+   "received": "2026-11-04 17:32",
    "outputs": [
     "accepted/P1_road_ground/track_tile.png"
    ]
@@ -156,12 +161,12 @@
    "format": "3:2",
    "background": "magenta",
    "tile": true,
-   "status": "подключено",
+   "status": "получено",
    "note": "подключено в preview.75",
    "notes": [
     "шов тайла в порядке"
    ],
-   "received": "2026-11-04 17:16",
+   "received": "2026-11-04 17:32",
    "outputs": [
     "accepted/P1_road_ground/ground_tile.png"
    ]
@@ -177,10 +182,10 @@
     "cols": 3,
     "rows": 3
    },
-   "status": "подключено",
+   "status": "получено",
    "note": "подключено в preview.75",
    "notes": [],
-   "received": "2026-11-04 17:16",
+   "received": "2026-11-04 17:32",
    "outputs": [
     "accepted/P1_road_ground/trackside_sheet_sheet.png",
     "accepted/P1_road_ground/trackside_sheet/cell_1_1.png",
@@ -193,6 +198,81 @@
     "accepted/P1_road_ground/trackside_sheet/cell_3_2.png",
     "accepted/P1_road_ground/trackside_sheet/cell_3_3.png"
    ]
+  },
+  {
+   "id": "P1-A1b",
+   "file": "track_tile_depth.png",
+   "package": "П1",
+   "element": "W4",
+   "format": "3:2",
+   "background": "magenta",
+   "tile": true,
+   "status": "принято",
+   "note": "вариант «объёмнее» по просьбе владельца 04.11.2026; заменил track_tile.png в игре (preview.76)",
+   "notes": [
+    "шов тайла в порядке"
+   ],
+   "received": "2026-11-04 17:32",
+   "outputs": [
+    "accepted/P1_road_ground/track_tile_depth.png"
+   ]
+  },
+  {
+   "id": "P4-A1",
+   "file": "depot_wall_tile.png",
+   "package": "П4",
+   "element": "D1",
+   "format": "3:2",
+   "background": "full-bleed",
+   "tile": true,
+   "status": "промпт готов",
+   "note": ""
+  },
+  {
+   "id": "P4-A2",
+   "file": "depot_rafters_tile.png",
+   "package": "П4",
+   "element": "D1",
+   "format": "3:2",
+   "background": "magenta",
+   "tile": true,
+   "status": "промпт готов",
+   "note": ""
+  },
+  {
+   "id": "P4-A3",
+   "file": "depot_props_sheet.png",
+   "package": "П4",
+   "element": "D1",
+   "format": "1:1",
+   "background": "magenta",
+   "sheet": {
+    "cols": 3,
+    "rows": 3
+   },
+   "status": "промпт готов",
+   "note": ""
+  },
+  {
+   "id": "P4-A4",
+   "file": "depot_floor_tile.png",
+   "package": "П4",
+   "element": "D1",
+   "format": "3:2",
+   "background": "magenta",
+   "tile": true,
+   "status": "промпт готов",
+   "note": ""
+  },
+  {
+   "id": "P4-A5",
+   "file": "depot_lamp_glow.png",
+   "package": "П4",
+   "element": "D2",
+   "format": "1:1",
+   "background": "black",
+   "status": "промпт готов",
+   "note": ""
   }
  ],
  "help": "Фон: magenta (плоский #FF00FF), black (свет), transparent, full-bleed (текстура на весь кадр). sheet: сетка листа {cols, rows}. Статусы: в списке, промпт готов, запрошено, получено, получено с проблемами, принято, отклонено, подключено."
