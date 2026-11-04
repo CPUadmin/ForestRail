@@ -94,6 +94,15 @@ func run() -> void:
 	game.model.state.last_result = {"title": "Поезд до Дальнего бора", "reward": 500, "final": true}
 	game.show_modal("result")
 	await shot("finale")
+	var result_panel := game.overlay.find_children("*", "PanelContainer", false, false)[0] as PanelContainer
+	if result_panel.size.y >= game.get_viewport_rect().size.y - 160:
+		failures.append("short result dialog should fit its content")
+	game.show_modal("help")
+	await shot("help_text150")
+	var help_panel := game.overlay.find_children("*", "PanelContainer", false, false)[0] as PanelContainer
+	var help_scroll := help_panel.get_child(0) as ScrollContainer
+	if help_panel.size.y > game.get_viewport_rect().size.y - 160 or not help_scroll.get_v_scroll_bar().visible:
+		failures.append("long help dialog should stay within the viewport and scroll")
 	game.settings.text_scale = 1.0
 	game.close_modal()
 	game.model.state.chapter = 9

@@ -2098,6 +2098,15 @@ func build_modal(size: Vector2) -> void:
 		add_label(box, "Лесная колея", 36)
 		add_label(box, "Небольшая игра о работе лесной железной дороги.\nРазработка: Codex совместно с владельцем проекта, 2026.\nГрафика: предоставленный комплект ForestRail, созданный с image_gen. Звуки синтезированы для этого комплекта.\nGodot Engine 4.7.2, лицензия MIT. Полные лицензии движка и его компонентов включены в поставку.\n\nВерсия игры %s · ТЗ 3.0 · проверка P8." % ProjectSettings.get_setting("application/config/version"), 22)
 		add_button(box, "Назад", close_modal)
+	var scroll := box.get_parent() as ScrollContainer
+	var panel := scroll.get_parent() as PanelContainer
+	var fit_panel := func():
+		if not is_instance_valid(panel) or panel.get_parent() != overlay: return
+		var padding = panel.get_theme_stylebox("panel").get_minimum_size().y
+		panel.size.y = minf(size.y - 160, ceilf(box.get_combined_minimum_size().y + padding))
+		panel.position.y = (size.y - panel.size.y) * 0.5
+	box.minimum_size_changed.connect(fit_panel, CONNECT_DEFERRED)
+	fit_panel.call_deferred()
 
 func save_game() -> bool:
 	cancel_drag()
