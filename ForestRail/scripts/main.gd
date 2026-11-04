@@ -192,7 +192,7 @@ func _ready() -> void:
 				# Tests and debugging runs are silent: nobody listens to the clicks and the engine.
 				AudioServer.set_bus_mute(0, true)
 				var suite = arg.trim_prefix("--qa-suite=")
-				if suite not in ["check_model", "check_physics", "check_interaction", "drive_campaign", "check_presentation", "check_handcar_revision", "check_art_v3", "check_instruments", "check_station_service", "check_world_geometry", "check_mechanism", "check_mechanism_bench", "check_handcar_drive", "check_handcar_input", "check_motor_controls", "check_loading_selection", "check_layout_p7", "check_steam", "check_steam_view", "check_gearbox", "check_petrol_view", "check_skins", "check_perf", "check_cab", "check_sound", "check_forecast", "check_line_v2", "check_line_spread", "check_thermal", "check_upgrades_new", "check_deadlines", "check_casino", "check_live", "check_live_view", "check_grip", "check_wear", "check_wear_view", "check_road_junk", "check_road_junk_view", "check_receiving", "check_receiving_view", "check_casino_view", "check_card_view", "check_album_view", "check_speeds", "check_creative", "check_settings", "check_pneumatic", "check_pneumatic_view", "check_pole", "check_pole_view", "check_air", "check_sail", "check_sail_view", "check_loading_flow", "check_depot_entry", "check_forecast_long", "drive_long", "check_forecast_view", "check_soak_p8", "check_save_p8"]: get_tree().quit(2); return
+				if suite not in ["check_model", "check_physics", "check_interaction", "drive_campaign", "check_presentation", "check_handcar_revision", "check_art_v3", "check_instruments", "check_station_service", "check_world_geometry", "check_mechanism", "check_mechanism_bench", "check_handcar_drive", "check_handcar_input", "check_motor_controls", "check_loading_selection", "check_layout_p7", "check_steam", "check_steam_view", "check_gearbox", "check_petrol_view", "check_skins", "check_perf", "check_cab", "check_sound", "check_forecast", "check_line_v2", "check_line_spread", "check_thermal", "check_upgrades_new", "check_deadlines", "check_casino", "check_live", "check_live_view", "check_grip", "check_wear", "check_wear_view", "check_road_junk", "check_road_junk_view", "check_receiving", "check_receiving_view", "check_casino_view", "check_card_view", "check_album_view", "check_upgrade_text", "check_speeds", "check_creative", "check_settings", "check_pneumatic", "check_pneumatic_view", "check_pole", "check_pole_view", "check_air", "check_sail", "check_sail_view", "check_loading_flow", "check_depot_entry", "check_forecast_long", "drive_long", "check_forecast_view", "check_soak_p8", "check_save_p8"]: get_tree().quit(2); return
 				get_tree().root.set_meta("qa_running", true)
 				set_process(false)
 				set_physics_process(false)
@@ -1274,6 +1274,29 @@ func draw_workshop_spots(id: String, transform: Transform2D) -> void:
 		workshop_hits.append({"branch": str(branch.id), "position": pos})
 	draw_set_transform_matrix(Transform2D.IDENTITY)
 
+# D9: a stat of an upgrade card in words and not as raw arrays: numbers as "before → after (+x%)", a row of numbers
+# (one per gear) as the mean change "+x% on every gear".
+# 100.0 -> "100", 2.5 -> "2.5", 0.125 -> "0.13"
+func num_text(v: float) -> String:
+	if absf(v - roundf(v)) < 0.005: return str(int(roundf(v)))
+	var s = "%.2f" % v
+	while s.ends_with("0"): s = s.substr(0, s.length() - 1)
+	return s
+
+func stat_change(before, after) -> String:
+	if before is Array and after is Array:
+		var sum_before = 0.0
+		var sum_after = 0.0
+		for v in before: sum_before += float(v)
+		for v in after: sum_after += float(v)
+		if sum_before <= 0.0: return "изменится"
+		return "%+d%% на всех передачах" % int(round((sum_after / sum_before - 1.0) * 100.0))
+	var fb = float(before)
+	var fa = float(after)
+	var text = "%s → %s" % [num_text(fb), num_text(fa)]
+	if absf(fb) > 0.0001: text += " (%+d%%)" % int(round((fa / fb - 1.0) * 100.0))
+	return text
+
 func upgrade_preview(id: String, branch: Dictionary) -> String:
 	var object = model.object_state(id)
 	var lv = int(object.levels.get(branch.id, 0))
@@ -1285,7 +1308,7 @@ func upgrade_preview(id: String, branch: Dictionary) -> String:
 	for key in ["slots", "mass", "brake", "tank", "power", "rolling", "shock", "traction", "speeds"]:
 		if not before.has(key) or before[key] == after[key]: continue
 		var label = {"slots": "Места", "mass": "Масса, кг", "brake": "Тормоз, Н", "tank": "Батарея, кВт·ч" if id == "locomotive" else "Бак, л", "power": "Мощность, Вт", "rolling": "Качение", "shock": "Повреждение посуды", "traction": "Тяга, Н", "speeds": "Скорость, м/с"}[key]
-		parts.append("%s: %s → %s" % [label, str(before[key]), str(after[key])])
+		parts.append("%s: %s" % [label, stat_change(before[key], after[key])])
 	# parts of a machine that are not a stat of the table above: the strength of the push, the sail, the fire...
 	var before_ef = model.effects(id)
 	object.levels[branch.id] = lv + 1
