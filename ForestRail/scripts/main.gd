@@ -2889,26 +2889,19 @@ func draw_cab_forward(view: Rect2) -> Dictionary:
 	var cx = view.size.x * 0.5
 	var camera_height = 1.7
 	var look = {"horizon": horizon, "focal": focal, "cx": cx, "speed": speed, "travelled": travelled}
-	# sky, sun and drifting clouds
-	draw_polygon(PackedVector2Array([view.position, Vector2(view.end.x, view.position.y), Vector2(view.end.x, horizon), Vector2(view.position.x, horizon)]), PackedColorArray([Color("6ea6d4"), Color("6ea6d4"), Color("d9e8e0"), Color("d9e8e0")]))
-	var sun = Vector2(view.size.x * 0.78, horizon - view.size.y * 0.30)
-	for ring in range(6):
-		draw_circle(sun, 120.0 - ring * 18.0, Color(1.0, 0.96, 0.78, 0.05 + ring * 0.025))
-	for cloud in range(6):
-		var base_x = fposmod(cab_hash(cloud, 9.0) * view.size.x * 1.4 + time * (4.0 + cloud) - travelled * 0.15, view.size.x * 1.4) - view.size.x * 0.2
-		var base_y = view.position.y + view.size.y * (0.08 + cab_hash(cloud, 5.0) * 0.2)
-		for puff in range(5):
-			var offset = Vector2(puff * 34.0 - 68.0, sin(puff * 1.7) * 9.0)
-			draw_circle(Vector2(base_x, base_y) + offset, 26.0 + cab_hash(cloud + puff, 3.0) * 14.0, Color(1, 1, 1, 0.55))
-	# three ridges of hills, hazier the further away
-	for layer in range(3):
-		var ridge = PackedVector2Array([Vector2(0, horizon)])
-		var height = view.size.y * (0.20 - layer * 0.05)
-		for step in range(0, int(view.size.x) + 41, 40):
-			var wave = 0.5 + 0.5 * sin(step * (0.005 + 0.003 * layer) + layer * 2.1 + travelled * 0.003 * (layer + 1))
-			ridge.append(Vector2(step, horizon - height * (0.30 + 0.70 * wave)))
-		ridge.append(Vector2(view.size.x + 40, horizon))
-		draw_colored_polygon(ridge, [Color("9db6b4"), Color("82a29a"), Color("668b7e")][layer])
+	# C1: the sky and the three layers of the forest are the same painted pictures as outside the window
+	var sky: Texture2D = art.textures["parallax/sky"]
+	var sky_h = horizon - view.position.y + view.size.y * 0.04
+	var sky_k = maxf(view.size.x / float(sky.get_width()), sky_h / float(sky.get_height()))
+	draw_texture_rect_region(sky, Rect2(view.position.x, view.position.y, view.size.x, sky_h), Rect2(0.0, 0.0, view.size.x / sky_k, sky_h / sky_k))
+	for layer in [["parallax/far_hills", 0.36, 4.0, Color(0.78, 0.87, 0.86)], ["parallax/far_forest", 0.29, 9.0, Color(0.86, 0.93, 0.91)], ["parallax/mid_forest", 0.23, 15.0, Color.WHITE]]:
+		var tex: Texture2D = art.textures[str(layer[0])]
+		var layer_h = view.size.y * float(layer[1])
+		var layer_w = layer_h * float(tex.get_width()) / float(tex.get_height())
+		var layer_x = -layer_w * 0.37
+		while layer_x < view.size.x:
+			draw_texture_rect(tex, Rect2(layer_x, horizon + float(layer[2]) - layer_h, layer_w + 1.0, layer_h), false, layer[3])
+			layer_x += layer_w
 	draw_polygon(PackedVector2Array([Vector2(0, horizon - 3), Vector2(view.size.x, horizon - 3), Vector2(view.size.x, horizon + 28), Vector2(0, horizon + 28)]), PackedColorArray([Color(0.85, 0.92, 0.9, 0.0), Color(0.85, 0.92, 0.9, 0.0), Color(0.85, 0.92, 0.9, 0.5), Color(0.85, 0.92, 0.9, 0.5)]))
 	draw_polygon(PackedVector2Array([Vector2(0, horizon), Vector2(view.size.x, horizon), view.end, Vector2(0, view.end.y)]), PackedColorArray([Color("77a06a"), Color("77a06a"), Color("3a5e3c"), Color("3a5e3c")]))
 	var near = 1.3
@@ -2989,35 +2982,23 @@ func draw_cab_forward(view: Rect2) -> Dictionary:
 		var tall = 1.1 * focal / z
 		draw_rect(Rect2(base.x - 0.16 * focal / z, base.y - tall, 0.32 * focal / z, tall), cab_fog(Color("e8e4d4"), z))
 		draw_string(font, Vector2(base.x - 0.2 * focal / z, base.y - tall * 0.45), str(i), HORIZONTAL_ALIGNMENT_CENTER, 0.4 * focal / z, clampi(roundi(0.35 * focal / z), 6, 20), Color("2c2a27"))
-	# grass tufts, bushes, spruces and birches, far to near
-	var first = floori((travelled + 5.0) / 4.0)
-	var last = floori((travelled + 170.0) / 4.0)
+	# C1: near the track the old flat trees give way to the painted things of the side view (rocks, grass, ferns,
+	# flowers, stumps) that stand as pictures in the perspective; the forest behind them is painted too
+	var first = floori((travelled + 5.0) / 2.2)
+	var last = floori((travelled + 150.0) / 2.2)
 	for i in range(last, first - 1, -1):
-		var distance = i * 4.0 + cab_hash(i) * 3.0
+		var distance = i * 2.2 + cab_hash(i) * 1.6
 		var z = distance - travelled
-		if z < 7.0 or z > 168.0: continue
+		if z < 5.0 or z > 148.0: continue
 		var side = -1.0 if cab_hash(i, 1.0) < 0.5 else 1.0
-		var lateral = side * (3.6 + cab_hash(i, 2.0) * 20.0)
-		var tree_h = 7.0 + cab_hash(i, 3.0) * 8.0
+		var lateral = side * (2.4 + cab_hash(i, 2.0) * 10.0)
+		var kind = int(cab_hash(i, 5.0) * 6.0) % 6
+		var thing: Texture2D = art_world.TRACKSIDE[kind]
+		var thing_m = float(art_world.TRACKSIDE_M[kind]) * (1.7 + cab_hash(i, 3.0) * 1.3)
 		var base = cab_project(lateral, z, horizon, focal, cx, camera_height)
-		var h = tree_h * focal / z
-		var w = tree_h * 0.3 * focal / z
-		var shade = 0.7 + cab_hash(i, 4.0) * 0.5
-		if cab_hash(i, 8.0) > 0.78:
-			draw_line(base, base + Vector2(0, -h * 0.55), cab_fog(Color("e6e2d4"), z), maxf(1.0, w * 0.12), true)
-			for blob in range(4):
-				draw_circle(base + Vector2((blob - 1.5) * w * 0.28, -h * (0.5 + 0.1 * (blob % 2))), w * 0.34, cab_fog(Color(0.45 * shade, 0.66 * shade, 0.30 * shade), z))
-		else:
-			var green = Color(0.12 * shade, 0.30 * shade, 0.16 * shade)
-			draw_rect(Rect2(base.x - w * 0.07, base.y - h * 0.16, w * 0.14, h * 0.16), cab_fog(Color("3b2a1d"), z))
-			for tier in range(3):
-				var lift = h * (0.1 + tier * 0.27)
-				var half = w * (1.0 - tier * 0.26)
-				draw_colored_polygon(PackedVector2Array([Vector2(base.x - half, base.y - lift), Vector2(base.x + half, base.y - lift), Vector2(base.x, base.y - lift - h * 0.46)]), cab_fog(green.lightened(tier * 0.05), z))
-		if cab_hash(i, 10.0) > 0.4 and z < 90.0:
-			var bush = cab_project(side * (2.3 + cab_hash(i, 11.0) * 2.2), z, horizon, focal, cx, camera_height)
-			draw_circle(bush + Vector2(0, -0.35 * focal / z), 0.55 * focal / z, cab_fog(Color(0.16, 0.34, 0.18), z))
-			draw_circle(bush + Vector2(0.4 * focal / z, -0.25 * focal / z), 0.4 * focal / z, cab_fog(Color(0.2, 0.4, 0.22), z))
+		var h = thing_m * focal / z
+		var w = h * float(thing.get_width()) / float(thing.get_height())
+		draw_texture_rect(thing, Rect2(base.x - w * 0.5, base.y - h, w, h), false, cab_fog(Color(0.95, 0.96, 0.9), z))
 	# speed streaks at the edges and a soft vignette
 	if speed > 3.0:
 		for streak in range(14):
