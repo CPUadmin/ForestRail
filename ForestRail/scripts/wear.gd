@@ -98,6 +98,7 @@ func damage(id: String, node: String, amount: float, why: String = "") -> float:
 	var value = condition(id, node) - amount
 	set_condition(id, node, value)
 	if why != "": last_damage = why
+	if m.junk_rules: m.casino().trip_damage(id, amount)
 	return clampf(value, 0.0, 1.0)
 
 # The first node of a machine with the given effect (the damage goes to the real part: brake, bearings...).

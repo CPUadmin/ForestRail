@@ -161,6 +161,8 @@ var time = 0.0
 var test_mode = false
 var land_dust: Dictionary = {}   # B5.5: the puff of dust where the train came down {t, s, power}
 var live_in_tests = false   # the view test of the live train looks at it in test mode
+var junk_in_tests = false   # and the view test of the road finds
+var glint_hits: Array = []   # B6.11 b: the glints by the rail on the screen {index, position}
 var smoke_frames = -1
 var screenshot_path = ""
 var settings_path = "user://settings.json"
@@ -188,7 +190,7 @@ func _ready() -> void:
 				# Tests and debugging runs are silent: nobody listens to the clicks and the engine.
 				AudioServer.set_bus_mute(0, true)
 				var suite = arg.trim_prefix("--qa-suite=")
-				if suite not in ["check_model", "check_physics", "check_interaction", "drive_campaign", "check_presentation", "check_handcar_revision", "check_art_v3", "check_instruments", "check_station_service", "check_world_geometry", "check_mechanism", "check_mechanism_bench", "check_handcar_drive", "check_handcar_input", "check_motor_controls", "check_loading_selection", "check_layout_p7", "check_steam", "check_steam_view", "check_gearbox", "check_petrol_view", "check_skins", "check_perf", "check_cab", "check_sound", "check_forecast", "check_line_v2", "check_line_spread", "check_thermal", "check_upgrades_new", "check_deadlines", "check_casino", "check_live", "check_live_view", "check_grip", "check_wear", "check_wear_view", "check_speeds", "check_creative", "check_settings", "check_pneumatic", "check_pneumatic_view", "check_pole", "check_pole_view", "check_air", "check_sail", "check_sail_view", "check_loading_flow", "check_depot_entry", "check_forecast_long", "drive_long", "check_forecast_view", "check_soak_p8", "check_save_p8"]: get_tree().quit(2); return
+				if suite not in ["check_model", "check_physics", "check_interaction", "drive_campaign", "check_presentation", "check_handcar_revision", "check_art_v3", "check_instruments", "check_station_service", "check_world_geometry", "check_mechanism", "check_mechanism_bench", "check_handcar_drive", "check_handcar_input", "check_motor_controls", "check_loading_selection", "check_layout_p7", "check_steam", "check_steam_view", "check_gearbox", "check_petrol_view", "check_skins", "check_perf", "check_cab", "check_sound", "check_forecast", "check_line_v2", "check_line_spread", "check_thermal", "check_upgrades_new", "check_deadlines", "check_casino", "check_live", "check_live_view", "check_grip", "check_wear", "check_wear_view", "check_road_junk", "check_road_junk_view", "check_speeds", "check_creative", "check_settings", "check_pneumatic", "check_pneumatic_view", "check_pole", "check_pole_view", "check_air", "check_sail", "check_sail_view", "check_loading_flow", "check_depot_entry", "check_forecast_long", "drive_long", "check_forecast_view", "check_soak_p8", "check_save_p8"]: get_tree().quit(2); return
 				get_tree().root.set_meta("qa_running", true)
 				set_process(false)
 				set_physics_process(false)
@@ -1862,6 +1864,14 @@ func build_modal(size: Vector2) -> void:
 		add_label(box, "Линия работает. До Дальнего бора снова ходят поезда. А дома тебя ждёт следующий рейс." if result.get("final", false) else str(result.get("title", "Рейс окончен")), 25)
 		var notes_text = "\n" + "\n".join(result.get("notes", [])) if not result.get("notes", []).is_empty() else ""
 		add_label(box, "Оплата: %d монет%s\nВсего доставлено: %d предметов\nПройдено: %.1f км\nОсновные рейсы: %d / 10" % [result.get("reward", 0), notes_text, model.state.stats.deliveries, float(model.state.stats.distance) / 1000, model.state.chapter], 23)
+		var finds: Array = result.get("finds", [])
+		if not finds.is_empty():
+			var parts: Array = []
+			var total = 0
+			for entry in finds:
+				total += int(entry.count)
+				parts.append("%s%s" % [str(entry.name).to_lower(), (" ×%d" % int(entry.count)) if int(entry.count) > 1 else ""])
+			add_label(box, "Принесли с дороги: %d шт.\n%s" % [total, ", ".join(parts)], 20)
 		add_button(box, "Продолжить перевозки", close_modal)
 		add_button(box, "В главное меню", func(): screen = "menu"; close_modal())
 	else:
@@ -1892,6 +1902,7 @@ func _process(dt: float) -> void:
 	time += dt
 	model.weather_effect = [1.0, 0.5, 0.0][clampi(int(settings.weather), 0, 2)]
 	Model.wear_rules = not test_mode or live_in_tests   # wear and damage of the nodes (B5.6)
+	Model.junk_rules = not test_mode or junk_in_tests   # bolts from the road (B6.11 b)
 	Model.live_effects = not test_mode or live_in_tests   # the live train: couplers, rocking, shifting cargo (B5); the tests keep the rigid numbers
 	Model.order_rules = not test_mode   # deadlines and bonuses of the orders only in the real game (tests keep the old numbers)
 	if depot_anim != "": advance_depot_anim(dt)
@@ -1971,6 +1982,8 @@ func _process(dt: float) -> void:
 			# B5.2: a coupler takes up the slack with a knock, harder when the jerk is
 			sound.play("coupler_clank", clampf(0.25 + float(model.last_clank) * 0.5, 0.25, 0.9), randf_range(0.92, 1.08))
 			cab_jolt = maxf(cab_jolt, clampf(float(model.last_clank), 0.0, 0.6))
+		elif event_name == "glint":
+			sound.play("coins", 0.4, 1.7)
 		elif event_name == "wear_warn":
 			sound.play("coupler_clank", 0.35, 0.7)
 		elif event_name == "breakdown":
@@ -2241,6 +2254,12 @@ func _unhandled_input(event: InputEvent) -> void:
 			for hit in ice_hits:
 				if mouse.distance_to(hit.position) < ice_radius and model.chip_ice(int(hit.spot)):
 					notify("Иней сбит: %d%%" % roundi(model.frost() * 100.0))
+					get_viewport().set_input_as_handled()
+					return
+		if not in_closeup:
+			for hit in glint_hits:
+				if mouse.distance_to(hit.position) < 24.0 * view_scale() + 8.0:
+					model.casino().pick_glint(int(hit.index))
 					get_viewport().set_input_as_handled()
 					return
 		for hit in grip_hits:
@@ -2517,6 +2536,7 @@ func _draw() -> void:
 	if art_world == null: draw_background(size)
 	grip_hits.clear()
 	ice_hits.clear()
+	glint_hits.clear()
 	sail_rect = Rect2()
 	sail_cleat_point = Vector2.ZERO
 	workshop_hits.clear()
@@ -3486,6 +3506,28 @@ func draw_foreground() -> void:
 		ellipse(p + Vector2(8, 0), Vector2(h * 0.65, h * 0.12), Color(0.08, 0.13, 0.07, 0.28))
 		grounded_sprite(id, p, h, Color(0.76, 0.84, 0.66))
 
+# B6.11 b: a glint of brass by the rail: a bolt lies in the gravel. It twinkles when the train is near; a click picks it up.
+func draw_glints() -> void:
+	if model.state.phase != "route" or not model.casino().has_trip(): return
+	var sc = view_scale()
+	var list = model.casino().glints()
+	for i in range(list.size()):
+		var g = list[i]
+		if bool(g.taken): continue
+		var p = world_point(float(g.s))
+		if p.x < -60 or p.x > get_viewport_rect().size.x + 60: continue
+		p += Vector2(0, 17 * sc)
+		var gold = bool(g.golden)
+		var pulse = 0.55 + 0.45 * sin(time * 5.0 + float(i) * 2.1)
+		if settings.reduce_motion: pulse = 0.85
+		var tint = Color(1.0, 0.82, 0.3) if gold else Color(0.95, 0.78, 0.45)
+		ellipse(p, Vector2(16, 6) * sc, Color(tint.r, tint.g, tint.b, 0.3 * pulse))
+		var arm = (12.0 + 8.0 * pulse) * sc * (1.4 if gold else 1.0)
+		draw_line(p + Vector2(-arm, 0), p + Vector2(arm, 0), Color(tint.r, tint.g, tint.b, 0.9 * pulse), 2.0 * sc, true)
+		draw_line(p + Vector2(0, -arm), p + Vector2(0, arm), Color(tint.r, tint.g, tint.b, 0.9 * pulse), 2.0 * sc, true)
+		draw_circle(p, 2.6 * sc, Color(1, 0.97, 0.8, pulse))
+		glint_hits.append({"index": i, "position": p})
+
 # B5.5: a landing kicks up the dust of the track bed: a few soft puffs that spread and fade.
 func draw_land_dust() -> void:
 	if land_dust.is_empty(): return
@@ -3531,7 +3573,9 @@ func draw_train() -> void:
 			draw_line(p + Vector2(-art.body_width(ids[i])*0.46,14)*scale_value,p+Vector2(art.body_width(ids[i])*0.46,14)*scale_value,GOLD,3,true)
 		if screen == "game":
 			add_world_hits(ids[i], i, transform)
-	if screen == "game": draw_land_dust()
+	if screen == "game":
+		draw_land_dust()
+		draw_glints()
 	for pair in [[0,1],[ids.size()-1,-1]]:
 		var id = ids[pair[0]]
 		var s = model.body_s_render(pair[0]) if screen!="depot" else -model.body_offset(pair[0])

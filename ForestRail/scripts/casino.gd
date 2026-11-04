@@ -214,3 +214,125 @@ func migrate() -> void:
 		if int(m.object_state(machine).levels.get(str(card.upgrade), 0)) > 0:
 			if not card_owned(str(card.id)): st().cards.append(str(card.id))
 			if not str(card.id) in st().installed: st().installed.append(str(card.id))
+
+# ---- the road gives bolts (B6.11 stage b, KAZIK_ECONOMY_RU.md): the log of a trip, the drops at the end, the glints
+# The log lives in state.active.trip, so it is saved with the game and dies with the order.
+
+func src() -> Dictionary:
+	return cfg().sources
+
+func trip() -> Dictionary:
+	return m.state.active.get("trip", {}) if not m.state.active.is_empty() else {}
+
+func has_trip() -> bool:
+	return not m.state.active.is_empty() and m.state.active.has("trip")
+
+# The first departure of an order: the log starts and the glints are laid along the line (the same for the same career and order).
+func trip_start() -> void:
+	if m.state.active.is_empty() or m.state.active.has("trip"): return
+	var cargo_kg = 0.0
+	for item in m.state.cargo:
+		if str(item.slot) != "": cargo_kg += float(item.get("weight_kg", 0.0))
+	var rng = RandomNumberGenerator.new()
+	rng.seed = int(m.route.seed_value) * 7919 + int(m.state.offer_serial) * 31 + 5
+	var glints: Array = []
+	var count = int(src().glint_min) + (1 if rng.randf() < float(src().glint_extra_chance) else 0)
+	var margin = float(src().glint_margin_m)
+	for i in range(count):
+		var at = rng.randf_range(margin, maxf(margin + 1.0, float(m.route.length_m) - margin))
+		glints.append({"s": snappedf(at, 0.1), "golden": rng.randf() < float(src().glint_golden_chance), "taken": false})
+	m.state.active.trip = {"dist0": float(m.state.stats.distance), "steep_m": 0.0, "skids": 0, "visited": [], "damage": 0.0, "cargo_kg": cargo_kg, "glints": glints, "found": {}}
+
+# Every step of the road: how much of it was steep, which stations the train stood at.
+func trip_tick(meters: float) -> void:
+	var t = trip()
+	if t.is_empty(): return
+	if meters > 0.0 and absf(tan(m.route.slope(float(m.state.s)))) >= float(src().steep_grade): t.steep_m = float(t.steep_m) + meters
+	var index = m.station_index()
+	if index >= 0 and m.stopped():
+		var id = str(m.data.stations[index].id)
+		if not id in t.visited: t.visited.append(id)
+
+func trip_skid() -> void:
+	var t = trip()
+	if not t.is_empty(): t.skids = int(t.skids) + 1
+
+# Damage dealt to the machine itself (heat, frost, a torn sheet, a landing) shakes its parts loose.
+func trip_damage(id: String, amount: float) -> void:
+	var t = trip()
+	if t.is_empty() or id != m.vehicle_id(): return
+	t.damage = float(t.damage) + amount
+
+func note_found(t: Dictionary, junk_id: String, count: int = 1) -> void:
+	if count <= 0 or not junk_add(junk_id, count): return
+	t.found[junk_id] = int(t.found.get(junk_id, 0)) + count
+
+# The junk of the machine that is driven (its own spare parts).
+func machine_junk(vehicle: String) -> String:
+	for item in cfg().junk:
+		if str(item.kind) == "machine" and str(item.machine) == vehicle: return str(item.id)
+	return ""
+
+func roll(rng: RandomNumberGenerator, expected: float) -> int:
+	var whole = floori(expected)
+	return whole + (1 if rng.randf() < expected - float(whole) else 0)
+
+# The end of the order (the train is home): the drops by what happened on the road. Returns [{id, name, count}] of everything
+# the trip brought, the glints picked on the way included. "exact" is a trip within 5% of the time, "late" brings no premium finds.
+func trip_finds(exact: bool, late: bool) -> Array:
+	var t = trip()
+	if t.is_empty(): return []
+	var s = src()
+	var rng = RandomNumberGenerator.new()
+	rng.seed = int(m.route.seed_value) * 1000003 + m.state.paid_ids.size() * 7919 + int(m.state.offer_serial) * 13 + 13
+	var km = maxf(0.0, float(m.state.stats.distance) - float(t.dist0)) / 1000.0
+	note_found(t, "rusty_bolt", roll(rng, km * float(s.rusty_per_km)))
+	note_found(t, "tie_plate", mini(int(s.tie_plate_cap), roll(rng, float(t.steep_m) * float(s.tie_plate_per_m))))
+	var heavy = float(s.heavy_kg)
+	if float(t.cargo_kg) >= heavy: note_found(t, "fishplate", mini(int(s.fishplate_cap), 1 + int((float(t.cargo_kg) - heavy) / heavy)))
+	note_found(t, "brake_shoe", mini(int(s.skid_cap), int(t.skids)))
+	var clips = 0
+	for id in t.visited:
+		if id in s.clip_stations: clips += 1
+	note_found(t, "rail_clip", mini(int(s.clip_cap), clips))
+	# the machine's own parts: by distance (the lever, the pole tip) or by what hurt it on the road
+	var vehicle = m.vehicle_id()
+	var own = machine_junk(vehicle)
+	if own != "":
+		var expected = km * float(s.per_km.get(vehicle, 0.0)) + float(t.damage) * float(s.per_damage)
+		note_found(t, own, mini(int(s.machine_cap), roll(rng, expected)))
+	if not late:
+		if exact:
+			note_found(t, "bearing_cover", 1)
+			if int(st().streak) >= int(s.watch_streak): note_found(t, "stationmaster_watch", 1)
+		if bool(m.state.active.get("night_start", false)) and rng.randf() < float(s.lantern_chance): note_found(t, "cracked_lantern", 1)
+	var result: Array = []
+	for id in t.found:
+		result.append({"id": str(id), "name": str(junk_def(str(id)).get("name", id)), "count": int(t.found[id])})
+	return result
+
+# ---- the glints by the rail: a click on one, with the train near and not racing, picks it up
+func glints() -> Array:
+	return trip().get("glints", [])
+
+func glint_pickable(index: int) -> String:
+	var list = glints()
+	if index < 0 or index >= list.size() or bool(list[index].taken): return "Здесь уже пусто"
+	if absf(float(m.state.v)) > float(src().glint_max_speed): return "Слишком быстро, чтобы нагнуться"
+	var near = 1.0e9
+	for i in range(m.body_ids().size()): near = minf(near, absf(m.body_s(i) - float(list[index].s)))
+	if near > float(src().glint_reach_m): return "Далеко от состава"
+	return ""
+
+func pick_glint(index: int) -> String:
+	var why = glint_pickable(index)
+	if why != "":
+		m.message = why
+		return ""
+	var g = glints()[index]
+	g.taken = true
+	var id = "golden_bolt" if bool(g.golden) else str(src().glint_spike)
+	note_found(trip(), id, 1)
+	m.events.append("glint")
+	m.message = "Нашёл у рельса: " + str(junk_def(id).name).to_lower()
+	return id

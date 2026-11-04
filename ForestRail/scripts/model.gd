@@ -81,6 +81,8 @@ static var order_rules = false
 static var live_effects = false
 # B5.6: wear and damage of the nodes. The tests of the older numbers leave it off (every node stays new).
 static var wear_rules = false
+# B6.11 b: bolts from the road (the log of a trip, drops at the end, glints by the rail). The old tests leave it off.
+static var junk_rules = false
 var _wear = null
 var live = Live.new()
 var last_clank = 0.0
@@ -922,6 +924,7 @@ func depart() -> bool:
 		loading_cache.clear()
 	state.phase = "route"
 	state.active.phase = "outbound"
+	if junk_rules and not creative(): casino().trip_start()
 	if state.active.has("budget_s") and float(state.active.get("t_start", -1.0)) < 0.0:
 		# the clock starts with the first departure; the load decides the bonus for a heavy cargo
 		state.active.t_start = float(state.stats.seconds)
@@ -1010,11 +1013,13 @@ func settle() -> bool:
 	var reward = int(state.active.pending_reward)
 	# B4.4: early pays extra, on time is 100%, late costs a fine and the order burns (a story order is only cancelled)
 	var late = false
+	var exact = false
 	var story = not state.active.get("free", false)
 	var notes: Array = []
 	if state.active.has("budget_s") and float(state.active.get("t_start", -1.0)) >= 0.0 and not creative():
 		var budget = maxf(1.0, float(state.active.budget_s))
 		var ratio = (float(state.stats.seconds) - float(state.active.t_start)) / budget
+		exact = ratio >= float(data.casino.sources.exact_low) and ratio <= float(data.casino.sources.exact_high)
 		if ratio > DEADLINE_GRACE:
 			late = true
 		else:
@@ -1045,6 +1050,8 @@ func settle() -> bool:
 	state.stats.earned += maxi(0, reward)
 	if not creative() and not (late and story): state.paid_ids.append(id)
 	state.active.paid = true
+	var finds: Array = []
+	if junk_rules and not creative(): finds = casino().trip_finds(exact, late)
 	if not late and not creative(): casino().trip_done(bool(state.active.get("night_start", false)) or rain_effect() > 0.3)
 	if not state.active.get("free", false) and not creative() and not late:
 		state.completed_ids.append(id)
@@ -1057,7 +1064,7 @@ func settle() -> bool:
 	else:
 		events.append("coins")
 	if creative(): state.money = CREATIVE_MONEY
-	state.last_result = {"title": state.active.title, "reward": reward, "final": state.active.get("final", false) and not creative() and not late, "late": late, "notes": notes, "left_on_warehouse":state.active.get("warehouse_cargo",[]).size()}
+	state.last_result = {"title": state.active.title, "reward": reward, "final": state.active.get("final", false) and not creative() and not late, "late": late, "notes": notes, "finds": finds, "left_on_warehouse":state.active.get("warehouse_cargo",[]).size()}
 	state.active = {}
 	state.cargo = []
 	drop_temporary_wagon()
@@ -1764,6 +1771,7 @@ func braking_force(max_brake: float, total: float) -> float:
 	elif demand > cap and speed > 1.0:
 		wheel_lock = true
 		events.append("skid")
+		if junk_rules and not creative(): casino().trip_skid()
 		wear_skid(speed)
 	if wheel_lock: return minf(demand, cap * SLIDE_RATIO)
 	return minf(demand, cap)
@@ -1937,6 +1945,7 @@ func physics_step(dt: float) -> void:
 	var travelled = state.fleet_by_id[vehicle_id()]
 	travelled.km = float(travelled.get("km", 0.0)) + absf(movement) / 1000.0   # for the wheel, which favours the machine driven most
 	rail_distance += absf(movement)
+	if junk_rules and not creative() and state.active.has("trip"): casino().trip_tick(absf(movement))
 	# Bound the head so that every trailing body remains on the shared curve.
 	var rear_span = body_offset(body_ids().size()-1)
 	var lower = -38.0 + (rear_span if state.direction > 0 else 0.0)
