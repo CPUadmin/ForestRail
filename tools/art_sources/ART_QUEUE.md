@@ -1,6 +1,8 @@
 # ART QUEUE: what the art generator (GPT) should draw next
 
-Repository: CPUadmin/ForestRail, branch main. This file is the single to-do list for image generation.
+LOCAL DISK (preferred, no upload or download needed): the same project is on the owner's disk C: at `C:\Users\Lenovo\Documents\ChatGPT\дрезина`. If you can read and write local files, work there directly: read this file and the task files from that folder, and SAVE every finished image straight into the inbox folder of its pack (paths in the table below, relative to that project folder). Then just say which files you saved.
+
+Repository (fallback): CPUadmin/ForestRail, branch main. This file is the single to-do list for image generation.
 Claude (the developer) updates it; the generator reads it.
 
 ## How to work (for GPT)
