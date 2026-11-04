@@ -11,6 +11,19 @@ var strips: Dictionary = {}
 var stations
 var foreground
 var scenery
+
+# P1: the road painted by GPT: the rail with the sleepers and the ballast, the cut of the earth under it, small things of the verge
+const ROAD_TRACK = preload("res://assets/art_road/track_tile.png")
+const ROAD_GROUND = preload("res://assets/art_road/ground_tile.png")
+const ROAD_TRACK_M = 1.8       # the length of the track tile in metres (three sleepers, 0.6 m apart)
+const ROAD_GROUND_M = 3.0      # the length of the ground tile in metres
+const ROAD_LIP_OVERLAP = 26.0  # the grass lip of the ground overlaps the bottom of the ballast, in pixels at the view scale 1
+const TRACKSIDE = [
+	preload("res://assets/art_road/trackside_1.png"), preload("res://assets/art_road/trackside_2.png"), preload("res://assets/art_road/trackside_3.png"),
+	preload("res://assets/art_road/trackside_4.png"), preload("res://assets/art_road/trackside_5.png"), preload("res://assets/art_road/trackside_6.png"),
+	preload("res://assets/art_road/trackside_7.png"), preload("res://assets/art_road/trackside_8.png"), preload("res://assets/art_road/trackside_9.png")]
+const TRACKSIDE_M = [0.46, 0.60, 0.70, 0.64, 0.58, 0.70, 0.40, 0.85, 0.58]   # the height of every thing in metres (kept low: they stand in front of the track)
+
 var lake_layer: Sprite2D
 var haze
 var ground_shade
@@ -37,9 +50,11 @@ func _ready() -> void:
 	# Same z as the far forest but added later: aerial haze sits between the
 	# distant planes and the near forest, which gives the scene its depth.
 	haze = paint_layer(1, draw_haze)
-	for name in ["soil", "ballast", "grass", "rail"]:
+	for name in ["track", "ground"]:
 		var part = MeshInstance2D.new()
-		part.material = load(art.ROOT + "materials/" + name + ".tres")
+		part.texture = ROAD_TRACK if name == "track" else ROAD_GROUND
+		part.texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
+		part.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 		part.z_index = 3 + strips.size() - 3
 		add_child(part)
 		strips[name] = part
@@ -223,22 +238,23 @@ func update_view() -> void:
 		tint=tint.lerp(Color(1,0.88,0.72),warm*0.45)
 		if name=="mid_forest": tint.a=1-maxf(water*0.82,high*0.65)
 		strips[name].mesh = mesh_strip([Vector2(0,baseline-height),Vector2(0,baseline),Vector2(size.x,baseline-height),Vector2(size.x,baseline)], [Vector2(u,0),Vector2(u,1),Vector2(u+xspan,0),Vector2(u+xspan,1)], tint)
-	for name in ["soil", "ballast", "grass", "rail"]:
+	var road_scale = 1.0 if in_menu else game.view_scale()
+	var track_depth = ROAD_TRACK_M * art.PX * road_scale * float(ROAD_TRACK.get_height()) / float(ROAD_TRACK.get_width())
+	for name in ["track", "ground"]:
 		var points: Array = []
 		var uv: Array = []
-		var scale = 1.0 if in_menu else game.view_scale()
-		var top = {"soil": 16.0, "ballast": 0.0, "grass": 43.0, "rail": -0.5}[name] * scale
-		var depth = {"soil": 160.0, "ballast": 31.0, "grass": 22.0, "rail": 3.0}[name] * scale
-		if name=="soil": depth=maxf(depth,size.y-rail_y+80)
-		var tile_m = {"soil": 2.2, "ballast": 1.8, "grass": 3.2, "rail": 3.0}[name]
+		var tile_m = ROAD_TRACK_M if name == "track" else ROAD_GROUND_M
+		var tex: Texture2D = ROAD_TRACK if name == "track" else ROAD_GROUND
+		var depth = tile_m * art.PX * road_scale * float(tex.get_height()) / float(tex.get_width())
+		var top = 0.0 if name == "track" else track_depth - ROAD_LIP_OVERLAP * road_scale
 		for i in range(97):
 			var s = game.camera_s - 32 + i * (64.0 / 96)
 			var p = Vector2((s-game.camera_s)*art.PX+size.x*0.74,rail_y) if in_menu else game.world_point(s)
 			points.append(p + Vector2(0, top))
 			points.append(p + Vector2(0, top + depth))
 			uv.append(Vector2(s / tile_m, 0))
-			uv.append(Vector2(s / tile_m, depth/(160*scale) if name=="soil" else 1))
-		strips[name].mesh = mesh_strip(points, uv, Color(0.88,0.9,0.8) if name=="soil" else Color.WHITE)
+			uv.append(Vector2(s / tile_m, 1))
+		strips[name].mesh = mesh_strip(points, uv, Color.WHITE)
 	stations.visible = not in_menu
 	scenery.visible=not in_menu
 	scenery.queue_redraw()
@@ -251,7 +267,7 @@ func _draw() -> void:
 	if art == null: return
 	var size = game.get_viewport_rect().size
 	draw_texture_rect(art.textures["parallax/sky"], Rect2(Vector2.ZERO, size), false)
-	draw_rect(Rect2(0, rail_y() - 5, size.x, size.y), Color("3b3326"))
+	draw_rect(Rect2(0, rail_y() - 5, size.x, size.y), Color("1b1008"))
 
 func draw_stations(canvas: Node2D) -> void:
 	var size = game.get_viewport_rect().size
@@ -275,12 +291,6 @@ func draw_stations(canvas: Node2D) -> void:
 			draw_station_board(canvas,plaque,sc,game.model.data.stations[i].name)
 		if i == 0 and game.model.state.finale:
 			canvas.draw_texture_rect(game.textures.final_flags,Rect2(center+Vector2(-170,-290),Vector2(320,130)),false)
-	# The sleepers stay aligned to the same tangent as the rail strips.
-	for i in range(floori((game.camera_s-30)*2), ceili((game.camera_s+30)*2)):
-		var s = i * 0.5
-		var p = game.world_point(s)
-		if p.x < -40 or p.x > size.x+40: continue
-		art.draw_part(canvas,"terrain/sleeper",p+Vector2(0,12*game.view_scale()),-game.model.route.slope(s),art.scale_for("terrain/sleeper")*0.58*game.view_scale(),Transform2D.IDENTITY,Color(0.82,0.82,0.7))
 
 # Enamel station board: dark green field, brass rim and an inner keyline.
 func draw_station_board(canvas: Node2D, plaque: Rect2, sc: float, name: String) -> void:
@@ -366,6 +376,39 @@ func draw_station_details(canvas: Node2D,index: int) -> void:
 			art.draw_part(canvas,"stations/station_house",at,0,art.scale_for("stations/station_house")*game.view_scale())
 		grounded(canvas,"birch",s-28,4.1)
 
+# P1: small things of the verge (stones, a boulder, grass, a fern, flowers, a stump, a log, a heap of sleepers, a kilometre post),
+# placed by the number of the cell of the line, so a place always looks the same.
+func trackside_noise(i: int, k: int) -> float:
+	return fposmod(sin(float(i) * 12.9898 + float(k) * 78.233 + float(int(game.model.route.seed_value) % 977) * 0.37) * 43758.5453, 1.0)
+
+func draw_trackside(canvas: Node2D) -> void:
+	var sc = game.view_scale()
+	var track_depth = ROAD_TRACK_M * art.PX * sc * float(ROAD_TRACK.get_height()) / float(ROAD_TRACK.get_width())
+	var lip = track_depth - ROAD_LIP_OVERLAP * sc * 0.15
+	for i in range(floori((game.camera_s - 40) / 4.0), ceili((game.camera_s + 40) / 4.0)):
+		if trackside_noise(i, 1) < 0.30: continue
+		var s = i * 4.0 + (trackside_noise(i, 2) - 0.5) * 3.0
+		var near_station = false
+		for station_s in game.model.route.station_s:
+			if absf(s - float(station_s)) < 16.0: near_station = true
+		if near_station: continue
+		var kind = int(trackside_noise(i, 3) * 8.0)
+		if kind >= 7: kind += 1          # the post (7) is not among the random things, it stands at every kilometre
+		draw_trackside_thing(canvas, kind, s, lip + trackside_noise(i, 4) * 9.0 * sc, 0.85 + 0.3 * trackside_noise(i, 5), trackside_noise(i, 6) > 0.5, sc)
+	# a kilometre post at every full kilometre of the line
+	for k in range(floori((game.camera_s - 40) / 1000.0), ceili((game.camera_s + 40) / 1000.0) + 1):
+		if k <= 0: continue
+		var s = k * 1000.0
+		if absf(s - game.camera_s) < 45.0: draw_trackside_thing(canvas, 7, s, lip + 4.0 * sc, 1.0, false, sc)
+
+func draw_trackside_thing(canvas: Node2D, kind: int, s: float, drop: float, size_k: float, flip: bool, sc: float) -> void:
+	var tex: Texture2D = TRACKSIDE[kind]
+	var height = float(TRACKSIDE_M[kind]) * size_k * art.PX * sc
+	var width = height * float(tex.get_width()) / float(tex.get_height())
+	var at = game.world_point(s) + Vector2(0, drop)
+	var x = -width * 0.5
+	canvas.draw_texture_rect(tex, Rect2(at + Vector2(-x if flip else x, -height), Vector2(-width if flip else width, height)), false, Color(0.96, 0.96, 0.92))
+
 func draw_foreground(canvas: Node2D) -> void:
 	var size = game.get_viewport_rect().size
 	var tex = art.textures["parallax/foreground"]
@@ -378,6 +421,8 @@ func draw_foreground(canvas: Node2D) -> void:
 	var tile_m=width/(art.PX*game.view_scale())
 	for i in range(floori((game.camera_s-35)/tile_m),ceili((game.camera_s+35)/tile_m)):
 		var p=game.world_point(i*tile_m)
-		canvas.draw_texture_rect(tex,Rect2(p+Vector2(0,height*0.05),Vector2(width+1,height)),false,Color("a3b392"))
+		# P1: the grass lip of the painted ground replaces this band of ferns (it stays only in the menu)
+		if false: canvas.draw_texture_rect(tex,Rect2(p+Vector2(0,height*0.05),Vector2(width+1,height)),false,Color("a3b392"))
 	for i in range(floori((game.camera_s-35)/6),ceili((game.camera_s+35)/6)):
-		if posmod(i,3)==0: grounded(canvas,"rocks",i*6.0+sin(i)*1.1,0.35,Vector2(0,0.65),Color("87946e"))
+		if false: grounded(canvas,"rocks",i*6.0+sin(i)*1.1,0.35,Vector2(0,0.65),Color("87946e"))
+	draw_trackside(canvas)

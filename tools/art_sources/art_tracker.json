@@ -138,8 +138,15 @@
    "format": "3:2",
    "background": "magenta",
    "tile": true,
-   "status": "промпт готов",
-   "note": ""
+   "status": "подключено",
+   "note": "подключено в preview.75",
+   "notes": [
+    "шов тайла в порядке"
+   ],
+   "received": "2026-11-04 17:16",
+   "outputs": [
+    "accepted/P1_road_ground/track_tile.png"
+   ]
   },
   {
    "id": "P1-A2",
@@ -149,8 +156,15 @@
    "format": "3:2",
    "background": "magenta",
    "tile": true,
-   "status": "промпт готов",
-   "note": ""
+   "status": "подключено",
+   "note": "подключено в preview.75",
+   "notes": [
+    "шов тайла в порядке"
+   ],
+   "received": "2026-11-04 17:16",
+   "outputs": [
+    "accepted/P1_road_ground/ground_tile.png"
+   ]
   },
   {
    "id": "P1-A3",
@@ -163,8 +177,22 @@
     "cols": 3,
     "rows": 3
    },
-   "status": "промпт готов",
-   "note": ""
+   "status": "подключено",
+   "note": "подключено в preview.75",
+   "notes": [],
+   "received": "2026-11-04 17:16",
+   "outputs": [
+    "accepted/P1_road_ground/trackside_sheet_sheet.png",
+    "accepted/P1_road_ground/trackside_sheet/cell_1_1.png",
+    "accepted/P1_road_ground/trackside_sheet/cell_1_2.png",
+    "accepted/P1_road_ground/trackside_sheet/cell_1_3.png",
+    "accepted/P1_road_ground/trackside_sheet/cell_2_1.png",
+    "accepted/P1_road_ground/trackside_sheet/cell_2_2.png",
+    "accepted/P1_road_ground/trackside_sheet/cell_2_3.png",
+    "accepted/P1_road_ground/trackside_sheet/cell_3_1.png",
+    "accepted/P1_road_ground/trackside_sheet/cell_3_2.png",
+    "accepted/P1_road_ground/trackside_sheet/cell_3_3.png"
+   ]
   }
  ],
  "help": "Фон: magenta (плоский #FF00FF), black (свет), transparent, full-bleed (текстура на весь кадр). sheet: сетка листа {cols, rows}. Статусы: в списке, промпт готов, запрошено, получено, получено с проблемами, принято, отклонено, подключено."
