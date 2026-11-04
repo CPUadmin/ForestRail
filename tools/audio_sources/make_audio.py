@@ -371,14 +371,38 @@ def make_rails_and_ui():
     write("cargo.wav", cargo, peak=0.8)
 
 
+def make_landing():
+    # B5.5: the train comes down on the rail after a hop: a heavy thud, the springs bottom out, the body creaks
+    # and the load rattles. Its own sound, not the clip of the cargo.
+    seconds = 1.1
+    t = tt(seconds)
+    body = thump(95, 42, seconds, 9.0) * 1.0
+    slap = band(noise(seconds), 80, 900) * np.exp(-t * 28) * 0.9
+    crack = band(noise(seconds), 1400, 5200) * np.exp(-t * 110) * 0.45
+    buf = body + slap + crack
+    # the springs: two quick bounces that fade
+    for gap, level in [(0.12, 0.45), (0.23, 0.22)]:
+        put(buf, thump(70, 40, 0.5, 14.0) * level, gap)
+    # a short metal creak of the frame
+    creak = np.sin(2 * np.pi * (410 + 60 * np.exp(-t * 6)) * t) * np.exp(-t * 7) * 0.12
+    # rattle of loose things
+    rattle = band(noise(seconds), 2200, 6500) * np.exp(-t * 14) * (0.5 + 0.5 * np.sin(2 * np.pi * 38 * t)) * 0.18
+    write("land_thud.wav", buf + creak + rattle, peak=0.85)
+
+
 if __name__ == "__main__":
+    import sys
     OUT.mkdir(parents=True, exist_ok=True)
+    if len(sys.argv) > 1 and sys.argv[1] == "landing":
+        make_landing()
+        sys.exit(0)
     make_ambient()
     make_music()
     make_steam()
     make_petrol()
     make_electric()
     make_rails_and_ui()
+    make_landing()
     print("%-22s %7s %6s %6s %8s" % ("file", "sec", "peak", "rms", "seam"))
     for name, seconds, peak, rms, seam in report:
         print("%-22s %7.2f %6.2f %6.3f %8.4f" % (name, seconds, peak, rms, seam))

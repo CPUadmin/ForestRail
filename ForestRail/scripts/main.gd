@@ -159,6 +159,7 @@ var pending_action: Callable
 var tooltip = ""
 var time = 0.0
 var test_mode = false
+var live_in_tests = false   # the view test of the live train looks at it in test mode
 var smoke_frames = -1
 var screenshot_path = ""
 var settings_path = "user://settings.json"
@@ -186,7 +187,7 @@ func _ready() -> void:
 				# Tests and debugging runs are silent: nobody listens to the clicks and the engine.
 				AudioServer.set_bus_mute(0, true)
 				var suite = arg.trim_prefix("--qa-suite=")
-				if suite not in ["check_model", "check_physics", "check_interaction", "drive_campaign", "check_presentation", "check_handcar_revision", "check_art_v3", "check_instruments", "check_station_service", "check_world_geometry", "check_mechanism", "check_mechanism_bench", "check_handcar_drive", "check_handcar_input", "check_motor_controls", "check_loading_selection", "check_layout_p7", "check_steam", "check_steam_view", "check_gearbox", "check_petrol_view", "check_skins", "check_perf", "check_cab", "check_sound", "check_forecast", "check_line_v2", "check_line_spread", "check_thermal", "check_upgrades_new", "check_deadlines", "check_casino", "check_speeds", "check_creative", "check_settings", "check_pneumatic", "check_pneumatic_view", "check_pole", "check_pole_view", "check_air", "check_sail", "check_sail_view", "check_loading_flow", "check_depot_entry", "check_forecast_long", "drive_long", "check_forecast_view", "check_soak_p8", "check_save_p8"]: get_tree().quit(2); return
+				if suite not in ["check_model", "check_physics", "check_interaction", "drive_campaign", "check_presentation", "check_handcar_revision", "check_art_v3", "check_instruments", "check_station_service", "check_world_geometry", "check_mechanism", "check_mechanism_bench", "check_handcar_drive", "check_handcar_input", "check_motor_controls", "check_loading_selection", "check_layout_p7", "check_steam", "check_steam_view", "check_gearbox", "check_petrol_view", "check_skins", "check_perf", "check_cab", "check_sound", "check_forecast", "check_line_v2", "check_line_spread", "check_thermal", "check_upgrades_new", "check_deadlines", "check_casino", "check_live", "check_live_view", "check_speeds", "check_creative", "check_settings", "check_pneumatic", "check_pneumatic_view", "check_pole", "check_pole_view", "check_air", "check_sail", "check_sail_view", "check_loading_flow", "check_depot_entry", "check_forecast_long", "drive_long", "check_forecast_view", "check_soak_p8", "check_save_p8"]: get_tree().quit(2); return
 				get_tree().root.set_meta("qa_running", true)
 				set_process(false)
 				set_physics_process(false)
@@ -1803,6 +1804,7 @@ func cancel_drag() -> void:
 func _process(dt: float) -> void:
 	time += dt
 	model.weather_effect = [1.0, 0.5, 0.0][clampi(int(settings.weather), 0, 2)]
+	Model.live_effects = not test_mode or live_in_tests   # the live train: couplers, rocking, shifting cargo (B5); the tests keep the rigid numbers
 	Model.order_rules = not test_mode   # deadlines and bonuses of the orders only in the real game (tests keep the old numbers)
 	if depot_anim != "": advance_depot_anim(dt)
 	if screen != "game" or model.human_powered(): cab_view = false
@@ -1873,8 +1875,15 @@ func _process(dt: float) -> void:
 		var event_name = str(model.events.pop_front())
 		if event_name == "land":
 			# The train comes down on the rail: a thud scaled by the hit, and the cab shakes.
-			sound.play("cargo", clampf(0.3 + float(model.last_landing) * 0.2, 0.3, 1.0), 0.7)
+			sound.play("land_thud", clampf(0.35 + float(model.last_landing) * 0.18, 0.35, 1.0), clampf(1.15 - float(model.last_landing) * 0.08, 0.8, 1.15))
+			sound.play("cargo", clampf(0.15 + float(model.last_landing) * 0.1, 0.15, 0.6), 0.7)
 			cab_jolt = 1.0
+		elif event_name == "clank":
+			# B5.2: a coupler takes up the slack with a knock, harder when the jerk is
+			sound.play("coupler_clank", clampf(0.25 + float(model.last_clank) * 0.5, 0.25, 0.9), randf_range(0.92, 1.08))
+			cab_jolt = maxf(cab_jolt, clampf(float(model.last_clank), 0.0, 0.6))
+		elif event_name == "cargo_hit":
+			sound.play("cargo", clampf(0.3 + float(model.last_cargo_hit) * 0.4, 0.3, 0.9), randf_range(0.85, 1.0))
 		else: sound.play(event_name, 0.6)
 	sound.update(model, paused, screen == "menu", dt, cab_active())
 	if art_world != null: art_world.update_view()
@@ -3528,7 +3537,18 @@ func body_transform(id: String, s: float) -> Transform2D:
 	var mean_x = (wheels[0].x+wheels[1].x)*0.5
 	var sc = view_scale()
 	var lift = Vector2(0, float(model.air_z) * ArtV3.PX * sc) if screen != "depot" else Vector2.ZERO
-	return Transform2D(x*sc,y*sc,(a+b)*0.5-x*mean_x*sc-lift)
+	var result = Transform2D(x*sc,y*sc,(a+b)*0.5-x*mean_x*sc-lift)
+	if screen == "game" and Model.live_effects:
+		# B5.1: the body rides on its springs: it bobs on the joints and the crests and rocks when the train
+		# speeds up or brakes (the nose comes up and dips). It turns about the middle of the wheelbase.
+		var index = model.body_ids().find(id)
+		var bob = model.live.lift_m(index)
+		var turn = -model.live.rock_rad(index) * float(direction)
+		if absf(bob) > 0.0001 or absf(turn) > 0.00005:
+			var centre = (a+b)*0.5
+			var origin = (result.origin - centre).rotated(turn) + centre - Vector2(0, bob * ArtV3.PX * sc)
+			result = Transform2D(result.x.rotated(turn), result.y.rotated(turn), origin)
+	return result
 
 func draw_coupler(a: Vector2, b: Vector2) -> void:
 	var tex = art.textures["vehicles/coupler"]
@@ -3554,11 +3574,12 @@ func draw_body(id: String, s: float, controls: bool) -> void:
 			draw_style_box(style(Color(0.9, 0.87, 0.65, 0.35), Color("d1bd71"), 5), Rect2(loc - Vector2(32, 39), Vector2(64, 62)))
 		if not item.is_empty():
 			var sway = clampf(-model.acceleration * 0.04, -0.07, 0.07)
+			var slide = model.live.cargo_p(item.id) * ArtV3.PX * float(model.state.direction) if screen == "game" and Model.live_effects else 0.0   # B5.3: the load slides on its straps
 			var sprite_id = str(model.cargo_base(item.type).sprite)
 			var bounds = visual_layout[sprite_id]
 			var ratio = float(bounds[2]-bounds[0])/maxf(1,float(bounds[3]-bounds[1]))
 			var height = art.cargo_size(sprite_id,ratio).y
-			var foot=loc+Vector2(-sway*10,19)
+			var foot=loc+Vector2(-sway*10+slide,19)
 			var local_rect=Rect2(foot-Vector2(height*ratio*0.5,height),Vector2(height*ratio,height))
 			var screen_rect=Rect2(body_transform*local_rect.position,Vector2.ZERO)
 			for corner in [local_rect.end,Vector2(local_rect.end.x,local_rect.position.y),Vector2(local_rect.position.x,local_rect.end.y)]: screen_rect=screen_rect.expand(body_transform*corner)

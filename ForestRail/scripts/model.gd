@@ -6,6 +6,7 @@ const HandcarMechanism = preload("res://scripts/handcar_mechanism.gd")
 const HandcarDrive = preload("res://scripts/handcar_drive.gd")
 const Pole = preload("res://scripts/pole.gd")
 const Casino = preload("res://scripts/casino.gd")
+const Live = preload("res://scripts/live.gd")
 const Wind = preload("res://scripts/wind.gd")
 const G = 9.81
 const BUFFER_SAFE_SPEED = 1.0
@@ -74,6 +75,12 @@ var stationary_station = 0
 static var legacy_tanks = false
 # B4.4: deadlines and bonuses of the orders. The tests of the older numbers leave it off; the game switches it on.
 static var order_rules = false
+# B5: the live train (elastic couplers, rocking, shifting cargo). The picture, the sound and the damage of the
+# fragile cargo; the main physics of the train stays rigid. The tests of the older numbers leave it off.
+static var live_effects = false
+var live = Live.new()
+var last_clank = 0.0
+var last_cargo_hit = 0.0
 const DEADLINE_GRACE = 1.05     # up to 5% over the time is still "on time"
 const DEADLINE_FINE = 0.25      # the fine of a late free order, of its reward
 const NIGHT_BONUS = 0.30
@@ -940,6 +947,7 @@ func turn() -> bool:
 	state.direction = -int(state.direction)
 	state.reverser = 1
 	reset_input()
+	live.reset()
 	events.append("gear")
 	return true
 
@@ -1022,6 +1030,7 @@ func rescue() -> void:
 	cool_boiler()
 	state.direction = 1
 	state.reverser = 1
+	live.reset()
 	state.stats.rescues += 1
 	reset_input()
 	if not settle():
@@ -1226,7 +1235,8 @@ func render_s() -> float:
 	return float(state.s) - render_shift()
 
 func body_s_render(index: int) -> float:
-	return body_s(index) - render_shift()
+	var slack = float(state.direction) * live.slack_m(index) if live_effects else 0.0   # the couplers play
+	return body_s(index) + slack - render_shift()
 
 # Air drag per class (the old single 1.2 is right for the slow machines; a fast machine
 # is streamlined). N11 sets the top speeds with this and the power limit below.
@@ -1671,6 +1681,7 @@ func physics_step(dt: float) -> void:
 		else:
 			reset_input()
 			pole.reset()
+			if live.n != 0: live.reset()
 			if vehicle_id() == "sail": sail_trim = 0.0
 			return
 	state.stats.seconds += dt
@@ -1824,8 +1835,24 @@ func physics_step(dt: float) -> void:
 			if item.type == "fragile" and item.slot != "" and not item.delivered:
 				var owner = str(item.slot).split(":")[0]
 				item.health = maxf(0, float(item.health) - dt * (absf(acceleration) - 1.2) * 0.1 * float(object_stats(owner).shock))
+	if live_effects: live_step(dt)
 	if not state.active.is_empty() and state.active.phase == "return" and station_index() == 0 and stopped():
 		settle()
+
+# The couplers, the rocking and the cargo on its straps (live.gd). Only the fragile cargo feels it.
+func live_step(dt: float) -> void:
+	live.step(self, dt)
+	if live.clank > 0.3:
+		last_clank = live.clank
+		events.append("clank")
+	for hit in live.hits:
+		if str(hit.kind) != "cargo" or float(hit.speed) < 0.35: continue
+		last_cargo_hit = float(hit.speed)
+		events.append("cargo_hit")
+		for item in state.cargo:
+			if str(item.id) == str(hit.id) and item.type == "fragile":
+				var owner = str(item.slot).split(":")[0]
+				item.health = maxf(0.0, float(item.health) - minf(0.5, (float(hit.speed) - 0.35) * 0.12) * float(object_stats(owner).shock))
 
 # The train is not fastened to the rail. On a convex crest the rail falls away under it; when
 # v^2 * curvature is more than gravity across the rail, the wheels lift and the train flies a true
@@ -1857,6 +1884,7 @@ func update_air(dt: float, old_s: float) -> void:
 		last_landing = impact
 		events.append("land")
 		landing_impact(impact)
+		if live_effects: live.landed(impact)
 		if impact > 1.2:
 			air_fly = true
 			air_y = rail_y

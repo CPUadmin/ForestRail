@@ -3,8 +3,8 @@ extends Node
 # N8: layered ambience, machine sound per class, rail joints in step with the track,
 # a muffled cab. All the audio is synthesised by tools/audio_sources/make_audio.py.
 # Pause silences the machine; interface, payment and finale cues always play.
-const MECHANISM_CLIPS = ["pump", "rail_clack", "rail_clack_a", "rail_clack_b", "rail_tick_a", "rail_tick_b", "rail_tick_c", "gear", "cargo", "steam_chuff", "steam_blow", "whistle", "horn", "petrol_start", "petrol_stall", "contactor", "coupler_clank"]
-const CLIP_NAMES = ["pump", "rail_clack", "rail_clack_a", "rail_clack_b", "rail_tick_a", "rail_tick_b", "rail_tick_c", "gear", "cargo", "coins", "finale", "ui_click", "sting_start", "steam_chuff", "steam_blow", "whistle", "horn", "petrol_start", "petrol_stall", "contactor", "coupler_clank", "bird_1", "bird_2", "bird_3", "bird_4"]
+const MECHANISM_CLIPS = ["pump", "rail_clack", "rail_clack_a", "rail_clack_b", "rail_tick_a", "rail_tick_b", "rail_tick_c", "gear", "cargo", "steam_chuff", "steam_blow", "whistle", "horn", "petrol_start", "petrol_stall", "contactor", "coupler_clank", "land_thud"]
+const CLIP_NAMES = ["pump", "rail_clack", "rail_clack_a", "rail_clack_b", "rail_tick_a", "rail_tick_b", "rail_tick_c", "gear", "cargo", "coins", "finale", "ui_click", "sting_start", "steam_chuff", "steam_blow", "whistle", "horn", "petrol_start", "petrol_stall", "contactor", "coupler_clank", "land_thud", "bird_1", "bird_2", "bird_3", "bird_4"]
 const LOOP_NAMES = ["amb_wind", "amb_insects", "amb_water", "music_menu", "steam_hiss", "fire_crackle", "petrol_idle", "petrol_run", "electric_hum", "electric_whine", "brake"]
 const MACHINE_LOOPS = ["steam_hiss", "fire_crackle", "petrol_idle", "petrol_run", "electric_hum", "electric_whine", "brake"]
 const INTERFACE_CLIPS = ["coins", "finale", "ui_click", "sting_start"]
