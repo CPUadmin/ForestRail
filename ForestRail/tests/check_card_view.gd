@@ -25,7 +25,7 @@ func run() -> void:
 	game.set_physics_process(false)
 	game.settings.fullscreen = false
 	game.apply_settings()
-	get_tree().root.size = Vector2i(1600, 900)
+	get_tree().root.size = Vector2i(1700, 880)
 	await get_tree().create_timer(0.3).timeout
 	game.saves.directory = output_dir.path_join("profile")
 	DirAccess.make_dir_recursive_absolute(game.saves.directory)
@@ -38,21 +38,24 @@ func run() -> void:
 	var arcana: Dictionary = {}
 	var quotes: Dictionary = {}
 	var layer = Control.new()
-	layer.size = Vector2(1600, 900)
+	layer.size = Vector2(1700, 880)
 	game.add_child(layer)
 	var back = ColorRect.new()
 	back.color = Color(0.09, 0.07, 0.05)
 	back.size = layer.size
 	layer.add_child(back)
 	var all = ids + secret
+	var views: Array = []
 	for i in range(all.size()):
 		var view = CardView.new()
 		view.game = game
 		view.card_id = str(all[i])
-		view.revealed = i % 5 != 4
-		view.position = Vector2(10 + (i % 8) * 198, 10 + (i / 8) * 298)
-		view.size = Vector2(188, 289)
+		view.revealed = true
+		view.size = Vector2(252, 400)
+		view.position = Vector2(20 + (i % 6) * 264, 10 + ((i % 12) / 6) * 410)
+		view.visible = i < 12
 		layer.add_child(view)
+		views.append(view)
 		var data = view.info()
 		check(str(data.name) != "" and str(data.arcana) != "", "card %s has a name and a numeral" % view.card_id)
 		check(not arcana.has(str(data.arcana)), "the numeral %s is unique" % str(data.arcana))
@@ -74,9 +77,11 @@ func run() -> void:
 	probe.card_id = "star"
 	check(probe.found_line() != "", "other cards fall back to his line")
 	probe.free()
-	for i in range(8): await get_tree().process_frame
-	await RenderingServer.frame_post_draw
-	get_tree().root.get_texture().get_image().save_png(output_dir.path_join("cards_all.png"))
-	print("VISUAL cards_all")
+	for part in [1, 2]:
+		for i in range(views.size()): views[i].visible = (i < 12) == (part == 1)
+		for k in range(8): await get_tree().process_frame
+		await RenderingServer.frame_post_draw
+		get_tree().root.get_texture().get_image().save_png(output_dir.path_join("cards_part%d.png" % part))
+		print("VISUAL cards_part", part)
 	print("CARD VIEW CHECKS ", checks, "; FAILURES ", failures)
 	get_tree().quit(0 if failures.is_empty() else 1)
