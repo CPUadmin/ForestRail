@@ -19,6 +19,7 @@ var spin_button: Button
 var dep_button: Button
 var back_button: Button
 var tex = {}
+var mood = "calm"              # calm, happy, sad, surprised, pouring: which picture of Mikhalych is shown
 
 const SECTOR_TEXT = {"empty": "пусто", "tokens1": "+5", "tokens2": "+10", "junk": "шлак", "coins": "монеты", "repair": "ремнабор", "golden": "золото", "bonus": "бонуска", "card": "КАРТА"}
 const SECTOR_COLOR = {"empty": Color("5a4a38"), "tokens1": Color("b08a3c"), "tokens2": Color("d1a846"), "junk": Color("6b4a2e"), "coins": Color("c8b04a"), "repair": Color("3e7d78"), "golden": Color("f0c640"), "bonus": Color("7a4d8c"), "card": Color("d03a2e")}
@@ -72,8 +73,9 @@ func cas():
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
-	for name in ["facade", "interior", "wheel", "pointer", "glow", "mikhalych", "token"]:
+	for name in ["facade", "interior", "wheel", "pointer", "glow", "mikhalych", "mikhalych_happy", "mikhalych_sad", "mikhalych_surprised", "mikhalych_pouring", "token", "bag"]:
 		tex[name] = load("res://assets/art_kazik/%s.png" % name)
+	for id in SECTOR_COLOR.keys(): tex["sector_" + str(id)] = load("res://assets/art_kazik/sector_%s.png" % str(id))
 	for i in range(1, 10): tex["junk_%d" % i] = load("res://assets/art_kazik/junk_%d.png" % i)
 	shown_tokens = float(cas().tokens())
 	tokens_target = cas().tokens()
@@ -143,6 +145,7 @@ func on_deposit() -> void:
 		n += int(entry.count)
 	if got > 0:
 		tokens_target = cas().tokens()
+		mood = "pouring"
 		line = "Принял %d шт., это %d %s. Золочёное я не трогаю, оно для души." % [n, got, plural(got, "жетон", "жетона", "жетонов")]
 		game.sound.play("coins", 0.5, 1.2)
 		game.save_game()
@@ -167,6 +170,7 @@ func on_spin() -> void:
 	spin_t = 0.0
 	last_sector = -1
 	glow = 0.0
+	mood = "calm"
 	line = "Крутим-вертим…"
 	refresh_buttons()
 
@@ -191,6 +195,7 @@ func finish_spin() -> void:
 	angle = fposmod(spin_to, TAU)
 	var kind = str(result.get("kind", ""))
 	line = {"empty": "Бывает. Чайку?", "tokens": "Ну вот, а ты сомневался.", "junk": "Железо не пропадает, оно ждёт своего заноса.", "coins": "Звенит, значит живём.", "repair": "Пригодится, машина просила.", "golden": "Такой болт держит не рельсы, а мечты.", "bonus": "Талончик припрячь, пригодится.", "card": "ЗАНОС! Сорвал банк!"}.get(kind, "Ещё разок?")
+	mood = {"empty": "sad", "card": "surprised", "golden": "surprised"}.get(kind, "happy")
 	if kind != "empty":
 		glow = 1.0
 		game.sound.play("coins", 0.6, 1.0 if kind != "card" else 0.8)
@@ -268,7 +273,7 @@ func _draw() -> void:
 	draw_cover(tex.interior, Color(0.70, 0.66, 0.60))
 	draw_rect(Rect2(Vector2.ZERO, size), Color(0.03, 0.02, 0.01, 0.34))
 	# Михалыч стоит слева, поменьше: главное тут колесо
-	var m: Texture2D = tex.mikhalych
+	var m: Texture2D = tex["mikhalych" if mood == "calm" else "mikhalych_" + mood]
 	var mh = size.y * 0.70
 	var mw = mh * float(m.get_width()) / float(m.get_height())
 	var mpos = Vector2(size.x * 0.015, size.y - mh - 8.0 + (2.0 * sin(Time.get_ticks_msec() / 900.0)))
@@ -305,16 +310,11 @@ func _draw() -> void:
 		var width = b.y - b.x
 		var mid = (b.x + b.y) * 0.5 - PI * 0.5
 		if width > 0.30:
-			var text = str(SECTOR_TEXT.get(str(s.id), ""))
-			var font_size = 24 if width > 0.7 else 18
-			var on_left = cos(angle + mid) < 0.0
-			var text_width = game.font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
-			draw_set_transform(center, angle + mid + (PI if on_left else 0.0), Vector2.ONE)
-			var x = radius * 0.60 + text_width * 0.5 if on_left else radius * 0.30
-			for off in [Vector2(-2, 0), Vector2(2, 0), Vector2(0, -2), Vector2(0, 2), Vector2(2, 2)]:
-				draw_string(game.font, Vector2(-x, 8.0) + off, text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, Color(0.06, 0.03, 0.01, 0.85)) if on_left else draw_string(game.font, Vector2(x, 8.0) + off, text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, Color(0.06, 0.03, 0.01, 0.85))
-			if on_left: draw_string(game.font, Vector2(-x, 8.0), text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, Color("fff1cc"))
-			else: draw_string(game.font, Vector2(x, 8.0), text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, Color("fff1cc"))
+			# the painted icon of the sector, its top pointing to the rim
+			var icon: Texture2D = tex["sector_" + str(s.id)]
+			var icon_size = clampf(width * radius * 0.46, 40.0, radius * 0.40)
+			draw_set_transform(center, angle + mid + PI * 0.5, Vector2.ONE)
+			draw_texture_rect(icon, Rect2(Vector2(-icon_size * 0.5, -radius * 0.50 - icon_size * 0.5), Vector2(icon_size, icon_size)), false)
 			draw_set_transform(center, angle, Vector2.ONE)
 		elif width > 0.0:
 			draw_line(Vector2.from_angle(mid) * (r0 + 6.0), Vector2.from_angle(mid) * (r1 - 4.0), Color("ffe08a"), 3.0, true)
@@ -349,6 +349,8 @@ func _draw() -> void:
 	var bp = Rect2(Vector2(size.x - bag_w - 12.0, 18.0), Vector2(bag_w, 52.0 + 28.0 * float(rows)))
 	plaque(bp)
 	draw_text(bp.position + Vector2(14, 30), "Мешок шлака", 19, Color("ffe9b0"))
+	var bagtex: Texture2D = tex.bag
+	draw_texture_rect(bagtex, Rect2(bp.position + Vector2(bp.size.x - 52.0, 4.0), Vector2(44, 44.0 * float(bagtex.get_height()) / float(bagtex.get_width()))), false)
 	var row = 0
 	for entry in bag:
 		if row >= 8: break
