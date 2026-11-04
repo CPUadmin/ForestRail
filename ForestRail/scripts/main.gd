@@ -11,6 +11,7 @@ const CabSide = preload("res://scripts/cab_side.gd")
 const PAPER = Color("f5ecd6")
 const MUTED_INK = Color("5c6b62")
 const CasinoView = preload("res://scripts/casino_view.gd")
+const AlbumView = preload("res://scripts/album_view.gd")
 const CARD_EDGE = Color("dccfae")
 const INK = Color("29383b")
 const GREEN = Color("466c51")
@@ -191,7 +192,7 @@ func _ready() -> void:
 				# Tests and debugging runs are silent: nobody listens to the clicks and the engine.
 				AudioServer.set_bus_mute(0, true)
 				var suite = arg.trim_prefix("--qa-suite=")
-				if suite not in ["check_model", "check_physics", "check_interaction", "drive_campaign", "check_presentation", "check_handcar_revision", "check_art_v3", "check_instruments", "check_station_service", "check_world_geometry", "check_mechanism", "check_mechanism_bench", "check_handcar_drive", "check_handcar_input", "check_motor_controls", "check_loading_selection", "check_layout_p7", "check_steam", "check_steam_view", "check_gearbox", "check_petrol_view", "check_skins", "check_perf", "check_cab", "check_sound", "check_forecast", "check_line_v2", "check_line_spread", "check_thermal", "check_upgrades_new", "check_deadlines", "check_casino", "check_live", "check_live_view", "check_grip", "check_wear", "check_wear_view", "check_road_junk", "check_road_junk_view", "check_receiving", "check_receiving_view", "check_casino_view", "check_card_view", "check_speeds", "check_creative", "check_settings", "check_pneumatic", "check_pneumatic_view", "check_pole", "check_pole_view", "check_air", "check_sail", "check_sail_view", "check_loading_flow", "check_depot_entry", "check_forecast_long", "drive_long", "check_forecast_view", "check_soak_p8", "check_save_p8"]: get_tree().quit(2); return
+				if suite not in ["check_model", "check_physics", "check_interaction", "drive_campaign", "check_presentation", "check_handcar_revision", "check_art_v3", "check_instruments", "check_station_service", "check_world_geometry", "check_mechanism", "check_mechanism_bench", "check_handcar_drive", "check_handcar_input", "check_motor_controls", "check_loading_selection", "check_layout_p7", "check_steam", "check_steam_view", "check_gearbox", "check_petrol_view", "check_skins", "check_perf", "check_cab", "check_sound", "check_forecast", "check_line_v2", "check_line_spread", "check_thermal", "check_upgrades_new", "check_deadlines", "check_casino", "check_live", "check_live_view", "check_grip", "check_wear", "check_wear_view", "check_road_junk", "check_road_junk_view", "check_receiving", "check_receiving_view", "check_casino_view", "check_card_view", "check_album_view", "check_speeds", "check_creative", "check_settings", "check_pneumatic", "check_pneumatic_view", "check_pole", "check_pole_view", "check_air", "check_sail", "check_sail_view", "check_loading_flow", "check_depot_entry", "check_forecast_long", "drive_long", "check_forecast_view", "check_soak_p8", "check_save_p8"]: get_tree().quit(2); return
 				get_tree().root.set_meta("qa_running", true)
 				set_process(false)
 				set_physics_process(false)
@@ -891,6 +892,11 @@ func build_casino_tab(right: VBoxContainer) -> void:
 	add_label(c, "Жетонов: %d  ·  шлака: %d шт.  ·  до гарантированной карточки: %d из %d" % [casino.tokens(), casino.bolt_total(), casino.pity(), int(model.data.casino.pity_max)], 18)
 	add_label(c, "Михалыч берёт шлак жетонами («деп»), за жетоны крутится колесо «лудки». Из колеса выпадают жетоны, шлак, монеты, ремнаборы, бонуски, а изредка карточка гаджета.", 16, MUTED_INK)
 	add_button(c, "Войти в казик →", func(): show_modal("casino"))
+	var album_total = model.data.casino.cards.size() + 4
+	var album_have = 0
+	for card in model.data.casino.cards:
+		if casino.card_owned(str(card.id)): album_have += 1
+	add_button(c, "Альбом карточек Таро (%d из %d)" % [album_have, album_total], func(): show_modal("album"))
 	var odds: Array = []
 	var total = 0.0
 	for s in model.data.casino.sectors: total += float(s.weight)
@@ -1925,6 +1931,12 @@ func build_modal(size: Vector2) -> void:
 		close_row.size = Vector2(close_width,48)
 		overlay.add_child(close_row)
 		add_button(close_row,"Закрыть [%s / Esc]" % key_name("map"),close_modal)
+		return
+	if modal_kind == "album":
+		var album_screen = AlbumView.new()
+		album_screen.game = self
+		album_screen.size = size
+		overlay.add_child(album_screen)
 		return
 	if modal_kind == "casino":
 		var casino_screen = CasinoView.new()
