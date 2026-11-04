@@ -44,6 +44,11 @@
       "name": "Карточки Таро Михалыча",
       "brief": "tools/art_sources/briefs/P10_tarot_cards/BRIEF_RU.md",
       "inbox": "tools/art_sources/inbox/P10_tarot_cards/"
+    },
+    "П11": {
+      "name": "Иконки гаджетов",
+      "brief": "tools/art_sources/briefs/P11_gadget_icons/BRIEF_RU.md",
+      "inbox": "tools/art_sources/inbox/P11_gadget_icons/"
     }
   },
   "assets": [
@@ -848,6 +853,34 @@
       "background": "full-bleed",
       "status": "промпт готов",
       "note": "XXI Мир (тайная)"
+    },
+    {
+      "id": "P11-A1",
+      "file": "gadget_icons_1.png",
+      "package": "П11",
+      "element": "K",
+      "format": "1:1",
+      "background": "magenta",
+      "status": "промпт готов",
+      "note": "иконки 0-8: Пого-шест, Механический кочегар, Флюгер-автопилот, Запасной баллон, Автоматическая КПП, Автоматический редуктор, Храповик, Суперконденсатор, Закись азота",
+      "sheet": {
+        "cols": 3,
+        "rows": 3
+      }
+    },
+    {
+      "id": "P11-A2",
+      "file": "gadget_icons_2.png",
+      "package": "П11",
+      "element": "K",
+      "format": "1:1",
+      "background": "magenta",
+      "status": "промпт готов",
+      "note": "иконки 9-17: Триммер, Маховик-накопитель, Жидкостное охлаждение, Кошка с лебёдкой, Двойной парашют, Пароперегреватель, Форсаж, Спинакер, Закрылки",
+      "sheet": {
+        "cols": 3,
+        "rows": 3
+      }
     }
   ],
   "help": "Фон: magenta (плоский #FF00FF), black (свет), transparent, full-bleed (текстура на весь кадр). sheet: сетка листа {cols, rows}. Статусы: в списке, промпт готов, запрошено, получено, получено с проблемами, принято, отклонено, подключено."
