@@ -8,6 +8,7 @@ const ArtWorld = preload("res://scripts/art_world.gd")
 const Geometry = preload("res://scripts/world_geometry.gd")
 const Instruments = preload("res://scripts/instruments.gd")
 const CabSide = preload("res://scripts/cab_side.gd")
+const CHARGING_PLUG = preload("res://assets/art_electric/charging_plug.png")
 const PAPER = Color("f5ecd6")
 const MUTED_INK = Color("5c6b62")
 const CasinoView = preload("res://scripts/casino_view.gd")
@@ -874,9 +875,12 @@ func build_depot(size: Vector2) -> void:
 	var refill_text = ({"locomotive": "Зарядить", "pneumatic": "Накачать"}.get(model.vehicle_id(), "Заправить")) + (" · %d монет" % refill if refill > 0 else (" · бесплатно" if room else " · полон"))
 	# a person and the wind need no fuel: no refill button for them
 	if not model.human_powered():
-		add_button(service, refill_text, func():
+		var refill_button = add_button(service, refill_text, func():
 			if model.refuel(): save_game(); rebuild(); notify(model.message if model.message != "" else "Запас пополнен"); model.message = ""
 			else: notify(model.message), not room)
+		if model.vehicle_id() == "locomotive":
+			refill_button.icon = CHARGING_PLUG
+			refill_button.add_theme_constant_override("icon_max_width", 22)
 	add_button(service, "Улучшить", func(): selected_object = model.vehicle_id(); tab = "Улучшения"; rebuild())
 	add_button(service, "Болты (%d)" % model.casino().bolt_total(), func(): show_modal("receiving"))
 	if model.state.active.is_empty(): add_button(service, "Просто поехать →", take_free_ride)
@@ -4101,6 +4105,10 @@ func control_geometry(id: String, closeup: bool = false) -> Dictionary:
 		if closeup:
 			slot_pivot=control_zoom_rect().position+Vector2(65+100*["brake","throttle","gear","start"].find(id),230)
 			slot_length=124.0
+		elif not art.is_skinned("locomotive"):
+			# The factory cab has two clear panels between the window and steps.
+			slot_pivot = art.stock_body_point("locomotive", Vector2(200 if id == "brake" else 310, 562))
+			slot_length = 0.32 * ArtV3.PX
 		var amount=float(model.state.get(id,0))
 		return {"pivot":slot_pivot,"grip":slot_pivot+Vector2(0,-slot_length*amount),"angle":0.0,"length":slot_length}
 	if kind=="gate":
@@ -4278,6 +4286,8 @@ func draw_charge_strip(body_transform: Transform2D) -> void:
 	var fraction=charge_fraction()
 	draw_set_transform_matrix(body_transform)
 	var anchor = Vector2(0.70 * ArtV3.PX, art.deck_y("locomotive") - 0.37 * ArtV3.PX)
+	if not art.is_skinned("locomotive"):
+		anchor = art.stock_body_point("locomotive", Vector2(803, 586))
 	var rect = Rect2(anchor - Vector2(20, 3), Vector2(40, 6))
 	draw_style_box(style(Color("242b24"), Color("897658"), 2), rect.grow(3))
 	if fraction > 0: draw_rect(Rect2(rect.position, Vector2(rect.size.x * fraction, rect.size.y)), charge_color(fraction))

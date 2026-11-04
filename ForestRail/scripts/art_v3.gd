@@ -50,7 +50,7 @@ const STOCK_BODY = {
 const STOCK_LAMPS = {
 	"steam": Vector2(808, 282),
 	"motorcar": Vector2(1670, 141),
-	"locomotive": Vector2(1282, 143),
+	"locomotive": Vector2(1291, 245),
 	"pneumatic": Vector2(1673, 554),
 }
 var manifest: Dictionary
