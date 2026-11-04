@@ -34,6 +34,11 @@
    "name": "Казик, часть 1",
    "brief": "docs/KAZIK_IMAGE_PROMPTS_RU.md",
    "inbox": "tools/art_sources/inbox/kazik/"
+  },
+  "П9б": {
+   "name": "Казик, часть 2",
+   "brief": "tools/art_sources/briefs/P9b_kazik_part2/BRIEF_RU.md",
+   "inbox": "tools/art_sources/inbox/P9b_kazik_part2/"
   }
  },
  "assets": [
@@ -458,6 +463,94 @@
     "accepted/kazik/kazik_junk_sheet1/cell_3_2.png",
     "accepted/kazik/kazik_junk_sheet1/cell_3_3.png"
    ]
+  },
+  {
+   "id": "P9B-A1",
+   "file": "sector_icons.png",
+   "package": "П9б",
+   "element": "K",
+   "format": "1:1",
+   "background": "transparent",
+   "status": "промпт готов",
+   "note": "",
+   "sheet": {
+    "cols": 3,
+    "rows": 3
+   }
+  },
+  {
+   "id": "P9B-A2",
+   "file": "kazik_junk_sheet2.png",
+   "package": "П9б",
+   "element": "K",
+   "format": "1:1",
+   "background": "transparent",
+   "status": "промпт готов",
+   "note": "",
+   "sheet": {
+    "cols": 3,
+    "rows": 3
+   }
+  },
+  {
+   "id": "P9B-A3",
+   "file": "kazik_junk_bag.png",
+   "package": "П9б",
+   "element": "K",
+   "format": "1:1",
+   "background": "transparent",
+   "status": "промпт готов",
+   "note": ""
+  },
+  {
+   "id": "P9B-A4",
+   "file": "kazik_mikhalych_happy.png",
+   "package": "П9б",
+   "element": "K",
+   "format": "2:3",
+   "background": "transparent",
+   "status": "промпт готов",
+   "note": ""
+  },
+  {
+   "id": "P9B-A5",
+   "file": "kazik_mikhalych_sad.png",
+   "package": "П9б",
+   "element": "K",
+   "format": "2:3",
+   "background": "transparent",
+   "status": "промпт готов",
+   "note": ""
+  },
+  {
+   "id": "P9B-A6",
+   "file": "kazik_mikhalych_surprised.png",
+   "package": "П9б",
+   "element": "K",
+   "format": "2:3",
+   "background": "transparent",
+   "status": "промпт готов",
+   "note": ""
+  },
+  {
+   "id": "P9B-A7",
+   "file": "kazik_mikhalych_pouring.png",
+   "package": "П9б",
+   "element": "K",
+   "format": "2:3",
+   "background": "transparent",
+   "status": "промпт готов",
+   "note": ""
+  },
+  {
+   "id": "P9B-A8",
+   "file": "kazik_card_frame.png",
+   "package": "П9б",
+   "element": "K",
+   "format": "2:3",
+   "background": "transparent",
+   "status": "промпт готов",
+   "note": ""
   }
  ],
  "help": "Фон: magenta (плоский #FF00FF), black (свет), transparent, full-bleed (текстура на весь кадр). sheet: сетка листа {cols, rows}. Статусы: в списке, промпт готов, запрошено, получено, получено с проблемами, принято, отклонено, подключено."
