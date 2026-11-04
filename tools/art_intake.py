@@ -69,17 +69,22 @@ def load_rgba(path):
     return im.convert("RGBA")
 
 
-def border_pixels(arr, frac=0.02, top_only=False):
+def border_pixels(arr, frac=0.02, top_only=False, bottom_only=False):
     h, w = arr.shape[:2]
     t = max(2, int(min(h, w) * frac))
     # a tile has the ground at the bottom and the sides, so only its top edge shows the background
-    parts = [arr[:t, :, :]] if top_only else [arr[:t, :, :], arr[-t:, :, :], arr[:, :t, :], arr[:, -t:, :]]
+    if bottom_only:
+        parts = [arr[-t:, :, :]]
+    elif top_only:
+        parts = [arr[:t, :, :]]
+    else:
+        parts = [arr[:t, :, :], arr[-t:, :, :], arr[:, :t, :], arr[:, -t:, :]]
     return np.concatenate([p.reshape(-1, p.shape[2]) for p in parts], axis=0)
 
 
-def detect_background(arr, top_only=False):
+def detect_background(arr, top_only=False, bottom_only=False):
     """transparent / magenta / black / other, плюс признак «шахматки» вместо прозрачности."""
-    b = border_pixels(arr, top_only=top_only)
+    b = border_pixels(arr, top_only=top_only, bottom_only=bottom_only)
     rgb = b[:, :3].astype(np.int32)
     alpha = b[:, 3]
     if (alpha < 16).mean() > 0.9:
@@ -226,7 +231,8 @@ def check_asset(asset, path):
     notes = []
     img = load_rgba(path)
     arr = np.array(img)
-    bg, checker = detect_background(arr, top_only=bool(asset.get("tile")))
+    edge = asset.get("bg_edge", "top" if asset.get("tile") else "all")
+    bg, checker = detect_background(arr, top_only=(edge == "top"), bottom_only=(edge == "bottom"))
     want = asset.get("background", "magenta")
     info = {"size": list(img.size), "background": bg}
     if checker:
