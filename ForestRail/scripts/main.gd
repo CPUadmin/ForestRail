@@ -9,6 +9,9 @@ const Geometry = preload("res://scripts/world_geometry.gd")
 const Instruments = preload("res://scripts/instruments.gd")
 const CabSide = preload("res://scripts/cab_side.gd")
 const CHARGING_PLUG = preload("res://assets/art_electric/charging_plug.png")
+const CAB_WOOD = preload("res://assets/art_cab/cab_dash_wood.png")
+const CAB_STEEL = preload("res://assets/art_cab/cab_dash_steel.png")
+const CAB_WINDSHIELD = preload("res://assets/art_cab/cab_window_frame.png")
 const PAPER = Color("f5ecd6")
 const MUTED_INK = Color("5c6b62")
 const CasinoView = preload("res://scripts/casino_view.gd")
@@ -3121,6 +3124,9 @@ func draw_cab_frame(size: Vector2, top: float) -> void:
 		for bolt in range(8):
 			var f = (bolt + 0.5) / 8.0
 			draw_circle(Vector2(lerpf(edge_x, low_x, f) + side * 14, lerpf(roof, top, f)), 3.5, brass)
+	# Crop out the exterior roof and keep the keyed apertures over the live view.
+	var windshield = Rect2(size.x * 0.075, roof - 3, size.x * 0.85, top - roof + 3)
+	draw_texture_rect_region(CAB_WINDSHIELD, windshield, Rect2(40, 216, 1420, 728), Color(0.68, 0.70, 0.65))
 	for window_side in [-1.0, 1.0]:
 		var frame = cab_window_rect(size, top, window_side).grow(7.0)
 		draw_rect(frame, Color("0f1512"))
@@ -3141,13 +3147,7 @@ func draw_cab_frame(size: Vector2, top: float) -> void:
 		draw_circle(p + Vector2(0, 9), 11, brass)
 		draw_circle(p + Vector2(0, 11), 7, Color("fff1c4"))
 		for ring in range(5): draw_circle(p + Vector2(0, 11), 20.0 + ring * 16.0, Color(1.0, 0.9, 0.55, (0.06 - ring * 0.01) * lamp_flicker))
-	# centre post, curtains, window rubber
-	var post = Rect2(size.x * 0.5 - 9, roof, 18, top - roof)
-	draw_rect(post, green)
-	draw_line(post.position, Vector2(post.position.x, post.end.y), brass, 2.0)
-	draw_line(Vector2(post.end.x, post.position.y), post.end, brass, 2.0)
-	for rivet in range(7):
-		draw_circle(Vector2(size.x * 0.5, roof + (top - roof) * (rivet + 0.5) / 7.0), 2.5, brass)
+	# Curtains hang in front of the painted frame.
 	for side in [-1.0, 1.0]:
 		var corner_x = pillar * 1.05 if side < 0 else size.x - pillar * 1.05
 		for fold in range(4):
@@ -3167,14 +3167,12 @@ func draw_cab_frame(size: Vector2, top: float) -> void:
 	for speck in range(26):
 		draw_circle(Vector2(size.x * (0.1 + 0.8 * cab_hash(speck, 20.0)), roof + (top - roof) * cab_hash(speck, 21.0)), 1.0 + cab_hash(speck, 22.0) * 1.5, Color(1, 1, 1, 0.1))
 	# dashboard ledge in wood, then the steel panel
-	draw_polygon(PackedVector2Array([Vector2(0, top - 22), Vector2(size.x, top - 22), Vector2(size.x, top - 4), Vector2(0, top - 4)]), PackedColorArray([Color("7b5732"), Color("7b5732"), Color("4a3320"), Color("4a3320")]))
-	for grain in range(0, int(size.x), 70):
-		draw_line(Vector2(grain, top - 20), Vector2(grain + 40, top - 7), Color(0, 0, 0, 0.18), 1.5)
-	draw_line(Vector2(0, top - 22), Vector2(size.x, top - 22), brass, 3.0)
+	draw_texture_rect_region(CAB_WOOD, Rect2(0, top - 22, size.x, 18), Rect2(54, 790, 1428, 128), Color(0.68, 0.68, 0.64))
 	if dash_v2():
 		draw_dash_panel_v2(size, top)
 	else:
-		draw_polygon(PackedVector2Array([Vector2(0, top - 4), Vector2(size.x, top - 4), Vector2(size.x, size.y), Vector2(0, size.y)]), PackedColorArray([Color("3a4a41"), Color("3a4a41"), Color("151d19"), Color("151d19")]))
+		# Use the painted lower panel, leaving the live gauges free to vary by cab.
+		draw_texture_rect_region(CAB_STEEL, Rect2(0, top - 4, size.x, size.y - top + 4), Rect2(0, 743, 1536, 281), Color(0.63, 0.66, 0.62))
 		draw_line(Vector2(0, top - 4), Vector2(size.x, top - 4), Color(0, 0, 0, 0.55), 3.0)
 		for rivet in range(int(size.x / 50.0)):
 			draw_circle(Vector2(25 + rivet * 50.0, top + 8), 2.5, Color("a98a4a"))
