@@ -25,7 +25,11 @@
    "format": "3:2",
    "background": "magenta",
    "status": "промпт готов",
-   "note": ""
+   "note": "",
+   "sheet": {
+    "cols": 1,
+    "rows": 3
+   }
   },
   {
    "id": "P2-A2",
@@ -35,7 +39,11 @@
    "format": "1:1",
    "background": "magenta",
    "status": "промпт готов",
-   "note": ""
+   "note": "",
+   "sheet": {
+    "cols": 2,
+    "rows": 2
+   }
   },
   {
    "id": "P2-A3",
@@ -55,7 +63,12 @@
    "format": "1:1",
    "background": "magenta",
    "status": "промпт готов",
-   "note": ""
+   "note": "",
+   "sheet": {
+    "cols": 3,
+    "rows": 3
+   }
   }
- ]
+ ],
+ "help": "Фон: magenta (плоский #FF00FF), black (свет), transparent, full-bleed (текстура на весь кадр). sheet: сетка листа {cols, rows}. Статусы: в списке, промпт готов, запрошено, получено, получено с проблемами, принято, отклонено, подключено."
 }
