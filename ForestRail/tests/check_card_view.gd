@@ -66,6 +66,8 @@ func run() -> void:
 	probe.card_id = "fool"
 	check(probe.found_line().contains("Дымок"), "the Fool makes Mikhalych remember his dog")
 	probe.card_id = "tower"
+	check(probe.found_line().contains("матроса"), "the Tower makes Mikhalych remember the sailor and the song")
+	probe.card_id = "star"
 	check(probe.found_line() != "", "other cards fall back to his line")
 	probe.free()
 	for i in range(8): await get_tree().process_frame
