@@ -1,0 +1,187 @@
+# Комплект П10 «Карточки Таро Михалыча»: промпты для GPT
+
+18 иллюстраций к карточкам гаджетов (старшие арканы 0-XVII, привязка к гаджетам в `docs/KAZIK_CARDS_RU.md`). Рамка у всех одна (`kazik_card_frame.png`, уже принята и лежит в игре): вы рисуете только **картинку в окошко**, без рамки, цифр и названий. Рамку, римскую цифру, название и описание я добавляю кодом.
+
+## Как они будут выглядеть в игре
+
+Карточка похожа на **билет Михалыча**: латунно-зелёная рамка (кадр `ref_card_frame.jpg`), иллюстрация в большом окне, сверху лента с римской цифрой, снизу табличка с названием гаджета и репликой Михалыча. Окно у рамки почти квадратное, поэтому иллюстрации **квадратные 1:1**, важное держать в центре (края закроет рамка и скруглённые углы окна).
+
+## Что приложить к первому сообщению
+
+- `ref_card_frame.jpg`: рамка карточки, куда встанет картина (только для понимания композиции).
+- `ref_mikhalych.jpg`: Михалыч, образец стиля и цвета кожи, ткани, света.
+- `ref_style_handcar.jpg` и `ref_style_steam.jpg`: как у нас рисуются машины (если на карточке есть дрезина, паровоз и т. п., они должны быть узнаваемо в этом стиле).
+
+## Как работать
+
+1. **Один новый чат на 6 карточек** (так GPT не уплывает по стилю): блок 0, затем по одному промпту A1…A6; потом новый чат, снова блок 0, A7…A12; и A13…A18.
+2. Если GPT читает репозиторий через подключение, фраза:
+
+```
+Открой в репозитории CPUadmin/ForestRail (ветка main) файл tools/art_sources/briefs/P10_tarot_cards/TASK_FOR_GPT.md, посмотри кадры ref_* рядом с ним и нарисуй карточки A1-A6 по очереди.
+```
+
+3. Файлы с именами из заголовков сохраните в `tools/art_sources/inbox/P10_tarot_cards/`. Присылать можно по мере готовности. Минимум для пробы вида: A1 (Шут), A11 (Колесо Фортуны), A17 (Башня).
+
+## Первое сообщение (блок 0)
+
+```text
+Attached are references for the pack "P10 tarot cards". ref_card_frame.jpg is the empty brass and green card frame that will go over the picture: do NOT draw it and do NOT draw any border. ref_mikhalych.jpg is the shopkeeper character and the colour and lighting reference. ref_style_handcar.jpg and ref_style_steam.jpg show how rail vehicles look in this game. I will ask for tarot card illustrations one by one. Each is a classic Rider-Waite major arcana scene re-dressed as a narrow-gauge forest railway story, painted edge to edge as a full square picture (no transparent background), hand-painted painterly look, warm worn feel, forest green, aged brass and amber palette, STRONG VOLUME (bold rounded forms, deep shadows, clear lit and shaded sides), light from the upper left, one strong readable central figure, important things inside the central 70 percent, no letters, no numbers, no text anywhere.
+```
+
+### A1 `card_00_fool.png`: 0 Шут (Пого-шест)
+
+```text
+Asset: card_00_fool. Format: square 1:1. Background: none, a complete painted scene edge to edge.
+A carefree traveller with a small bundle on a pole, stepping off the end of a broken rail track while holding a spring-loaded pogo pole, a small dog at his heels, forest cliff, bright morning.
+hand-painted painterly look, warm worn feel, forest green, aged brass and amber palette, STRONG VOLUME (bold rounded forms, deep shadows, clear lit and shaded sides), light from the upper left, a classic Rider-Waite tarot scene re-dressed as a narrow-gauge forest railway story, one strong readable central figure in the middle of the picture, the whole scene painted edge to edge (no transparency, no border, no frame), square 1:1, keep everything important inside the central 70 percent because a card frame will cover the edges, no letters, no numbers, no text, no signs with writing.
+```
+
+### A2 `card_01_magician.png`: I Маг (Механический кочегар)
+
+```text
+Asset: card_01_magician. Format: square 1:1. Background: none, a complete painted scene edge to edge.
+A magician in a green vest standing at a coal-fired locomotive firebox with a screw conveyor feeding coal as if by magic, one hand up toward sparks, one pointing down at the coal, an infinity symbol made of steam above his head.
+hand-painted painterly look, warm worn feel, forest green, aged brass and amber palette, STRONG VOLUME (bold rounded forms, deep shadows, clear lit and shaded sides), light from the upper left, a classic Rider-Waite tarot scene re-dressed as a narrow-gauge forest railway story, one strong readable central figure in the middle of the picture, the whole scene painted edge to edge (no transparency, no border, no frame), square 1:1, keep everything important inside the central 70 percent because a card frame will cover the edges, no letters, no numbers, no text, no signs with writing.
+```
+
+### A3 `card_02_priestess.png`: II Верховная жрица (Флюгер-автопилот)
+
+```text
+Asset: card_02_priestess. Format: square 1:1. Background: none, a complete painted scene edge to edge.
+A calm woman in a long coat sitting between two pillars made of a signal post and a mast, a weather vane above her, a small sail rail trolley behind her, a curtain of wind.
+hand-painted painterly look, warm worn feel, forest green, aged brass and amber palette, STRONG VOLUME (bold rounded forms, deep shadows, clear lit and shaded sides), light from the upper left, a classic Rider-Waite tarot scene re-dressed as a narrow-gauge forest railway story, one strong readable central figure in the middle of the picture, the whole scene painted edge to edge (no transparency, no border, no frame), square 1:1, keep everything important inside the central 70 percent because a card frame will cover the edges, no letters, no numbers, no text, no signs with writing.
+```
+
+### A4 `card_03_empress.png`: III Императрица (Запасной баллон)
+
+```text
+Asset: card_03_empress. Format: square 1:1. Background: none, a complete painted scene edge to edge.
+A crowned woman sitting on a lush mossy bench among forest greenery, large brass air cylinders as her throne, wheat ears and ferns, a pneumatic rail train behind her.
+hand-painted painterly look, warm worn feel, forest green, aged brass and amber palette, STRONG VOLUME (bold rounded forms, deep shadows, clear lit and shaded sides), light from the upper left, a classic Rider-Waite tarot scene re-dressed as a narrow-gauge forest railway story, one strong readable central figure in the middle of the picture, the whole scene painted edge to edge (no transparency, no border, no frame), square 1:1, keep everything important inside the central 70 percent because a card frame will cover the edges, no letters, no numbers, no text, no signs with writing.
+```
+
+### A5 `card_04_emperor.png`: IV Император (Автоматическая КПП)
+
+```text
+Asset: card_04_emperor. Format: square 1:1. Background: none, a complete painted scene edge to edge.
+A stern bearded man on a stone throne with a gearshift lever as his sceptre, an old petrol rail car behind him, mountains, a red cloak.
+hand-painted painterly look, warm worn feel, forest green, aged brass and amber palette, STRONG VOLUME (bold rounded forms, deep shadows, clear lit and shaded sides), light from the upper left, a classic Rider-Waite tarot scene re-dressed as a narrow-gauge forest railway story, one strong readable central figure in the middle of the picture, the whole scene painted edge to edge (no transparency, no border, no frame), square 1:1, keep everything important inside the central 70 percent because a card frame will cover the edges, no letters, no numbers, no text, no signs with writing.
+```
+
+### A6 `card_05_hierophant.png`: V Иерофант (Автоматический редуктор)
+
+```text
+Asset: card_05_hierophant. Format: square 1:1. Background: none, a complete painted scene edge to edge.
+A robed official seated between two columns raising two fingers, a pressure gauge dial like a halo behind his head, two junior engineers kneeling before a brass pressure reducer wheel.
+hand-painted painterly look, warm worn feel, forest green, aged brass and amber palette, STRONG VOLUME (bold rounded forms, deep shadows, clear lit and shaded sides), light from the upper left, a classic Rider-Waite tarot scene re-dressed as a narrow-gauge forest railway story, one strong readable central figure in the middle of the picture, the whole scene painted edge to edge (no transparency, no border, no frame), square 1:1, keep everything important inside the central 70 percent because a card frame will cover the edges, no letters, no numbers, no text, no signs with writing.
+```
+
+### A7 `card_06_lovers.png`: VI Влюблённые (Храповик)
+
+```text
+Asset: card_06_lovers. Format: square 1:1. Background: none, a complete painted scene edge to edge.
+Two figures standing at a fork of railway tracks beneath a bright sun, a handcar lever between them, an angel-like signalman raising his hands above, forest paths.
+hand-painted painterly look, warm worn feel, forest green, aged brass and amber palette, STRONG VOLUME (bold rounded forms, deep shadows, clear lit and shaded sides), light from the upper left, a classic Rider-Waite tarot scene re-dressed as a narrow-gauge forest railway story, one strong readable central figure in the middle of the picture, the whole scene painted edge to edge (no transparency, no border, no frame), square 1:1, keep everything important inside the central 70 percent because a card frame will cover the edges, no letters, no numbers, no text, no signs with writing.
+```
+
+### A8 `card_07_chariot.png`: VII Колесница (Суперконденсатор)
+
+```text
+Asset: card_07_chariot. Format: square 1:1. Background: none, a complete painted scene edge to edge.
+A determined driver on a small electric rail cart like a chariot pulled by two sphinx-like locomotives, one black one white, lightning arcs from capacitors, a starry canopy.
+hand-painted painterly look, warm worn feel, forest green, aged brass and amber palette, STRONG VOLUME (bold rounded forms, deep shadows, clear lit and shaded sides), light from the upper left, a classic Rider-Waite tarot scene re-dressed as a narrow-gauge forest railway story, one strong readable central figure in the middle of the picture, the whole scene painted edge to edge (no transparency, no border, no frame), square 1:1, keep everything important inside the central 70 percent because a card frame will cover the edges, no letters, no numbers, no text, no signs with writing.
+```
+
+### A9 `card_08_strength.png`: VIII Сила (Закись азота)
+
+```text
+Asset: card_08_strength. Format: square 1:1. Background: none, a complete painted scene edge to edge.
+A woman gently holding open the hood of a lion-like petrol engine while a blue and orange nitro flame curls from the exhaust, an infinity symbol above her.
+hand-painted painterly look, warm worn feel, forest green, aged brass and amber palette, STRONG VOLUME (bold rounded forms, deep shadows, clear lit and shaded sides), light from the upper left, a classic Rider-Waite tarot scene re-dressed as a narrow-gauge forest railway story, one strong readable central figure in the middle of the picture, the whole scene painted edge to edge (no transparency, no border, no frame), square 1:1, keep everything important inside the central 70 percent because a card frame will cover the edges, no letters, no numbers, no text, no signs with writing.
+```
+
+### A10 `card_09_hermit.png`: IX Отшельник (Триммер)
+
+```text
+Asset: card_09_hermit. Format: square 1:1. Background: none, a complete painted scene edge to edge.
+An old hooded man on a high rail embankment holding a lantern and a trim wheel, a small propeller-driven rail zeppelin floating behind him, snow and a starry sky.
+hand-painted painterly look, warm worn feel, forest green, aged brass and amber palette, STRONG VOLUME (bold rounded forms, deep shadows, clear lit and shaded sides), light from the upper left, a classic Rider-Waite tarot scene re-dressed as a narrow-gauge forest railway story, one strong readable central figure in the middle of the picture, the whole scene painted edge to edge (no transparency, no border, no frame), square 1:1, keep everything important inside the central 70 percent because a card frame will cover the edges, no letters, no numbers, no text, no signs with writing.
+```
+
+### A11 `card_10_wheel_of_fortune.png`: X Колесо Фортуны (Маховик-накопитель)
+
+```text
+Asset: card_10_wheel_of_fortune. Format: square 1:1. Background: none, a complete painted scene edge to edge.
+A great spinning flywheel whose spokes carry small icons of gears, bolts and coins, four winged creatures in the corners (a lion, an eagle, an ox and a man, all made of brass), a sphinx on top, clouds.
+hand-painted painterly look, warm worn feel, forest green, aged brass and amber palette, STRONG VOLUME (bold rounded forms, deep shadows, clear lit and shaded sides), light from the upper left, a classic Rider-Waite tarot scene re-dressed as a narrow-gauge forest railway story, one strong readable central figure in the middle of the picture, the whole scene painted edge to edge (no transparency, no border, no frame), square 1:1, keep everything important inside the central 70 percent because a card frame will cover the edges, no letters, no numbers, no text, no signs with writing.
+```
+
+### A12 `card_11_justice.png`: XI Справедливость (Жидкостное охлаждение)
+
+```text
+Asset: card_11_justice. Format: square 1:1. Background: none, a complete painted scene edge to edge.
+A crowned judge sitting between two pillars holding scales with a copper cooling radiator on one side and a spark of heat on the other, a purple curtain, a motor with blue coolant pipes.
+hand-painted painterly look, warm worn feel, forest green, aged brass and amber palette, STRONG VOLUME (bold rounded forms, deep shadows, clear lit and shaded sides), light from the upper left, a classic Rider-Waite tarot scene re-dressed as a narrow-gauge forest railway story, one strong readable central figure in the middle of the picture, the whole scene painted edge to edge (no transparency, no border, no frame), square 1:1, keep everything important inside the central 70 percent because a card frame will cover the edges, no letters, no numbers, no text, no signs with writing.
+```
+
+### A13 `card_12_hanged_man.png`: XII Повешенный (Кошка с лебёдкой)
+
+```text
+Asset: card_12_hanged_man. Format: square 1:1. Background: none, a complete painted scene edge to edge.
+A calm man hanging upside down by one foot from a rope with a grappling hook caught on a wooden post, a winch drum below, hands behind his back, a halo of warm light, a forest wall.
+hand-painted painterly look, warm worn feel, forest green, aged brass and amber palette, STRONG VOLUME (bold rounded forms, deep shadows, clear lit and shaded sides), light from the upper left, a classic Rider-Waite tarot scene re-dressed as a narrow-gauge forest railway story, one strong readable central figure in the middle of the picture, the whole scene painted edge to edge (no transparency, no border, no frame), square 1:1, keep everything important inside the central 70 percent because a card frame will cover the edges, no letters, no numbers, no text, no signs with writing.
+```
+
+### A14 `card_13_death.png`: XIII Смерть (Двойной парашют)
+
+```text
+Asset: card_13_death. Format: square 1:1. Background: none, a complete painted scene edge to edge.
+A skeleton in black armour riding a white horse beside a railway, two parachutes opening behind a jet train, a rising sun between two towers, small figures bowing; dramatic but not scary.
+hand-painted painterly look, warm worn feel, forest green, aged brass and amber palette, STRONG VOLUME (bold rounded forms, deep shadows, clear lit and shaded sides), light from the upper left, a classic Rider-Waite tarot scene re-dressed as a narrow-gauge forest railway story, one strong readable central figure in the middle of the picture, the whole scene painted edge to edge (no transparency, no border, no frame), square 1:1, keep everything important inside the central 70 percent because a card frame will cover the edges, no letters, no numbers, no text, no signs with writing.
+```
+
+### A15 `card_14_temperance.png`: XIV Умеренность (Пароперегреватель)
+
+```text
+Asset: card_14_temperance. Format: square 1:1. Background: none, a complete painted scene edge to edge.
+An angel pouring steam from one cup into another, one foot on the shore and one in the water, a copper superheater coil and a locomotive boiler behind, a path to a bright sun.
+hand-painted painterly look, warm worn feel, forest green, aged brass and amber palette, STRONG VOLUME (bold rounded forms, deep shadows, clear lit and shaded sides), light from the upper left, a classic Rider-Waite tarot scene re-dressed as a narrow-gauge forest railway story, one strong readable central figure in the middle of the picture, the whole scene painted edge to edge (no transparency, no border, no frame), square 1:1, keep everything important inside the central 70 percent because a card frame will cover the edges, no letters, no numbers, no text, no signs with writing.
+```
+
+### A16 `card_15_devil.png`: XV Дьявол (Форсаж)
+
+```text
+Asset: card_15_devil. Format: square 1:1. Background: none, a complete painted scene edge to edge.
+A horned figure on a pedestal above two chained figures, a jet engine afterburner flame between his hands, red glow, chains made of rails; tempting and theatrical, not scary.
+hand-painted painterly look, warm worn feel, forest green, aged brass and amber palette, STRONG VOLUME (bold rounded forms, deep shadows, clear lit and shaded sides), light from the upper left, a classic Rider-Waite tarot scene re-dressed as a narrow-gauge forest railway story, one strong readable central figure in the middle of the picture, the whole scene painted edge to edge (no transparency, no border, no frame), square 1:1, keep everything important inside the central 70 percent because a card frame will cover the edges, no letters, no numbers, no text, no signs with writing.
+```
+
+### A17 `card_16_tower.png`: XVI Башня (Спинакер)
+
+```text
+Asset: card_16_tower. Format: square 1:1. Background: none, a complete painted scene edge to edge.
+A tall old railway water tower struck by lightning at night, a huge ripped balloon-sail flying away from its top, two figures falling, flames in the windows, a dark stormy sky.
+hand-painted painterly look, warm worn feel, forest green, aged brass and amber palette, STRONG VOLUME (bold rounded forms, deep shadows, clear lit and shaded sides), light from the upper left, a classic Rider-Waite tarot scene re-dressed as a narrow-gauge forest railway story, one strong readable central figure in the middle of the picture, the whole scene painted edge to edge (no transparency, no border, no frame), square 1:1, keep everything important inside the central 70 percent because a card frame will cover the edges, no letters, no numbers, no text, no signs with writing.
+```
+
+### A18 `card_17_star.png`: XVII Звезда (Закрылки)
+
+```text
+Asset: card_17_star. Format: square 1:1. Background: none, a complete painted scene edge to edge.
+A woman kneeling by a pond pouring water from two jugs, one large eight-pointed star above and seven smaller ones, a rail zeppelin with wing flaps on the horizon, a bird in a tree, modest clothing.
+hand-painted painterly look, warm worn feel, forest green, aged brass and amber palette, STRONG VOLUME (bold rounded forms, deep shadows, clear lit and shaded sides), light from the upper left, a classic Rider-Waite tarot scene re-dressed as a narrow-gauge forest railway story, one strong readable central figure in the middle of the picture, the whole scene painted edge to edge (no transparency, no border, no frame), square 1:1, keep everything important inside the central 70 percent because a card frame will cover the edges, no letters, no numbers, no text, no signs with writing.
+```
+
+## Чек-лист приёмки пакета
+
+1. Нет букв, цифр и надписей (на табличках, вывесках, циферблатах, картах).
+2. Нет рамки и бордюра по краям: только сцена.
+3. Главная фигура в центре, читается издалека; сцена похожа на классический аркан (узнаётся с первого взгляда).
+4. Машины и вещи в стиле игры: латунь, зелень, тёплое дерево, тёплый свет сверху-слева; объём сильный.
+5. Все 18 в одном стиле и одной палитре (поэтому по 6 за чат с повтором блока 0).
+6. Если что-то не так, одной фразой из `docs/GPT_ART_BRIEF_RU.md`, раздел 10.
+
+## Что делаю я после получения
+
+Принимаю, привожу к размеру окна рамки, ставлю в рамку с цифрой, названием гаджета и репликой Михалыча; собираю альбом карточек (22 места, невыбитые рубашкой вверх) и выдачу карточки из колеса с анимацией.
