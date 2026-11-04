@@ -184,25 +184,38 @@ func show_drop() -> void:
 	drop.size = size
 	add_child(drop)
 	var shade = ColorRect.new()
-	shade.color = Color(0, 0, 0, 0.62)
+	shade.color = Color(0.02, 0.015, 0.01, 0.9)
 	shade.size = size
 	drop.add_child(shade)
 	var card = CardView.new()
 	card.game = game
 	card.card_id = str(result.get("card", ""))
 	card.show_back = true
-	var h = size.y * 0.76
+	var h = size.y * 0.72
 	card.size = Vector2(h / 1.59, h)
 	card.position = Vector2(size.x * 0.5 - card.size.x * 0.5, size.y * 0.08)
 	drop.add_child(card)
+	var probe = CardView.new()
+	probe.card_id = card.card_id
+	var said = probe.found_line()
+	probe.free()
 	var hint = Label.new()
-	hint.text = "Нажми, чтобы забрать"
-	hint.add_theme_font_size_override("font_size", 24)
-	hint.add_theme_color_override("font_color", Color("ffe9b0"))
-	hint.size = Vector2(size.x, 36)
-	hint.position = Vector2(0, size.y * 0.08 + h + 10.0)
+	hint.text = "«%s»\n— Михалыч" % said
+	hint.add_theme_font_size_override("font_size", 26)
+	hint.add_theme_color_override("font_color", Color("fff1cc"))
+	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	hint.size = Vector2(size.x * 0.62, 90)
+	hint.position = Vector2(size.x * 0.19, size.y * 0.08 + h + 8.0)
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	drop.add_child(hint)
+	var take_hint = Label.new()
+	take_hint.text = "Нажми, чтобы забрать"
+	take_hint.add_theme_font_size_override("font_size", 18)
+	take_hint.add_theme_color_override("font_color", Color(0.86, 0.78, 0.58, 0.8))
+	take_hint.size = Vector2(size.x, 26)
+	take_hint.position = Vector2(0, size.y - 34.0)
+	take_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	drop.add_child(take_hint)
 	var take = Button.new()
 	take.flat = true
 	take.size = size

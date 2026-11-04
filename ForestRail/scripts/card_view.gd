@@ -34,7 +34,7 @@ const SECRET = {
 # что говорит Михалыч, когда карта выпала: узнаёт на ней своих (лор: docs/KAZIK_CARDS_RU.md, раздел 9)
 const FOUND = {
 	"fool": "О... Дымок! Помню, как по моей комнате ходил.",
-	"magician": "Фокус-покус! Колесо крутится, уголь мутится.",
+	"magician": "Фокус-покус! Колесо крутится - уголь мутится.",
 	"empress": "А жинка-то запасливая была...",
 	"hierophant": "По нормативу давление держаться должно... А нервы в норматив не входили.",
 	"lovers": "О, это Нинка, жинка моя... Эх. Только с ней так храпел.",
@@ -85,7 +85,7 @@ func info() -> Dictionary:
 	var gadget = "скоро в мастерской"
 	for branch in game.model.data.upgrade_catalog:
 		if str(branch.id) == str(card.get("upgrade", "")): gadget = str(branch.name)
-	return {"arcana": str(card.get("arcana", "")), "name": str(card.get("name", card_id)), "gadget": gadget, "quote": str(QUOTE.get(card_id, ""))}
+	return {"arcana": str(card.get("arcana", "")), "name": str(card.get("name", card_id)), "gadget": gadget, "quote": found_line()}
 
 func part(rect: Rect2) -> Rect2:
 	return Rect2(rect.position * size, rect.size * size)

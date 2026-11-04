@@ -98,5 +98,14 @@ func run() -> void:
 	view.refresh_buttons()
 	check(view.spin_button.disabled, "with two tokens the turn is closed")
 	await shot("casino_after")
+	# a found card comes out face down, turns over and Mikhalych says his own line
+	view.result = {"ok": true, "kind": "card", "card": "magician", "sector": "card"}
+	view.show_drop()
+	check(view.drop != null, "a found card is shown on the screen")
+	await shot("casino_drop_back")
+	view.drop.get_child(1).flip(true)
+	await shot("casino_drop_face")
+	view.close_drop()
+	check(view.drop == null, "a click takes the card")
 	print("CASINO VIEW CHECKS ", checks, "; FAILURES ", failures)
 	get_tree().quit(0 if failures.is_empty() else 1)
