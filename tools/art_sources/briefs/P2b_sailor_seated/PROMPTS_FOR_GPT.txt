@@ -1,0 +1,10 @@
+ПРОМПТЫ ДЛЯ GPT: пакет П2б. Копируйте блок целиком. Сначала блок 0, затем по одному.
+
+=== 0. Первое сообщение (приложите все файлы ref_* из этой папки) ===
+
+Attached are references for the pack "P2b sailor seated". ref_worker.png is the CHARACTER: keep his face, grey-brown moustache, flat cap, dark olive-green wool work jacket, brown trousers, worn boots, weathered skin and proportions exactly. ref_style_handcar.jpg and ref_style_steam.jpg are the STYLE ANCHORS: match their painterly brush texture, warm worn look, palette and soft light from the upper left. ref_sail_standing_now.jpg shows how he stands now on the sailing rail trolley (red box). I will ask for one image.
+
+=== A1 `sailor_seated.png`: тот же человек сидя (квадрат, пурпурный фон) ===
+
+Asset: sailor_seated. Format: square 1:1. Background: flat pure magenta #FF00FF, no shadow, no floor, nothing else in the frame.
+The SAME man as in ref_worker.png, but SEATED, in strict flat side view facing right: sitting on a small low wooden crate (draw the crate too: plain weathered planks, a rope handle hole, about knee high, seen from the side), back straight and leaning very slightly forward, thighs horizontal, knees bent at about 90 degrees, both worn boots flat on the ground in front of the crate, head up and looking forward along the track. BOTH ARMS ARE HIDDEN behind his body so that none is visible, only the rounded jacket shoulder seam on the near side is seen, because separate arm parts will be attached later. The whole figure with the crate occupies about 70 percent of the frame height, centered, with wide empty margins on every side, nothing cropped. Hand-painted, painterly brush texture, warm and slightly worn, early 20th century Russian northern railway, the same style, fabric, colors and light as the attached references. No letters, no numbers, no other objects, no cast shadow.

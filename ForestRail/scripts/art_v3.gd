@@ -10,6 +10,21 @@ const Mechanism = preload("res://scripts/handcar_mechanism.gd")
 const PX = Geometry.PX
 const WORKER_TEXTURE = preload("res://assets/art_consists/rail_worker_side.png")
 const WORKER_REGION = Rect2(382, 21, 357, 1273)
+
+const POLE_HEAD = preload("res://assets/art_pole_sail/pole_head.png")
+const POLE_SHAFT = preload("res://assets/art_pole_sail/pole_shaft.png")
+const POLE_FOOT = preload("res://assets/art_pole_sail/pole_foot.png")
+const ARM_UPPER = preload("res://assets/art_pole_sail/worker_upper_arm.png")
+const ARM_FORE = preload("res://assets/art_pole_sail/worker_forearm.png")
+const HAND_GRIP = preload("res://assets/art_pole_sail/worker_hand_grip.png")
+const HAND_PIVOT = Vector2(29, 20)       # the middle of the rolled cuff, in the pixels of the picture
+const HAND_TURN = 1.152                  # the turn of the picture, in which the wrist looks along the forearm (66 degrees)
+const HAND_OPEN = preload("res://assets/art_pole_sail/worker_hand_open.png")
+const HAND_OPEN_PIVOT = Vector2(19, 14)
+const HAND_OPEN_TURN = 0.99
+const SAIL_CLOTH = preload("res://assets/art_pole_sail/sail_cloth.png")
+const SAIL_CLEAT = preload("res://assets/art_pole_sail/sail_cleat.png")
+const SAIL_PENNANT = preload("res://assets/art_pole_sail/sail_pennant.png")
 const STOCK_MOTORS = preload("res://assets/art_consists/stock_motor_bodies.png")
 const STOCK_FLATBEDS = preload("res://assets/art_consists/stock_flatbeds.png")
 # Source rectangle, deck line and axle line in each atlas. The deck and the
@@ -372,16 +387,65 @@ func draw_added_headlamp(canvas: Node2D, id: String) -> void:
 	canvas.draw_circle(at, 0.054 * PX, Color("a78449"))
 	canvas.draw_circle(at + Vector2(1, -1), 0.031 * PX, Color("e9d396"))
 
-func draw_worker(canvas: Node2D, feet: Vector2, height: float, hand: Vector2) -> void:
+# A picture placed by its pivot (P2): the pivot point of the picture (in its own pixels) lands on pos, the picture is turned
+# by angle and scaled; with upright the picture whose top would face down is flipped, so the light stays on top everywhere.
+func draw_sprite_at(canvas: Node2D, tex: Texture2D, pivot: Vector2, pos: Vector2, angle: float, scale: Vector2, upright: bool = true) -> void:
+	var size = Vector2(tex.get_width(), tex.get_height())
+	var sc = scale
+	if upright and Vector2(0, -1).rotated(angle).y > 0.0: sc.y = -sc.y
+	var pts = PackedVector2Array()
+	for corner in [Vector2(0, 0), Vector2(size.x, 0), size, Vector2(0, size.y)]:
+		pts.append(pos + ((corner - pivot) * sc).rotated(angle))
+	var white = PackedColorArray([Color.WHITE, Color.WHITE, Color.WHITE, Color.WHITE])
+	canvas.draw_polygon(pts, white, PackedVector2Array([Vector2(0, 0), Vector2(1, 0), Vector2(1, 1), Vector2(0, 1)]), tex)
+
+# A long part drawn between two points: its left edge on from, its right edge on to, the given thickness.
+func draw_part_between(canvas: Node2D, tex: Texture2D, from: Vector2, to: Vector2, thickness: float, upright: bool = true) -> void:
+	var d = to - from
+	if d.length() < 0.5: return
+	draw_sprite_at(canvas, tex, Vector2(0, tex.get_height() * 0.5), from, d.angle(), Vector2(d.length() / tex.get_width(), thickness / tex.get_height()), upright)
+
+func draw_worker_body(canvas: Node2D, feet: Vector2, height: float) -> void:
 	var width = height * WORKER_REGION.size.x / WORKER_REGION.size.y
 	var target = Rect2(feet - Vector2(width * 0.5, height), Vector2(width, height))
 	canvas.draw_texture_rect_region(WORKER_TEXTURE, target, WORKER_REGION)
+
+# The arm of the person: the upper arm and the forearm in the sleeve, the fist on the hand point. The elbow bends down.
+func draw_worker_arm(canvas: Node2D, feet: Vector2, height: float, hand: Vector2, relaxed: bool = false) -> void:
+	var width = height * WORKER_REGION.size.x / WORKER_REGION.size.y
+	var sh = height / (1.75 * PX)
 	var shoulder = feet + Vector2(width * 0.08, -height * 0.73)
-	var elbow = shoulder.lerp(hand, 0.56) + Vector2(-5, 5)
-	var arm = PackedVector2Array([shoulder, elbow, hand])
-	canvas.draw_polyline(arm, Color("393b2e"), height * 0.07, true)
-	canvas.draw_polyline(arm, Color("62604a"), height * 0.048, true)
-	canvas.draw_circle(hand, height * 0.024, Color("ae8767"))
+	# nothing to hold (the sheet is made fast): the arm hangs down, the hand relaxed
+	if relaxed: hand = shoulder + Vector2(0.04 * PX * sh, 0.52 * PX * sh)
+	var l1 = 0.30 * PX * sh
+	var l2 = 0.29 * PX * sh
+	var hand_back = 0.074 * PX * sh      # from the wrist to the middle of the fist
+	var reach = shoulder.distance_to(hand)
+	if reach > (l1 + l2) * 0.97:
+		var k = reach / ((l1 + l2) * 0.97)
+		l1 *= k
+		l2 *= k
+	var dir = (hand - shoulder).normalized()
+	var d = maxf(0.05 * PX, reach)
+	var a = (d * d + l1 * l1 - l2 * l2) / (2.0 * d)
+	var bend = sqrt(maxf(0.0, l1 * l1 - a * a))
+	var normal = Vector2(-dir.y, dir.x)
+	if normal.y < 0.0: normal = -normal
+	var elbow = shoulder + dir * a + normal * bend
+	var wrist = hand - (hand - elbow).normalized() * hand_back
+	draw_part_between(canvas, ARM_UPPER, shoulder, elbow, 0.115 * PX * sh)
+	draw_part_between(canvas, ARM_FORE, elbow, wrist, 0.10 * PX * sh)
+	if relaxed:
+		var open_scale = 0.12 * PX * sh / float(HAND_OPEN.get_width())
+		draw_sprite_at(canvas, HAND_OPEN, HAND_OPEN_PIVOT, wrist, (hand - wrist).angle() - HAND_OPEN_TURN, Vector2(open_scale, open_scale), false)
+		return
+	var turn = (hand - wrist).angle() - HAND_TURN
+	var s = 0.14 * PX * sh / float(HAND_GRIP.get_width())
+	draw_sprite_at(canvas, HAND_GRIP, HAND_PIVOT, wrist, turn, Vector2(s, s), false)
+
+func draw_worker(canvas: Node2D, feet: Vector2, height: float, hand: Vector2, relaxed: bool = false) -> void:
+	draw_worker_body(canvas, feet, height)
+	draw_worker_arm(canvas, feet, height, hand, relaxed)
 
 # Petrol locomotive live parts: headlamp glow and exhaust smoke (positions in
 # metres above the rail, axle at 0.21 m), plus a side rod between the wheels.
@@ -572,23 +636,22 @@ func draw_sail_overlay(canvas: Node2D, model) -> void:
 				# the cloth never crosses the mast, or it would fold over itself
 				if (p.x - luff[i].x) * (-fwd) < 0.02 * width * PX: p.x = luff[i].x - fwd * 0.02 * width * PX
 				grid[idx] = p
-		# shading by bands from the mast to the leech; drawn quad by quad so that a thin or folded patch is skipped
+		# the picture of the sailcloth is stretched over the same grid: the seams run along the rows, the grommets sit at the mast
+		var far_tone = 0.9 if model.sail_side > 0 else 1.0
 		for k in range(cols):
 			var f0 = float(k) / float(cols)
 			var f1 = float(k + 1) / float(cols)
 			var shade = 0.88 + 0.12 * sin(PI * (f0 + f1) * 0.5) * (0.4 + 0.6 * clampf(pull + 0.4, 0.0, 1.0))
-			# the far side of the car is a little darker, so that the side of the boom is seen at a glance
-			var tone = shade * (0.82 if model.sail_side > 0 else 1.0)
-			var color = Color(0.94 * tone, 0.90 * tone, 0.80 * tone, 0.96)
+			var tint = Color(shade * far_tone, shade * far_tone, shade * far_tone, 0.98)
+			var tints = PackedColorArray([tint, tint, tint])
 			for i in range(rows):
 				var q = PackedVector2Array([grid[i * (cols + 1) + k], grid[i * (cols + 1) + k + 1], grid[(i + 1) * (cols + 1) + k + 1], grid[(i + 1) * (cols + 1) + k]])
+				var v0 = 1.0 - float(i) / float(rows)
+				var v1 = 1.0 - float(i + 1) / float(rows)
+				var uv = PackedVector2Array([Vector2(f0, v0), Vector2(f1, v0), Vector2(f1, v1), Vector2(f0, v1)])
 				# two triangles per patch: a free cloth can fold, and a folded quad cannot be filled, a triangle always can
-				if absf((q[1] - q[0]).cross(q[2] - q[0])) > 0.5: canvas.draw_colored_polygon(PackedVector2Array([q[0], q[1], q[2]]), color)
-				if absf((q[2] - q[0]).cross(q[3] - q[0])) > 0.5: canvas.draw_colored_polygon(PackedVector2Array([q[0], q[2], q[3]]), color)
-		# seams, a patch and the stitched edge follow the cloth
-		for i in range(2, rows, 3): canvas.draw_line(grid[i * (cols + 1)], grid[i * (cols + 1) + cols], Color(0.55, 0.47, 0.34, 0.55), 1.0, true)
-		var patch_at = grid[4 * (cols + 1)].lerp(grid[4 * (cols + 1) + cols], 0.45)
-		canvas.draw_rect(Rect2(patch_at - Vector2(7, 5), Vector2(14, 10)), Color(0.8, 0.72, 0.56, 0.9))
+				if absf((q[1] - q[0]).cross(q[2] - q[0])) > 0.5: canvas.draw_polygon(PackedVector2Array([q[0], q[1], q[2]]), tints, PackedVector2Array([uv[0], uv[1], uv[2]]), SAIL_CLOTH)
+				if absf((q[2] - q[0]).cross(q[3] - q[0])) > 0.5: canvas.draw_polygon(PackedVector2Array([q[0], q[2], q[3]]), tints, PackedVector2Array([uv[0], uv[2], uv[3]]), SAIL_CLOTH)
 		var leech_line = PackedVector2Array()
 		for i in range(rows + 1): leech_line.append(grid[i * (cols + 1) + cols])
 		canvas.draw_polyline(leech_line, Color(0.45, 0.38, 0.28), 1.6, true)
@@ -598,24 +661,23 @@ func draw_sail_overlay(canvas: Node2D, model) -> void:
 	# the sheet from the boom end down to the sailor's hand, with a sag
 	var cleat_point = sail_point(-0.14 * fwd, 0.66)
 	var sailor_hand = cleat_point if model.sail_cleated else sail_point(-0.78 * fwd, 1.12)
-	# the cleat: a brass horn on the deck, where the sheet is made fast
-	canvas.draw_line(cleat_point + Vector2(-0.07, 0.0) * PX, cleat_point + Vector2(0.07, 0.0) * PX, Color("c9a24e"), 0.035 * PX, true)
-	canvas.draw_line(cleat_point + Vector2(-0.07, 0.0) * PX, cleat_point + Vector2(-0.09, -0.06) * PX, Color("c9a24e"), 0.03 * PX, true)
-	canvas.draw_line(cleat_point + Vector2(0.07, 0.0) * PX, cleat_point + Vector2(0.09, -0.06) * PX, Color("c9a24e"), 0.03 * PX, true)
+	# the cleat: a wooden horn on the deck, where the sheet is made fast (P2 picture)
+	draw_sprite_at(canvas, SAIL_CLEAT, Vector2(SAIL_CLEAT.get_width() * 0.5, SAIL_CLEAT.get_height()), cleat_point, 0.0, Vector2.ONE * (0.2 * PX / float(SAIL_CLEAT.get_width())), false)
 	var sag = sail_point((float(g.boom_end_x) - 0.78 * fwd) * 0.5, 0.95)
 	var sheet = PackedVector2Array()
 	for k in range(13):
 		var u = float(k) / 12.0
 		sheet.append(boom_end * pow(1.0 - u, 2.0) + sag * 2.0 * u * (1.0 - u) + sailor_hand * u * u)
 	canvas.draw_polyline(sheet, Color(0.45, 0.34, 0.2), 0.012 * PX, true)
-	draw_worker(canvas, Vector2(-0.71 * fwd * PX, deck_y("sail")), 1.65 * PX, sailor_hand)
+	draw_worker(canvas, Vector2(-0.71 * fwd * PX, deck_y("sail")), 1.65 * PX, sailor_hand, model.sail_cleated)
 	# the pennant at the masthead points the way the wind blows, and flutters
 	if not info.is_empty():
 		var wv: Vector2 = info.wind
 		var along = wv.x if absf(wv.x) > 0.2 else 0.2
 		var dirx = fwd * signf(along)
-		var tip = mast_top + Vector2(dirx * (0.28 + 0.03 * sin(t * 13.0)) * PX, 0.03 * PX * sin(t * 11.0))
-		canvas.draw_colored_polygon(PackedVector2Array([mast_top, tip, mast_top + Vector2(0, 0.09 * PX)]), Color("c9552f"))
+		var sway = 0.07 * sin(t * 11.0)
+		var flag_scale = 0.34 * PX / float(SAIL_PENNANT.get_height())
+		draw_sprite_at(canvas, SAIL_PENNANT, Vector2(SAIL_PENNANT.get_width() * 0.09, SAIL_PENNANT.get_height() * 0.96), mast_top, sway, Vector2(flag_scale * (1.0 if dirx > 0.0 else -1.0), flag_scale), false)
 
 # The pole truck's person, pole and the ground under the line, all live (placeholder figures
 # until it has its own art). Local frame: x along increasing route distance, metres above the rail.
@@ -642,13 +704,16 @@ func draw_pole_overlay(canvas: Node2D, model) -> void:
 	var hands = pole_point(0.0, 1.45)
 	var tip = pole_point(tip_x, 0.0)
 	var axis = (hands - tip).normalized()
-	draw_worker(canvas, Vector2(-0.16 * PX, deck_y("pole")), 1.75 * PX, hands)
-	# Pole: wooden, 4 m, sliding through the hands, with an iron tip.
+	draw_worker_body(canvas, Vector2(-0.16 * PX, deck_y("pole")), 1.75 * PX)
+	# Pole: wooden, 4 m, sliding through the hands, with an iron tip: the picture of the head, the shaft and the foot (P2).
 	var top = tip + axis * 4.0 * PX
-	canvas.draw_line(tip, top, Color("6d5033"), 0.075 * PX, true)
-	canvas.draw_line(tip + Vector2(1,-1), top + Vector2(1,-1), Color("bd985f"), 0.035 * PX, true)
-	canvas.draw_line(tip, tip + axis * 0.18 * PX, Color("3d4446"), 0.08 * PX, true)
-	canvas.draw_circle(hands, 0.05 * PX, Color("d9b48f"))
+	var pole_w = 0.09 * PX
+	var head_len = pole_w * POLE_HEAD.get_width() / float(POLE_HEAD.get_height())
+	var foot_len = pole_w * POLE_FOOT.get_width() / float(POLE_FOOT.get_height())
+	draw_part_between(canvas, POLE_SHAFT, tip + axis * foot_len, top - axis * head_len, pole_w)
+	draw_part_between(canvas, POLE_HEAD, top - axis * head_len, top, pole_w)
+	draw_part_between(canvas, POLE_FOOT, tip + axis * foot_len, tip, pole_w)
+	draw_worker_arm(canvas, Vector2(-0.16 * PX, deck_y("pole")), 1.75 * PX, hands)
 	if pole.planted():
 		var ground = model.pole_ground_at(float(pole.tip_s))
 		var spot = {"dense": Color(0.45, 0.35, 0.22), "clay": Color(0.42, 0.34, 0.26), "stones": Color(0.7, 0.7, 0.72), "roots": Color(0.3, 0.42, 0.22)}[ground.type]

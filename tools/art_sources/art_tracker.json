@@ -14,6 +14,11 @@
    "name": "Шестовая и парусная",
    "brief": "tools/art_sources/briefs/P2_pole_sail/BRIEF_RU.md",
    "inbox": "tools/art_sources/inbox/P2_pole_sail/"
+  },
+  "П2б": {
+   "name": "Парусник сидя",
+   "brief": "tools/art_sources/briefs/P2b_sailor_seated/BRIEF_RU.md",
+   "inbox": "tools/art_sources/inbox/P2b_sailor_seated/"
   }
  },
  "assets": [
@@ -24,12 +29,20 @@
    "element": "V2",
    "format": "3:2",
    "background": "magenta",
-   "status": "промпт готов",
-   "note": "",
+   "status": "подключено",
+   "note": "подключено в preview.73",
    "sheet": {
     "cols": 1,
     "rows": 3
-   }
+   },
+   "notes": [],
+   "received": "2026-11-04 16:45",
+   "outputs": [
+    "accepted/P2_pole_sail/pole_parts_sheet.png",
+    "accepted/P2_pole_sail/pole_parts/cell_1_1.png",
+    "accepted/P2_pole_sail/pole_parts/cell_2_1.png",
+    "accepted/P2_pole_sail/pole_parts/cell_3_1.png"
+   ]
   },
   {
    "id": "P2-A2",
@@ -38,12 +51,21 @@
    "element": "V2",
    "format": "1:1",
    "background": "magenta",
-   "status": "промпт готов",
-   "note": "",
+   "status": "подключено",
+   "note": "подключено в preview.73",
    "sheet": {
     "cols": 2,
     "rows": 2
-   }
+   },
+   "notes": [],
+   "received": "2026-11-04 16:45",
+   "outputs": [
+    "accepted/P2_pole_sail/worker_arm_parts_sheet.png",
+    "accepted/P2_pole_sail/worker_arm_parts/cell_1_1.png",
+    "accepted/P2_pole_sail/worker_arm_parts/cell_1_2.png",
+    "accepted/P2_pole_sail/worker_arm_parts/cell_2_1.png",
+    "accepted/P2_pole_sail/worker_arm_parts/cell_2_2.png"
+   ]
   },
   {
    "id": "P2-A3",
@@ -52,8 +74,13 @@
    "element": "V3",
    "format": "3:2",
    "background": "full-bleed",
-   "status": "промпт готов",
-   "note": ""
+   "status": "подключено",
+   "note": "подключено в preview.73",
+   "notes": [],
+   "received": "2026-11-04 16:45",
+   "outputs": [
+    "accepted/P2_pole_sail/sail_cloth.png"
+   ]
   },
   {
    "id": "P2-A4",
@@ -62,12 +89,36 @@
    "element": "V3",
    "format": "1:1",
    "background": "magenta",
-   "status": "промпт готов",
-   "note": "",
+   "status": "подключено",
+   "note": "подключено частично в preview.73: вымпел и утка; остальные 7 предметов ждут применения",
    "sheet": {
     "cols": 3,
     "rows": 3
-   }
+   },
+   "notes": [],
+   "received": "2026-11-04 16:45",
+   "outputs": [
+    "accepted/P2_pole_sail/sail_hardware_sheet.png",
+    "accepted/P2_pole_sail/sail_hardware/cell_1_1.png",
+    "accepted/P2_pole_sail/sail_hardware/cell_1_2.png",
+    "accepted/P2_pole_sail/sail_hardware/cell_1_3.png",
+    "accepted/P2_pole_sail/sail_hardware/cell_2_1.png",
+    "accepted/P2_pole_sail/sail_hardware/cell_2_2.png",
+    "accepted/P2_pole_sail/sail_hardware/cell_2_3.png",
+    "accepted/P2_pole_sail/sail_hardware/cell_3_1.png",
+    "accepted/P2_pole_sail/sail_hardware/cell_3_2.png",
+    "accepted/P2_pole_sail/sail_hardware/cell_3_3.png"
+   ]
+  },
+  {
+   "id": "P2B-A1",
+   "file": "sailor_seated.png",
+   "package": "П2б",
+   "element": "V3",
+   "format": "1:1",
+   "background": "magenta",
+   "status": "промпт готов",
+   "note": "просьба владельца 04.11.2026: водитель парусной сидит"
   }
  ],
  "help": "Фон: magenta (плоский #FF00FF), black (свет), transparent, full-bleed (текстура на весь кадр). sheet: сетка листа {cols, rows}. Статусы: в списке, промпт готов, запрошено, получено, получено с проблемами, принято, отклонено, подключено."
