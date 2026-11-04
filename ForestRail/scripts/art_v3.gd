@@ -22,6 +22,12 @@ const HAND_TURN = 1.152                  # the turn of the picture, in which the
 const HAND_OPEN = preload("res://assets/art_pole_sail/worker_hand_open.png")
 const HAND_OPEN_PIVOT = Vector2(19, 14)
 const HAND_OPEN_TURN = 0.99
+# the sailor sits on a crate (P2b): the points of the picture as fractions of its size
+const SAILOR = preload("res://assets/art_pole_sail/sailor_seated.png")
+const SAILOR_PIVOT_F = Vector2(0.2464, 0.9971)      # the middle of the crate's foot, it stands on the deck
+const SAILOR_SHOULDER_F = Vector2(0.2674, 0.2988)   # the shoulder seam: the arm grows from here
+const SAILOR_KNEE_F = Vector2(0.7780, 0.5918)       # the knee: the free hand rests here
+const SAILOR_HEIGHT_M = 1.126                       # the figure with the crate, in metres
 const SAIL_CLOTH = preload("res://assets/art_pole_sail/sail_cloth.png")
 const SAIL_CLEAT = preload("res://assets/art_pole_sail/sail_cleat.png")
 const SAIL_PENNANT = preload("res://assets/art_pole_sail/sail_pennant.png")
@@ -411,12 +417,13 @@ func draw_worker_body(canvas: Node2D, feet: Vector2, height: float) -> void:
 	canvas.draw_texture_rect_region(WORKER_TEXTURE, target, WORKER_REGION)
 
 # The arm of the person: the upper arm and the forearm in the sleeve, the fist on the hand point. The elbow bends down.
-func draw_worker_arm(canvas: Node2D, feet: Vector2, height: float, hand: Vector2, relaxed: bool = false) -> void:
+func draw_worker_arm(canvas: Node2D, feet: Vector2, height: float, hand: Vector2, relaxed: bool = false, shoulder_at: Vector2 = Vector2.INF, rest_at: Vector2 = Vector2.INF) -> void:
 	var width = height * WORKER_REGION.size.x / WORKER_REGION.size.y
 	var sh = height / (1.75 * PX)
 	var shoulder = feet + Vector2(width * 0.08, -height * 0.73)
-	# nothing to hold (the sheet is made fast): the arm hangs down, the hand relaxed
-	if relaxed: hand = shoulder + Vector2(0.04 * PX * sh, 0.52 * PX * sh)
+	if shoulder_at.is_finite(): shoulder = shoulder_at
+	# nothing to hold (the sheet is made fast): the arm hangs down (or rests on the knee), the hand relaxed
+	if relaxed: hand = rest_at if rest_at.is_finite() else shoulder + Vector2(0.04 * PX * sh, 0.52 * PX * sh)
 	var l1 = 0.30 * PX * sh
 	var l2 = 0.29 * PX * sh
 	var hand_back = 0.074 * PX * sh      # from the wrist to the middle of the fist
@@ -442,6 +449,16 @@ func draw_worker_arm(canvas: Node2D, feet: Vector2, height: float, hand: Vector2
 	var turn = (hand - wrist).angle() - HAND_TURN
 	var s = 0.14 * PX * sh / float(HAND_GRIP.get_width())
 	draw_sprite_at(canvas, HAND_GRIP, HAND_PIVOT, wrist, turn, Vector2(s, s), false)
+
+# The sailor of the sailing trolley sits on a crate at the stern (P2b): the picture, then the arm from his shoulder.
+# base is the middle of the crate's foot on the deck; hand is where the held sheet is; made fast, the hand rests on the knee.
+func draw_sailor_seated(canvas: Node2D, base: Vector2, hand: Vector2, relaxed: bool) -> void:
+	var size = Vector2(SAILOR.get_width(), SAILOR.get_height())
+	var sc = SAILOR_HEIGHT_M * PX / size.y
+	draw_sprite_at(canvas, SAILOR, size * SAILOR_PIVOT_F, base, 0.0, Vector2(sc, sc), false)
+	var shoulder = base + size * (SAILOR_SHOULDER_F - SAILOR_PIVOT_F) * sc
+	var knee = base + size * (SAILOR_KNEE_F - SAILOR_PIVOT_F) * sc
+	draw_worker_arm(canvas, base, 1.65 * PX, hand, relaxed, shoulder, knee)
 
 func draw_worker(canvas: Node2D, feet: Vector2, height: float, hand: Vector2, relaxed: bool = false) -> void:
 	draw_worker_body(canvas, feet, height)
@@ -660,7 +677,7 @@ func draw_sail_overlay(canvas: Node2D, model) -> void:
 		canvas.draw_line(sail_point(mast_x, g.foot_y), sail_point(mast_x, g.top_y), Color(0.93, 0.89, 0.8), 0.035 * PX, true)
 	# the sheet from the boom end down to the sailor's hand, with a sag
 	var cleat_point = sail_point(-0.14 * fwd, 0.66)
-	var sailor_hand = cleat_point if model.sail_cleated else sail_point(-0.78 * fwd, 1.12)
+	var sailor_hand = cleat_point if model.sail_cleated else sail_point(-0.46 * fwd, 1.22)
 	# the cleat: a wooden horn on the deck, where the sheet is made fast (P2 picture)
 	draw_sprite_at(canvas, SAIL_CLEAT, Vector2(SAIL_CLEAT.get_width() * 0.5, SAIL_CLEAT.get_height()), cleat_point, 0.0, Vector2.ONE * (0.2 * PX / float(SAIL_CLEAT.get_width())), false)
 	var sag = sail_point((float(g.boom_end_x) - 0.78 * fwd) * 0.5, 0.95)
@@ -669,7 +686,7 @@ func draw_sail_overlay(canvas: Node2D, model) -> void:
 		var u = float(k) / 12.0
 		sheet.append(boom_end * pow(1.0 - u, 2.0) + sag * 2.0 * u * (1.0 - u) + sailor_hand * u * u)
 	canvas.draw_polyline(sheet, Color(0.45, 0.34, 0.2), 0.012 * PX, true)
-	draw_worker(canvas, Vector2(-0.71 * fwd * PX, deck_y("sail")), 1.65 * PX, sailor_hand, model.sail_cleated)
+	draw_sailor_seated(canvas, Vector2(-0.80 * fwd * PX, deck_y("sail")), sailor_hand, model.sail_cleated)
 	# the pennant at the masthead points the way the wind blows, and flutters
 	if not info.is_empty():
 		var wv: Vector2 = info.wind
