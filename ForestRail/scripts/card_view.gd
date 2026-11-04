@@ -23,6 +23,12 @@ const SECRET = {
 	"world": {"arcana": "XXI", "name": "Мир", "gadget": "Тайная карта", "quote": "Всё собрано. Казик закрыт на чай."},
 }
 
+# что говорит Михалыч, когда карта выпала: узнаёт на ней своих (лор: docs/KAZIK_CARDS_RU.md, раздел 9)
+const FOUND = {
+	"fool": "О... Дымок! Помню, как по моей комнате ходил.",
+	"lovers": "О, это Нинка, жинка моя... Эх.",
+}
+
 const QUOTE = {
 	"fool": "Прыгай! Земля сама подстелется. Обычно.",
 	"magician": "Фокус. Ты крутил, а колесо само.",
@@ -49,6 +55,11 @@ func _ready() -> void:
 	back = load("res://assets/art_kazik/sector_card.png")
 	var path = "res://assets/art_kazik/cards/%s.png" % card_id
 	if ResourceLoader.exists(path): art = load(path)
+
+# the line when this card has just been won
+func found_line() -> String:
+	if FOUND.has(card_id): return str(FOUND[card_id])
+	return str(QUOTE.get(card_id, ""))
 
 func info() -> Dictionary:
 	if SECRET.has(card_id): return SECRET[card_id]

@@ -60,6 +60,14 @@ func run() -> void:
 		check(str(data.quote) != "" and not quotes.has(str(data.quote)), "card %s has its own line of Mikhalych" % view.card_id)
 		quotes[str(data.quote)] = true
 	check(arcana.size() == 22, "twenty two numerals in the album")
+	var probe = CardView.new()
+	probe.card_id = "lovers"
+	check(probe.found_line().contains("Нинка"), "the Lovers make Mikhalych remember his wife")
+	probe.card_id = "fool"
+	check(probe.found_line().contains("Дымок"), "the Fool makes Mikhalych remember his dog")
+	probe.card_id = "tower"
+	check(probe.found_line() != "", "other cards fall back to his line")
+	probe.free()
 	for i in range(8): await get_tree().process_frame
 	await RenderingServer.frame_post_draw
 	get_tree().root.get_texture().get_image().save_png(output_dir.path_join("cards_all.png"))

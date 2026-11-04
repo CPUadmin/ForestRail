@@ -1,4 +1,5 @@
 extends Control
+const CardView = preload("res://scripts/card_view.gd")
 # КАЗИК «у стрелки», этап «г» (docs/KAZIK_RU.md): экран с колесом «лудки», Михалычем, жетонами и мешком шлака.
 # Логика во всём лежит в Casino (scripts/casino.gd); здесь только показ и анимация. Сектора колеса рисуются по весам из данных,
 # поэтому ширина сектора и есть настоящий шанс (карточка почти невидима: 0,2%, так и задумано, цифры честные).
@@ -196,6 +197,12 @@ func finish_spin() -> void:
 	var kind = str(result.get("kind", ""))
 	line = {"empty": "Бывает. Чайку?", "tokens": "Ну вот, а ты сомневался.", "junk": "Железо не пропадает, оно ждёт своего заноса.", "coins": "Звенит, значит живём.", "repair": "Пригодится, машина просила.", "golden": "Такой болт держит не рельсы, а мечты.", "bonus": "Талончик припрячь, пригодится.", "card": "ЗАНОС! Сорвал банк!"}.get(kind, "Ещё разок?")
 	mood = {"empty": "sad", "card": "surprised", "golden": "surprised"}.get(kind, "happy")
+	if kind == "card":
+		var probe = CardView.new()
+		probe.card_id = str(result.get("card", ""))
+		var said = probe.found_line()
+		probe.free()
+		if said != "": line = "ЗАНОС! " + said
 	if kind != "empty":
 		glow = 1.0
 		game.sound.play("coins", 0.6, 1.0 if kind != "card" else 0.8)
