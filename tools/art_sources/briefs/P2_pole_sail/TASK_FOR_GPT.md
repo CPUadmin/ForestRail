@@ -5,6 +5,16 @@ You are the art generator for "Лесная колея" (Forest Rail), a cozy 2D
 ## References
 Open each reference (or use the files the owner attached). The two ref_style_* images are the STYLE ANCHORS; match them exactly.
 
+If you read the repository through a GitHub connection, the same files are in the repo at tools/art_sources/briefs/P2_pole_sail/ :
+
+- tools/art_sources/briefs/P2_pole_sail/ref_pole_now.jpg
+- tools/art_sources/briefs/P2_pole_sail/ref_sail_now.jpg
+- tools/art_sources/briefs/P2_pole_sail/ref_style_handcar.jpg
+- tools/art_sources/briefs/P2_pole_sail/ref_style_steam.jpg
+- tools/art_sources/briefs/P2_pole_sail/ref_worker.png
+
+If the repository is public, the direct links are:
+
 - https://raw.githubusercontent.com/CPUadmin/ForestRail/main/tools/art_sources/briefs/P2_pole_sail/ref_pole_now.jpg
 - https://raw.githubusercontent.com/CPUadmin/ForestRail/main/tools/art_sources/briefs/P2_pole_sail/ref_sail_now.jpg
 - https://raw.githubusercontent.com/CPUadmin/ForestRail/main/tools/art_sources/briefs/P2_pole_sail/ref_style_handcar.jpg
