@@ -320,3 +320,8 @@
 - `Casino.bag/bolt_total/receiving_possible/sell_here/sell_common_here/bolt_plan/pay_bolts`, `Model.upgrade(id, branch, via_card, with_bolts)`, данные `casino.bolt_rate/bolt_share/receiving_stations`. В `main.gd`: `build_receiving`, `sell_bolts`, кнопка «Болты (N)» в депо, «Доплатить болтами» в мастерской, «Приёмка болтов (N)» в панели станции (`update_cargo_actions`). Тесты `check_receiving`, `check_receiving_view`.
 - Урок: другая сессия закоммитила весь рабочий `main.gd`, захватив мои недоделанные правки (707ac72). Перед коммитом проверять `git status` и `git diff` по файлам; релизную сборку делать из чистой копии коммита (`git worktree add`, шаблон `tools/templates/` копировать вручную, он вне git).
 
+## Веха 9: оценка визуала сделана (04.11.2026)
+
+- `docs/VISUAL_INVENTORY_RU.md` и `tools/art_sources/visual_inventory.json`: 82 элемента, оценка A/B/C/D/N/?, замечание, приоритет, пакет, кадр. Кадры в `qa/visual_eval_1104/` (контактные листы и крупные).
+- Черновик пакетов П0–П9 в конце реестра: П0 мои правки без картинок, П2 шестовая и парусная как пробный пакет потока с GPT, дальше дорога и земля, кабина через стекло, депо, свет и погода, электровоз, станции E и F, рамки, казик. Ждёт утверждения владельцем.
+- Снимки для оценки делал скриптом, который отключает `_process`: высоту камеры надо ставить самому (`camera_y = route.sample(s).y`), иначе состав на станциях выше или ниже 600 м уходит за экран.
