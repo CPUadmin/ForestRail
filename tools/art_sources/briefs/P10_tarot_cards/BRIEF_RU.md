@@ -1,6 +1,6 @@
 # Комплект П10 «Карточки Таро Михалыча»: промпты для GPT
 
-18 иллюстраций к карточкам гаджетов (старшие арканы 0-XVII, привязка к гаджетам в `docs/KAZIK_CARDS_RU.md`). Рамка у всех одна (`kazik_card_frame.png`, уже принята и лежит в игре): вы рисуете только **картинку в окошко**, без рамки, цифр и названий. Рамку, римскую цифру, название и описание я добавляю кодом.
+22 иллюстрации: 18 карточек гаджетов (старшие арканы 0-XVII, привязка к гаджетам в `docs/KAZIK_CARDS_RU.md`) и 4 тайных арканов-трофея (XVIII-XXI). Рамка у всех одна (`kazik_card_frame.png`, уже принята и лежит в игре): вы рисуете только **картинку в окошко**, без рамки, цифр и названий. Рамку, римскую цифру, название и описание я добавляю кодом.
 
 ## Как они будут выглядеть в игре
 
@@ -14,7 +14,7 @@
 
 ## Как работать
 
-1. **Один новый чат на 6 карточек** (так GPT не уплывает по стилю): блок 0, затем по одному промпту A1…A6; потом новый чат, снова блок 0, A7…A12; и A13…A18.
+1. **Один новый чат на 6 карточек** (A19-A22 последним чатом) (так GPT не уплывает по стилю): блок 0, затем по одному промпту A1…A6; потом новый чат, снова блок 0, A7…A12; и A13…A18; затем A19…A22.
 2. Если GPT читает репозиторий через подключение, фраза:
 
 ```
@@ -170,6 +170,38 @@ hand-painted painterly look, warm worn feel, forest green, aged brass and amber 
 ```text
 Asset: card_17_star. Format: square 1:1. Background: none, a complete painted scene edge to edge.
 A woman kneeling by a pond pouring water from two jugs, one large eight-pointed star above and seven smaller ones, a rail zeppelin with wing flaps on the horizon, a bird in a tree, modest clothing.
+hand-painted painterly look, warm worn feel, forest green, aged brass and amber palette, STRONG VOLUME (bold rounded forms, deep shadows, clear lit and shaded sides), light from the upper left, a classic Rider-Waite tarot scene re-dressed as a narrow-gauge forest railway story, one strong readable central figure in the middle of the picture, the whole scene painted edge to edge (no transparency, no border, no frame), square 1:1, keep everything important inside the central 70 percent because a card frame will cover the edges, no letters, no numbers, no text, no signs with writing.
+```
+
+### A19 `card_18_moon.png`: XVIII Луна (тайная)
+
+```text
+Asset: card_18_moon. Format: square 1:1. Background: none, a complete painted scene edge to edge.
+A full moon between two railway towers, a dog and a wolf howling on the track, a crayfish crawling out of a pond, a path of rails vanishing into the night.
+hand-painted painterly look, warm worn feel, forest green, aged brass and amber palette, STRONG VOLUME (bold rounded forms, deep shadows, clear lit and shaded sides), light from the upper left, a classic Rider-Waite tarot scene re-dressed as a narrow-gauge forest railway story, one strong readable central figure in the middle of the picture, the whole scene painted edge to edge (no transparency, no border, no frame), square 1:1, keep everything important inside the central 70 percent because a card frame will cover the edges, no letters, no numbers, no text, no signs with writing.
+```
+
+### A20 `card_19_sun.png`: XIX Солнце (тайная)
+
+```text
+Asset: card_19_sun. Format: square 1:1. Background: none, a complete painted scene edge to edge.
+A smiling sun above a brick wall, a child on a toy handcar waving a banner, sunflowers, a white horse.
+hand-painted painterly look, warm worn feel, forest green, aged brass and amber palette, STRONG VOLUME (bold rounded forms, deep shadows, clear lit and shaded sides), light from the upper left, a classic Rider-Waite tarot scene re-dressed as a narrow-gauge forest railway story, one strong readable central figure in the middle of the picture, the whole scene painted edge to edge (no transparency, no border, no frame), square 1:1, keep everything important inside the central 70 percent because a card frame will cover the edges, no letters, no numbers, no text, no signs with writing.
+```
+
+### A21 `card_20_judgement.png`: XX Суд (тайная)
+
+```text
+Asset: card_20_judgement. Format: square 1:1. Background: none, a complete painted scene edge to edge.
+An angel with a locomotive whistle in place of a trumpet, people rising from railway carriages on a snowy plain, a flag with a wheel emblem, modest clothing.
+hand-painted painterly look, warm worn feel, forest green, aged brass and amber palette, STRONG VOLUME (bold rounded forms, deep shadows, clear lit and shaded sides), light from the upper left, a classic Rider-Waite tarot scene re-dressed as a narrow-gauge forest railway story, one strong readable central figure in the middle of the picture, the whole scene painted edge to edge (no transparency, no border, no frame), square 1:1, keep everything important inside the central 70 percent because a card frame will cover the edges, no letters, no numbers, no text, no signs with writing.
+```
+
+### A22 `card_21_world.png`: XXI Мир (тайная)
+
+```text
+Asset: card_21_world. Format: square 1:1. Background: none, a complete painted scene edge to edge.
+A dancing figure in robes inside a large laurel wreath shaped like a wheel, four corner figures in a lion, eagle, ox and man made of brass, a small copper kettle at her feet (the croupier's kettle).
 hand-painted painterly look, warm worn feel, forest green, aged brass and amber palette, STRONG VOLUME (bold rounded forms, deep shadows, clear lit and shaded sides), light from the upper left, a classic Rider-Waite tarot scene re-dressed as a narrow-gauge forest railway story, one strong readable central figure in the middle of the picture, the whole scene painted edge to edge (no transparency, no border, no frame), square 1:1, keep everything important inside the central 70 percent because a card frame will cover the edges, no letters, no numbers, no text, no signs with writing.
 ```
 

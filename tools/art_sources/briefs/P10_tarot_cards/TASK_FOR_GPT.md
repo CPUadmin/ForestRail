@@ -207,5 +207,45 @@ A woman kneeling by a pond pouring water from two jugs, one large eight-pointed 
 hand-painted painterly look, warm worn feel, forest green, aged brass and amber palette, STRONG VOLUME (bold rounded forms, deep shadows, clear lit and shaded sides), light from the upper left, a classic Rider-Waite tarot scene re-dressed as a narrow-gauge forest railway story, one strong readable central figure in the middle of the picture, the whole scene painted edge to edge (no transparency, no border, no frame), square 1:1, keep everything important inside the central 70 percent because a card frame will cover the edges, no letters, no numbers, no text, no signs with writing.
 ```
 
+### 19. card_18_moon.png
+
+Format: 1:1. Background: full-bleed.
+
+```text
+Asset: card_18_moon. Format: square 1:1. Background: none, a complete painted scene edge to edge.
+A full moon between two railway towers, a dog and a wolf howling on the track, a crayfish crawling out of a pond, a path of rails vanishing into the night.
+hand-painted painterly look, warm worn feel, forest green, aged brass and amber palette, STRONG VOLUME (bold rounded forms, deep shadows, clear lit and shaded sides), light from the upper left, a classic Rider-Waite tarot scene re-dressed as a narrow-gauge forest railway story, one strong readable central figure in the middle of the picture, the whole scene painted edge to edge (no transparency, no border, no frame), square 1:1, keep everything important inside the central 70 percent because a card frame will cover the edges, no letters, no numbers, no text, no signs with writing.
+```
+
+### 20. card_19_sun.png
+
+Format: 1:1. Background: full-bleed.
+
+```text
+Asset: card_19_sun. Format: square 1:1. Background: none, a complete painted scene edge to edge.
+A smiling sun above a brick wall, a child on a toy handcar waving a banner, sunflowers, a white horse.
+hand-painted painterly look, warm worn feel, forest green, aged brass and amber palette, STRONG VOLUME (bold rounded forms, deep shadows, clear lit and shaded sides), light from the upper left, a classic Rider-Waite tarot scene re-dressed as a narrow-gauge forest railway story, one strong readable central figure in the middle of the picture, the whole scene painted edge to edge (no transparency, no border, no frame), square 1:1, keep everything important inside the central 70 percent because a card frame will cover the edges, no letters, no numbers, no text, no signs with writing.
+```
+
+### 21. card_20_judgement.png
+
+Format: 1:1. Background: full-bleed.
+
+```text
+Asset: card_20_judgement. Format: square 1:1. Background: none, a complete painted scene edge to edge.
+An angel with a locomotive whistle in place of a trumpet, people rising from railway carriages on a snowy plain, a flag with a wheel emblem, modest clothing.
+hand-painted painterly look, warm worn feel, forest green, aged brass and amber palette, STRONG VOLUME (bold rounded forms, deep shadows, clear lit and shaded sides), light from the upper left, a classic Rider-Waite tarot scene re-dressed as a narrow-gauge forest railway story, one strong readable central figure in the middle of the picture, the whole scene painted edge to edge (no transparency, no border, no frame), square 1:1, keep everything important inside the central 70 percent because a card frame will cover the edges, no letters, no numbers, no text, no signs with writing.
+```
+
+### 22. card_21_world.png
+
+Format: 1:1. Background: full-bleed.
+
+```text
+Asset: card_21_world. Format: square 1:1. Background: none, a complete painted scene edge to edge.
+A dancing figure in robes inside a large laurel wreath shaped like a wheel, four corner figures in a lion, eagle, ox and man made of brass, a small copper kettle at her feet (the croupier's kettle).
+hand-painted painterly look, warm worn feel, forest green, aged brass and amber palette, STRONG VOLUME (bold rounded forms, deep shadows, clear lit and shaded sides), light from the upper left, a classic Rider-Waite tarot scene re-dressed as a narrow-gauge forest railway story, one strong readable central figure in the middle of the picture, the whole scene painted edge to edge (no transparency, no border, no frame), square 1:1, keep everything important inside the central 70 percent because a card frame will cover the edges, no letters, no numbers, no text, no signs with writing.
+```
+
 ## Delivery
 After each image say its exact file name (as above) and which background you used. When all are done, list the file names in order. The owner saves them into `tools/art_sources/inbox/P10_tarot_cards/` with exactly these names. If an image fails the checks in the brief (letters, shadows, cropped subject, checkerboard instead of a flat background), redo it once before showing it.

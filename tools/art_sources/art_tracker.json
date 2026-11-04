@@ -808,6 +808,46 @@
       "background": "full-bleed",
       "status": "промпт готов",
       "note": "XVII Звезда (Закрылки)"
+    },
+    {
+      "id": "P10-A19",
+      "file": "card_18_moon.png",
+      "package": "П10",
+      "element": "K",
+      "format": "1:1",
+      "background": "full-bleed",
+      "status": "промпт готов",
+      "note": "XVIII Луна (тайная)"
+    },
+    {
+      "id": "P10-A20",
+      "file": "card_19_sun.png",
+      "package": "П10",
+      "element": "K",
+      "format": "1:1",
+      "background": "full-bleed",
+      "status": "промпт готов",
+      "note": "XIX Солнце (тайная)"
+    },
+    {
+      "id": "P10-A21",
+      "file": "card_20_judgement.png",
+      "package": "П10",
+      "element": "K",
+      "format": "1:1",
+      "background": "full-bleed",
+      "status": "промпт готов",
+      "note": "XX Суд (тайная)"
+    },
+    {
+      "id": "P10-A22",
+      "file": "card_21_world.png",
+      "package": "П10",
+      "element": "K",
+      "format": "1:1",
+      "background": "full-bleed",
+      "status": "промпт готов",
+      "note": "XXI Мир (тайная)"
     }
   ],
   "help": "Фон: magenta (плоский #FF00FF), black (свет), transparent, full-bleed (текстура на весь кадр). sheet: сетка листа {cols, rows}. Статусы: в списке, промпт готов, запрошено, получено, получено с проблемами, принято, отклонено, подключено."

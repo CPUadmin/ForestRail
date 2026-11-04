@@ -1,0 +1,110 @@
+extends Control
+# Карточка Таро Михалыча (docs/KAZIK_CARDS_RU.md): картина в окне рамки, сверху римская цифра, снизу название аркана,
+# гаджет и реплика Михалыча. Только показ: что выбито, решает Casino. Рамка и рубашка нарисованы GPT (пакет П9б),
+# картины арканов приходят пакетом П10 в assets/art_kazik/cards/<id>.png; пока их нет, в окне заглушка.
+
+var game
+var card_id = "fool"
+var revealed = true            # false: карточка лежит рубашкой вверх (в альбоме ещё не выбита)
+var art: Texture2D
+var frame: Texture2D
+var back: Texture2D
+
+# окно картинки и таблички в долях рамки (измерено по прозрачному окну card_frame.png)
+const WINDOW = Rect2(0.076, 0.182, 0.846, 0.486)
+const RIBBON = Rect2(0.24, 0.085, 0.52, 0.062)
+const PLAQUE = Rect2(0.10, 0.752, 0.80, 0.172)
+
+# тайные арканы: в игре их пока нет, но место в альбоме и рамка готовы
+const SECRET = {
+	"moon": {"arcana": "XVIII", "name": "Луна", "gadget": "Тайная карта", "quote": "Ночью рельсы длиннее. Это не точно."},
+	"sun": {"arcana": "XIX", "name": "Солнце", "gadget": "Тайная карта", "quote": "Ровно и тепло. Так бы всегда."},
+	"judgement": {"arcana": "XX", "name": "Суд", "gadget": "Тайная карта", "quote": "Суд решил. Приговор: ещё по чаю."},
+	"world": {"arcana": "XXI", "name": "Мир", "gadget": "Тайная карта", "quote": "Всё собрано. Казик закрыт на чай."},
+}
+
+const QUOTE = {
+	"fool": "Прыгай! Земля сама подстелется. Обычно.",
+	"magician": "Фокус. Ты крутил, а колесо само.",
+	"priestess": "Она слышит ветер. А ты слышишь только щёлканье.",
+	"empress": "Запас карман не тянет. Запас кладовую набивает.",
+	"emperor": "Порядок наконец-то. Дай коробке самой разобраться.",
+	"hierophant": "По уставу. Давление держим, нервы не держим.",
+	"lovers": "Туда-сюда, как у людей.",
+	"chariot": "Вот это рывок! Конденсаторы в восторге.",
+	"strength": "Нитро: кричит, но слушается.",
+	"hermit": "Огонёк в руке, цеппелин в небе. Тише едешь.",
+	"wheel": "Колесо крутится. Не то, на которое ты смотришь.",
+	"justice": "Холодная голова. Остужай мотор, не себя.",
+	"hanged": "Тянет тебя вверх ногами, а ты и рад.",
+	"death": "Не пугайся. Это только парашют.",
+	"temperance": "Меньше угля, больше чая.",
+	"devil": "Форсаж! Огонь не обманывает. Почти.",
+	"tower": "Красиво. Ненадолго. Держись за мачту.",
+	"star": "Вот-вот взлетишь. Я верю.",
+}
+
+func _ready() -> void:
+	frame = load("res://assets/art_kazik/card_frame.png")
+	back = load("res://assets/art_kazik/sector_card.png")
+	var path = "res://assets/art_kazik/cards/%s.png" % card_id
+	if ResourceLoader.exists(path): art = load(path)
+
+func info() -> Dictionary:
+	if SECRET.has(card_id): return SECRET[card_id]
+	var card: Dictionary = game.model.casino().card_def(card_id)
+	var gadget = "скоро в мастерской"
+	for branch in game.model.data.upgrade_catalog:
+		if str(branch.id) == str(card.get("upgrade", "")): gadget = str(branch.name)
+	return {"arcana": str(card.get("arcana", "")), "name": str(card.get("name", card_id)), "gadget": gadget, "quote": str(QUOTE.get(card_id, ""))}
+
+func part(rect: Rect2) -> Rect2:
+	return Rect2(rect.position * size, rect.size * size)
+
+func text_line(text: String, rect: Rect2, font_size: int, color: Color, y: float) -> void:
+	var k = size.x / 566.0
+	var fs = maxi(8, int(round(font_size * k)))
+	var width = rect.size.x
+	game_text(Vector2(rect.position.x, y), text, fs, color, width)
+
+func game_text(pos: Vector2, text: String, fs: int, color: Color, width: float) -> void:
+	draw_multiline_string(game.font, pos + Vector2(1, 1), text, HORIZONTAL_ALIGNMENT_CENTER, width, fs, 2, Color(0, 0, 0, 0.7))
+	draw_multiline_string(game.font, pos, text, HORIZONTAL_ALIGNMENT_CENTER, width, fs, 2, color)
+
+func _draw() -> void:
+	var window = part(WINDOW)
+	if not revealed:
+		draw_rect(window, Color(0.10, 0.16, 0.12))
+		var side = minf(window.size.x, window.size.y) * 0.55
+		draw_texture_rect(back, Rect2(window.get_center() - Vector2(side, side) * 0.5, Vector2(side, side)), false, Color(1, 1, 1, 0.9))
+	elif art != null:
+		var ts = Vector2(art.get_width(), art.get_height())
+		var k = maxf(window.size.x / ts.x, window.size.y / ts.y)
+		var cover = ts * k
+		var source = Rect2((cover - window.size) * 0.5 / k, window.size / k)
+		draw_texture_rect_region(art, window, source)
+	else:
+		# заглушка: тёмный бархат с тёплым пятном света; картинку принесёт пакет П10
+		draw_rect(window, Color(0.07, 0.12, 0.09))
+		for i in range(6):
+			var r = window.size.y * (0.50 - 0.07 * float(i))
+			draw_circle(window.get_center() + Vector2(0, -window.size.y * 0.06), r, Color(0.55, 0.40, 0.15, 0.05))
+		var arc = str(info().arcana)
+		var big = int(round(window.size.y * 0.40))
+		var w = game.font.get_string_size(arc, HORIZONTAL_ALIGNMENT_LEFT, -1, big).x
+		draw_string(game.font, window.get_center() + Vector2(-w * 0.5, big * 0.35), arc, HORIZONTAL_ALIGNMENT_LEFT, -1, big, Color(0.80, 0.64, 0.30, 0.38))
+	draw_texture_rect(frame, Rect2(Vector2.ZERO, size), false)
+	if not revealed:
+		var rib = part(RIBBON)
+		text_line("?", rib, 30, Color("e8d9a8"), rib.position.y + rib.size.y * 1.10)
+		var pl = part(PLAQUE)
+		text_line("Ещё не выбита", pl, 24, Color("d9cdb0"), pl.position.y + pl.size.y * 0.55)
+		return
+	var data = info()
+	var rib = part(RIBBON)
+	text_line(str(data.arcana), rib, 32, Color("f3e3b0"), rib.position.y + rib.size.y * 1.12)
+	var pl = part(PLAQUE)
+	var k = size.x / 566.0
+	text_line(str(data.name).to_upper(), pl, 34, Color("ffe9b0"), pl.position.y + 40.0 * k)
+	text_line(str(data.gadget), pl, 24, Color("fff1cc"), pl.position.y + 78.0 * k)
+	text_line("«%s»" % str(data.quote), pl, 20, Color("d9cdb0"), pl.position.y + 122.0 * k)
