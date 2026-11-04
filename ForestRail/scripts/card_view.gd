@@ -105,6 +105,6 @@ func _draw() -> void:
 	text_line(str(data.arcana), rib, 32, Color("f3e3b0"), rib.position.y + rib.size.y * 1.12)
 	var pl = part(PLAQUE)
 	var k = size.x / 566.0
-	text_line(str(data.name).to_upper(), pl, 34, Color("ffe9b0"), pl.position.y + 40.0 * k)
-	text_line(str(data.gadget), pl, 24, Color("fff1cc"), pl.position.y + 78.0 * k)
-	text_line("«%s»" % str(data.quote), pl, 20, Color("d9cdb0"), pl.position.y + 122.0 * k)
+	# как на настоящей карте Таро: крупное название, под ним мелко гаджет; реплика Михалыча живёт в подписи под карточкой (info().quote)
+	text_line(str(data.name).to_upper(), pl, 44, Color("ffe9b0"), pl.position.y + 58.0 * k)
+	text_line(str(data.gadget), pl, 24, Color("d9cdb0"), pl.position.y + 112.0 * k)
