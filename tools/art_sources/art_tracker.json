@@ -19,6 +19,11 @@
    "name": "Парусник сидя",
    "brief": "tools/art_sources/briefs/P2b_sailor_seated/BRIEF_RU.md",
    "inbox": "tools/art_sources/inbox/P2b_sailor_seated/"
+  },
+  "П1": {
+   "name": "Дорога и земля",
+   "brief": "tools/art_sources/briefs/P1_road_ground/BRIEF_RU.md",
+   "inbox": "tools/art_sources/inbox/P1_road_ground/"
   }
  },
  "assets": [
@@ -124,6 +129,42 @@
    "outputs": [
     "accepted/P2b_sailor_seated/sailor_seated.png"
    ]
+  },
+  {
+   "id": "P1-A1",
+   "file": "track_tile.png",
+   "package": "П1",
+   "element": "W4",
+   "format": "3:2",
+   "background": "magenta",
+   "tile": true,
+   "status": "промпт готов",
+   "note": ""
+  },
+  {
+   "id": "P1-A2",
+   "file": "ground_tile.png",
+   "package": "П1",
+   "element": "W5",
+   "format": "3:2",
+   "background": "magenta",
+   "tile": true,
+   "status": "промпт готов",
+   "note": ""
+  },
+  {
+   "id": "P1-A3",
+   "file": "trackside_sheet.png",
+   "package": "П1",
+   "element": "W5",
+   "format": "1:1",
+   "background": "magenta",
+   "sheet": {
+    "cols": 3,
+    "rows": 3
+   },
+   "status": "промпт готов",
+   "note": ""
   }
  ],
  "help": "Фон: magenta (плоский #FF00FF), black (свет), transparent, full-bleed (текстура на весь кадр). sheet: сетка листа {cols, rows}. Статусы: в списке, промпт готов, запрошено, получено, получено с проблемами, принято, отклонено, подключено."

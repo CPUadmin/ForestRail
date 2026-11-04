@@ -170,6 +170,27 @@ def touches_edge(rgba, frac=MARGIN_WARN):
     return x0 < w * frac or y0 < h * frac or x1 > w * (1 - frac) or y1 > h * (1 - frac)
 
 
+def seam_ratio(rgba):
+    """Насколько левый и правый края различаются по сравнению с обычным соседним столбцом (чем больше, тем заметнее шов)."""
+    a = np.array(rgba).astype(np.float32)
+    w = a.shape[1]
+    edge = np.abs(a[:, 0, :] - a[:, -1, :]).mean()
+    adj = np.abs(a[:, w // 2, :] - a[:, w // 2 + 1, :]).mean()
+    return float(edge), float(adj)
+
+
+def make_seamless(rgba, frac=0.06):
+    """Сглаживает шов бесшовного тайла: последние k столбцов плавно переходят в первые, ширина уменьшается на k."""
+    a = np.array(rgba).astype(np.float32)
+    h, w = a.shape[:2]
+    k = max(2, int(w * frac))
+    out = a[:, : w - k].copy()
+    for i in range(k):
+        t = i / k
+        out[:, i] = a[:, w - k + i] * (1 - t) + a[:, i] * t
+    return Image.fromarray(np.clip(out, 0, 255).astype(np.uint8), "RGBA")
+
+
 def format_ok(size, fmt):
     if fmt not in FORMATS:
         return True
@@ -218,6 +239,13 @@ def check_asset(asset, path):
         notes.append("ПРЕДУПРЕЖДЕНИЕ: пропорция %dx%d не %s" % (img.size[0], img.size[1], asset.get("format")))
     keyed = apply_key(img, bg if bg in ("magenta", "black", "transparent") else "other")
     sheet = asset.get("sheet")
+    if asset.get("tile"):
+        edge, adj = seam_ratio(keyed)
+        if edge > 2.0 * adj + 8.0:
+            keyed = make_seamless(keyed)
+            notes.append("ШОВ был заметен (край %.0f против соседнего %.0f), сглажен, ширина уменьшена на 6%%" % (edge, adj))
+        else:
+            notes.append("шов тайла в порядке")
     if bg in ("magenta", "black", "transparent") and want != "full-bleed":
         if sheet:
             empty = []
