@@ -10,6 +10,7 @@ const Instruments = preload("res://scripts/instruments.gd")
 const CabSide = preload("res://scripts/cab_side.gd")
 const PAPER = Color("f5ecd6")
 const MUTED_INK = Color("5c6b62")
+const CasinoView = preload("res://scripts/casino_view.gd")
 const CARD_EDGE = Color("dccfae")
 const INK = Color("29383b")
 const GREEN = Color("466c51")
@@ -190,7 +191,7 @@ func _ready() -> void:
 				# Tests and debugging runs are silent: nobody listens to the clicks and the engine.
 				AudioServer.set_bus_mute(0, true)
 				var suite = arg.trim_prefix("--qa-suite=")
-				if suite not in ["check_model", "check_physics", "check_interaction", "drive_campaign", "check_presentation", "check_handcar_revision", "check_art_v3", "check_instruments", "check_station_service", "check_world_geometry", "check_mechanism", "check_mechanism_bench", "check_handcar_drive", "check_handcar_input", "check_motor_controls", "check_loading_selection", "check_layout_p7", "check_steam", "check_steam_view", "check_gearbox", "check_petrol_view", "check_skins", "check_perf", "check_cab", "check_sound", "check_forecast", "check_line_v2", "check_line_spread", "check_thermal", "check_upgrades_new", "check_deadlines", "check_casino", "check_live", "check_live_view", "check_grip", "check_wear", "check_wear_view", "check_road_junk", "check_road_junk_view", "check_receiving", "check_receiving_view", "check_speeds", "check_creative", "check_settings", "check_pneumatic", "check_pneumatic_view", "check_pole", "check_pole_view", "check_air", "check_sail", "check_sail_view", "check_loading_flow", "check_depot_entry", "check_forecast_long", "drive_long", "check_forecast_view", "check_soak_p8", "check_save_p8"]: get_tree().quit(2); return
+				if suite not in ["check_model", "check_physics", "check_interaction", "drive_campaign", "check_presentation", "check_handcar_revision", "check_art_v3", "check_instruments", "check_station_service", "check_world_geometry", "check_mechanism", "check_mechanism_bench", "check_handcar_drive", "check_handcar_input", "check_motor_controls", "check_loading_selection", "check_layout_p7", "check_steam", "check_steam_view", "check_gearbox", "check_petrol_view", "check_skins", "check_perf", "check_cab", "check_sound", "check_forecast", "check_line_v2", "check_line_spread", "check_thermal", "check_upgrades_new", "check_deadlines", "check_casino", "check_live", "check_live_view", "check_grip", "check_wear", "check_wear_view", "check_road_junk", "check_road_junk_view", "check_receiving", "check_receiving_view", "check_casino_view", "check_speeds", "check_creative", "check_settings", "check_pneumatic", "check_pneumatic_view", "check_pole", "check_pole_view", "check_air", "check_sail", "check_sail_view", "check_loading_flow", "check_depot_entry", "check_forecast_long", "drive_long", "check_forecast_view", "check_soak_p8", "check_save_p8"]: get_tree().quit(2); return
 				get_tree().root.set_meta("qa_running", true)
 				set_process(false)
 				set_physics_process(false)
@@ -781,7 +782,7 @@ func build_depot(size: Vector2) -> void:
 	var tiles = HBoxContainer.new()
 	tiles.add_theme_constant_override("separation", 8)
 	right.add_child(tiles)
-	for entry in [["Гараж", "Гараж", "garage"], ["Состав", "Состав", "wagons"], ["Улучшения", "Мастерская", "bench"], ["Рейсы", "Доска заказов", "board"]]:
+	for entry in [["Гараж", "Гараж", "garage"], ["Состав", "Состав", "wagons"], ["Улучшения", "Мастерская", "bench"], ["Рейсы", "Доска заказов", "board"], ["Казик", "Казик", "casino"]]:
 		depot_tile(tiles, entry[0], entry[1], entry[2])
 	add_label(right, tab, 28)
 	if not model.state.active.is_empty():
@@ -818,6 +819,8 @@ func build_depot(size: Vector2) -> void:
 							save_game()
 							rebuild()
 						else: notify(model.message)))
+	elif tab == "Казик":
+		build_casino_tab(right)
 	elif tab == "Состав":
 		consist_strip(right)
 		add_label(right, "Вагоны твои: их улучшения сохраняются при перестановке. %s допускает вагонов: %d." % [vehicle_display_name(), model.max_wagons(model.vehicle_id())])
@@ -880,6 +883,27 @@ func build_depot(size: Vector2) -> void:
 
 # A big picture button for one place of the depot: the picture and its name are drawn on top of an
 # ordinary button, which keeps the click, the hover and the keyboard focus.
+# B6.11 g: the tab of the casino in the depot: what is in the pocket, the honest odds, the way in.
+func build_casino_tab(right: VBoxContainer) -> void:
+	var casino = model.casino()
+	var c = card(right, GOLD)
+	add_label(c, "КАЗИК «у стрелки»", 26)
+	add_label(c, "Жетонов: %d  ·  шлака: %d шт.  ·  до гарантированной карточки: %d из %d" % [casino.tokens(), casino.bolt_total(), casino.pity(), int(model.data.casino.pity_max)], 18)
+	add_label(c, "Михалыч берёт шлак жетонами («деп»), за жетоны крутится колесо «лудки». Из колеса выпадают жетоны, шлак, монеты, ремнаборы, бонуски, а изредка карточка гаджета.", 16, MUTED_INK)
+	add_button(c, "Войти в казик →", func(): show_modal("casino"))
+	var odds: Array = []
+	var total = 0.0
+	for s in model.data.casino.sectors: total += float(s.weight)
+	var names = {"empty": "пусто", "tokens1": "5 жетонов", "tokens2": "10 жетонов", "junk": "шлак", "coins": "монеты", "repair": "ремнабор", "golden": "золочёный болт", "bonus": "бонуска", "card": "КАРТОЧКА"}
+	for s in model.data.casino.sectors:
+		var chance = float(s.weight) / total * 100.0
+		if str(s.kind) == "card": chance = casino.card_chance() * 100.0
+		odds.append("%s %.1f%%" % [names.get(str(s.id), str(s.id)), chance])
+	var rules = card(right, CARD_EDGE)
+	add_label(rules, "Честные шансы одной крутки", 20)
+	add_label(rules, ", ".join(odds) + ". Карточка выпадает наверняка, когда счётчик гаранта дойдёт до %d; он растёт на каждой крутке и на каждом рейсе. Всё только за игровые жетоны." % int(model.data.casino.pity_max), 15, MUTED_INK)
+	add_button(right, "Приёмка болтов за монеты", func(): show_modal("receiving"))
+
 func depot_tile(parent: Node, tab_name: String, caption: String, icon: String) -> Button:
 	var selected = tab == tab_name
 	var button = Button.new()
@@ -942,6 +966,14 @@ func draw_depot_icon(canvas: Control, icon: String, caption: String, selected: b
 			canvas.draw_circle(centre + Vector2(x + 6, 14) * unit, 5.0 * unit, color)
 			canvas.draw_circle(centre + Vector2(x + 21, 14) * unit, 5.0 * unit, color)
 		canvas.draw_line(centre + Vector2(-3, 2) * unit, centre + Vector2(3, 2) * unit, color, line * 1.6)
+	elif icon == "casino":
+		# a wheel with spokes and a flag on top
+		canvas.draw_arc(centre + Vector2(0, 2) * unit, 20.0 * unit, 0, TAU, 32, color, line * 1.6, true)
+		for i in range(8):
+			var a = TAU * float(i) / 8.0
+			canvas.draw_line(centre + Vector2(0, 2) * unit, centre + Vector2(0, 2) * unit + Vector2.from_angle(a) * 20.0 * unit, color, line)
+		canvas.draw_circle(centre + Vector2(0, 2) * unit, 4.5 * unit, color)
+		canvas.draw_colored_polygon(PackedVector2Array([centre + Vector2(-5, -24) * unit, centre + Vector2(5, -24) * unit, centre + Vector2(0, -16) * unit]), color)
 	var caption_size = int(round(15.0 * float(settings.text_scale)))
 	canvas.draw_string(font, Vector2(0, size.y - 11.0 * unit), caption, HORIZONTAL_ALIGNMENT_CENTER, size.x, caption_size, color)
 
@@ -1894,6 +1926,13 @@ func build_modal(size: Vector2) -> void:
 		overlay.add_child(close_row)
 		add_button(close_row,"Закрыть [%s / Esc]" % key_name("map"),close_modal)
 		return
+	if modal_kind == "casino":
+		var casino_screen = CasinoView.new()
+		casino_screen.game = self
+		casino_screen.size = size
+		overlay.add_child(casino_screen)
+		return
+
 	var shade = ColorRect.new()
 	shade.color = Color(0.08, 0.13, 0.11, 0.76)
 	shade.size = size

@@ -29,6 +29,11 @@
    "name": "Депо как комната",
    "brief": "tools/art_sources/briefs/P4_depot_room/BRIEF_RU.md",
    "inbox": "tools/art_sources/inbox/P4_depot_room/"
+  },
+  "П9": {
+   "name": "Казик, часть 1",
+   "brief": "docs/KAZIK_IMAGE_PROMPTS_RU.md",
+   "inbox": "tools/art_sources/inbox/kazik/"
   }
  },
  "assets": [
@@ -315,6 +320,143 @@
    "received": "2026-11-04 21:51",
    "outputs": [
     "accepted/P4_depot_room/depot_lamp_glow.png"
+   ]
+  },
+  {
+   "id": "K-A1",
+   "file": "kazik_facade.png",
+   "package": "П9",
+   "element": "K",
+   "format": "3:2",
+   "background": "full-bleed",
+   "status": "принято",
+   "note": "принято, пока не использована (фасад для входа в казик)",
+   "notes": [],
+   "received": "2026-11-04 22:00",
+   "outputs": [
+    "accepted/kazik/kazik_facade.png"
+   ]
+  },
+  {
+   "id": "K-A2",
+   "file": "kazik_interior.png",
+   "package": "П9",
+   "element": "K",
+   "format": "3:2",
+   "background": "full-bleed",
+   "status": "подключено",
+   "note": "подключено в экране казика (preview.78)",
+   "notes": [],
+   "received": "2026-11-04 22:00",
+   "outputs": [
+    "accepted/kazik/kazik_interior.png"
+   ]
+  },
+  {
+   "id": "K-B1",
+   "file": "kazik_wheel.png",
+   "package": "П9",
+   "element": "K",
+   "format": "1:1",
+   "background": "transparent",
+   "status": "подключено",
+   "note": "подключено в экране казика (preview.78)",
+   "notes": [],
+   "received": "2026-11-04 22:00",
+   "outputs": [
+    "accepted/kazik/kazik_wheel.png"
+   ]
+  },
+  {
+   "id": "K-B2",
+   "file": "kazik_wheel_pointer.png",
+   "package": "П9",
+   "element": "K",
+   "format": "1:1",
+   "background": "transparent",
+   "status": "подключено",
+   "note": "подключено в экране казика (preview.78)",
+   "notes": [],
+   "received": "2026-11-04 22:00",
+   "outputs": [
+    "accepted/kazik/kazik_wheel_pointer.png"
+   ]
+  },
+  {
+   "id": "K-B3",
+   "file": "kazik_wheel_glow.png",
+   "package": "П9",
+   "element": "K",
+   "format": "1:1",
+   "background": "black",
+   "status": "подключено",
+   "note": "подключено в экране казика (preview.78)",
+   "notes": [],
+   "received": "2026-11-04 22:00",
+   "outputs": [
+    "accepted/kazik/kazik_wheel_glow.png"
+   ]
+  },
+  {
+   "id": "K-C1",
+   "file": "kazik_mikhalych.png",
+   "package": "П9",
+   "element": "K",
+   "format": "2:3",
+   "background": "transparent",
+   "status": "подключено",
+   "note": "подключено в экране казика (preview.78)",
+   "notes": [
+    "ПРЕДУПРЕЖДЕНИЕ: предмет близко к краю кадра, возможно обрезан"
+   ],
+   "received": "2026-11-04 22:00",
+   "outputs": [
+    "accepted/kazik/kazik_mikhalych.png"
+   ]
+  },
+  {
+   "id": "K-D1",
+   "file": "kazik_token.png",
+   "package": "П9",
+   "element": "K",
+   "format": "1:1",
+   "background": "transparent",
+   "status": "подключено",
+   "note": "подключено в экране казика (preview.78)",
+   "notes": [],
+   "received": "2026-11-04 22:00",
+   "outputs": [
+    "accepted/kazik/kazik_token.png"
+   ]
+  },
+  {
+   "id": "K-E1",
+   "file": "kazik_junk_sheet1.png",
+   "package": "П9",
+   "element": "K",
+   "format": "1:1",
+   "background": "transparent",
+   "status": "подключено",
+   "note": "подключено в экране казика (preview.78)",
+   "sheet": {
+    "cols": 3,
+    "rows": 3
+   },
+   "notes": [
+    "ПРЕДУПРЕЖДЕНИЕ: предмет упирается в край ячейки: 2,2; 2,3; 3,1; 3,2; 3,3"
+   ],
+   "received": "2026-11-04 22:00",
+   "outputs": [
+    "accepted/kazik/kazik_junk_sheet1_sheet.png",
+    "accepted/kazik/kazik_junk_sheet1/cell_1_1.png",
+    "accepted/kazik/kazik_junk_sheet1/cell_1_2.png",
+    "accepted/kazik/kazik_junk_sheet1/cell_1_3.png",
+    "accepted/kazik/kazik_junk_sheet1/cell_2_1.png",
+    "accepted/kazik/kazik_junk_sheet1/cell_2_2.png",
+    "accepted/kazik/kazik_junk_sheet1/cell_2_3.png",
+    "accepted/kazik/kazik_junk_sheet1/cell_3_1.png",
+    "accepted/kazik/kazik_junk_sheet1/cell_3_2.png",
+    "accepted/kazik/kazik_junk_sheet1/cell_3_3.png"
    ]
   }
  ],
