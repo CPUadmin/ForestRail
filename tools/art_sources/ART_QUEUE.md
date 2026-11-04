@@ -20,4 +20,5 @@ Never draw letters, numbers or readable text on the images. Never draw the card 
 
 | pack | what | status | task | inbox |
 |---|---|---|---|---|
-| P10 | 22 tarot card illustrations (A1-A3 are DONE: continue with A4) | waiting for GPT | tools/art_sources/briefs/P10_tarot_cards/TASK_FOR_GPT.md | tools/art_sources/inbox/P10_tarot_cards/ |
+| P10 | 22 tarot card illustrations | DONE | tools/art_sources/briefs/P10_tarot_cards/TASK_FOR_GPT.md | tools/art_sources/inbox/P10_tarot_cards/ |
+| STYLE-TEST | ONE card (Wheel of Fortune) in styles 2-7 for the owner to choose a style; style 1 (painting) already exists as card_10_wheel_of_fortune.png | waiting for GPT | tools/art_sources/briefs/P10_tarot_cards/STYLE_TEST_RU.md (use the English text blocks; send each as its own image) | tools/art_sources/inbox/P10_tarot_cards/styles/ (names style_2_origami.png, style_3_symbolism.png, style_4_minimal_geometry.png, style_5_artdeco.png, style_6_engraving.png, style_7_stained_glass.png) |
