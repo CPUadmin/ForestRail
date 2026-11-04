@@ -1,5 +1,6 @@
 extends Control
 const CardView = preload("res://scripts/card_view.gd")
+const CardReveal = preload("res://scripts/card_reveal.gd")
 # КАЗИК «у стрелки», этап «г» (docs/KAZIK_RU.md): экран с колесом «лудки», Михалычем, жетонами и мешком шлака.
 # Логика во всём лежит в Casino (scripts/casino.gd); здесь только показ и анимация. Сектора колеса рисуются по весам из данных,
 # поэтому ширина сектора и есть настоящий шанс (карточка почти невидима: 0,2%, так и задумано, цифры честные).
@@ -177,52 +178,18 @@ func on_spin() -> void:
 	line = "Крутим-вертим…"
 	refresh_buttons()
 
-# the found Tarot card: it comes out face down, turns over and the player takes it with a click
+# the found Tarot card: it flies out of the wheel on its back, spins, glows, turns over with a flash (scripts/card_reveal.gd)
 func show_drop() -> void:
 	close_drop()
-	drop = Control.new()
-	drop.size = size
-	add_child(drop)
-	var shade = ColorRect.new()
-	shade.color = Color(0.02, 0.015, 0.01, 0.9)
-	shade.size = size
-	drop.add_child(shade)
-	var card = CardView.new()
-	card.game = game
-	card.card_id = str(result.get("card", ""))
-	card.show_back = true
-	var h = size.y * 0.72
-	card.size = Vector2(h / 1.59, h)
-	card.position = Vector2(size.x * 0.5 - card.size.x * 0.5, size.y * 0.08)
-	drop.add_child(card)
-	var probe = CardView.new()
-	probe.card_id = card.card_id
-	var said = probe.found_line()
-	probe.free()
-	var hint = Label.new()
-	hint.text = "«%s»\n— Михалыч" % said
-	hint.add_theme_font_size_override("font_size", 26)
-	hint.add_theme_color_override("font_color", Color("fff1cc"))
-	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	hint.size = Vector2(size.x * 0.62, 90)
-	hint.position = Vector2(size.x * 0.19, size.y * 0.08 + h + 8.0)
-	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	drop.add_child(hint)
-	var take_hint = Label.new()
-	take_hint.text = "Нажми, чтобы забрать"
-	take_hint.add_theme_font_size_override("font_size", 18)
-	take_hint.add_theme_color_override("font_color", Color(0.86, 0.78, 0.58, 0.8))
-	take_hint.size = Vector2(size.x, 26)
-	take_hint.position = Vector2(0, size.y - 34.0)
-	take_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	drop.add_child(take_hint)
-	var take = Button.new()
-	take.flat = true
-	take.size = size
-	take.pressed.connect(close_drop)
-	drop.add_child(take)
-	var quick = bool(game.settings.reduce_motion)
-	get_tree().create_timer(0.7).timeout.connect(func(): if is_instance_valid(card): card.flip(quick))
+	var reveal = CardReveal.new()
+	reveal.game = game
+	reveal.card_id = str(result.get("card", ""))
+	reveal.origin = Vector2(size.x * 0.635, size.y * 0.43)
+	reveal.quick = bool(game.settings.reduce_motion)
+	reveal.size = size
+	reveal.closed.connect(close_drop)
+	add_child(reveal)
+	drop = reveal
 
 func close_drop() -> void:
 	if drop != null and is_instance_valid(drop): drop.queue_free()

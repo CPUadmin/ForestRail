@@ -99,13 +99,29 @@ func run() -> void:
 	check(view.spin_button.disabled, "with two tokens the turn is closed")
 	await shot("casino_after")
 	# a found card comes out face down, turns over and Mikhalych says his own line
+	game.settings.reduce_motion = false
 	view.result = {"ok": true, "kind": "card", "card": "magician", "sector": "card"}
 	view.show_drop()
 	check(view.drop != null, "a found card is shown on the screen")
-	await shot("casino_drop_back")
-	view.drop.get_child(1).flip(true)
-	await shot("casino_drop_face")
-	view.close_drop()
+	var reveal = view.drop
+	reveal.set_process(false)
+	var stages = [["rise", 0.45], ["spin", 0.4], ["hold", 0.55], ["flip", 0.45], ["burst", 0.25], ["end", 0.9]]
+	var clock = 0.0
+	for stage in stages:
+		var step = float(stage[1])
+		var n = int(step / 0.05)
+		for i in range(n): reveal._process(0.05)
+		clock += step
+		if str(stage[0]) == "hold": check(reveal.card.show_back, "the card waits on its back")
+		if str(stage[0]) == "end": check(not reveal.card.show_back and reveal.t >= reveal.END - 0.001, "after the turn the card lies face up")
+		await shot("casino_reveal_%s" % str(stage[0]))
+	check(reveal.sparks.size() > 0, "the burst throws sparks")
+	# a click takes the card; with less motion the card is ready at once
+	reveal.closed.emit()
 	check(view.drop == null, "a click takes the card")
+	game.settings.reduce_motion = true
+	view.show_drop()
+	check(view.drop.t >= view.drop.END and not view.drop.card.show_back, "with less motion the card is shown ready")
+	view.close_drop()
 	print("CASINO VIEW CHECKS ", checks, "; FAILURES ", failures)
 	get_tree().quit(0 if failures.is_empty() else 1)
