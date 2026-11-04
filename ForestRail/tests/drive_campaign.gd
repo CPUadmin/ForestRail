@@ -70,6 +70,17 @@ func run() -> void:
 			var target_s = m.service_stop(station_index(m,destination))
 			var remaining = (target_s - float(m.state.s)) * int(m.state.direction)
 			var speed = absf(float(m.state.v))
+			# Overshot the platform (T14: the old bot stood 12 m past D for ever): a driver puts the reverser back
+			# and rolls back to the platform, then puts it forward again.
+			if m.vehicle_id() not in ["handcar", "pole"]:
+				if remaining < -0.6 and speed < 0.1 and int(m.state.get("reverser", 1)) == 1:
+					m.state.throttle = 0
+					m.set_reverser(-1)
+				if int(m.state.get("reverser", 1)) == -1:
+					remaining = -remaining
+					if absf(remaining) < 0.6 and speed < 0.05:
+						m.state.throttle = 0
+						m.set_reverser(1)
 			# The controller only manipulates the same inputs as a human. It never moves s.
 			var braking_distance = m.stopping_distance(speed) + 0.3   # a careful driver brakes earlier on wet rails and downhill
 			var stopping = remaining < maxf(0.5, braking_distance)
