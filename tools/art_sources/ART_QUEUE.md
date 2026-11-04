@@ -20,4 +20,4 @@ Never draw letters, numbers or readable text on the images. Never draw the card 
 
 | pack | what | status | task | inbox |
 |---|---|---|---|---|
-| P10 | 22 tarot card illustrations | waiting for GPT | tools/art_sources/briefs/P10_tarot_cards/TASK_FOR_GPT.md | tools/art_sources/inbox/P10_tarot_cards/ |
+| P10 | 22 tarot card illustrations (A1-A3 are DONE: continue with A4) | waiting for GPT | tools/art_sources/briefs/P10_tarot_cards/TASK_FOR_GPT.md | tools/art_sources/inbox/P10_tarot_cards/ |
