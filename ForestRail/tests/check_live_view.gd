@@ -76,6 +76,31 @@ func run() -> void:
 	game.queue_redraw()
 	await shot("live_braking")
 	check(game.model.live.rock_rad(0) < 0.0, "the nose dips while braking (%.4f)" % game.model.live.rock_rad(0))
+	# B5.5: a hop off a knoll: the nose follows the flight, the shadow stays on the rail, the landing raises dust
+	var knoll_x = float(game.model.route.knolls[0][0])
+	game.model.state.throttle = 0.0
+	game.model.state.brake = 0.0
+	game.model.state.s = float(game.model.route.distance_at_x(knoll_x)) - 40.0
+	game.model.state.v = 33.0
+	var flew = false
+	var shot_air = false
+	var shot_land = false
+	for i in range(60 * 6):
+		game.model.physics_step(1.0 / 60.0)
+		game.camera_s = float(game.model.state.s)
+		if game.model.air_fly and float(game.model.air_z) > 0.08 and not shot_air:
+			shot_air = true
+			flew = true
+			game.queue_redraw()
+			await shot("jump_in_the_air")
+		if shot_air and not shot_land and not game.model.air_fly and float(game.model.last_landing) > 0.4:
+			shot_land = true
+			game.land_dust = {"t": 0.12, "s": float(game.model.state.s), "power": 0.8}
+			game.queue_redraw()
+			await shot("jump_landing")
+			break
+	check(flew, "the train really flies off the knoll")
+	check(shot_land, "and comes down")
 	Model.live_effects = false
 	print("LIVE VIEW CHECKS ", checks, "; FAILURES ", failures)
 	get_tree().quit(0 if failures.is_empty() else 1)

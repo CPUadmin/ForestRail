@@ -159,6 +159,7 @@ var pending_action: Callable
 var tooltip = ""
 var time = 0.0
 var test_mode = false
+var land_dust: Dictionary = {}   # B5.5: the puff of dust where the train came down {t, s, power}
 var live_in_tests = false   # the view test of the live train looks at it in test mode
 var smoke_frames = -1
 var screenshot_path = ""
@@ -1888,6 +1889,7 @@ func _process(dt: float) -> void:
 		var event_name = str(model.events.pop_front())
 		if event_name == "land":
 			# The train comes down on the rail: a thud scaled by the hit, and the cab shakes.
+			land_dust = {"t": 0.0, "s": float(model.state.s), "power": clampf(0.45 + float(model.last_landing) / 4.0, 0.5, 1.0)}
 			sound.play("land_thud", clampf(0.35 + float(model.last_landing) * 0.18, 0.35, 1.0), clampf(1.15 - float(model.last_landing) * 0.08, 0.8, 1.15))
 			sound.play("cargo", clampf(0.15 + float(model.last_landing) * 0.1, 0.15, 0.6), 0.7)
 			cab_jolt = 1.0
@@ -1901,6 +1903,7 @@ func _process(dt: float) -> void:
 		elif event_name == "cargo_hit":
 			sound.play("cargo", clampf(0.3 + float(model.last_cargo_hit) * 0.4, 0.3, 0.9), randf_range(0.85, 1.0))
 		else: sound.play(event_name, 0.6)
+	if not land_dust.is_empty(): land_dust.t = float(land_dust.t) + dt
 	sound.update(model, paused, screen == "menu", dt, cab_active())
 	if art_world != null: art_world.update_view()
 	queue_redraw()
@@ -3404,6 +3407,22 @@ func draw_foreground() -> void:
 		ellipse(p + Vector2(8, 0), Vector2(h * 0.65, h * 0.12), Color(0.08, 0.13, 0.07, 0.28))
 		grounded_sprite(id, p, h, Color(0.76, 0.84, 0.66))
 
+# B5.5: a landing kicks up the dust of the track bed: a few soft puffs that spread and fade.
+func draw_land_dust() -> void:
+	if land_dust.is_empty(): return
+	var age = float(land_dust.t)
+	if age > 0.8:
+		land_dust = {}
+		return
+	var sc = view_scale()
+	var power = float(land_dust.power)
+	for k in range(7):
+		var side = (float(k) - 3.0) / 3.0
+		var spread = (0.4 + age * 3.2) * power
+		var p = world_point(float(land_dust.s) + side * (1.5 + age * 3.5) * power) + Vector2(0, 6 * sc)
+		var radius = (16.0 + 34.0 * age) * sc * power * (0.7 + 0.3 * absf(sin(float(k) * 2.1)))
+		ellipse(p + Vector2(0, -age * 26.0 * sc * (0.5 + 0.5 * absf(side))), Vector2(radius * (1.0 + spread * 0.2), radius * 0.6), Color(0.66, 0.58, 0.45, 0.5 * (1.0 - age / 0.8)))
+
 func draw_train() -> void:
 	var ids = model.body_ids()
 	var scale_value = view_scale()
@@ -3433,6 +3452,7 @@ func draw_train() -> void:
 			draw_line(p + Vector2(-art.body_width(ids[i])*0.46,14)*scale_value,p+Vector2(art.body_width(ids[i])*0.46,14)*scale_value,GOLD,3,true)
 		if screen == "game":
 			add_world_hits(ids[i], i, transform)
+	if screen == "game": draw_land_dust()
 	for pair in [[0,1],[ids.size()-1,-1]]:
 		var id = ids[pair[0]]
 		var s = model.body_s_render(pair[0]) if screen!="depot" else -model.body_offset(pair[0])
@@ -3559,7 +3579,8 @@ func body_transform(id: String, s: float) -> Transform2D:
 		# speeds up or brakes (the nose comes up and dips). It turns about the middle of the wheelbase.
 		var index = model.body_ids().find(id)
 		var bob = model.live.lift_m(index)
-		var turn = -model.live.rock_rad(index) * float(direction)
+		var pitch_air = clampf(float(model.air_vy) * 0.035, -0.2, 0.2) if model.air_fly else 0.0   # B5.5: the nose follows the flight
+		var turn = -(model.live.rock_rad(index) + pitch_air) * float(direction)
 		if absf(bob) > 0.0001 or absf(turn) > 0.00005:
 			var centre = (a+b)*0.5
 			var origin = (result.origin - centre).rotated(turn) + centre - Vector2(0, bob * ArtV3.PX * sc)
@@ -3577,7 +3598,8 @@ func draw_coupler(a: Vector2, b: Vector2) -> void:
 func draw_body(id: String, s: float, controls: bool) -> void:
 	var body_scale = view_scale()
 	var body_transform = body_transform(id,s)
-	ellipse(Vector2(10, 7), Vector2(art.body_width(id)*0.48, 7), Color(0.05, 0.08, 0.05, 0.23))
+	var air_height = float(model.air_z) if screen == "game" else 0.0   # B5.5: the shadow stays on the rail, smaller and paler in the air
+	ellipse(Vector2(10, 7 + air_height * ArtV3.PX), Vector2(art.body_width(id)*0.48/(1.0 + air_height * 0.8), 7.0/(1.0 + air_height * 0.8)), Color(0.05, 0.08, 0.05, 0.23/(1.0 + air_height * 1.5)))
 	art.draw_vehicle(self,id,s,int(model.state.direction) if screen!="depot" else 1,body_transform,model,controls)
 	if id=="locomotive" and screen=="game": draw_charge_strip(body_transform)
 	var stats = model.object_stats(id)
