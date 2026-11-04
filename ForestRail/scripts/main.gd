@@ -1280,10 +1280,8 @@ func draw_workshop_spots(id: String, transform: Transform2D) -> void:
 	var radius = float(spec.wheel_diameter_m) * 0.5
 	var target = "wagon" if id.begins_with("W") else id
 	draw_set_transform_matrix(Transform2D.IDENTITY)
-	var spot_index = 0
 	for branch in model.data.upgrade_catalog:
 		if branch.target_type != target or branch.get("gadget", false): continue
-		spot_index += 1
 		var part = str(branch.id).get_slice("_", 1)
 		var place = workshop_spot_place(part, length, axles)
 		var pos = transform * (Vector2(place.x, -(place.y - radius)) * ArtV3.PX)
@@ -1294,11 +1292,31 @@ func draw_workshop_spots(id: String, transform: Transform2D) -> void:
 		draw_arc(pos, 15.0 + 2.5 * pulse, 0, TAU, 28, GOLD if picked else Color(PAPER, 0.85), 2.2 if picked else 1.6, true)
 		for k in range(2):
 			draw_circle(pos + Vector2(-5.0 + 10.0 * float(k), 0), 3.4, GOLD if k < level else Color(PAPER, 0.35))
-		var label = upgrade_branch_name(id, branch)
-		var width = 150.0
-		draw_string(font, pos + Vector2(-width * 0.5, -24.0 if spot_index % 2 == 1 else 36.0), label, HORIZONTAL_ALIGNMENT_CENTER, width, 15, GOLD if picked else PAPER)
-		workshop_hits.append({"branch": str(branch.id), "position": pos})
+		workshop_hits.append({"branch": str(branch.id), "position": pos, "label": upgrade_branch_name(id, branch)})
+	var spot = nearest_workshop_spot(get_global_mouse_position())
+	if spot.is_empty():
+		for hit in workshop_hits:
+			if hit.branch == workshop_branch:
+				spot = hit
+				break
+	if not spot.is_empty():
+		var label: String = spot.label
+		var width = font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, 16).x
+		var at: Vector2 = spot.position + Vector2(-width * 0.5, -25)
+		at.x = maxf(at.x, 10.0)
+		draw_rect(Rect2(at + Vector2(-6, -17), Vector2(width + 12, 23)), Color(INK, 0.94))
+		draw_string(font, at, label, HORIZONTAL_ALIGNMENT_LEFT, -1, 16, GOLD)
 	draw_set_transform_matrix(Transform2D.IDENTITY)
+
+func nearest_workshop_spot(point: Vector2) -> Dictionary:
+	var nearest: Dictionary = {}
+	var distance = 26.0
+	for hit in workshop_hits:
+		var candidate = point.distance_to(hit.position)
+		if candidate < distance:
+			nearest = hit
+			distance = candidate
+	return nearest
 
 # D9: a stat of an upgrade card in words and not as raw arrays: numbers as "before → after (+x%)", a row of numbers
 # (one per gear) as the mean change "+x% on every gear".
@@ -2414,13 +2432,13 @@ func _unhandled_input(event: InputEvent) -> void:
 		if event.button_index != MOUSE_BUTTON_LEFT: return
 		var mouse = event.position
 		if screen == "depot":
-			for hit in workshop_hits:
-				if mouse.distance_to(hit.position) < 26:
-					workshop_branch = str(hit.branch)
-					tab = "Улучшения"
-					sound.play("ui_click", 0.5)
-					rebuild()
-					return
+			var spot = nearest_workshop_spot(mouse)
+			if not spot.is_empty():
+				workshop_branch = str(spot.branch)
+				tab = "Улучшения"
+				sound.play("ui_click", 0.5)
+				rebuild()
+				return
 			for hit in coupler_hits:
 				if hit.position.distance_to(mouse) < 22: start_shunting(hit.id, hit.attach); return
 			for hit in body_hits:
