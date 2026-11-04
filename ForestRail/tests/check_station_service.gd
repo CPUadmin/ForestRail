@@ -278,6 +278,14 @@ func run() -> void:
 		await frame(3)
 		check(is_equal_approx(float(game.model.state.fleet_by_id.motorcar.fuel),tank),"the button fills the tank")
 	check(game.service_text("F").contains("×1,5") and game.service_text("B")=="","station service text comes from the data")
+	if not movie:
+		game.toast_seconds = 0.0
+		for index in [1, 4, 5]:
+			await arrive(index)
+			game.camera_s = game.model.route.station_s[index] + 4.2
+			game.camera_y = game.model.route.sample(game.camera_s).y
+			game.camera_x = game.get_viewport_rect().size.x * 0.5
+			await shot("station_" + game.model.data.stations[index].id)
 	var result={"checks":checks,"failures":failures,"matrix":cases,"input":"Viewport.push_input in local coordinates; mouse presses/motions/releases routed through GUI","human_novice_trial":"not performed"}
 	var file=FileAccess.open(out_dir.path_join("movie_results.json" if movie else "results.json"),FileAccess.WRITE)
 	file.store_string(JSON.stringify(result,"\t"));file.close()

@@ -16,6 +16,11 @@ var scenery
 const ROAD_TRACK = preload("res://assets/art_road/track_tile.png")
 const ROAD_GROUND = preload("res://assets/art_road/ground_tile.png")
 const DEPOT_FLOOR = preload("res://assets/art_depot/floor.png")   # P4: in the depot the cut of the floor replaces the cut of the earth
+const STATION_ART = {
+	"B": [preload("res://assets/art_stations/station_b_small.png"), 3.0],
+	"E": [preload("res://assets/art_stations/station_e.png"), 4.6],
+	"F": [preload("res://assets/art_stations/station_f.png"), 5.5],
+}
 const ROAD_TRACK_M = 1.8       # the length of the track tile in metres (three sleepers, 0.6 m apart)
 const ROAD_GROUND_M = 3.0      # the length of the ground tile in metres
 const ROAD_LIP_OVERLAP = 26.0  # the grass lip of the ground overlaps the bottom of the ballast, in pixels at the view scale 1
@@ -274,23 +279,35 @@ func _draw() -> void:
 func draw_stations(canvas: Node2D) -> void:
 	var size = game.get_viewport_rect().size
 	for i in range(game.model.data.stations.size()):
+		var station = game.model.data.stations[i]
 		var name = "stations/depot" if i == 0 else ("stations/sawmill_shelter" if i == 2 else "stations/station_house")
 		var spec = art.Geometry.data().buildings[name]
 		var sc = game.view_scale()
-		var center = game.world_point(game.model.route.station_s[i]+float(spec.offset_m))+Vector2(0,-float(spec.foot_height_m)*art.PX*sc)
-		var half_width = art.textures[name].get_width()*art.scale_for(name)*sc*0.5
+		var facade = STATION_ART.get(station.id, [])
+		var center = game.world_point(game.model.route.station_s[i] + float(spec.offset_m))
+		var texture: Texture2D = art.textures[name]
+		var height = texture.get_height() * art.scale_for(name)
+		var half_width = texture.get_width() * art.scale_for(name) * sc * 0.5
+		if facade.is_empty():
+			center.y -= float(spec.foot_height_m) * art.PX * sc
+		else:
+			texture = facade[0]
+			height = float(facade[1]) * art.PX
+			half_width = height * float(texture.get_width()) / float(texture.get_height()) * sc * 0.5
 		if center.x+half_width < -50 or center.x-half_width > size.x+50: continue
 		if game.screen=="game": draw_service_platform(canvas,i)
 		draw_station_details(canvas,i)
-		art.draw_part(canvas, name, center, 0, art.scale_for(name)*sc)
-		var height = art.textures[name].get_height()*art.scale_for(name)
+		if facade.is_empty():
+			art.draw_part(canvas, name, center, 0, art.scale_for(name)*sc)
+		else:
+			canvas.draw_texture_rect(texture, Rect2(center - Vector2(half_width, height * sc), Vector2(2.0 * half_width, height * sc)), false)
 		var plaque = Rect2(center+Vector2(-150,-height-48)*sc,Vector2(300,42)*sc)
 		if game.screen=="game": plaque.position.y=maxf(plaque.position.y,game.hud_top_clearance())
 		plaque.position.x=clampf(plaque.position.x,12,size.x-plaque.size.x-12)
 		# In the depot the board would sit under the info box or the tab panel.
 		var covered=game.screen=="depot" and (plaque.intersects(game.depot_info_rect) or plaque.end.x>size.x*0.46)
 		if not covered:
-			draw_station_board(canvas,plaque,sc,game.model.data.stations[i].name)
+			draw_station_board(canvas,plaque,sc,station.name)
 		if i == 0 and game.model.state.finale:
 			canvas.draw_texture_rect(game.textures.final_flags,Rect2(center+Vector2(-170,-290),Vector2(320,130)),false)
 
