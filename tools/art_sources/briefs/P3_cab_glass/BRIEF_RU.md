@@ -1,0 +1,36 @@
+# Комплект П3 «Кабина: панель и рама»: промпты для GPT
+
+Кадры-образцы лежат рядом (`ref_*`). Файлы с точными именами сохраняются в `tools/art_sources/inbox/P3_cab_glass/`.
+
+## Первое сообщение (блок 0)
+
+```text
+Attached are references for the pack "Кабина: панель и рама". Pack P3, the driver's cab. ref_cab_steam.jpg and ref_cab_electric.jpg show how the cab looks NOW: a flat dark-green dashboard panel with plain gauges and a thin frame; the forest outside the windows is painted by the game itself, so you draw only the cab's own parts. ref_style_steam.jpg is the style anchor (painterly, worn, warm brass and green). I will ask for three images one by one. Common style for every image: hand-painted painterly look, warm worn feel, forest green #466c51, charcoal steel #29383b, honey wood, cream #f5ecd6, aged brass #bb964f, STRONG VOLUME (bold rounded relief, deep shadows, clear lit and shaded sides), soft light from the upper left, the same painting style as the attached approved references. No letters, no numbers, no text anywhere.
+```
+
+### A1 `cab_dash_wood.png`: Приборная панель из дерева и латуни (текстура)
+
+```text
+Asset: cab_dash_wood. Format: landscape 3:2. Background: none, the texture fills the whole picture edge to edge. A flat front view of a driver's dashboard panel for a vintage narrow-gauge locomotive: honey-coloured planed wood with visible grain, a brass trim around the edge, rows of round brass rivets, three empty round recesses with brass rings where gauges will sit (completely empty, dark), a narrow brass strip at the bottom. Worn and warm, strong volume, light from the upper left. No gauges, no needles, no letters, no numbers, no text.
+```
+
+### A2 `cab_dash_steel.png`: Панель из зелёного металла с заклёпками
+
+```text
+Asset: cab_dash_steel. Format: landscape 3:2. Background: none, the texture fills the whole picture edge to edge. A flat front view of a dashboard panel made of forest-green painted steel plates for a steam or electric locomotive: riveted seams, brass corner brackets, scratches and soft wear, three empty round recesses with steel rings where gauges will sit (completely empty), a brass strip at the bottom. Strong volume, light from the upper left. No gauges, no needles, no letters, no numbers, no text.
+```
+
+### A3 `cab_window_frame.png`: Рама лобового стекла кабины
+
+```text
+Asset: cab_window_frame. Format: landscape 3:2. Background: the window opening and everything outside the frame is flat pure magenta #FF00FF. A wide front-view frame of a locomotive cab windshield: thick painted green steel frame with brass trim and rivets, rubber seal, a central divider post, rounded top corners, two big empty window openings filled with pure magenta (no glass, no reflections, no scenery). Strong volume, light from the upper left, worn and warm. No letters, no numbers, no text.
+```
+
+## Чек-лист приёмки
+1. Нет букв, цифр и надписей.
+2. Фон: пурпурный там, где указан, у текстур картинка на весь кадр.
+3. Стиль как у образцов: живопись, тёплый свет сверху-слева, сильный объём.
+4. Предмет целиком, не обрезан.
+
+## Что делаю я после получения
+Принимаю, вырезаю фон, подключаю в игру и показываю кадры «до и после».
