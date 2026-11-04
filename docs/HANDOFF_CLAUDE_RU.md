@@ -314,3 +314,9 @@
 
 - По просьбе владельца в `ROADMAP_RU.md` добавлена Веха 9 (В9.1–В9.6): инвентаризация каждого визуального элемента, оценка по шкале A/B/C/D, список к изменению, поток «карточка задания → GPT → приёмка → подключение» с трекером `art_tracker.json` и скриптом `art_intake.py`. Ничего из этого ещё не сделано. Первый шаг: В9.1 (реестр) и В9.2 (оценка с кадрами).
 - `docs/VISUAL_REVIEW_RU.md` и `qa/visual_audit_1104/` появились в рабочей папке от другой сессии, не закоммичены; это вход для В9.2.
+
+## Казик, этап «в» (preview.72)
+
+- `Casino.bag/bolt_total/receiving_possible/sell_here/sell_common_here/bolt_plan/pay_bolts`, `Model.upgrade(id, branch, via_card, with_bolts)`, данные `casino.bolt_rate/bolt_share/receiving_stations`. В `main.gd`: `build_receiving`, `sell_bolts`, кнопка «Болты (N)» в депо, «Доплатить болтами» в мастерской, «Приёмка болтов (N)» в панели станции (`update_cargo_actions`). Тесты `check_receiving`, `check_receiving_view`.
+- Урок: другая сессия закоммитила весь рабочий `main.gd`, захватив мои недоделанные правки (707ac72). Перед коммитом проверять `git status` и `git diff` по файлам; релизную сборку делать из чистой копии коммита (`git worktree add`, шаблон `tools/templates/` копировать вручную, он вне git).
+

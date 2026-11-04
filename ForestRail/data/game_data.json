@@ -1340,6 +1340,9 @@
       "glint_max_speed": 8.0,
       "glint_spike": "track_spike"
     },
+    "bolt_rate": 3,
+    "bolt_share": 0.5,
+    "receiving_stations": ["A", "F"],
     "sectors": [
       {
         "id": "empty",

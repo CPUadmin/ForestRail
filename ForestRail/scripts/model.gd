@@ -471,7 +471,7 @@ func wear_buffer(speed: float) -> void:
 		else:
 			wear().damage_effect(id, "roll", a * 0.4, "удар об упор")
 
-func upgrade(id: String, branch_id: String, via_card: bool = false) -> bool:
+func upgrade(id: String, branch_id: String, via_card: bool = false, with_bolts: bool = false) -> bool:
 	if not depot_editable() or object_state(id).is_empty():
 		return fail("Улучшения доступны в депо до погрузки")
 	for branch in data.upgrade_catalog:
@@ -486,9 +486,17 @@ func upgrade(id: String, branch_id: String, via_card: bool = false) -> bool:
 		if lv >= int(branch.get("levels", 2)):
 			return fail("Уже установлено" if branch.get("gadget", false) else "Достигнут максимальный уровень")
 		var cost = int(branch.level_costs[lv])
+		# B6.11 c: a half of the price may be paid with the bolts of the bag (gadgets only come from the casino)
+		var plan: Dictionary = {}
+		if with_bolts:
+			if branch.get("gadget", false): return fail("Гаджеты болтами не оплачиваются: их выбивают в казике")
+			plan = casino().bolt_plan(cost)
+			if int(plan.count) <= 0: return fail("В мешке нет болтов, чтобы доплатить")
+			cost -= int(plan.coins)
 		if state.money < cost:
 			return fail("Не хватает %d монет" % (cost - state.money))
 		state.money -= cost
+		if with_bolts: casino().pay_bolts(plan)
 		object.levels[branch_id] = lv + 1
 		return true
 	return false

@@ -53,6 +53,71 @@ func deposit(id: String, count: int) -> int:
 func tokens() -> int:
 	return int(st().tokens)
 
+# ---- the receiving desk (B6.11 stage c): bolts for coins at the depot and at the stations A and F, and a half of the
+# price of a workshop upgrade paid with bolts (1 bolt = 3 coins, never more than the half; the rare finds are kept out)
+
+# What is in the bag: [{id, name, count, coins, tokens, kind}] in the order of the table.
+func bag() -> Array:
+	var result: Array = []
+	for def in cfg().junk:
+		var count = junk_count(str(def.id))
+		if count > 0: result.append({"id": str(def.id), "name": str(def.name), "count": count, "coins": int(def.coins), "tokens": int(def.tokens), "kind": str(def.kind)})
+	return result
+
+func bolt_total() -> int:
+	var sum = 0
+	for entry in bag(): sum += int(entry.count)
+	return sum
+
+# The desk works in the depot and at the stations with a receiving point, with the train standing at the platform.
+func receiving_possible() -> bool:
+	if m.state.phase == "depot": return true
+	if m.state.phase != "route": return false
+	var interaction = m.station_interaction()
+	return bool(interaction.can_transfer) and str(interaction.station_id) in cfg().receiving_stations
+
+func receiving_why() -> String:
+	return "" if receiving_possible() else "Приёмка болтов работает в депо и на станциях Лесная и Дальний бор: остановись у платформы"
+
+# Sells here: the same as sell(), but only where the desk is. Returns the coins.
+func sell_here(id: String, count: int) -> int:
+	if not receiving_possible():
+		m.message = receiving_why()
+		return 0
+	return sell(id, count)
+
+# Everything of the common kinds (track and machine junk) in one go; the rare finds stay. Returns the coins.
+func sell_common_here() -> int:
+	if not receiving_possible():
+		m.message = receiving_why()
+		return 0
+	var sum = 0
+	for entry in bag():
+		if str(entry.kind) != "rare": sum += sell(str(entry.id), int(entry.count))
+	return sum
+
+# How the bolts of the bag would pay a part of a price: {"bolts": [[id, count]], "count": n, "coins": coins saved}.
+# The cheapest in tokens go first and the rare finds never; at most the share of the price (a half).
+func bolt_plan(cost: int) -> Dictionary:
+	var rate = int(cfg().bolt_rate)
+	var room = int(floor(float(cost) * float(cfg().bolt_share) / float(rate) + 0.0001))
+	var order: Array = []
+	for entry in bag():
+		if str(entry.kind) != "rare": order.append(entry)
+	order.sort_custom(func(a, b): return int(a.tokens) < int(b.tokens))
+	var plan: Array = []
+	var used = 0
+	for entry in order:
+		if used >= room: break
+		var take = mini(int(entry.count), room - used)
+		plan.append([str(entry.id), take])
+		used += take
+	return {"bolts": plan, "count": used, "coins": used * rate}
+
+func pay_bolts(plan: Dictionary) -> void:
+	for pair in plan.bolts:
+		st().junk[str(pair[0])] = junk_count(str(pair[0])) - int(pair[1])
+
 # ---- the cards
 
 func card_def(id: String) -> Dictionary:
