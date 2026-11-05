@@ -2972,20 +2972,20 @@ func draw_cab_scene(size: Vector2) -> void:
 # nose of the machine can be placed against it.
 func draw_cab_ground(project: Callable, travelled: float) -> void:
 	# Use the grass above the exposed cross-section in the existing roadside tile.
-	const TILE_LENGTH = 6.0
+	const TILE_LENGTH = 3.0
 	const TILE_WIDTH = 8.0
 	const GRASS_TOP = 0.08
-	const GRASS_BOTTOM = 0.20
-	const ROW_LENGTH = TILE_LENGTH / 4.0
-	var phase = fposmod(travelled, TILE_LENGTH)
+	const GRASS_BOTTOM = 0.18
+	const ROW_LENGTH = TILE_LENGTH / 2.0
+	# Mirror alternate tiles so the grass strip has no hard edge as it passes the cab.
+	var phase = fposmod(travelled, TILE_LENGTH * 2.0)
 	for row in range(24, -1, -1):
 		var start = float(row) * ROW_LENGTH - phase
 		var end = start + ROW_LENGTH
 		if end <= 1.3: continue
 		var near = maxf(start, 1.3)
-		var fraction = float(row % 4) * 0.25
-		var v_near = lerpf(GRASS_BOTTOM, GRASS_TOP, fraction + (near - start) / TILE_LENGTH)
-		var v_far = lerpf(GRASS_BOTTOM, GRASS_TOP, fraction + 0.25)
+		var v_near = lerpf(GRASS_BOTTOM, GRASS_TOP, pingpong((near + phase) / TILE_LENGTH, 1.0))
+		var v_far = lerpf(GRASS_BOTTOM, GRASS_TOP, pingpong((end + phase) / TILE_LENGTH, 1.0))
 		var tint_near = Color(0.83, 0.96, 0.83, 0.34 * (1.0 - smoothstep(9.0, 29.0, near)))
 		var tint_far = Color(tint_near, 0.34 * (1.0 - smoothstep(9.0, 29.0, end)))
 		if tint_near.a <= 0.0: continue
