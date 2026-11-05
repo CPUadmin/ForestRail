@@ -82,6 +82,10 @@ const STOCK_CAB_AXLES = {
 	"locomotive": Vector2(398, 1004),
 	"pneumatic": Vector2(1162, 1547),
 	"pole": Vector2(437, 1057),
+	# the flatbeds: the wheels stand in the axle boxes of the picture that is drawn (the old numbers were measured on another picture)
+	"handcar": Vector2(278.4, 625.0),
+	"sail": Vector2(277.8, 624.6),
+	"wagon": Vector2(1149.3, 1513.9),
 }
 var manifest: Dictionary
 var assets: Dictionary
@@ -298,9 +302,10 @@ func body_bounds(id: String) -> Rect2:
 	return result.expand(Vector2(-body_width(id)*0.5,0)).expand(Vector2(body_width(id)*0.5,0))
 
 func wheel_positions(id: String) -> Array:
-	if STOCK_CAB_AXLES.has(id) and not is_skinned(id):
-		var axle_x: Vector2 = STOCK_CAB_AXLES[id]
-		var axle_y: float = STOCK_BODY[id][2]
+	var kind = "wagon" if id.begins_with("W") else id
+	if STOCK_CAB_AXLES.has(kind) and not is_skinned(id):
+		var axle_x: Vector2 = STOCK_CAB_AXLES[kind]
+		var axle_y: float = STOCK_BODY[kind][2]
 		return [
 			stock_body_point(id, Vector2(axle_x.x, axle_y)),
 			stock_body_point(id, Vector2(axle_x.y, axle_y)),

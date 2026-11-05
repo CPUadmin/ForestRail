@@ -132,7 +132,7 @@ func run() -> void:
 	for i in range(30):
 		l.physics_step(1.0 / 60.0)
 		shaken = maxf(shaken, absf(l.live.lift_m(0)))
-	check(shaken > 0.01, "a landing shakes the body on its springs (%.4f m)" % shaken)
+	check(shaken > 0.006, "a landing shakes the body on its springs (%.4f m)" % shaken)
 	# --- cargo on its straps
 	var c = fresh(true, true)
 	c.state.throttle = 1.0

@@ -136,21 +136,57 @@ func run() -> void:
 	accelerate(drop, 100.0)
 	drop.set_stick(7.0)
 	var steps = 0
-	while drop.z < 2.0 and not drop.crashed and steps < 600:
+	while drop.z < 5.0 and not drop.crashed and steps < 900:
 		drop.step(1.0 / 60.0)
 		steps += 1
-	check(drop.airborne and drop.z >= 2.0 and not drop.crashed, "climbing to a few metres (%.1f)" % drop.z)
+	check(drop.airborne and drop.z >= 5.0 and not drop.crashed, "climbing to a few metres (%.1f)" % drop.z)
 	drop.set_stick(0.0)
 	drop.set_throttle(0.0)
 	run_steps(drop, 8.0)
 	check(drop.crashed and drop.crash_reason == "грубая посадка", "a fall from a height is a crash (%s)" % drop.crash_reason)
-	# too high: into the treetops
+	# too high: into the treetops (the ceiling is 30 m now; the flight itself is hard, so the test puts the zeppelin high up)
 	var rocket = Zeppelin.new()
 	rocket.set_throttle(1.0)
-	accelerate(rocket, 100.0)
-	rocket.set_stick(12.0)
-	run_steps(rocket, 25.0)
-	check(rocket.crashed and rocket.crash_reason.begins_with("врезался"), "climbing above 12 m is a crash into the treetops (%s)" % rocket.crash_reason)
+	rocket.airborne = true
+	rocket.v = 30.0
+	rocket.z = 29.5
+	rocket.vz = 4.0
+	rocket.set_stick(6.0)
+	run_steps(rocket, 1.0)
+	check(rocket.crashed and rocket.crash_reason.begins_with("врезался"), "climbing above 30 m is a crash into the treetops (%s)" % rocket.crash_reason)
+	# the flight is harder than the run: the propeller pulls less in the air, a climb costs speed
+	var ground = Zeppelin.new()
+	ground.v = 36.0
+	ground.set_throttle(1.0)
+	ground.set_pitch(0.9)
+	ground.step(1.0 / 60.0)
+	var on_rail = ground.thrust
+	var up = Zeppelin.new()
+	up.airborne = true
+	up.v = 36.0
+	up.z = 2.0
+	up.vz = 0.0
+	up.set_throttle(1.0)
+	up.set_pitch(0.9)
+	up.set_stick(3.5)
+	up.step(1.0 / 60.0)
+	check(up.thrust < on_rail * 0.7, "in the air the propeller pulls much less than on the rail (%.0f against %.0f N)" % [up.thrust, on_rail])
+	var climbing = Zeppelin.new()
+	climbing.airborne = true
+	climbing.v = 36.0
+	climbing.z = 3.0
+	climbing.vz = 5.0
+	climbing.set_stick(3.5)
+	var v0 = climbing.v
+	climbing.step(1.0 / 60.0)
+	var level = Zeppelin.new()
+	level.airborne = true
+	level.v = 36.0
+	level.z = 3.0
+	level.vz = 0.0
+	level.set_stick(3.5)
+	level.step(1.0 / 60.0)
+	check(climbing.v < level.v, "a climb costs speed (%.3f against %.3f m/s)" % [climbing.v, level.v])
 	# the penalty: half of the money, not less than 300, never more than the money
 	check(z.crash_penalty(1000) == 500 and z.crash_penalty(400) == 300 and z.crash_penalty(250) == 250 and z.crash_penalty(0) == 0, "the penalty is half of the money, at least 300, never above the money")
 	# the wind: a head wind raises the airspeed, so the wheels are unloaded more

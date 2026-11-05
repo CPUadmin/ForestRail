@@ -21,7 +21,9 @@ const DEFAULTS = {
 	"engine_efficiency": 0.25, "joule_per_liter": 8500000.0, "fuel_l": 40.0,
 	"heat": 0.04, "cooling_base": 0.03, "cooling_per_mps": 0.003, "ambient": 0.1,
 	"redline_wear": 0.20,
-	"landing_max_vz": 3.0, "landing_max_alpha": 8.0, "landing_speed_loss": 0.20, "ceiling_m": 12.0,
+	"landing_max_vz": 5.0, "landing_max_alpha": 12.0, "landing_speed_loss": 0.20, "ceiling_m": 30.0,
+	# the flight is harder than the run (05.11.2026): the propeller pulls less in the air and less still higher up, a climb costs speed
+	"air_thrust": 0.62, "air_thrust_alt": 0.5, "climb_energy": 1.0,
 	"crash_penalty_share": 0.5, "crash_penalty_min": 300,
 }
 
@@ -196,6 +198,7 @@ func step(dt: float, slope: float = 0.0, wind_along: float = 0.0) -> void:
 	# the forces along the rail
 	lift = lift_force(v_air, stick)
 	thrust = propeller_thrust(v_air) if power > 0.0 else 0.0
+	if airborne: thrust *= c("air_thrust") * (1.0 - c("air_thrust_alt") * clampf(z / c("ceiling_m"), 0.0, 1.0))
 	drag = drag_force(v_air, stick)
 	var normal_force = maxf(0.0, weight() * cos(slope) - lift)
 	load_fraction = clampf(normal_force / maxf(1.0, weight() * cos(slope)), 0.0, 1.0)
@@ -222,6 +225,8 @@ func step(dt: float, slope: float = 0.0, wind_along: float = 0.0) -> void:
 		z += vz * dt
 		var force_air = thrust - drag * signf(v_air) - weight() * sin(slope) * 0.0
 		v = maxf(0.0, v + force_air / c("mass_kg") * dt)
+		# the energy: a climb is paid with speed, a descent gives it back
+		v = maxf(0.0, v - c("climb_energy") * G * vz / maxf(v, 12.0) * dt)
 		if z > c("ceiling_m"):
 			crash("врезался в кроны: слишком высоко")
 			return
