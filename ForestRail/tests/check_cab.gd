@@ -185,6 +185,15 @@ func run() -> void:
 		await prepare("steam")
 		await key(KEY_E)
 		for i in range(6): await frame()
+		var whistle := Rect2()
+		for hit in game.cab_hits:
+			if hit.id == "whistle": whistle = hit.rect
+		check(whistle.has_area() and view.encloses(whistle), "steam whistle cord has a visible click target")
+		var whistles = int(game.sound.played.get("whistle", 0))
+		await mouse(whistle.get_center(), true)
+		await mouse(whistle.get_center(), false)
+		check(game.whistle_pull > 0.0 and int(game.sound.played.get("whistle", 0)) == whistles + 1, "click pulls the cord and plays the steam whistle")
+		if resolution.y == 900: await shot("steam_whistle")
 		var door = Rect2()
 		var bucket = Rect2()
 		for hit in game.steam_hits:

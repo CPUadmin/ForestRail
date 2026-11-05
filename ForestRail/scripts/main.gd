@@ -98,6 +98,7 @@ var cab_resume = false
 var lamp_manual = -1
 var wiper_on = false
 var wiper_phase = 0.0
+var whistle_pull = 0.0
 var mini_button: Button   # the invisible button over the minimap; the cab dashboard has its own gauges there
 var was_docked = false
 var cab_hits: Array = []
@@ -1889,7 +1890,11 @@ func cab_button(id: String) -> void:
 		sound.play("gear", 0.5, 0.8)
 		return
 	if id == "whistle":
-		sound.play("horn", 0.9)
+		if model.vehicle_id() == "steam":
+			whistle_pull = 1.0
+			sound.play("whistle", 0.9)
+		else:
+			sound.play("horn", 0.9)
 		return
 	if id == "forward" or id == "back":
 		if model.set_reverser(1 if id == "forward" else -1): save_game()
@@ -2145,6 +2150,7 @@ func cancel_drag() -> void:
 
 func _process(dt: float) -> void:
 	time += dt
+	whistle_pull = move_toward(whistle_pull, 0.0, dt * 3.0)
 	if wiper_on or wiper_phase > 0.0:
 		wiper_phase += dt * 0.75
 		if wiper_phase >= 1.0:
@@ -3449,11 +3455,15 @@ func draw_cab_dash_details(size: Vector2, layout: Dictionary) -> void:
 		draw_rect(Rect2(tube.position.x - 6, tube.end.y, tube.size.x + 12, 8), brass)
 		draw_string(font, tube.position + Vector2(-20, tube.size.y + 26), "уровень", HORIZONTAL_ALIGNMENT_CENTER, 56, 11, Color("a9a589"))
 		# whistle cord with a ring, swaying a little with the speed
-		var sway = sin(time * 3.0) * minf(6.0, absf(float(model.state.v)))
+		var sway = sin(time * 3.0) * minf(6.0, absf(float(model.state.v))) if not settings.reduce_motion else 0.0
 		var cord_top = Vector2(size.x * 0.5 + 220, 0.0)
-		var ring_at = Vector2(size.x * 0.5 + 224 + sway, top - 60)
+		var ring_at = Vector2(size.x * 0.5 + 224 + sway, top - 60 + 12.0 * whistle_pull)
 		draw_line(Vector2(cord_top.x, size.y * 0.075), ring_at, Color("a58b57"), 3.0, true)
-		draw_arc(ring_at + Vector2(0, 8), 8, 0, TAU, 16, brass, 3.0, true)
+		var ring = ring_at + Vector2(0, 8)
+		var hit = Rect2(ring - Vector2(20, 20), Vector2(40, 40))
+		var hovered = hit.has_point(get_global_mouse_position())
+		draw_arc(ring, 8, 0, TAU, 16, GOLD if hovered else brass, 3.0, true)
+		cab_hits.append({"id": "whistle", "rect": hit})
 
 # Direction switch in the top strip of the dashboard: two buttons, the engaged one lit.
 func draw_cab_reverser(size: Vector2, layout: Dictionary) -> void:
