@@ -137,6 +137,7 @@ func run() -> void:
 func run_high_speed_trial() -> Dictionary:
 	const SPEED = 60.0
 	const FRAMES = 240
+	const WARMUP_FRAMES = 15
 	game.set_physics_process(false)
 	game.model.state.s = 1000.0
 	game.model.state.v = SPEED
@@ -149,16 +150,22 @@ func run_high_speed_trial() -> Dictionary:
 		game.model.last_movement = step
 		game.model.state.s += step
 	get_tree().physics_frame.connect(advance)
-	var start = Time.get_ticks_usec()
 	var previous = game.model.render_s()
+	var startup_step = 0.0
+	for i in range(WARMUP_FRAMES):
+		await get_tree().process_frame
+		var position: float = game.model.render_s()
+		startup_step = maxf(startup_step, position - previous)
+		previous = position
+	var start = Time.get_ticks_usec()
 	var worst_lag = 0.0
-	var worst_step = 0.0
+	var frame_steps: Array[float] = []
 	var furthest_x = 0.0
 	for frame_index in range(FRAMES):
 		await get_tree().process_frame
 		var position: float = game.model.render_s()
 		worst_lag = maxf(worst_lag, absf(position - game.camera_s))
-		worst_step = maxf(worst_step, position - previous)
+		frame_steps.append(position - previous)
 		furthest_x = maxf(furthest_x, game.world_point(position).x)
 		if position < previous - 0.01: failures.append("60 m/s interpolation moved backwards")
 		previous = position
@@ -167,6 +174,11 @@ func run_high_speed_trial() -> Dictionary:
 	if furthest_x > root.size.x * 0.90: failures.append("60 m/s camera should keep the head of the train inside the frame")
 	await shot("high_speed_trial")
 	get_tree().physics_frame.disconnect(advance)
-	var result = {"speed_m_s": SPEED, "average_fps": FRAMES / elapsed, "max_camera_lag_m": worst_lag, "max_frame_step_m": worst_step, "max_head_screen_x": furthest_x}
+	frame_steps.sort()
+	var result = {
+		"speed_m_s": SPEED, "average_fps": FRAMES / elapsed, "max_camera_lag_m": worst_lag,
+		"startup_max_step_m": startup_step, "steady_max_step_m": frame_steps.back(),
+		"steady_p95_step_m": frame_steps[ceili(FRAMES * 0.95) - 1], "max_head_screen_x": furthest_x,
+	}
 	print("HIGH SPEED TRIAL ", result)
 	return result
