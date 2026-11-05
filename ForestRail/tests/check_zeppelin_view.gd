@@ -100,5 +100,20 @@ func run() -> void:
 		game.cab_view = false
 		game.model.state.throttle = 0.0
 		game.model.set_zeppelin_stick(0.0)
+	# the garage and the depot with the zeppelin chosen
+	game.model.state.phase = "depot"
+	game.screen = "depot"
+	game.tab = "Гараж"
+	game.animate_in_tests = false
+	game.rebuild()
+	for i in range(8): await get_tree().process_frame
+	for scroll in game.ui.find_children("*", "ScrollContainer", true, false): scroll.scroll_vertical = 100000
+	for i in range(6): await get_tree().process_frame
+	game.queue_redraw()
+	await shot("zeppelin_garage")
+	game.tab = "Улучшения"
+	game.rebuild()
+	for i in range(8): await get_tree().process_frame
+	await shot("zeppelin_workshop")
 	print("ZEPPELIN VIEW CHECKS ", checks, "; FAILURES ", failures)
 	get_tree().quit(0 if failures.is_empty() else 1)

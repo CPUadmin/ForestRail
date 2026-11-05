@@ -887,7 +887,7 @@ func build_depot(size: Vector2) -> void:
 		elif model.vehicle_id() == "handcar":
 			details += "\nРучной привод · без топлива\nМаховик сохраняет накат"
 		else:
-			var drive = {"motorcar":"Передачи R / N / 1–5","steam":"Паровой вентиль","pneumatic":"Воздушный вентиль","locomotive":"Регулятор электротяги"}
+			var drive = {"motorcar":"Передачи R / N / 1–5","steam":"Паровой вентиль","pneumatic":"Воздушный вентиль","locomotive":"Регулятор электротяги","zeppelin":"Газ, шаг винта, ручка"}
 			details += "\n%s · до %.0f км/ч\n" % [drive[model.vehicle_id()], model.top_speed_kmh()] + energy_text() + "\n" + forecast_line(model.current_mission())
 		var details_y = maxf(info_top + 88, info_top + 7 + line_height(32) + 6)
 		var details_lines = wrapped_lines(details, left_width - 20, 19)
@@ -1718,7 +1718,8 @@ const VEHICLE_ROLE = {
 	"steam": "тянет много, но разгоняется медленнее всех; уголь и вода",
 	"motorcar": "самая быстрая; бензин расходует быстро",
 	"pneumatic": "сильная на подъёмах; воздух кончается, трубки обмерзают",
-	"locomotive": "ровная тяга и рекуперация; батарея садится под нагрузкой"}
+	"locomotive": "ровная тяга и рекуперация; батарея садится под нагрузкой",
+	"zeppelin": "135 км/ч, взлёт на 130; винт, ручка и газ вручную, грубая посадка стоит половину монет"}
 
 # A card with the picture of the machine or wagon on its left; returns the box for the text and buttons.
 func picture_card(parent: Node, id: String, bright: bool, edge: Color) -> VBoxContainer:
@@ -1759,7 +1760,7 @@ func vehicle_summary(id: String) -> String:
 	var base = model.vehicle_base(id)
 	var places = "%d места на платформе" % int(base.deck_slots) if int(base.deck_slots) > 0 else "без мест на кузове"
 	var wagons = "вагонов: до %d" % int(base.get("max_wagons", 0)) if int(base.get("max_wagons", 0)) > 0 else "без вагонов"
-	var energy = {"handcar": "без топлива", "steam": "уголь и вода", "motorcar": "бензин", "pneumatic": "сжатый воздух", "pole": "мускулы и шест", "sail": "ветер", "locomotive": "аккумулятор"}.get(id, "")
+	var energy = {"handcar": "без топлива", "steam": "уголь и вода", "motorcar": "бензин", "pneumatic": "сжатый воздух", "pole": "мускулы и шест", "sail": "ветер", "locomotive": "аккумулятор", "zeppelin": "бензин"}.get(id, "")
 	return "%s · %s · %s" % [places, wagons, energy]
 
 func station_number(id: String) -> int:
@@ -3452,7 +3453,7 @@ func draw_plain_header(size: Vector2, top: float, kind: String, brass: Color) ->
 	# nameplate
 	var plate = Rect2(size.x * 0.5 - 150, top + 12, 300, 26)
 	draw_style_box(style(Color("2a2218"), brass, 4), plate)
-	var title = {"steam": "ЛЕСНАЯ КОЛЕЯ · ПАРОВОЗ", "motorcar": "ЛЕСНАЯ КОЛЕЯ · БЕНЗИНОВАЯ", "locomotive": "ЛЕСНАЯ КОЛЕЯ · ЭЛЕКТРОВОЗ", "pneumatic": "ЛЕСНАЯ КОЛЕЯ · ПНЕВМОВОЗ"}.get(kind, "ЛЕСНАЯ КОЛЕЯ")
+	var title = {"steam": "ЛЕСНАЯ КОЛЕЯ · ПАРОВОЗ", "motorcar": "ЛЕСНАЯ КОЛЕЯ · БЕНЗИНОВАЯ", "locomotive": "ЛЕСНАЯ КОЛЕЯ · ЭЛЕКТРОВОЗ", "pneumatic": "ЛЕСНАЯ КОЛЕЯ · ПНЕВМОВОЗ", "zeppelin": "ЛЕСНАЯ КОЛЕЯ · ЦЕППЕЛИН"}.get(kind, "ЛЕСНАЯ КОЛЕЯ")
 	draw_string(font, plate.position + Vector2(0, 19), title, HORIZONTAL_ALIGNMENT_CENTER, plate.size.x, 14, Color("e6cf8b"))
 	draw_circle(plate.position + Vector2(8, 13), 2.5, brass)
 	draw_circle(plate.position + Vector2(plate.size.x - 8, 13), 2.5, brass)

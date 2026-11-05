@@ -37,7 +37,7 @@ func drive(m, seconds: float, follow_pitch: bool = true) -> void:
 func run() -> void:
 	var m = fresh()
 	check(m.vehicle_id() == "zeppelin", "the zeppelin can be bought and chosen")
-	check("zeppelin" in m.HIDDEN_VEHICLE_IDS and "zeppelin" not in m.VEHICLE_IDS, "it is hidden from the garage until the cab and the picture are ready")
+	check("zeppelin" in m.VEHICLE_IDS and not bool(m.vehicle_base("zeppelin").get("hidden", false)), "it is in the garage list of the game")
 	check(m.vehicle_base("zeppelin").top_speed_kmh == 135, "the data: top speed 135 km/h")
 	# the levers hold their positions
 	check(m.set_zeppelin_pitch(0.7) and is_equal_approx(m.zeppelin_pitch(), 0.7), "the pitch lever is set")

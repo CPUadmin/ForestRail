@@ -286,7 +286,7 @@ func draw_minimap() -> void:
 func draw_status() -> void:
 	var r = Rect2(size.x-status_width()-22,hud_top(),status_width(),hud_height())
 	var f=r.size.y/100.0
-	var accent={"handcar":Color("8fc46a"),"pole":Color("c9b87a"),"sail":Color("e8e0c8"),"steam":Color("e8825a"),"motorcar":Color("e6b34a"),"locomotive":Color("6cc4e0"),"pneumatic":Color("9fd6e8")}.get(game.model.vehicle_id(),GOLD)
+	var accent={"handcar":Color("8fc46a"),"pole":Color("c9b87a"),"sail":Color("e8e0c8"),"steam":Color("e8825a"),"motorcar":Color("e6b34a"),"locomotive":Color("6cc4e0"),"pneumatic":Color("9fd6e8"),"zeppelin":Color("b9c4cc")}.get(game.model.vehicle_id(),GOLD)
 	panel(r,Color("2a2a22") if game.model.vehicle_id()=="motorcar" else Color("1f2f30"),accent)
 	var m = game.model
 	var stats = m.object_stats(m.vehicle_id())

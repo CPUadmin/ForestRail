@@ -283,7 +283,6 @@
     {
       "id": "zeppelin",
       "name": "Рельсовый цеппелин",
-      "hidden": true,
       "cost": 5000,
       "mass_kg": 400,
       "deck_slots": 2,

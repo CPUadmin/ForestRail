@@ -12,10 +12,10 @@ const Wind = preload("res://scripts/wind.gd")
 const Zeppelin = preload("res://scripts/zeppelin.gd")
 const G = 9.81
 const BUFFER_SAFE_SPEED = 1.0
-const VEHICLE_IDS = ["handcar", "pole", "sail", "steam", "motorcar", "pneumatic", "locomotive"]
+const VEHICLE_IDS = ["handcar", "pole", "sail", "steam", "motorcar", "pneumatic", "locomotive", "zeppelin"]
 const WAGON_IDS = ["W01", "W02", "W03"]
 # Classes that exist in the data but are not shown to the player yet (no view, no cab).
-const HIDDEN_VEHICLE_IDS = ["zeppelin"]   # B6.5: the model and the physics exist, the cab and the picture follow
+const HIDDEN_VEHICLE_IDS = []   # machines that exist in the data but are not shown in the garage yet (none now)
 # Holds cargo migrated from an old petrol deck until it is unloaded (ECONOMY_v3_2_RU.md).
 const TEMP_WAGON = "WT"
 var data: Dictionary
