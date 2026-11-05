@@ -194,11 +194,16 @@ func dial(canvas, centre: Vector2, radius: float, value: float, title: String, r
 	canvas.draw_string(font, centre + Vector2(-radius, radius * 0.62), title, HORIZONTAL_ALIGNMENT_CENTER, radius * 2.0, int(round(13.0 * k)), Color("a8b3a3"))
 	canvas.draw_string(font, centre + Vector2(-radius, radius * 0.95), readout, HORIZONTAL_ALIGNMENT_CENTER, radius * 2.0, int(round(15.0 * k)), GOLD)
 
+# the takeoff speed of this very machine (the wing upgrade and the flaps gadget lower it)
+func takeoff_kmh_now() -> float:
+	var speed = model.zep.takeoff_speed(float(model.vehicle_base("zeppelin").zeppelin.takeoff_alpha)) * 3.6
+	return speed if is_finite(speed) else float(model.vehicle_base("zeppelin").zeppelin.takeoff_kmh)
+
 func draw_airspeed(canvas, zep) -> void:
 	var r = 62.0 * k
 	var c = origin + Vector2(472.0, 98.0) * k
 	var kmh = absf(zep.v) * 3.6
-	var takeoff = float(model.vehicle_base("zeppelin").zeppelin.takeoff_kmh)
+	var takeoff = takeoff_kmh_now()
 	dial(canvas, c, r, kmh / SPEED_MAX_KMH, "км/ч", "%d" % roundi(kmh), [[(takeoff - 8.0) / SPEED_MAX_KMH, (takeoff + 6.0) / SPEED_MAX_KMH, GREEN]], [0, 40, 80, 120, 160])   # the green mark: the takeoff speed
 
 func draw_revs(canvas, zep) -> void:
@@ -256,5 +261,5 @@ func draw_warning(canvas, zep) -> void:
 	elif bool(zep.airborne): line = "ПОЛЁТ: держи ручку, садись плавно"
 	if line != "": text(canvas, Vector2(300.0, 187.0), line, 13, color, 290.0)
 	if bool(model.state.get("tutorial", false)):
-		var lesson = hint(zep, float(model.vehicle_base("zeppelin").zeppelin.takeoff_kmh), float(model.state.brake), float(model.state.throttle))
+		var lesson = hint(zep, takeoff_kmh_now(), float(model.state.brake), float(model.state.throttle))
 		if lesson != "": text(canvas, Vector2(20.0, 22.0), lesson, 14, Color("e9ce83"), 640.0, HORIZONTAL_ALIGNMENT_LEFT)
