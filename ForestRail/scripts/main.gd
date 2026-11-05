@@ -2954,7 +2954,12 @@ func draw_cab_scene(size: Vector2) -> void:
 		draw_rect(view, Color(0.02, 0.04, 0.12, night_shade() * 0.97))
 		if lights_lit():
 			var beam = Color(1.0, 0.88, 0.55, 0.22 * clampf(0.5 + night * 0.5, 0.0, 1.0))
-			draw_polygon(PackedVector2Array([Vector2(view.size.x * 0.5, view.size.y), Vector2(view.size.x * 0.28, view.size.y * 0.62), Vector2(view.size.x * 0.72, view.size.y * 0.62)]), PackedColorArray([beam, Color(beam, 0.0), Color(beam, 0.0)]))
+			var track_center = Vector2(float(look.cx), view.end.y)
+			var vanishing_point = Vector2(track_center.x, float(look.horizon))
+			var spread = Vector2(view.size.y * 0.24, 0.0)
+			var clear_beam = Color(beam, 0.0)
+			draw_polygon(PackedVector2Array([vanishing_point, track_center - spread, track_center]), PackedColorArray([clear_beam, clear_beam, beam]))
+			draw_polygon(PackedVector2Array([vanishing_point, track_center, track_center + spread]), PackedColorArray([clear_beam, beam, clear_beam]))
 	draw_set_transform_matrix(Transform2D.IDENTITY)
 	draw_cab_frame(size, top)
 	draw_cab_dash_details(size, layout)
