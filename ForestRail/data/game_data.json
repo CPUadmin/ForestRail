@@ -1255,6 +1255,50 @@
       "scope": "selected_vehicle_id"
     },
     {
+      "id": "zeppelin_tank",
+      "target_type": "zeppelin",
+      "name": "Бак",
+      "level_costs": [120, 220],
+      "levels": 2,
+      "effects_at_level": {
+        "fuel_capacity_multiplier": [1.35, 1.7]
+      },
+      "scope": "selected_vehicle_id"
+    },
+    {
+      "id": "zeppelin_engine",
+      "target_type": "zeppelin",
+      "name": "Мотор",
+      "level_costs": [240, 450],
+      "levels": 2,
+      "effects_at_level": {
+        "zep_power_multiplier": [1.1, 1.2]
+      },
+      "scope": "selected_vehicle_id"
+    },
+    {
+      "id": "zeppelin_wing",
+      "target_type": "zeppelin",
+      "name": "Крыло",
+      "level_costs": [200, 380],
+      "levels": 2,
+      "effects_at_level": {
+        "zep_wing_multiplier": [1.1, 1.2]
+      },
+      "scope": "selected_vehicle_id"
+    },
+    {
+      "id": "zeppelin_brakes",
+      "target_type": "zeppelin",
+      "name": "Тормоза",
+      "level_costs": [110, 200],
+      "levels": 2,
+      "effects_at_level": {
+        "brake_multiplier": [1.25, 1.5]
+      },
+      "scope": "selected_vehicle_id"
+    },
+    {
       "id": "sail_spinnaker",
       "target_type": "sail",
       "name": "Спинакер",

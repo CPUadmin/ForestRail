@@ -38,7 +38,7 @@ func run() -> void:
 	var two_each = true
 	for machine in per_machine: two_each = two_each and int(per_machine[machine]) == 2
 	check(per_machine.size() == 9 and two_each, "every machine has exactly two cards (%d machines)" % per_machine.size())
-	check(c.unowned_available().size() == 4, "only the gadgets that exist in the game can drop now (%d)" % c.unowned_available().size())
+	check(c.unowned_available().size() == 6, "only the gadgets that exist in the game can drop now (%d)" % c.unowned_available().size())   # stoker, autopilot, supercap, cooling, superheater, spinnaker
 	# the expected return of the wheel without the card, in tokens
 	var value = 0.0
 	for sector in cfg.sectors:
@@ -98,17 +98,17 @@ func run() -> void:
 	t.casino().trip_done(false)
 	t.casino().trip_done(true)
 	check(t.casino().pity() == 3, "trips feed the guarantee (+1, +2 at night or in the rain)")
-	# no duplicates: the four existing gadgets come out one after another, then the double in tokens
+	# no duplicates: the six existing gadgets come out one after another, then the double in tokens
 	var d = fresh(11)
 	d.casino().st().tokens = 1000
 	var found: Array = []
-	for i in range(4):
+	for i in range(6):
 		d.casino().st().pity = 499
 		var r = d.casino().spin()
 		found.append(str(r.card))
 	var unique: Dictionary = {}
 	for id in found: unique[id] = true
-	check(unique.size() == 4, "four forced cards are four different cards (%s)" % str(found))
+	check(unique.size() == 6, "six forced cards are six different cards (%s)" % str(found))
 	d.casino().st().pity = 499
 	var tokens_before = d.casino().tokens()
 	var extra = d.casino().spin()

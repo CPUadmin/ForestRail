@@ -105,5 +105,22 @@ func run() -> void:
 		check(float(crash.state.s) == float(crash.route.station_s[0]) and float(crash.state.v) == 0.0, "the machine is back at the depot, stopped")
 		check(not crash.air_fly and is_equal_approx(crash.zeppelin_stick(), 0.0), "the flight and the joystick are reset")
 		check(crash.message.begins_with("Крушение"), "the message says what happened")
+	# the upgrades of the workshop: the tank, the engine, the wing, the pads
+	var up = Model.new()
+	up.new_game(42, 2)
+	up.state.money = 100000
+	Fixtures.equip(up, "zeppelin")
+	var base_takeoff = up.zep.takeoff_speed(3.5)
+	var base_brake = float(up.object_stats("zeppelin").brake)
+	check(up.upgrade("zeppelin", "zeppelin_engine") and up.upgrade("zeppelin", "zeppelin_engine"), "the engine can be upgraded twice")
+	check(up.upgrade("zeppelin", "zeppelin_wing") and up.upgrade("zeppelin", "zeppelin_wing"), "the wing can be upgraded twice")
+	check(up.upgrade("zeppelin", "zeppelin_brakes") and up.upgrade("zeppelin", "zeppelin_tank"), "the pads and the tank can be upgraded")
+	up.state.phase = "route"
+	up.state.engine = true
+	up.physics_step(1.0 / 60.0)
+	check(absf(up.zep.c("power_w") - 48000.0) < 1.0, "the engine upgrade: 40 -> 48 kW (%.0f W)" % up.zep.c("power_w"))
+	check(up.zep.takeoff_speed(3.5) < base_takeoff * 0.97, "a bigger wing lifts at a lower speed (%.1f against %.1f m/s)" % [up.zep.takeoff_speed(3.5), base_takeoff])
+	check(up.zep.c("pad_brake_n") > base_brake * 1.2, "the pads grip harder (%.0f N)" % up.zep.c("pad_brake_n"))
+	check(up.zep.c("fuel_l") > 40.0 * 1.3, "the tank holds more (%.0f l)" % up.zep.c("fuel_l"))
 	print("ZEPPELIN MODEL CHECKS ", checks, "; FAILURES ", failures)
 	get_tree().quit(0 if failures.is_empty() else 1)

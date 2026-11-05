@@ -1767,7 +1767,13 @@ func zeppelin_step(dt: float, fleet: Dictionary, old_v: float) -> float:
 	var slope = route.slope(float(state.s)) * forward
 	# the wind along the nose: the wind of the line is along the direction of the consist, the reverser turns the nose
 	var wind_along = wind_here().x * float(int(state.get("reverser", 1)))
-	zep.cfg.fuel_l = float(vehicle_base().fuel_l)
+	# the upgrades of the machine: the tank, the engine, the wing (a bigger wing takes off slower), the pads
+	var ef = effects("zeppelin")
+	var zcfg = vehicle_base("zeppelin").get("zeppelin", {})
+	zep.cfg.fuel_l = float(object_stats("zeppelin").tank)
+	zep.cfg.power_w = float(zcfg.get("power_w", 40000.0)) * float(ef.get("zep_power_multiplier", 1.0))
+	zep.cfg.wing_area_m2 = float(zcfg.get("wing_area_m2", 12.0)) * float(ef.get("zep_wing_multiplier", 1.0))
+	zep.cfg.pad_brake_n = float(object_stats("zeppelin").brake)
 	zep.fuel = float(fleet.fuel)
 	zep.v = old_v * forward
 	zep.set_throttle(float(state.throttle))
