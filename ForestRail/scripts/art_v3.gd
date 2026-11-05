@@ -606,6 +606,7 @@ func draw_steam_overlay(canvas: Node2D, model) -> void:
 # back from it; the wider the sail is open the shorter the boom looks from the side. The cloth bellies
 # with the wind and ripples along its trailing edge when the trim does not suit the wind.
 var sail_cloth: Dictionary = {}   # the state of the free cloth of the sail (points, velocities, time)
+var reduce_motion_flag = false    # set by the game from the setting «без тряски и мерцания»: the ribbons and the cloth flutter less
 const SAIL_MAST_X = 0.5
 const SAIL_BOOM = 1.6
 const SAIL_FOOT_Y = 1.25
@@ -732,6 +733,22 @@ func draw_sail_overlay(canvas: Node2D, model) -> void:
 				# two triangles per patch: a free cloth can fold, and a folded quad cannot be filled, a triangle always can
 				if absf((q[1] - q[0]).cross(q[2] - q[0])) > 0.5: canvas.draw_polygon(PackedVector2Array([q[0], q[1], q[2]]), tints, PackedVector2Array([uv[0], uv[1], uv[2]]), SAIL_CLOTH)
 				if absf((q[2] - q[0]).cross(q[3] - q[0])) > 0.5: canvas.draw_polygon(PackedVector2Array([q[0], q[2], q[3]]), tints, PackedVector2Array([uv[0], uv[2], uv[3]]), SAIL_CLOTH)
+		# B6.4: telltale ribbons (red on the near side, green on the far side) sewn to the cloth near the mast: in a good trim they
+		# stream straight aft, when the sail luffs or stalls they curl and flutter. The sailor reads the trim from them.
+		var calm_motion = 0.3 if reduce_motion_flag else 1.0
+		for r_index in range(3):
+			var row = [3, 7, 11][r_index]
+			var base = grid[row * (cols + 1) + 2]
+			for side_index in range(2):
+				var ribbon = PackedVector2Array()
+				var ribbon_len = 0.28 * PX
+				var stall = clampf(1.0 - quality, 0.0, 1.0) if model.sail_engaged() else 0.9
+				for seg in range(7):
+					var u = float(seg) / 6.0
+					var wave = sin(t * (9.0 + 4.0 * float(side_index)) + float(r_index) * 1.7 - u * 6.0) * (0.015 + 0.10 * stall) * PX * u * calm_motion
+					var curl = stall * 0.35 * PX * u * u * (1.0 if side_index == 0 else -1.0) * calm_motion
+					ribbon.append(base + Vector2(-fwd * u * ribbon_len * (1.0 - 0.35 * stall), wave + curl + float(side_index) * 0.012 * PX))
+				canvas.draw_polyline(ribbon, Color("c4382b") if side_index == 0 else Color("3f8f52"), maxf(1.5, 0.014 * PX), true)
 		var leech_line = PackedVector2Array()
 		for i in range(rows + 1): leech_line.append(grid[i * (cols + 1) + cols])
 		canvas.draw_polyline(leech_line, Color(0.45, 0.38, 0.28), 1.6, true)

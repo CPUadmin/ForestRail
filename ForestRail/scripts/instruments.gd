@@ -396,6 +396,28 @@ func draw_pole_grounds(total: float, floor_y: float) -> void:
 		put(str(POLE_GROUND_NAME[kind]), Vector2(x + 20.0, strip_y - 6.0), 90, 14, PAPER)
 		x += 110.0
 
+# B6.4: the wind over the line as little arrows at the stations (the direction along the line and the strength now, with the
+# gust that is passing): the sail car sees where the road will be easy and where it will be becalmed.
+func draw_wind_arrows(total: float, floor_y: float) -> void:
+	var m = game.model
+	var view = map_view()
+	put("Ветер сейчас:", Vector2(50, floor_y - 40), 170, 14, MUTED)
+	for i in range(m.data.stations.size()):
+		var s = float(m.route.station_s[i])
+		if s < view.x - 1.0 or s > view.y + 1.0: continue
+		var w = m.wind_here(s)
+		var along = w.x * float(int(m.state.direction))   # toward the larger distance: to the right of the map
+		var strength = w.length()
+		var p = Vector2(map_point(s).x, floor_y - 30.0)
+		var length = clampf(8.0 + strength * 5.0, 12.0, 60.0)
+		var side = 1.0 if along >= 0.0 else -1.0
+		var colour = Color("8fc46a") if strength > 3.0 else Color("e6b34a")
+		var tail = p - Vector2(side * length * 0.5, 0)
+		var tip = p + Vector2(side * length * 0.5, 0)
+		draw_line(tail, tip, colour, 3.0, true)
+		draw_colored_polygon(PackedVector2Array([tip, tip + Vector2(-side * 9.0, -6.0), tip + Vector2(-side * 9.0, 6.0)]), colour)
+		put("%.1f" % strength, p + Vector2(-20, 22), 40, 13, PAPER, HORIZONTAL_ALIGNMENT_CENTER)
+
 func draw_full_map() -> void:
 	draw_rect(Rect2(Vector2.ZERO,size),Color(0.04,0.09,0.07,0.92))
 	panel(Rect2(22,22,size.x-44,size.y-44))
@@ -410,6 +432,7 @@ func draw_full_map() -> void:
 	draw_profile(area,view.x,view.y,floor_y,240,5)
 	draw_map_forest(total,floor_y)
 	if m.vehicle_id()=="pole": draw_pole_grounds(total,floor_y)
+	if m.vehicle_id()=="sail": draw_wind_arrows(total,floor_y)
 	station_hits.clear()
 	var target = game.station_number(m.next_destination())
 	if selected_station<0: selected_station=target

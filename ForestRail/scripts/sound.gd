@@ -3,8 +3,8 @@ extends Node
 # N8: layered ambience, machine sound per class, rail joints in step with the track,
 # a muffled cab. All the audio is synthesised by tools/audio_sources/make_audio.py.
 # Pause silences the machine; interface, payment and finale cues always play.
-const MECHANISM_CLIPS = ["pump", "rail_clack", "rail_clack_a", "rail_clack_b", "rail_tick_a", "rail_tick_b", "rail_tick_c", "gear", "cargo", "steam_chuff", "steam_blow", "whistle", "horn", "petrol_start", "petrol_stall", "contactor", "coupler_clank", "land_thud", "pole_plant_dense", "pole_plant_clay", "pole_plant_stones", "pole_plant_roots", "pole_lift"]
-const CLIP_NAMES = ["pump", "rail_clack", "rail_clack_a", "rail_clack_b", "rail_tick_a", "rail_tick_b", "rail_tick_c", "gear", "cargo", "coins", "finale", "ui_click", "sting_start", "steam_chuff", "steam_blow", "whistle", "horn", "petrol_start", "petrol_stall", "contactor", "coupler_clank", "land_thud", "bird_1", "bird_2", "bird_3", "bird_4", "pole_plant_dense", "pole_plant_clay", "pole_plant_stones", "pole_plant_roots", "pole_lift"]
+const MECHANISM_CLIPS = ["pump", "rail_clack", "rail_clack_a", "rail_clack_b", "rail_tick_a", "rail_tick_b", "rail_tick_c", "gear", "cargo", "steam_chuff", "steam_blow", "whistle", "horn", "petrol_start", "petrol_stall", "contactor", "coupler_clank", "land_thud", "pole_plant_dense", "pole_plant_clay", "pole_plant_stones", "pole_plant_roots", "pole_lift", "sail_flap", "sail_creak"]
+const CLIP_NAMES = ["pump", "rail_clack", "rail_clack_a", "rail_clack_b", "rail_tick_a", "rail_tick_b", "rail_tick_c", "gear", "cargo", "coins", "finale", "ui_click", "sting_start", "steam_chuff", "steam_blow", "whistle", "horn", "petrol_start", "petrol_stall", "contactor", "coupler_clank", "land_thud", "bird_1", "bird_2", "bird_3", "bird_4", "pole_plant_dense", "pole_plant_clay", "pole_plant_stones", "pole_plant_roots", "pole_lift", "sail_flap", "sail_creak"]
 const LOOP_NAMES = ["amb_wind", "amb_rain", "amb_insects", "amb_water", "music_menu", "steam_hiss", "fire_crackle", "petrol_idle", "petrol_run", "electric_hum", "electric_whine", "brake"]
 const MACHINE_LOOPS = ["steam_hiss", "fire_crackle", "petrol_idle", "petrol_run", "electric_hum", "electric_whine", "brake"]
 const INTERFACE_CLIPS = ["coins", "finale", "ui_click", "sting_start"]
@@ -19,6 +19,8 @@ var settings: Dictionary = {}
 var played: Dictionary = {}
 var axle_joints: Array = []
 var clack_gap = 0.0
+var sail_flap_gap = 0.0
+var sail_creak_gap = 0.0
 var last_chuff = 0.0
 var last_pump = 0.0
 var pump_half_turn: int
@@ -158,6 +160,20 @@ func update(model, paused: bool, in_menu: bool, dt: float, in_cab: bool = false)
 		stop_machine()
 		engine_was_on = false
 		return
+	# B6.4: a sail that luffs flaps in the wind; a sail that pulls hard makes the rigging creak
+	if model.vehicle_id() == "sail":
+		sail_flap_gap = maxf(0.0, sail_flap_gap - dt)
+		sail_creak_gap = maxf(0.0, sail_creak_gap - dt)
+		var info: Dictionary = model.sail_info
+		if not info.is_empty():
+			var apparent_wind_speed = float(info.get("apparent", 0.0))
+			var sail_quality = float(info.get("quality", 1.0))
+			if apparent_wind_speed > 1.5 and (sail_quality < 0.5 or not model.sail_engaged()) and sail_flap_gap <= 0.0:
+				sail_flap_gap = randf_range(0.16, 0.42) / clampf(apparent_wind_speed / 6.0, 0.5, 2.0)
+				play("sail_flap", clampf(0.25 + 0.07 * apparent_wind_speed, 0.25, 0.85) * (1.0 - 0.4 * cab_mix), randf_range(0.9, 1.12))
+			elif float(info.get("force", 0.0)) > 120.0 and sail_creak_gap <= 0.0:
+				sail_creak_gap = randf_range(1.1, 2.4)
+				play("sail_creak", clampf(float(info.force) / 400.0, 0.25, 0.7), randf_range(0.92, 1.08))
 	var kind = model.vehicle_id()
 	var throttle = float(model.state.throttle)
 	var brake = float(model.state.brake)

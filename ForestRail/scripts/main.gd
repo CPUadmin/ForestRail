@@ -328,6 +328,7 @@ func load_settings() -> void:
 	apply_settings()
 
 func apply_settings() -> void:
+	if art != null: art.reduce_motion_flag = bool(settings.reduce_motion)
 	for key in ["master", "mechanisms", "forest", "music", "interface"]:
 		settings[key] = clampf(float(settings[key]), 0, 1)
 	settings.fullscreen = settings.fullscreen is bool and settings.fullscreen
@@ -878,7 +879,7 @@ func build_depot(size: Vector2) -> void:
 		var stats = model.object_stats(model.vehicle_id())
 		var details = "%d кг  ·  %d мест" % [model.train_mass(), model.capacity()]
 		if model.vehicle_id() == "sail":
-			details += "\nПарус · без топлива\nВетер задаёт ход: штиль — стоим"
+			details += "\nПарус · без топлива\nВетер задаёт ход: штиль — стоим\n" + wind_route_line()
 		elif model.vehicle_id() == "pole":
 			details += "\nШест · без топлива\nГрунт решает: глина вязнет, камни скользят"
 		elif model.vehicle_id() == "handcar":
@@ -2811,6 +2812,14 @@ func use_station_service() -> void:
 	else: notify(model.message)
 
 # One line for the depot panel and the map: what the next trip needs against what is on board.
+# B6.4: the steady wind of the line at the stations (without gusts), for the sail car in the depot: where the ride will be easy
+func wind_route_line() -> String:
+	model.wind_ready()
+	var parts: Array = []
+	for i in range(model.data.stations.size()):
+		parts.append("%s %.1f" % [str(model.data.stations[i].name), model.wind.strength_at(float(model.route.station_s[i]))])
+	return "Ветер по линии, м/с: " + " · ".join(parts)
+
 func forecast_line(mission: Dictionary = {}) -> String:
 	var f=model.trip_forecast(mission)
 	if f.is_empty(): return ""

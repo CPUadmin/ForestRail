@@ -427,6 +427,27 @@ def make_pole():
     write("pole_lift.wav", pull + pop, peak=0.7)
 
 
+def make_sail():
+    # B6.4: a sail that luffs (a snap of the cloth and a flutter) and the creak of the rigging under load.
+    srng = np.random.default_rng(20261105)
+    def nz(seconds):
+        return srng.standard_normal(int(seconds * SR))
+    s = 0.7
+    t = tt(s)
+    snap = band(nz(s), 350, 3200) * np.exp(-t * 26) * 0.8
+    crack = band(nz(s), 2200, 7000) * np.exp(-t * 90) * 0.35
+    flutter = band(nz(s), 250, 2600) * np.exp(-t * 9) * (0.5 + 0.5 * np.sin(2 * np.pi * 21 * t)) * 0.45
+    body = thump(110, 60, s, 18.0) * 0.4
+    write("sail_flap.wav", snap + crack + flutter + body, peak=0.8)
+    s = 0.9
+    t = tt(s)
+    creak = np.sin(2 * np.pi * (180 + 70 * np.sin(2 * np.pi * 1.7 * t)) * t) * 0.5
+    creak += np.sin(2 * np.pi * (365 + 120 * np.sin(2 * np.pi * 2.3 * t + 1.0)) * t) * 0.25
+    scrape = band(nz(s), 900, 3600) * (0.5 + 0.5 * np.sin(2 * np.pi * 36 * t)) * 0.18
+    env = np.sin(np.pi * np.clip(t / s, 0, 1)) ** 1.5
+    write("sail_creak.wav", (creak + scrape) * env, peak=0.55)
+
+
 def make_rain():
     rain_rng = np.random.default_rng(20261105)
     rain = 0.18 * band(rain_rng.normal(size=8 * SR), 650, 6500)
@@ -450,6 +471,9 @@ if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "pole":
         make_pole()
         sys.exit(0)
+    if len(sys.argv) > 1 and sys.argv[1] == "sail":
+        make_sail()
+        sys.exit(0)
     make_ambient()
     make_music()
     make_steam()
@@ -459,6 +483,7 @@ if __name__ == "__main__":
     make_landing()
     make_rain()
     make_pole()
+    make_sail()
     print("%-22s %7s %6s %6s %8s" % ("file", "sec", "peak", "rms", "seam"))
     for name, seconds, peak, rms, seam in report:
         print("%-22s %7.2f %6.2f %6.3f %8.4f" % (name, seconds, peak, rms, seam))

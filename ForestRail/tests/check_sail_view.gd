@@ -110,5 +110,15 @@ func run() -> void:
 		game.model.sail_cleated = false
 		game.model.state.v = 0.0
 		game.model.state.s = 3000.0
+	# B6.4: the wind of the line on the map and in the depot, the ribbons and the sounds exist
+	check(game.wind_route_line().begins_with("Ветер по линии") and game.wind_route_line().contains("Лесная"), "the depot tells the wind of the line (%s)" % game.wind_route_line().substr(0, 60))
+	game.toggle_map()
+	await get_tree().process_frame
+	game.queue_redraw()
+	await shot("sail_map")
+	game.toggle_map()
+	var sounds = load("res://scripts/sound.gd").new()
+	check(sounds.clips.has("sail_flap") or "sail_flap" in sounds.CLIP_NAMES, "the clip of the flapping sail is known")
+	check("sail_creak" in sounds.CLIP_NAMES, "the clip of the creaking rigging is known")
 	print("SAIL VIEW CHECKS ", checks, "; FAILURES ", failures)
 	get_tree().quit(0 if failures.is_empty() else 1)
