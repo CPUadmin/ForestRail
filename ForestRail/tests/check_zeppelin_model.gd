@@ -196,5 +196,27 @@ func run() -> void:
 		cargo.physics_step(1.0 / 60.0)
 		if cargo.zep.land_vz > 0.0: break
 	check(cargo.zep.land_vz > 2.0 and float(cargo.state.cargo[0].health) < 0.7, "a hard-ish landing hurts the fragile cargo (%.2f, health %.2f)" % [cargo.zep.land_vz, float(cargo.state.cargo[0].health)])
+	# a flight in the air is saved and goes on after a load
+	var flier = Model.new()
+	flier.new_game(42, 2)
+	flier.state.money = 100000
+	Fixtures.equip(flier, "zeppelin")
+	flier.state.phase = "route"
+	flier.state.engine = true
+	flier.state.brake = 0.0
+	flier.state.throttle = 1.0
+	flier.state.v = 36.0
+	flier.zep.v = 36.0
+	flier.zep.airborne = true
+	flier.zep.z = 4.0
+	flier.physics_step(1.0 / 60.0)
+	var reloaded = Model.new()
+	check(reloaded.restore(flier.serialize()), "a game saved in the air loads")
+	reloaded.state.throttle = 1.0
+	reloaded.physics_step(1.0 / 60.0)
+	check(reloaded.zep.airborne and reloaded.zep.z > 3.0, "and the zeppelin is still in the air (%.1f m)" % reloaded.zep.z)
+	var again = Model.new()
+	again.new_game(42, 2)
+	check(not again.zep.airborne and again.zep.z == 0.0, "a new game starts on the rail")
 	print("ZEPPELIN MODEL CHECKS ", checks, "; FAILURES ", failures)
 	get_tree().quit(0 if failures.is_empty() else 1)

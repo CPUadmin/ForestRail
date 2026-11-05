@@ -29,6 +29,7 @@ var pole = Pole.new()
 # The sail car (B6.4): the wind over the line, the trim of the sail (0 edge-on .. 1 wide open) and
 # the numbers of the last step for the hud and the picture.
 var wind = Wind.new()
+var zep_loaded = false   # the flight of the zeppelin is taken from the save once after a load
 var zep = Zeppelin.new()   # the running model of the rail zeppelin (B6.5), only used while it is the chosen machine
 var sail_trim = 0.6
 # Holding (as with the handcar lever): the sail pulls only while the hand holds the free corner or the
@@ -106,6 +107,11 @@ func _init() -> void:
 # starter: the free machine of a new career (the tests keep the handcar, the game starts on the pole truck).
 func new_game(world_seed: int = 42, line_version: int = 1, mode: String = "career", spread: bool = false, starter: String = "handcar") -> void:
 	loading_cache.clear()
+	zep.reset()   # a new game starts with a zeppelin on the rail, not in the air
+	zep_loaded = false
+	air_fly = false
+	air_z = 0.0
+	air_vy = 0.0
 	route.generate(world_seed, data.stations, line_version, [], spread)
 	state = {"version": 2, "fleet_by_id": {starter: {"levels": {}, "fuel": 0.0, "consist": []}},
 		"wagons_by_id": {}, "selected_vehicle_id": starter, "consist_ids": [],
@@ -1776,6 +1782,14 @@ func zeppelin_restart() -> bool:
 func zeppelin_step(dt: float, fleet: Dictionary, old_v: float) -> float:
 	var forward = float(drive_direction())
 	if forward == 0.0: forward = 1.0
+	if not zep_loaded:
+		# after a load: the machine is in the air as it was saved
+		zep_loaded = true
+		if state.has("zep_z"):
+			zep.airborne = bool(state.get("zep_airborne", false))
+			zep.z = float(state.get("zep_z", 0.0))
+			zep.vz = float(state.get("zep_vz", 0.0))
+			zep.temp = float(state.get("zep_temp", zep.temp))
 	var slope = route.slope(float(state.s)) * forward
 	# the wind along the nose: the wind of the line is along the direction of the consist, the reverser turns the nose
 	var wind_along = wind_here().x * float(int(state.get("reverser", 1)))
@@ -1809,6 +1823,10 @@ func zeppelin_step(dt: float, fleet: Dictionary, old_v: float) -> float:
 	air_fly = zep.airborne
 	air_z = zep.z
 	air_vy = zep.vz
+	state.zep_airborne = zep.airborne   # kept in the save: the flight goes on after a load
+	state.zep_z = zep.z
+	state.zep_vz = zep.vz
+	state.zep_temp = zep.temp
 	for event in zep.events:
 		if event == "crash":
 			events.append("crash")
@@ -2328,6 +2346,8 @@ func restore(saved: Dictionary) -> bool:
 		return false
 	state = saved.duplicate(true)
 	loading_cache.clear()
+	zep.reset()
+	zep_loaded = false
 	if not state.active.is_empty(): state.active.origin_station_id=state.active.get("origin_station_id","A")
 	route.restore(state.route, data.stations)
 	state.erase("route")
