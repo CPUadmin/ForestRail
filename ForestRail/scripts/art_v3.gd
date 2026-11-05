@@ -513,11 +513,12 @@ func draw_petrol_overlay(canvas: Node2D, model) -> void:
 	var lamp = headlamp_point("motorcar")
 	for i in range(5 if (not is_skinned("motorcar") or skin_config.get("motorcar", {}).has("lamp_m")) else 0):
 		canvas.draw_circle(lamp, (0.13 + 0.07 * i) * PX, Color(1.0, 0.85, 0.45, 0.11 - 0.018 * i))
+	var drift = smoke_drift(model) * 0.65
 	for i in range(5):
 		var age = fposmod(t * (0.8 + 0.6 * load) + i / 5.0, 1.0)
 		var origin = skin_point("motorcar", "stack_m", Vector2(0.701, 1.97))
 		var stack = petrol_point(origin.x, origin.y) if is_skinned("motorcar") else stock_body_point("motorcar", Vector2(1324, 155))
-		var puff = stack + Vector2(-age * 0.9, -age * 0.6) * PX
+		var puff = stack + Vector2(age * drift, -age * smoke_rise(drift) * 0.8) * PX
 		canvas.draw_circle(puff, (0.05 + age * 0.16) * PX, Color(0.82, 0.82, 0.8, (0.25 + 0.35 * load) * (1.0 - age)))
 
 func draw_side_rod(canvas: Node2D, id: String, distance: float, facing: int, outer: Transform2D) -> void:
@@ -532,6 +533,17 @@ func draw_side_rod(canvas: Node2D, id: String, distance: float, facing: int, out
 	for pin in pins:
 		canvas.draw_circle(pin, 0.035 * PX, Color("c9af73"))
 		canvas.draw_circle(pin, 0.015 * PX, Color("6f5d33"))
+
+# B6.3: the smoke is carried by the air that moves over the train: the wind along the way minus the speed of the train.
+# The value is the metres a puff drifts along the machine (+ toward the front) during its life; a calm standing train
+# lets the smoke rise straight, a fast one lays it back, a head wind blows it over the roof.
+func smoke_drift(model) -> float:
+	if model == null or model.state.is_empty() or model.route == null: return -1.4
+	var along = model.wind_here().x - float(model.state.get("v", 0.0))
+	return clampf(along * 0.42, -3.4, 3.4)
+
+func smoke_rise(drift: float) -> float:
+	return 0.78 - 0.07 * minf(absf(drift), 3.0)   # the smoke blown flat rises a little less
 
 # Live parts of the steam engine on top of the painted body
 # (tools/make_steam_art.py): firebox glow, manometer needle, safety valve and
@@ -570,9 +582,10 @@ func draw_steam_overlay(canvas: Node2D, model) -> void:
 	var throttle = float(model.state.get("throttle", 0))
 	var origin = skin_point("steam", "stack_m", Vector2(1.168, 2.30))
 	var stack = steam_point(origin.x, origin.y) if is_skinned("steam") else stock_body_point("steam", Vector2(706, 34))
+	var drift = smoke_drift(model)
 	for i in range(6):
 		var age = fposmod(t * 0.9 + i / 6.0, 1.0)
-		var puff = stack + Vector2(-age * 1.4, -age * 0.7) * PX
+		var puff = stack + Vector2(age * drift, -age * smoke_rise(drift)) * PX
 		canvas.draw_circle(puff, (0.10 + age * 0.22) * PX, Color(0.86, 0.86, 0.82, (0.35 + 0.35 * throttle) * (1.0 - age)))
 	var travelled = float(model.state.stats.distance)
 	var cycle = fposmod(travelled, 85.0)

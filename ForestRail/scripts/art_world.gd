@@ -279,6 +279,45 @@ func _draw() -> void:
 func station_building_id(index: int) -> String:
 	return "stations/depot" if index == 0 else ("stations/sawmill_shelter" if index == 2 else "stations/station_house")
 
+# B6.3: a pennant on the roof of every station: cloth on a few joints that streams down the wind (the along-route wind of
+# the place) and flutters faster and wider in a strong wind and in a gust. In the calm it hangs.
+func wind_on_screen(s: float) -> Vector2:
+	var m = game.model
+	if m.state.is_empty(): return Vector2(2.0, 0.0)
+	var w = m.wind_here(s)
+	return Vector2(w.x * float(int(m.state.direction)), w.y)   # x: toward the larger distance = to the right of the picture
+
+func draw_pennant(canvas: Node2D, foot: Vector2, sc: float, s: float, colour: Color, phase_shift: float = 0.0) -> void:
+	var wind = wind_on_screen(s)
+	var strength = clampf(wind.length(), 0.0, 9.0)
+	var pole_h = 0.95 * art.PX * sc
+	var top = foot + Vector2(0, -pole_h)
+	canvas.draw_line(foot, top, Color("3a2d1c"), maxf(2.0, 0.035 * art.PX * sc), true)
+	canvas.draw_circle(top, 0.03 * art.PX * sc, Color("c9a85a"))
+	var side = 1.0 if wind.x >= 0.0 else -1.0
+	var lift = clampf(1.0 - strength / 5.0, 0.0, 1.0)          # a calm lets the cloth hang down, a wind lifts it level
+	var length = (0.55 + 0.05 * strength) * art.PX * sc
+	var width = 0.22 * art.PX * sc
+	var t = Time.get_ticks_msec() / 1000.0 * (1.6 + 0.9 * strength) + phase_shift
+	var calm_motion = 0.25 if game.settings.reduce_motion else 1.0
+	var upper = PackedVector2Array()
+	var lower = PackedVector2Array()
+	var steps = 8
+	for k in range(steps + 1):
+		var u = float(k) / float(steps)
+		var wave = sin(t - u * 5.0) * (0.02 + 0.045 * u) * (0.3 + 0.12 * strength) * art.PX * sc * calm_motion
+		var along = Vector2(side * u * length * (1.0 - 0.55 * lift), u * length * 0.8 * lift)   # hangs down in the calm
+		var centre = top + Vector2(0, width * 0.55) + along + Vector2(0, wave)
+		var half = width * 0.5 * (1.0 - 0.55 * u)
+		upper.append(centre + Vector2(0, -half))
+		lower.append(centre + Vector2(0, half))
+	var poly = PackedVector2Array()
+	for p in upper: poly.append(p)
+	for k in range(lower.size() - 1, -1, -1): poly.append(lower[k])
+	canvas.draw_colored_polygon(poly, colour)
+	canvas.draw_polyline(upper, colour.darkened(0.35), 1.5, true)
+	canvas.draw_polyline(lower, colour.darkened(0.35), 1.5, true)
+
 func draw_stations(canvas: Node2D) -> void:
 	var size = game.get_viewport_rect().size
 	for i in range(game.model.data.stations.size()):
@@ -304,6 +343,9 @@ func draw_stations(canvas: Node2D) -> void:
 			art.draw_part(canvas, name, center, 0, art.scale_for(name)*sc)
 		else:
 			canvas.draw_texture_rect(texture, Rect2(center - Vector2(half_width, height * sc), Vector2(2.0 * half_width, height * sc)), false)
+		if game.screen == "game":
+			var flag_colours = [Color("bf3b2e"), Color("e8d9a8"), Color("3f7a52"), Color("d9a640"), Color("bf3b2e"), Color("e8d9a8")]
+			draw_pennant(canvas, center + Vector2(half_width * 0.74, -height * sc * 0.93), sc, float(game.model.route.station_s[i]), flag_colours[i % flag_colours.size()], float(i) * 1.7)
 		var plaque = Rect2(center+Vector2(-150,-height-48)*sc,Vector2(300,42)*sc)
 		if game.screen=="game": plaque.position.y=maxf(plaque.position.y,game.hud_top_clearance())
 		plaque.position.x=clampf(plaque.position.x,12,size.x-plaque.size.x-12)
@@ -429,7 +471,23 @@ func draw_trackside_thing(canvas: Node2D, kind: int, s: float, drop: float, size
 	var width = height * float(tex.get_width()) / float(tex.get_height())
 	var at = game.world_point(s) + Vector2(0, drop)
 	var x = -width * 0.5
-	canvas.draw_texture_rect(tex, Rect2(at + Vector2(-x if flip else x, -height), Vector2(-width if flip else width, height)), false, Color(0.96, 0.96, 0.92))
+	var tint = Color(0.96, 0.96, 0.92)
+	# B6.3: tall grass (2), fern (3) and flowers (4) bend with the wind: the foot stays, the top leans downwind and trembles in a gust
+	if kind >= 2 and kind <= 4:
+		var wind = wind_on_screen(s)
+		var strength = clampf(wind.length(), 0.0, 9.0)
+		var motion = 0.25 if game.settings.reduce_motion else 1.0
+		var lean = (clampf(wind.x, -7.0, 7.0) * 0.012 + sin(Time.get_ticks_msec() / 1000.0 * (1.4 + 0.5 * strength) + s * 0.7) * 0.006 * strength * motion) * height
+		var left = at.x - width * 0.5
+		var right = at.x + width * 0.5
+		var top = at.y - height
+		var u0 = 1.0 if flip else 0.0
+		var u1 = 0.0 if flip else 1.0
+		var pts = PackedVector2Array([Vector2(left + lean, top), Vector2(right + lean, top), Vector2(right, at.y), Vector2(left, at.y)])
+		var uvs = PackedVector2Array([Vector2(u0, 0), Vector2(u1, 0), Vector2(u1, 1), Vector2(u0, 1)])
+		canvas.draw_polygon(pts, PackedColorArray([tint, tint, tint, tint]), uvs, tex)
+		return
+	canvas.draw_texture_rect(tex, Rect2(at + Vector2(-x if flip else x, -height), Vector2(-width if flip else width, height)), false, tint)
 
 func draw_foreground(canvas: Node2D) -> void:
 	var size = game.get_viewport_rect().size
