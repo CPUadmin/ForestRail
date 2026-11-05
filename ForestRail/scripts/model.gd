@@ -1817,8 +1817,10 @@ func zeppelin_step(dt: float, fleet: Dictionary, old_v: float) -> float:
 	zep.set_stick(zeppelin_stick())
 	zep.set_pad_brake(float(state.brake))
 	zep.set_air_brake(bool(state.get("zep_air_brake", false)))
+	var fuel_before = float(fleet.fuel)
 	zep.step(dt, slope, wind_along)
 	fleet.fuel = zep.fuel
+	if bool(state.get("zep_trim", false)): fleet.fuel = maxf(0.0, float(fleet.fuel) - (fuel_before - float(zep.fuel)) * 0.05)   # the trim costs a little petrol
 	state.engine = not zep.stalled and not zep.crashed and zep.fuel > 0.0
 	air_fly = zep.airborne
 	air_z = zep.z
