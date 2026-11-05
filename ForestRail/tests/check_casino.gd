@@ -167,5 +167,14 @@ func run() -> void:
 	check(sandbox.casino().gift("moon") and sandbox.casino().card_owned("moon"), "a secret card is given too")
 	check(not sandbox.casino().gift("nonsense"), "there is no such card")
 	check(sandbox.casino().tokens() == int(sandbox.casino().cfg().start_tokens if sandbox.casino().cfg().has("start_tokens") else sandbox.casino().tokens()), "the gift costs no tokens")
+	# a gifted card puts its gadget on the machine: the zeppelin trim and flaps
+	var zep_box = fresh(6)
+	zep_box.state.mode = "creative"
+	zep_box.state.money = 100000
+	Fixtures.equip(zep_box, "zeppelin")
+	check(zep_box.casino().gift("hermit") and zep_box.casino().gift("star"), "Mikhalych gives the hermit and the star")
+	check(zep_box.casino().install("hermit") and int(zep_box.object_state("zeppelin").levels.get("zeppelin_trim", 0)) == 1, "the hermit puts the trim on the zeppelin")
+	check(zep_box.casino().install("star") and int(zep_box.object_state("zeppelin").levels.get("zeppelin_flaps", 0)) == 1, "the star puts the flaps on")
+	check(zep_box.casino().uninstall("hermit") and int(zep_box.object_state("zeppelin").levels.get("zeppelin_trim", 0)) == 0, "the hermit can be taken off")
 	print("CASINO CHECKS ", checks, "; FAILURES ", failures)
 	get_tree().quit(0 if failures.is_empty() else 1)
