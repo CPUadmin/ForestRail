@@ -915,6 +915,8 @@ func loading_preview() -> Dictionary:
 	return loading_cache
 
 func depart() -> bool:
+	state.burst_left = 0.0
+	state.burst_cooldown = 0.0
 	if state.active.is_empty() or not all_loaded():
 		return fail("Погрузи хотя бы один предмет" if selectable_loading() else "Сначала размести весь груз на составе")
 	if selectable_loading():
@@ -1249,6 +1251,44 @@ const TEMP_AMBIENT = 0.1
 const TEMP_HOT = 0.85
 const TEMP_RESTART = 0.6
 
+# --- Supercapacitor (gadget of the electric locomotive, docs/GADGET_EFFECTS_PROPOSAL_RU.md): a button gives +50% of the pull
+# for 5 seconds, takes 2% of the battery and needs 45 seconds to charge again.
+const BURST_SECONDS = 5.0
+const BURST_COOLDOWN = 45.0
+const BURST_PULL = 1.5
+const BURST_BATTERY_SHARE = 0.02
+
+func supercap_installed() -> bool:
+	return vehicle_id() == "locomotive" and float(effects("locomotive").get("locomotive_supercap", 0)) > 0.0
+
+func burst_left() -> float:
+	return float(state.get("burst_left", 0.0))
+
+func burst_cooldown() -> float:
+	return float(state.get("burst_cooldown", 0.0))
+
+func burst_ready() -> bool:
+	if not supercap_installed() or state.phase != "route": return false
+	if burst_left() > 0.0 or burst_cooldown() > 0.0: return false
+	var cost = float(object_stats("locomotive").tank) * BURST_BATTERY_SHARE
+	return float(state.fleet_by_id.locomotive.fuel) > cost
+
+func start_burst() -> bool:
+	if not burst_ready(): return false
+	var fleet = state.fleet_by_id.locomotive
+	fleet.fuel = maxf(0.0, float(fleet.fuel) - float(object_stats("locomotive").tank) * BURST_BATTERY_SHARE)
+	state.burst_left = BURST_SECONDS
+	state.burst_cooldown = BURST_COOLDOWN
+	events.append("burst")
+	return true
+
+func burst_step(dt: float) -> void:
+	if state.has("burst_left") and float(state.burst_left) > 0.0: state.burst_left = maxf(0.0, float(state.burst_left) - dt)
+	if state.has("burst_cooldown") and float(state.burst_cooldown) > 0.0: state.burst_cooldown = maxf(0.0, float(state.burst_cooldown) - dt)
+
+func burst_factor() -> float:
+	return BURST_PULL if burst_left() > 0.0 else 1.0
+
 func has_temperature(id: String = "") -> bool:
 	return (id if id != "" else vehicle_id()) in ["motorcar", "locomotive"]
 
@@ -1273,8 +1313,9 @@ func thermal_step(dt: float, fleet: Dictionary) -> void:
 	# in the cold the machine settles at a lower temperature, so it is cold for longer
 	var ambient = TEMP_AMBIENT * (1.0 - 0.6 * cold())
 	var temp = float(fleet.get("temp", TEMP_AMBIENT))
-	var cooling = (0.03 + 0.004 * absf(float(state.v))) * (temp - ambient)
-	temp = clampf(temp + (heat_rate(fleet) * (1.0 if state.phase == "route" else 0.3) - cooling) * dt, ambient * 0.5, 1.0)
+	var liquid = vehicle_id() == "locomotive" and float(effects("locomotive").get("liquid_cooling", 0)) > 0.0   # gadget: liquid cooling
+	var cooling = (0.03 + 0.004 * absf(float(state.v))) * (temp - ambient) * (1.3 if liquid else 1.0)
+	temp = clampf(temp + (heat_rate(fleet) * (0.6 if liquid else 1.0) * (1.0 if state.phase == "route" else 0.3) - cooling) * dt, ambient * 0.5, 1.0)
 	fleet.temp = temp
 	if wear_rules and temp > TEMP_HOT: wear_hit(vehicle_id(), "power", 0.01 * (temp - TEMP_HOT) / (1.0 - TEMP_HOT) * dt, "перегрев")
 	if vehicle_id() == "motorcar" and temp >= 1.0 and bool(state.engine):
@@ -1851,6 +1892,7 @@ func physics_step(dt: float) -> void:
 			state.gear = 1
 			state.engine = float(fleet.fuel) > 0
 		thermal_step(dt, fleet)
+		burst_step(dt)
 		if vehicle_id() == "steam": drive = steam_step(dt, fleet)
 		elif vehicle_id() == "sail":
 			drive = sail_step(dt)
@@ -1870,7 +1912,7 @@ func physics_step(dt: float) -> void:
 				if reverse_gear: gear = 0
 				if vehicle_id() == "motorcar" and not reverse_gear: petrol_stall_check(gear, stats, dt)
 				var traction = float(stats.traction[gear]) * maxf(0, 1 - pow(absf(float(state.v)) / float(stats.speeds[gear]), 2)) * charge_traction_factor() * petrol_lug(gear, stats) * pneumatic_factor() * thermal_factor()
-				traction = minf(traction, power_limit_force(charge_traction_factor()))
+				traction = minf(traction, power_limit_force(charge_traction_factor())) * burst_factor()
 				if shift_cut > 0.0: traction = 0.0
 				var adhesion = 0.35 * float(stats.mass) * G * cos(route.slope(float(state.s))) * grip_factor()
 				wheel_slip = float(state.throttle) * traction > adhesion * 1.02 and absf(float(state.v)) < 12.0

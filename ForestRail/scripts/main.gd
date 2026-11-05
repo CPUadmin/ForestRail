@@ -66,7 +66,7 @@ var modal_kind = ""
 const DEFAULT_SETTINGS = {"master": 0.65, "mechanisms": 0.7, "forest": 0.6, "music": 0.25, "interface": 0.8,
 	"sensitivity": 1.0, "text_scale": 1.0, "fullscreen": false, "borderless": false, "window_size": 1,
 	"vsync": true, "fps_cap": 0, "msaa": 0, "instrument_hz": 30, "reduce_motion": false, "cab_shake": 1.0,
-	"autosave": 60, "night_light": 0.0, "light_flicker": true, "weather": 0, "weather_frequency": 1.0, "keys": {"map": KEY_M, "cab": KEY_E, "ice": KEY_I, "brake": KEY_SPACE, "sail_side": KEY_F}}
+	"autosave": 60, "night_light": 0.0, "light_flicker": true, "weather": 0, "weather_frequency": 1.0, "keys": {"map": KEY_M, "cab": KEY_E, "ice": KEY_I, "brake": KEY_SPACE, "sail_side": KEY_F, "burst": KEY_B}}
 const WINDOW_SIZES = [Vector2i(1280, 720), Vector2i(1600, 900), Vector2i(1920, 1080)]
 const SETTINGS_TABS = ["Звук", "Графика", "Управление", "Игра", "Доступность", "Служебное"]
 var settings = DEFAULT_SETTINGS.duplicate(true)
@@ -90,6 +90,7 @@ var fade_rect: ColorRect = null
 # Cab view (E): the camera closes in on the cab and every control of the machine is
 # drawn and grabbed in the world at human scale. cab_blend animates 0..1.
 var cab_view = false
+var burst_button: Button       # the button of the supercapacitor of the electric locomotive (nothing without the gadget)
 var cab_blend = 0.0
 # B3.1: arriving at a platform in the cab lowers it so that the platform and the load are in view;
 # moving off again raises it back. Pressing E by hand cancels the automatic return.
@@ -202,7 +203,7 @@ func _ready() -> void:
 				# Tests and debugging runs are silent: nobody listens to the clicks and the engine.
 				AudioServer.set_bus_mute(0, true)
 				var suite = arg.trim_prefix("--qa-suite=")
-				if suite not in ["check_model", "check_physics", "check_interaction", "drive_campaign", "check_presentation", "check_handcar_revision", "check_art_v3", "check_instruments", "check_station_service", "check_world_geometry", "check_mechanism", "check_mechanism_bench", "check_handcar_drive", "check_handcar_input", "check_motor_controls", "check_loading_selection", "check_layout_p7", "check_steam", "check_steam_view", "check_gearbox", "check_petrol_view", "check_skins", "check_perf", "check_cab", "check_sound", "check_forecast", "check_line_v2", "check_line_spread", "check_thermal", "check_upgrades_new", "check_deadlines", "check_casino", "check_live", "check_live_view", "check_grip", "check_wear", "check_wear_view", "check_road_junk", "check_road_junk_view", "check_receiving", "check_receiving_view", "check_casino_view", "check_card_view", "check_album_view", "check_upgrade_text", "check_speeds", "check_creative", "check_settings", "check_pneumatic", "check_pneumatic_view", "check_pole", "check_pole_view", "check_air", "check_sail", "check_sail_view", "check_loading_flow", "check_depot_entry", "check_forecast_long", "drive_long", "check_forecast_view", "check_soak_p8", "check_save_p8"]: get_tree().quit(2); return
+				if suite not in ["check_model", "check_physics", "check_interaction", "drive_campaign", "check_presentation", "check_handcar_revision", "check_art_v3", "check_instruments", "check_station_service", "check_world_geometry", "check_mechanism", "check_mechanism_bench", "check_handcar_drive", "check_handcar_input", "check_motor_controls", "check_loading_selection", "check_layout_p7", "check_steam", "check_steam_view", "check_gearbox", "check_petrol_view", "check_skins", "check_perf", "check_cab", "check_sound", "check_forecast", "check_line_v2", "check_line_spread", "check_thermal", "check_upgrades_new", "check_deadlines", "check_casino", "check_live", "check_live_view", "check_grip", "check_wear", "check_wear_view", "check_road_junk", "check_road_junk_view", "check_receiving", "check_receiving_view", "check_casino_view", "check_card_view", "check_album_view", "check_upgrade_text", "check_electric_gadgets", "check_speeds", "check_creative", "check_settings", "check_pneumatic", "check_pneumatic_view", "check_pole", "check_pole_view", "check_air", "check_sail", "check_sail_view", "check_loading_flow", "check_depot_entry", "check_forecast_long", "drive_long", "check_forecast_view", "check_soak_p8", "check_save_p8"]: get_tree().quit(2); return
 				get_tree().root.set_meta("qa_running", true)
 				set_process(false)
 				set_physics_process(false)
@@ -343,6 +344,7 @@ func apply_settings() -> void:
 	model.weather_frequency = float(settings.weather_frequency)
 	# Hot keys: valid, never Escape (it always pauses), never twice; otherwise back to the defaults.
 	var keys: Dictionary = settings.keys
+	if not keys.has("burst"): keys["burst"] = KEY_B   # saves from before the supercapacitor keep their own keys
 	var seen: Array = []
 	var valid = true
 	for action in DEFAULT_SETTINGS.keys:
@@ -500,6 +502,7 @@ func build_settings(box: VBoxContainer) -> void:
 		add_label(box, "Клавиши (Esc всегда пауза):", 20)
 		settings_key(box, "map", "Карта")
 		settings_key(box, "cab", "Кабина")
+		settings_key(box, "burst", "Рывок суперконденсатора")
 		settings_key(box, "ice", "Сбить иней (пневматический)")
 		settings_key(box, "brake", "Тормоз: затянуть или отпустить")
 		settings_key(box, "sail_side", "Парусная: гик на другой борт")
@@ -1517,7 +1520,7 @@ func build_hud(size: Vector2) -> void:
 	for state in ["normal","hover","pressed","focus"]: mini_button.add_theme_stylebox_override(state,StyleBoxEmpty.new())
 	mini_button.pressed.connect(toggle_map)
 	ui.add_child(mini_button)
-	var buttons_width = (270 if model.human_powered() else 560)*float(settings.text_scale)
+	var buttons_width = (270 if model.human_powered() else (760 if model.supercap_installed() else 560))*float(settings.text_scale)
 	hud = positioned_label("", Rect2(34, 12, size.x - buttons_width - 90, 42), 20)
 	hud.autowrap_mode=TextServer.AUTOWRAP_OFF
 	hud.text_overrun_behavior=TextServer.OVERRUN_TRIM_ELLIPSIS
@@ -1527,6 +1530,8 @@ func build_hud(size: Vector2) -> void:
 	pause_row.add_theme_constant_override("separation",10)
 	ui.add_child(pause_row)
 	map_button = add_button(pause_row, "Карта [%s]" % key_name("map"), toggle_map)
+	burst_button = null
+	if model.supercap_installed(): burst_button = add_button(pause_row, "Рывок [%s]" % key_name("burst"), try_burst)
 	if not model.human_powered(): add_button(pause_row,"Кабина [%s]" % key_name("cab"),toggle_cab_view)
 	add_button(pause_row, "Пауза", pause_game)
 	for button in pause_row.get_children():
@@ -1600,6 +1605,9 @@ func update_hud() -> void:
 	var stop_index = model.station_index()
 	var at_station = model.station_name(model.data.stations[stop_index].id) if stop_index >= 0 else ""
 	hud.text = "%s · %d м · %s · %s" % [model.journey_heading(),absf(target_s-float(state.s)),model.clock_text(),model.weather_name() if int(settings.weather) != 2 else "ясно"] + deadline_text() + brake_hint_text(target_s)
+	if burst_button != null and is_instance_valid(burst_button):
+		burst_button.text = burst_button_text()
+		burst_button.disabled = not model.burst_ready()
 	order_label.text=order
 	var hint = ""
 	if state.phase == "loading":
@@ -1765,6 +1773,20 @@ func toggle_map() -> void:
 
 # E: close in on the cab and work every control there, or step back out. Levers keep
 # their positions; only the mouse grab is dropped.
+# The supercapacitor: +50% of the pull for 5 seconds, then 45 seconds to charge (Model.start_burst).
+func try_burst() -> void:
+	if not model.start_burst():
+		if model.burst_cooldown() > 0.0: notify("Суперконденсатор заряжается: ещё %d с" % int(ceil(model.burst_cooldown())))
+		return
+	sound.play("contactor", 0.9, 0.8)
+	sound.play("coins", 0.35, 1.9)
+	cab_jolt = maxf(cab_jolt, 0.5)
+
+func burst_button_text() -> String:
+	if model.burst_left() > 0.0: return "Рывок: %.0f с" % ceil(model.burst_left())
+	if model.burst_cooldown() > 0.0: return "Заряд: %d с" % int(ceil(model.burst_cooldown()))
+	return "Рывок [%s]" % key_name("burst")
+
 func toggle_cab_view() -> void:
 	if screen != "game" or paused or model.human_powered(): return
 	cancel_drag()
@@ -2256,6 +2278,8 @@ func _process(dt: float) -> void:
 			cab_jolt = maxf(cab_jolt, clampf(float(model.last_clank), 0.0, 0.6))
 		elif event_name == "glint":
 			sound.play("coins", 0.4, 1.7)
+		elif event_name == "burst":
+			cab_jolt = maxf(cab_jolt, 0.4)
 		elif event_name == "wear_warn":
 			sound.play("coupler_clank", 0.35, 0.7)
 		elif event_name == "breakdown":
@@ -2368,6 +2392,10 @@ func _input(event: InputEvent) -> void:
 		return
 	if key_is(event,"ice") and event.pressed and not event.echo and screen=="game" and not paused and model.vehicle_id()=="pneumatic":
 		chip_all_ice()
+		get_viewport().set_input_as_handled()
+		return
+	if event is InputEventKey and event.pressed and not event.echo and key_is(event,"burst") and screen=="game" and not paused and model.supercap_installed():
+		try_burst()
 		get_viewport().set_input_as_handled()
 		return
 	if event is InputEventKey and event.pressed and not event.echo and key_is(event,"cab") and screen=="game" and not paused:

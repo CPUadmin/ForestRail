@@ -1267,6 +1267,30 @@
         "steam_stoker": [1]
       },
       "scope": "selected_vehicle_id"
+    },
+    {
+      "id": "locomotive_supercap",
+      "target_type": "locomotive",
+      "name": "Суперконденсатор",
+      "gadget": true,
+      "level_costs": [3500],
+      "levels": 1,
+      "effects_at_level": {
+        "locomotive_supercap": [1]
+      },
+      "scope": "selected_vehicle_id"
+    },
+    {
+      "id": "locomotive_cooling",
+      "target_type": "locomotive",
+      "name": "Жидкостное охлаждение",
+      "gadget": true,
+      "level_costs": [3000],
+      "levels": 1,
+      "effects_at_level": {
+        "liquid_cooling": [1]
+      },
+      "scope": "selected_vehicle_id"
     }
   ],
   "upgrade_rules": {
