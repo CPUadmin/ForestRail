@@ -39,7 +39,8 @@ func run() -> void:
 	DirAccess.make_dir_recursive_absolute(game.saves.directory)
 	game.model.new_game(42)
 	if "--high-speed-only" in OS.get_cmdline_user_args():
-		root.size = Vector2i(1280, 720)
+		if OS.has_feature("movie") or "--write-movie" in OS.get_cmdline_args():
+			AudioServer.set_bus_mute(0, false)
 		game.model.state.money = 10000
 		Fixtures.equip(game.model, "locomotive")
 		game.model.state.phase = "route"
@@ -157,6 +158,7 @@ func run_high_speed_trial() -> Dictionary:
 	game.model.air_z = 0.7
 	game.camera_s = 1000.0
 	game.camera_y = game.model.route.sample(1000.0).y
+	game.camera_x = game.get_viewport_rect().size.x * 0.65
 	var advance := func():
 		var step = SPEED / Engine.physics_ticks_per_second
 		game.model.last_movement = step
@@ -183,7 +185,7 @@ func run_high_speed_trial() -> Dictionary:
 		previous = position
 	var elapsed = (Time.get_ticks_usec() - start) / 1000000.0
 	if worst_lag > 30.0: failures.append("60 m/s camera lag exceeded 30 m")
-	if furthest_x > root.size.x * 0.90: failures.append("60 m/s camera should keep the head of the train inside the frame")
+	if furthest_x > game.get_viewport_rect().size.x * 0.90: failures.append("60 m/s camera should keep the head of the train inside the frame")
 	await shot("high_speed_trial")
 	get_tree().physics_frame.disconnect(advance)
 	frame_steps.sort()
