@@ -390,6 +390,43 @@ def make_landing():
     write("land_thud.wav", buf + creak + rattle, peak=0.85)
 
 
+def make_pole():
+    # B6.1: the iron-shod tip of the pole truck meets the ground: four different knocks (dense soil, clay, stones, roots)
+    # and the sound of the tip pulled out. Own random generator, so the other sounds stay as they were.
+    prng = np.random.default_rng(20261105)
+    def nz(seconds):
+        return prng.standard_normal(int(seconds * SR))
+    # dense soil: a short dull thud and a dry crack
+    s = 0.55
+    t = tt(s)
+    dense = thump(120, 55, s, 16.0) * 1.0 + band(nz(s), 200, 1800) * np.exp(-t * 60) * 0.55 + band(nz(s), 1800, 6000) * np.exp(-t * 150) * 0.22
+    write("pole_plant_dense.wav", dense, peak=0.8)
+    # clay: a wet squelch, the tip sinks and sticks
+    s = 0.8
+    t = tt(s)
+    wobble = np.sin(2 * np.pi * (180 + 90 * np.exp(-t * 7)) * t)
+    clay = thump(90, 40, s, 11.0) * 0.8 + band(nz(s), 90, 700) * np.exp(-t * 9) * (0.6 + 0.4 * wobble) * 0.8 + band(nz(s), 700, 2400) * np.exp(-t * 26) * 0.22
+    write("pole_plant_clay.wav", clay, peak=0.8)
+    # stones: a bright clink and a scrape, the tip skids
+    s = 0.7
+    t = tt(s)
+    stones = band(nz(s), 2500, 9000) * np.exp(-t * 55) * 0.8 + np.sin(2 * np.pi * 1850 * t) * np.exp(-t * 40) * 0.35 + np.sin(2 * np.pi * 2760 * t) * np.exp(-t * 55) * 0.2
+    scrape = band(nz(s), 1200, 5200) * np.clip(np.sin(np.pi * np.clip((t - 0.08) / 0.45, 0, 1)), 0, 1) * (0.55 + 0.45 * np.sin(2 * np.pi * 47 * t)) * 0.3
+    write("pole_plant_stones.wav", stones + scrape + thump(150, 80, s, 30.0) * 0.3, peak=0.8)
+    # roots: a woody crunch with a creak, the tip grips
+    s = 0.7
+    t = tt(s)
+    crunch = band(nz(s), 300, 2600) * np.exp(-t * 34) * (0.6 + 0.4 * np.sin(2 * np.pi * 60 * t)) * 0.7
+    creak = np.sin(2 * np.pi * (260 + 120 * np.exp(-t * 8)) * t) * np.exp(-t * 7) * 0.22
+    write("pole_plant_roots.wav", thump(105, 60, s, 15.0) * 0.8 + crunch + creak, peak=0.8)
+    # the tip pulled out of the ground: a short suck and a pop
+    s = 0.45
+    t = tt(s)
+    pull = band(nz(s), 150, 1400) * np.exp(-t * 11) * np.sin(np.pi * np.clip(t / 0.3, 0, 1)) * 0.7
+    pop = np.sin(2 * np.pi * (320 - 120 * t) * t) * np.exp(-t * 28) * (t > 0.17) * 0.6
+    write("pole_lift.wav", pull + pop, peak=0.7)
+
+
 def make_rain():
     rain_rng = np.random.default_rng(20261105)
     rain = 0.18 * band(rain_rng.normal(size=8 * SR), 650, 6500)
@@ -410,6 +447,9 @@ if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "rain":
         make_rain()
         sys.exit(0)
+    if len(sys.argv) > 1 and sys.argv[1] == "pole":
+        make_pole()
+        sys.exit(0)
     make_ambient()
     make_music()
     make_steam()
@@ -418,6 +458,7 @@ if __name__ == "__main__":
     make_rails_and_ui()
     make_landing()
     make_rain()
+    make_pole()
     print("%-22s %7s %6s %6s %8s" % ("file", "sec", "peak", "rms", "seam"))
     for name, seconds, peak, rms, seam in report:
         print("%-22s %7.2f %6.2f %6.3f %8.4f" % (name, seconds, peak, rms, seam))

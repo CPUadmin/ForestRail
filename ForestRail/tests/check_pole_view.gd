@@ -60,5 +60,12 @@ func run() -> void:
 		game.model.pole_lift()
 		game.model.state.v = 0.0
 		game.model.state.s = 3000.0
+	# B6.1: the map shows the grounds of the line for the pole
+	game.toggle_map()
+	await get_tree().process_frame
+	game.queue_redraw()
+	await shot("pole_map")
+	check(game.model.pole.segments.size() > 5, "the grounds of the line are known for the map (%d stretches)" % game.model.pole.segments.size())
+	game.toggle_map()
 	print("POLE VIEW CHECKS ", checks, "; FAILURES ", failures)
 	get_tree().quit(0 if failures.is_empty() else 1)

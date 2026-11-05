@@ -148,5 +148,17 @@ func run() -> void:
 	# pause: the machine is silent, ambience stays
 	sound.update(m, true, false, 0.016)
 	check(not sound.loops["electric_hum"].playing and sound.loops["amb_wind"].playing, "pause silences the machine, ambience stays")
+	# B6.1: the pole truck has its own knock for every kind of ground, and the clips are different from each other
+	for clip in ["pole_plant_dense", "pole_plant_clay", "pole_plant_stones", "pole_plant_roots", "pole_lift"]:
+		check(sound.clips.has(clip) and sound.clips[clip] != null, "the clip %s is loaded" % clip)
+	var lengths: Dictionary = {}
+	for clip in ["pole_plant_dense", "pole_plant_clay", "pole_plant_stones", "pole_plant_roots"]:
+		lengths[snappedf(float(sound.clips[clip].get_length()), 0.01)] = true
+	check(lengths.size() >= 3, "the four knocks of the pole differ (%d lengths)" % lengths.size())
+	var pole_model = vehicle("pole")
+	pole_model.pole.build(int(pole_model.route.seed_value), float(pole_model.route.length_m), pole_model.route.station_s)
+	var grounds: Dictionary = {}
+	for seg in pole_model.pole.segments: grounds[str(seg[2])] = true
+	check(grounds.size() >= 3, "the line has several grounds for the pole to knock on (%d)" % grounds.size())
 	print("SOUND CHECKS ", checks, "; FAILURES ", failures)
 	get_tree().quit(0 if failures.is_empty() else 1)

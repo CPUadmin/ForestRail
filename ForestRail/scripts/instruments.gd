@@ -372,6 +372,30 @@ func draw_map_forest(total: float, floor_y: float) -> void:
 		var foot=p+Vector2(0,depth)
 		draw_colored_polygon(PackedVector2Array([foot+Vector2(0,-h),foot+Vector2(-h*0.42,0),foot+Vector2(h*0.42,0)]),Color("21402f") if j%3 else Color("2c5139"))
 
+# B6.1: the pole truck needs to know what it will knock on: the ground of the line as a coloured strip under the profile.
+const POLE_GROUND_COLOR = {"dense": Color("8a6a3e"), "clay": Color("d39a52"), "stones": Color("a3a8ab"), "roots": Color("4f8a3a")}
+const POLE_GROUND_NAME = {"dense": "плотный", "clay": "глина", "stones": "камни", "roots": "корни"}
+
+func draw_pole_grounds(total: float, floor_y: float) -> void:
+	var m = game.model
+	m.pole.build(int(m.route.seed_value), float(m.route.length_m), m.route.station_s)
+	var view = map_view()
+	var strip_y = floor_y - 10.0
+	for seg in m.pole.segments:
+		var s0 = maxf(float(seg[0]), view.x)
+		var s1 = minf(float(seg[1]), view.y)
+		if s1 <= s0: continue
+		var x0 = map_point(s0).x
+		var x1 = map_point(s1).x
+		draw_rect(Rect2(x0, strip_y, maxf(1.0, x1 - x0), 9.0), POLE_GROUND_COLOR.get(str(seg[2]), Color.GRAY))
+	var x = 50.0
+	put("Грунт под шест:", Vector2(x, strip_y - 6.0), 170, 14, MUTED)
+	x += 150.0
+	for kind in ["dense", "clay", "stones", "roots"]:
+		draw_rect(Rect2(x, strip_y - 17.0, 14, 12), POLE_GROUND_COLOR[kind])
+		put(str(POLE_GROUND_NAME[kind]), Vector2(x + 20.0, strip_y - 6.0), 90, 14, PAPER)
+		x += 110.0
+
 func draw_full_map() -> void:
 	draw_rect(Rect2(Vector2.ZERO,size),Color(0.04,0.09,0.07,0.92))
 	panel(Rect2(22,22,size.x-44,size.y-44))
@@ -385,6 +409,7 @@ func draw_full_map() -> void:
 	put("Профиль пути · высота ×%d · %s" % [roundi(vertical_exaggeration(area,view.x,view.y)),"участок %.0f–%.0f м · двойной щелчок — вся линия" % [view.x,view.y] if zoomed else "колесо — масштаб · перетащи — сдвиг · повторный щелчок по станции — её участок"],Vector2(50,125),size.x-100,16,MUTED)
 	draw_profile(area,view.x,view.y,floor_y,240,5)
 	draw_map_forest(total,floor_y)
+	if m.vehicle_id()=="pole": draw_pole_grounds(total,floor_y)
 	station_hits.clear()
 	var target = game.station_number(m.next_destination())
 	if selected_station<0: selected_station=target

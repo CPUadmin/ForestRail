@@ -2264,6 +2264,15 @@ func _process(dt: float) -> void:
 		if model.message != "" and model.message != "Готов продолжить поездку?":
 			notify(model.message)
 			model.message = ""
+	# B6.1: the pole truck: the tip of the pole knocks differently on every kind of ground
+	while not model.pole.events.is_empty():
+		var knock = model.pole.events.pop_front()
+		var ground = str(knock.get("ground", "dense"))
+		var kind = str(knock.get("kind", ""))
+		if kind == "plant": sound.play("pole_plant_" + ground, 0.85, randf_range(0.94, 1.06))
+		elif kind == "skid": sound.play("pole_plant_stones", 0.6, randf_range(1.25, 1.45))
+		elif kind == "lift": sound.play("pole_lift", 0.6, 0.9 if ground == "clay" else randf_range(0.98, 1.08))
+		elif kind == "slide": sound.play("pole_plant_" + ground, 0.35, randf_range(0.7, 0.8))
 	while not model.events.is_empty():
 		var event_name = str(model.events.pop_front())
 		if event_name == "land":
