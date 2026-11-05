@@ -21,6 +21,8 @@ var axle_joints: Array = []
 var clack_gap = 0.0
 var last_chuff = 0.0
 var last_pump = 0.0
+var pump_half_turn: int
+var pump_model: WeakRef
 var bird_timer = 4.0
 var blow_timer = 0.0
 var cab_mix = 0.0
@@ -170,9 +172,18 @@ func update(model, paused: bool, in_menu: bool, dt: float, in_cab: bool = false)
 				clack_gap = 0.03
 	run_loop("brake", machine * 0.3 * brake * minf(1.0, speed / 5.0) * (1.8 if model.wheel_lock else 1.0), brake > 0.1 and speed > 0.8, (0.9 + speed * 0.03) * (1.2 if model.wheel_lock else 1.0))
 	last_pump -= dt
-	if model.pump_work > 0.1 and last_pump <= 0:
-		play("pump", 0.35)
-		last_pump = 0.45
+	if kind == "handcar":
+		var half_turn = floori(model.handcar.phase / PI)
+		if pump_model != null and pump_model.get_ref() == model and half_turn != pump_half_turn:
+			if model.pump_work > 0.1 and last_pump <= 0.0:
+				var first_beat = posmod(half_turn, 2) == 0
+				play("pump", 0.42 if first_beat else 0.30, 0.93 if first_beat else 1.08)
+				last_pump = 0.12
+		if pump_model == null or pump_model.get_ref() != model:
+			pump_model = weakref(model)
+		pump_half_turn = half_turn
+	else:
+		pump_model = null
 	var engine_on = bool(model.state.engine)
 	for name in ["steam_hiss", "fire_crackle"]: if kind != "steam" and not (kind == "pneumatic" and name == "steam_hiss"): run_loop(name, 0.0, false)
 	for name in ["petrol_idle", "petrol_run"]: if kind != "motorcar": run_loop(name, 0.0, false)

@@ -72,6 +72,19 @@ func run() -> void:
 	run_frames(sound, solo, 1200, 4.0)
 	var solo_clacks = int(sound.played.get("rail_tick_a", 0)) + int(sound.played.get("rail_tick_b", 0)) + int(sound.played.get("rail_tick_c", 0)) - before
 	check(solo_clacks > 0 and solo_clacks < clacks / 2, "a lone car knocks much less than a train (%d against %d)" % [solo_clacks, clacks])
+	var creaks = int(sound.played.get("pump", 0))
+	solo.handcar.set_phase(0.1)
+	sound.update(solo, false, false, 0.25)
+	solo.pump_work = 1.0
+	for phase in [0.4, PI + 0.1, PI + 0.6, TAU + 0.1]:
+		for voice in sound.voices: voice.stop()
+		solo.handcar.set_phase(phase)
+		sound.update(solo, false, false, 0.25)
+	check(int(sound.played.get("pump", 0)) - creaks == 2, "each powered half turn plays one creak")
+	solo.pump_work = 0.0
+	solo.handcar.set_phase(TAU + PI + 0.1)
+	sound.update(solo, false, false, 0.25)
+	check(int(sound.played.get("pump", 0)) - creaks == 2, "coasting does not play a lever creak")
 	var train_clacks = solo_clacks
 	before = int(sound.played.get("rail_tick_a", 0)) + int(sound.played.get("rail_tick_b", 0)) + int(sound.played.get("rail_tick_c", 0))
 	sound.axle_joints.clear()
