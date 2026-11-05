@@ -3357,7 +3357,11 @@ func draw_cab_frame(size: Vector2, top: float) -> void:
 		draw_dash_panel_v2(size, top)
 	else:
 		# Use the painted lower panel, leaving the live gauges free to vary by cab.
-		draw_texture_rect_region(CAB_STEEL, Rect2(0, top - 4, size.x, size.y - top + 4), Rect2(0, 743, 1536, 281), Color(0.63, 0.66, 0.62))
+		# the painted panel in two parts: the green steel plate over the whole dashboard and the brass strip with its rivets only as a
+		# thin edge at the bottom (stretched over everything it put huge rivets under the gauges)
+		var strip_h = clampf(size.y * 0.028, 22.0, 30.0)
+		draw_texture_rect_region(CAB_STEEL, Rect2(0, top - 4, size.x, size.y - top + 4 - strip_h), Rect2(330, 812, 840, 52), Color(0.66, 0.69, 0.64))   # a plain piece of the plate without rivets: stretched, a rivet became an oval
+		draw_texture_rect_region(CAB_STEEL, Rect2(0, size.y - strip_h, size.x, strip_h), Rect2(0, 905, 1536, 110), Color(0.7, 0.7, 0.66))
 		draw_line(Vector2(0, top - 4), Vector2(size.x, top - 4), Color(0, 0, 0, 0.55), 3.0)
 		for rivet in range(int(size.x / 50.0)):
 			draw_circle(Vector2(25 + rivet * 50.0, top + 8), 2.5, Color("a98a4a"))
