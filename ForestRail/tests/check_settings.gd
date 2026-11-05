@@ -80,6 +80,8 @@ func run() -> void:
 	check(await press("Интерфейс"), "a sound test button plays")
 	# graphics: each choice changes what it says it changes
 	game.settings_tab = "Графика"; game.rebuild(); await frame(2)
+	check(await press("Мерцание ламп и искры") and not game.light_flicker_enabled(), "graphics can disable light flicker separately")
+	check(await press("Мерцание ламп и искры") and game.light_flicker_enabled(), "graphics can restore light flicker")
 	await press("60 Гц")
 	check(int(game.settings.instrument_hz) == 60, "instrument refresh 60 Hz is stored")
 	await press("120")

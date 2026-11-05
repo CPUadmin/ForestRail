@@ -65,7 +65,7 @@ var modal_kind = ""
 const DEFAULT_SETTINGS = {"master": 0.65, "mechanisms": 0.7, "forest": 0.6, "music": 0.25, "interface": 0.8,
 	"sensitivity": 1.0, "text_scale": 1.0, "fullscreen": false, "borderless": false, "window_size": 1,
 	"vsync": true, "fps_cap": 0, "msaa": 0, "instrument_hz": 30, "reduce_motion": false, "cab_shake": 1.0,
-	"autosave": 60, "night_light": 0.0, "weather": 0, "keys": {"map": KEY_M, "cab": KEY_E, "ice": KEY_I, "brake": KEY_SPACE, "sail_side": KEY_F}}
+	"autosave": 60, "night_light": 0.0, "light_flicker": true, "weather": 0, "keys": {"map": KEY_M, "cab": KEY_E, "ice": KEY_I, "brake": KEY_SPACE, "sail_side": KEY_F}}
 const WINDOW_SIZES = [Vector2i(1280, 720), Vector2i(1600, 900), Vector2i(1920, 1080)]
 const SETTINGS_TABS = ["Звук", "Графика", "Управление", "Игра", "Доступность", "Служебное"]
 var settings = DEFAULT_SETTINGS.duplicate(true)
@@ -334,6 +334,7 @@ func apply_settings() -> void:
 	settings.instrument_hz = 60 if int(settings.instrument_hz) >= 60 else 30
 	settings.autosave = int(settings.autosave) if int(settings.autosave) in [0, 30, 60, 120, 300] else 60
 	settings.night_light = clampf(float(settings.night_light), 0.0, 1.0)
+	settings.light_flicker = settings.light_flicker is not bool or settings.light_flicker
 	settings.weather = int(settings.weather) if int(settings.weather) in [0, 1, 2] else 0
 	# Hot keys: valid, never Escape (it always pauses), never twice; otherwise back to the defaults.
 	var keys: Dictionary = settings.keys
@@ -486,6 +487,7 @@ func build_settings(box: VBoxContainer) -> void:
 		settings_choice(box, "msaa", "Сглаживание краёв", [[0, "Выкл."], [2, "2×"], [4, "4×"]])
 		settings_choice(box, "instrument_hz", "Частота обновления приборов", [[30, "30 Гц"], [60, "60 Гц"]])
 		settings_slider(box, "night_light", "Яркость ночи (0 тёмная, 1 светлее)", 0.0, 1.0, 0.1)
+		settings_toggle(box, "light_flicker", "Мерцание ламп и искры")
 		settings_choice(box, "weather", "Погода", [[0, "Обычная"], [1, "Реже и слабее"], [2, "Без осадков и тумана"]])
 	elif settings_tab == "Управление":
 		settings_slider(box, "sensitivity", "Чувствительность ручной дрезины", 0.5, 2, 0.05)
@@ -1796,7 +1798,7 @@ func draw_steam_cab_props(bucket: Rect2, fire: Rect2, door_button: Rect2, boiler
 	# firebox door: an iron arch with the fire behind it; the fire lights the dashboard
 	var heat = float(boiler.heat)
 	if heat > 0.05:
-		var flicker = 1.0 if settings.reduce_motion else 0.7 + 0.3 * sin(time * 9.0) * sin(time * 3.7)
+		var flicker = 0.7 + 0.3 * sin(time * 9.0) * sin(time * 3.7) if light_flicker_enabled() else 1.0
 		for ring in range(5): draw_circle(fire.get_center(), 60.0 + ring * 38.0, Color(1.0, 0.5, 0.12, 0.05 * heat * flicker))
 	var door_open = bool(boiler.door)
 	draw_rect(fire, Color("0a0b0b"))
@@ -2633,6 +2635,9 @@ func lights_lit() -> bool:
 	if lamp_manual >= 0: return lamp_manual == 1
 	return model.night_amount() > 0.3 or float(model.weather().fog) * model.weather_effect > 0.5
 
+func light_flicker_enabled() -> bool:
+	return bool(settings.light_flicker) and not settings.reduce_motion
+
 # The weather as the player's settings show it: normal, weaker, or none.
 func shown_weather() -> Dictionary:
 	var w = model.weather()
@@ -3211,7 +3216,7 @@ func draw_cab_frame(size: Vector2, top: float) -> void:
 	var dark = Color("1f2f27")
 	var brass = Color("c9a85a")
 	var running_engine = bool(model.state.engine) and model.vehicle_id() != "locomotive"
-	var lamp_flicker = 1.0 - (0.22 * (0.5 + 0.5 * sin(time * 27.0)) if running_engine and not settings.reduce_motion else 0.0)
+	var lamp_flicker = 1.0 - (0.22 * (0.5 + 0.5 * sin(time * 27.0)) if running_engine and light_flicker_enabled() else 0.0)
 	var roof = size.y * 0.075
 	draw_polygon(PackedVector2Array([Vector2(0, 0), Vector2(size.x, 0), Vector2(size.x, roof), Vector2(0, roof)]), PackedColorArray([dark, dark, green, green]))
 	for plank in range(1, 24):
@@ -3473,7 +3478,7 @@ func draw_electric_cab_extras(size: Vector2, layout: Dictionary) -> void:
 	var lamps = [["РЕКУП.", regen, Color("6cc4e0")], ["ПИТАНИЕ", float(model.state.fleet_by_id.locomotive.fuel) > 0.0, Color("5cc17f")], ["НИЗКИЙ ЗАРЯД", float(model.state.fleet_by_id.locomotive.fuel) / float(model.object_stats("locomotive").tank) < 0.25, Color("e0564a")]]
 	for lamp in range(lamps.size()):
 		var at = Vector2(cx - 60 + lamp * 60, top + 54)
-		var sweep = clampf(1.0 - absf((1.0 - electric_start_flash / ELECTRIC_START_FLASH) * 3.0 - float(lamp)), 0.0, 1.0) if electric_start_flash > 0.0 and not settings.reduce_motion else 0.0
+		var sweep = clampf(1.0 - absf((1.0 - electric_start_flash / ELECTRIC_START_FLASH) * 3.0 - float(lamp)), 0.0, 1.0) if electric_start_flash > 0.0 and light_flicker_enabled() else 0.0
 		draw_circle(at, 9, Color("0c100e"))
 		draw_circle(at, 7, lamps[lamp][2] if lamps[lamp][1] else lamps[lamp][2].darkened(0.78))
 		if lamps[lamp][1]: draw_circle(at, 15, Color(lamps[lamp][2], 0.2))
@@ -4007,7 +4012,7 @@ func draw_body(id: String, s: float, controls: bool) -> void:
 	if not id.begins_with("W"): art.draw_added_headlamp(self, id)
 	if id == "locomotive" and screen == "game":
 		draw_charge_strip(outer)
-		if electric_start_flash > 0.0 and not settings.reduce_motion:
+		if electric_start_flash > 0.0 and light_flicker_enabled():
 			var axle: Vector2 = art.wheel_positions(id)[1]
 			var contact = Vector2(axle.x, 0)
 			var strength = electric_start_flash / ELECTRIC_START_FLASH
