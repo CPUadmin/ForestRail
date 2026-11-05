@@ -1814,6 +1814,11 @@ func zeppelin_step(dt: float, fleet: Dictionary, old_v: float) -> float:
 			events.append("crash")
 		elif event in ["takeoff", "land", "stall", "overheat", "redline"]:
 			events.append("zep_" + event)
+			if event == "land":
+				# a landing hurts the fragile cargo and shakes the body as any other landing
+				last_landing = zep.land_vz
+				landing_impact(zep.land_vz)
+				if live_effects: live.landed(zep.land_vz)
 	return zep.v * forward
 
 # a crashed zeppelin: half of the money (the share is in the data), the machine is brought to the depot as by the rescue

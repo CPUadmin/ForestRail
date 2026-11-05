@@ -57,6 +57,7 @@ var wing_angle = 0.0      # degrees on the picture, negative: the front edge up
 var tail_angle = 0.0
 var flaps = 0.0           # 0..1, the air brake opens the flaps
 var prop_phase = 0.0
+var land_vz = 0.0         # how fast the last landing was (for the cargo and the shake)
 var events: Array = []    # "stall", "overheat", "takeoff", "land", "crash", "redline"
 
 func _init(config: Dictionary = {}) -> void:
@@ -235,6 +236,7 @@ func step(dt: float, slope: float = 0.0, wind_along: float = 0.0) -> void:
 			if absf(vz) <= c("landing_max_vz") and absf(stick) <= c("landing_max_alpha"):
 				airborne = false
 				v *= 1.0 - c("landing_speed_loss")
+				land_vz = absf(vz)
 				vz = 0.0
 				events.append("land")
 			else:

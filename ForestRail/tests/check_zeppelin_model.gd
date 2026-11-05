@@ -177,5 +177,24 @@ func run() -> void:
 	check(loaded.restore(saved.serialize()), "a game with the zeppelin loads")
 	check(loaded.vehicle_id() == "zeppelin" and is_equal_approx(loaded.zeppelin_pitch(), 0.4) and is_equal_approx(loaded.zeppelin_stick(), 3.5), "the levers are where they were left")
 	check(int(loaded.object_state("zeppelin").levels.get("zeppelin_tank", 0)) == 1, "the upgrade is kept")
+	# a landing hurts fragile cargo (as any landing)
+	var cargo = Model.new()
+	cargo.new_game(42, 2)
+	cargo.state.money = 100000
+	Fixtures.equip(cargo, "zeppelin")
+	cargo.state.cargo.append({"id": "T1", "type": "fragile", "slot": "zeppelin:0", "delivered": false, "health": 1.0, "destination": "B"})
+	cargo.state.phase = "route"
+	cargo.state.engine = true
+	cargo.state.v = 33.0
+	cargo.zep.v = 33.0
+	cargo.zep.airborne = true
+	cargo.zep.z = 0.3
+	cargo.zep.vz = -3.0
+	cargo.state.throttle = 0.6
+	cargo.state.brake = 0.0
+	for i in range(60):
+		cargo.physics_step(1.0 / 60.0)
+		if cargo.zep.land_vz > 0.0: break
+	check(cargo.zep.land_vz > 2.0 and float(cargo.state.cargo[0].health) < 0.7, "a hard-ish landing hurts the fragile cargo (%.2f, health %.2f)" % [cargo.zep.land_vz, float(cargo.state.cargo[0].health)])
 	print("ZEPPELIN MODEL CHECKS ", checks, "; FAILURES ", failures)
 	get_tree().quit(0 if failures.is_empty() else 1)
