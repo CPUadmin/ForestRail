@@ -3091,16 +3091,21 @@ func draw_cab_forward(view: Rect2) -> Dictionary:
 		var edge_a = project.call(1.5, z0)
 		var edge_b = project.call(1.5, z1)
 		draw_line(edge_a, edge_b, cab_fog(Color("e6d9a8"), z), clampf(0.06 * focal / z, 1, 5), true)
-		var base_l = project.call(4.2, z)
-		var base_r = project.call(11.0, z)
-		var wall_h = 4.2 * focal / z
-		draw_rect(Rect2(base_l.x, base_l.y - wall_h, base_r.x - base_l.x, wall_h), cab_fog(Color("7c4f34"), z))
-		draw_colored_polygon(PackedVector2Array([Vector2(base_l.x - wall_h * 0.12, base_l.y - wall_h), Vector2((base_l.x + base_r.x) * 0.5, base_l.y - wall_h * 1.5), Vector2(base_r.x + wall_h * 0.12, base_l.y - wall_h)]), cab_fog(Color("8e3b2e"), z))
-		for window in range(3):
-			var wx = base_l.x + (base_r.x - base_l.x) * (0.15 + window * 0.3)
-			draw_rect(Rect2(wx, base_l.y - wall_h * 0.7, (base_r.x - base_l.x) * 0.14, wall_h * 0.38), cab_fog(Color("f1d98a"), z))
-		if z < 110.0:
-			draw_string(font, Vector2(base_l.x, base_l.y - wall_h * 0.12), model.data.stations[i].name, HORIZONTAL_ALIGNMENT_CENTER, base_r.x - base_l.x, clampi(roundi(900.0 / z), 9, 26), Color("f1e6c8"))
+		var station = model.data.stations[i]
+		var building_id = art_world.station_building_id(i)
+		var facade: Array = ArtWorld.STATION_ART.get(station.id, [])
+		var texture: Texture2D = art.textures[building_id] if facade.is_empty() else facade[0]
+		var height_m = texture.get_height() * art.scale_for(building_id) / ArtV3.PX if facade.is_empty() else float(facade[1])
+		var height = height_m * focal / z
+		var width = height * float(texture.get_width()) / float(texture.get_height())
+		var foot: Vector2 = project.call(10.5, z)
+		draw_texture_rect(texture, Rect2(foot - Vector2(width * 0.5, height), Vector2(width, height)), false, cab_fog(Color.WHITE, z))
+		if z < 70.0:
+			var label_size = clampi(roundi(600.0 / z), 9, 18)
+			var label_width = font.get_string_size(station.name, HORIZONTAL_ALIGNMENT_LEFT, -1, label_size).x + 14.0
+			var label_at = foot + Vector2(-label_width * 0.5, 8)
+			draw_rect(Rect2(label_at, Vector2(label_width, label_size + 6.0)), Color("20392e", 0.9))
+			draw_string(font, label_at + Vector2(0, label_size), station.name, HORIZONTAL_ALIGNMENT_CENTER, label_width, label_size, PAPER)
 	# telegraph poles on the left with sagging wires, mileposts on the right
 	var pole_first = floori((travelled + 4.0) / 40.0)
 	var pole_last = floori((travelled + 160.0) / 40.0)

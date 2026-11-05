@@ -357,5 +357,8 @@ func run() -> void:
 	for grade in [["uphill", uphill], ["downhill", downhill]]:
 		game.model.state.s = grade[1]
 		await shot("cab_" + grade[0])
+	for index in [1, 4, 5]:
+		game.model.state.s = float(game.model.route.station_s[index]) - 14.0
+		await shot("cab_station_" + game.model.data.stations[index].id)
 	print("CAB CHECKS ", checks, "; FAILURES ", failures)
 	get_tree().quit(0 if failures.is_empty() else 1)

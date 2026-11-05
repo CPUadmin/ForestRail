@@ -276,11 +276,14 @@ func _draw() -> void:
 	draw_texture_rect(art.textures["parallax/sky"], Rect2(Vector2.ZERO, size), false)
 	draw_rect(Rect2(0, rail_y() - 5, size.x, size.y), Color("1b1008"))
 
+func station_building_id(index: int) -> String:
+	return "stations/depot" if index == 0 else ("stations/sawmill_shelter" if index == 2 else "stations/station_house")
+
 func draw_stations(canvas: Node2D) -> void:
 	var size = game.get_viewport_rect().size
 	for i in range(game.model.data.stations.size()):
 		var station = game.model.data.stations[i]
-		var name = "stations/depot" if i == 0 else ("stations/sawmill_shelter" if i == 2 else "stations/station_house")
+		var name = station_building_id(i)
 		var spec = art.Geometry.data().buildings[name]
 		var sc = game.view_scale()
 		var facade = STATION_ART.get(station.id, [])
