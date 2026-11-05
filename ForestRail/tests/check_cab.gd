@@ -152,6 +152,10 @@ func run() -> void:
 		# Electric: the direction switch and the emergency stop are real buttons.
 		context = "electric buttons %s " % str(resolution)
 		await prepare("locomotive")
+		game.model.state.engine = true
+		await frame()
+		check(game.electric_start_flash > 0.0, "electric power-on starts a brief flash")
+		if resolution.y == 900: await shot("electric_start_flash")
 		game.model.state.brake = 1.0
 		await key(KEY_E)
 		for i in range(6): await frame()

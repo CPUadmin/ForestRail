@@ -112,6 +112,9 @@ var cab_jolt = 0.0
 var cab_joint = -999999
 var needle_state: Dictionary = {}
 var cab_dt = 0.016
+const ELECTRIC_START_FLASH = 0.35
+var electric_start_flash = 0.0
+var electric_was_powered = false
 var drag = ""
 var drag_item = ""
 var drag_total = 0.0
@@ -2132,6 +2135,14 @@ func cancel_drag() -> void:
 
 func _process(dt: float) -> void:
 	time += dt
+	var electric_powered = screen == "game" and not model.state.is_empty() and model.vehicle_id() == "locomotive" and bool(model.state.engine)
+	if electric_powered and not electric_was_powered and not paused:
+		electric_start_flash = ELECTRIC_START_FLASH
+		sound.play("contactor", 0.4)
+	else:
+		electric_start_flash = move_toward(electric_start_flash, 0.0, dt)
+	if not paused or not electric_powered:
+		electric_was_powered = electric_powered
 	model.weather_effect = [1.0, 0.5, 0.0][clampi(int(settings.weather), 0, 2)]
 	Model.wear_rules = not test_mode or live_in_tests   # wear and damage of the nodes (B5.6)
 	Model.junk_rules = not test_mode or junk_in_tests   # bolts from the road (B6.11 b)
@@ -3458,9 +3469,11 @@ func draw_electric_cab_extras(size: Vector2, layout: Dictionary) -> void:
 	var lamps = [["РЕКУП.", regen, Color("6cc4e0")], ["ПИТАНИЕ", float(model.state.fleet_by_id.locomotive.fuel) > 0.0, Color("5cc17f")], ["НИЗКИЙ ЗАРЯД", float(model.state.fleet_by_id.locomotive.fuel) / float(model.object_stats("locomotive").tank) < 0.25, Color("e0564a")]]
 	for lamp in range(lamps.size()):
 		var at = Vector2(cx - 60 + lamp * 60, top + 54)
+		var sweep = clampf(1.0 - absf((1.0 - electric_start_flash / ELECTRIC_START_FLASH) * 3.0 - float(lamp)), 0.0, 1.0) if electric_start_flash > 0.0 and not settings.reduce_motion else 0.0
 		draw_circle(at, 9, Color("0c100e"))
 		draw_circle(at, 7, lamps[lamp][2] if lamps[lamp][1] else lamps[lamp][2].darkened(0.78))
 		if lamps[lamp][1]: draw_circle(at, 15, Color(lamps[lamp][2], 0.2))
+		if sweep > 0.0: draw_circle(at, 11, Color(0.8, 0.93, 1.0, sweep * 0.6))
 		draw_string(font, at + Vector2(-30, 24), lamps[lamp][0], HORIZONTAL_ALIGNMENT_CENTER, 60, 9, Color("a9a589"))
 	# motor temperature: over 85% the pull weakens
 	var motor_temp = model.engine_temp()
@@ -3988,7 +4001,16 @@ func draw_body(id: String, s: float, controls: bool) -> void:
 	ellipse(Vector2(10, 7 + air_height * ArtV3.PX), Vector2(art.body_width(id)*0.48/(1.0 + air_height * 0.8), 7.0/(1.0 + air_height * 0.8)), Color(0.05, 0.08, 0.05, 0.23/(1.0 + air_height * 1.5)))
 	art.draw_vehicle(self, id, s, int(model.state.direction) if screen != "depot" else 1, outer, model, controls, {}, false)
 	if not id.begins_with("W"): art.draw_added_headlamp(self, id)
-	if id == "locomotive" and screen == "game": draw_charge_strip(outer)
+	if id == "locomotive" and screen == "game":
+		draw_charge_strip(outer)
+		if electric_start_flash > 0.0 and not settings.reduce_motion:
+			var axle: Vector2 = art.wheel_positions(id)[1]
+			var contact = Vector2(axle.x, 0)
+			var strength = electric_start_flash / ELECTRIC_START_FLASH
+			draw_circle(contact, 7.0, Color(0.44, 0.76, 1.0, strength * 0.26))
+			for ray in range(5):
+				var tip = contact + Vector2(-10.0 + ray * 5.0, -5.0 - (ray % 3) * 3.5)
+				draw_line(contact, tip, Color(0.80, 0.94, 1.0, strength), 1.6, true)
 	var boxes = cargo_layout(id)
 	for index in range(boxes.size()):
 		var box: Rect2 = boxes[index]
