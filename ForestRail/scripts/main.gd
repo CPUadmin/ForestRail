@@ -9,6 +9,7 @@ const Geometry = preload("res://scripts/world_geometry.gd")
 const Instruments = preload("res://scripts/instruments.gd")
 const CabSide = preload("res://scripts/cab_side.gd")
 const CHARGING_PLUG = preload("res://assets/art_electric/charging_plug.png")
+const CONTACTOR_HATCH = preload("res://assets/art_electric/contactor_hatch.png")
 const CAB_WOOD = preload("res://assets/art_cab/cab_dash_wood.png")
 const CAB_STEEL = preload("res://assets/art_cab/cab_dash_steel.png")
 const CAB_WINDSHIELD = preload("res://assets/art_cab/cab_window_frame.png")
@@ -3490,6 +3491,13 @@ func draw_electric_cab_extras(size: Vector2, layout: Dictionary) -> void:
 	var pult: Rect2 = layout.rect
 	var brass = Color("c9a85a")
 	var cx = size.x * 0.5
+	var hatch = Rect2(cx + 77, top + 128, 80, 88)
+	draw_texture_rect(CONTACTOR_HATCH, hatch, false, Color("9d9f8c"))
+	var pilot = hatch.position + Vector2(37, 18)
+	var energized = bool(model.state.engine) and sound.contactor_on
+	draw_circle(pilot, 5.5, Color("382819"))
+	draw_circle(pilot, 3.5, GOLD if energized else Color("695732"))
+	draw_string(font, hatch.end + Vector2(-105, 15), "КОНТАКТОР", HORIZONTAL_ALIGNMENT_CENTER, 130, 12, Color("c7c3a0"))
 	# warning plate with a lightning bolt
 	var tri = Vector2(400, top + 38)
 	draw_colored_polygon(PackedVector2Array([tri + Vector2(0, -22), tri + Vector2(25, 22), tri + Vector2(-25, 22)]), Color("e6c13a"))
