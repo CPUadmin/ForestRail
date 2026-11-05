@@ -1,1277 +1,1306 @@
 {
- "schema": 1,
- "statuses": [
-  "в списке",
-  "промпт готов",
-  "запрошено",
-  "получено",
-  "принято",
-  "отклонено",
-  "подключено"
- ],
- "packages": {
-  "П2": {
-   "name": "Шестовая и парусная",
-   "brief": "tools/art_sources/briefs/P2_pole_sail/BRIEF_RU.md",
-   "inbox": "tools/art_sources/inbox/P2_pole_sail/"
-  },
-  "П2б": {
-   "name": "Парусник сидя",
-   "brief": "tools/art_sources/briefs/P2b_sailor_seated/BRIEF_RU.md",
-   "inbox": "tools/art_sources/inbox/P2b_sailor_seated/"
-  },
-  "П1": {
-   "name": "Дорога и земля",
-   "brief": "tools/art_sources/briefs/P1_road_ground/BRIEF_RU.md",
-   "inbox": "tools/art_sources/inbox/P1_road_ground/"
-  },
-  "П4": {
-   "name": "Депо как комната",
-   "brief": "tools/art_sources/briefs/P4_depot_room/BRIEF_RU.md",
-   "inbox": "tools/art_sources/inbox/P4_depot_room/"
-  },
-  "П9": {
-   "name": "Казик, часть 1",
-   "brief": "docs/KAZIK_IMAGE_PROMPTS_RU.md",
-   "inbox": "tools/art_sources/inbox/kazik/"
-  },
-  "П9б": {
-   "name": "Казик, часть 2",
-   "brief": "tools/art_sources/briefs/P9b_kazik_part2/BRIEF_RU.md",
-   "inbox": "tools/art_sources/inbox/P9b_kazik_part2/"
-  },
-  "П10": {
-   "name": "Карточки Таро Михалыча",
-   "brief": "tools/art_sources/briefs/P10_tarot_cards/BRIEF_RU.md",
-   "inbox": "tools/art_sources/inbox/P10_tarot_cards/"
-  },
-  "П11": {
-   "name": "Иконки гаджетов",
-   "brief": "tools/art_sources/briefs/P11_gadget_icons/BRIEF_RU.md",
-   "inbox": "tools/art_sources/inbox/P11_gadget_icons/"
-  },
-  "П3": {
-   "name": "Кабина: панель и рама",
-   "brief": "tools/art_sources/briefs/P3_cab_glass/BRIEF_RU.md",
-   "inbox": "tools/art_sources/inbox/P3_cab_glass/"
-  },
-  "П5": {
-   "name": "Электровоз",
-   "brief": "tools/art_sources/briefs/P5_electric_loco/BRIEF_RU.md",
-   "inbox": "tools/art_sources/inbox/P5_electric_loco/"
-  },
-  "П6": {
-   "name": "Станции E и F",
-   "brief": "tools/art_sources/briefs/P6_stations_ef/BRIEF_RU.md",
-   "inbox": "tools/art_sources/inbox/P6_stations_ef/"
-  },
-  "П12": {
-   "name": "Гаджеты на машинах",
-   "brief": "tools/art_sources/briefs/P12_gadgets_on_machines/BRIEF_RU.md",
-   "inbox": "tools/art_sources/inbox/P12_gadgets_on_machines/"
-  }
- },
- "assets": [
-  {
-   "id": "P2-A1",
-   "file": "pole_parts.png",
-   "package": "П2",
-   "element": "V2",
-   "format": "3:2",
-   "background": "magenta",
-   "status": "подключено",
-   "note": "подключено в preview.73",
-   "sheet": {
-    "cols": 1,
-    "rows": 3
-   },
-   "notes": [],
-   "received": "2026-11-04 16:45",
-   "outputs": [
-    "accepted/P2_pole_sail/pole_parts_sheet.png",
-    "accepted/P2_pole_sail/pole_parts/cell_1_1.png",
-    "accepted/P2_pole_sail/pole_parts/cell_2_1.png",
-    "accepted/P2_pole_sail/pole_parts/cell_3_1.png"
-   ]
-  },
-  {
-   "id": "P2-A2",
-   "file": "worker_arm_parts.png",
-   "package": "П2",
-   "element": "V2",
-   "format": "1:1",
-   "background": "magenta",
-   "status": "подключено",
-   "note": "подключено в preview.73",
-   "sheet": {
-    "cols": 2,
-    "rows": 2
-   },
-   "notes": [],
-   "received": "2026-11-04 16:45",
-   "outputs": [
-    "accepted/P2_pole_sail/worker_arm_parts_sheet.png",
-    "accepted/P2_pole_sail/worker_arm_parts/cell_1_1.png",
-    "accepted/P2_pole_sail/worker_arm_parts/cell_1_2.png",
-    "accepted/P2_pole_sail/worker_arm_parts/cell_2_1.png",
-    "accepted/P2_pole_sail/worker_arm_parts/cell_2_2.png"
-   ]
-  },
-  {
-   "id": "P2-A3",
-   "file": "sail_cloth.png",
-   "package": "П2",
-   "element": "V3",
-   "format": "3:2",
-   "background": "full-bleed",
-   "status": "подключено",
-   "note": "подключено в preview.73",
-   "notes": [],
-   "received": "2026-11-04 16:45",
-   "outputs": [
-    "accepted/P2_pole_sail/sail_cloth.png"
-   ]
-  },
-  {
-   "id": "P2-A4",
-   "file": "sail_hardware.png",
-   "package": "П2",
-   "element": "V3",
-   "format": "1:1",
-   "background": "magenta",
-   "status": "подключено",
-   "note": "подключено частично в preview.73: вымпел и утка; остальные 7 предметов ждут применения",
-   "sheet": {
-    "cols": 3,
-    "rows": 3
-   },
-   "notes": [],
-   "received": "2026-11-04 16:45",
-   "outputs": [
-    "accepted/P2_pole_sail/sail_hardware_sheet.png",
-    "accepted/P2_pole_sail/sail_hardware/cell_1_1.png",
-    "accepted/P2_pole_sail/sail_hardware/cell_1_2.png",
-    "accepted/P2_pole_sail/sail_hardware/cell_1_3.png",
-    "accepted/P2_pole_sail/sail_hardware/cell_2_1.png",
-    "accepted/P2_pole_sail/sail_hardware/cell_2_2.png",
-    "accepted/P2_pole_sail/sail_hardware/cell_2_3.png",
-    "accepted/P2_pole_sail/sail_hardware/cell_3_1.png",
-    "accepted/P2_pole_sail/sail_hardware/cell_3_2.png",
-    "accepted/P2_pole_sail/sail_hardware/cell_3_3.png"
-   ]
-  },
-  {
-   "id": "P2B-A1",
-   "file": "sailor_seated.png",
-   "package": "П2б",
-   "element": "V3",
-   "format": "1:1",
-   "background": "magenta",
-   "status": "подключено",
-   "note": "подключено в preview.74: водитель парусной сидит на ящике на корме",
-   "notes": [],
-   "received": "2026-11-04 16:57",
-   "outputs": [
-    "accepted/P2b_sailor_seated/sailor_seated.png"
-   ]
-  },
-  {
-   "id": "P1-A1",
-   "file": "track_tile.png",
-   "package": "П1",
-   "element": "W4",
-   "format": "3:2",
-   "background": "magenta",
-   "tile": true,
-   "status": "получено",
-   "note": "заменён вариантом track_tile_depth.png",
-   "notes": [
-    "шов тайла в порядке"
-   ],
-   "received": "2026-11-04 17:32",
-   "outputs": [
-    "accepted/P1_road_ground/track_tile.png"
-   ]
-  },
-  {
-   "id": "P1-A2",
-   "file": "ground_tile.png",
-   "package": "П1",
-   "element": "W5",
-   "format": "3:2",
-   "background": "magenta",
-   "tile": true,
-   "status": "получено",
-   "note": "подключено в preview.75",
-   "notes": [
-    "шов тайла в порядке"
-   ],
-   "received": "2026-11-04 17:32",
-   "outputs": [
-    "accepted/P1_road_ground/ground_tile.png"
-   ]
-  },
-  {
-   "id": "P1-A3",
-   "file": "trackside_sheet.png",
-   "package": "П1",
-   "element": "W5",
-   "format": "1:1",
-   "background": "magenta",
-   "sheet": {
-    "cols": 3,
-    "rows": 3
-   },
-   "status": "получено",
-   "note": "подключено в preview.75",
-   "notes": [],
-   "received": "2026-11-04 17:32",
-   "outputs": [
-    "accepted/P1_road_ground/trackside_sheet_sheet.png",
-    "accepted/P1_road_ground/trackside_sheet/cell_1_1.png",
-    "accepted/P1_road_ground/trackside_sheet/cell_1_2.png",
-    "accepted/P1_road_ground/trackside_sheet/cell_1_3.png",
-    "accepted/P1_road_ground/trackside_sheet/cell_2_1.png",
-    "accepted/P1_road_ground/trackside_sheet/cell_2_2.png",
-    "accepted/P1_road_ground/trackside_sheet/cell_2_3.png",
-    "accepted/P1_road_ground/trackside_sheet/cell_3_1.png",
-    "accepted/P1_road_ground/trackside_sheet/cell_3_2.png",
-    "accepted/P1_road_ground/trackside_sheet/cell_3_3.png"
-   ]
-  },
-  {
-   "id": "P1-A1b",
-   "file": "track_tile_depth.png",
-   "package": "П1",
-   "element": "W4",
-   "format": "3:2",
-   "background": "magenta",
-   "tile": true,
-   "status": "принято",
-   "note": "вариант «объёмнее» по просьбе владельца 04.11.2026; заменил track_tile.png в игре (preview.76)",
-   "notes": [
-    "шов тайла в порядке"
-   ],
-   "received": "2026-11-04 17:32",
-   "outputs": [
-    "accepted/P1_road_ground/track_tile_depth.png"
-   ]
-  },
-  {
-   "id": "P4-A1",
-   "file": "depot_wall_tile.png",
-   "package": "П4",
-   "element": "D1",
-   "format": "3:2",
-   "background": "full-bleed",
-   "tile": true,
-   "status": "подключено",
-   "note": "подключено в preview.77",
-   "notes": [
-    "шов тайла в порядке"
-   ],
-   "received": "2026-11-04 21:51",
-   "outputs": [
-    "accepted/P4_depot_room/depot_wall_tile.png"
-   ]
-  },
-  {
-   "id": "P4-A2",
-   "file": "depot_rafters_tile.png",
-   "package": "П4",
-   "element": "D1",
-   "format": "3:2",
-   "background": "magenta",
-   "tile": true,
-   "status": "подключено",
-   "note": "подключено в preview.77",
-   "notes": [
-    "шов тайла в порядке"
-   ],
-   "received": "2026-11-04 21:51",
-   "outputs": [
-    "accepted/P4_depot_room/depot_rafters_tile.png"
-   ],
-   "bg_edge": "bottom"
-  },
-  {
-   "id": "P4-A3",
-   "file": "depot_props_sheet.png",
-   "package": "П4",
-   "element": "D1",
-   "format": "1:1",
-   "background": "magenta",
-   "sheet": {
-    "cols": 3,
-    "rows": 3
-   },
-   "status": "подключено",
-   "note": "подключено в preview.77",
-   "notes": [
-    "ПРЕДУПРЕЖДЕНИЕ: предмет упирается в край ячейки: 1,3"
-   ],
-   "received": "2026-11-04 21:51",
-   "outputs": [
-    "accepted/P4_depot_room/depot_props_sheet_sheet.png",
-    "accepted/P4_depot_room/depot_props_sheet/cell_1_1.png",
-    "accepted/P4_depot_room/depot_props_sheet/cell_1_2.png",
-    "accepted/P4_depot_room/depot_props_sheet/cell_1_3.png",
-    "accepted/P4_depot_room/depot_props_sheet/cell_2_1.png",
-    "accepted/P4_depot_room/depot_props_sheet/cell_2_2.png",
-    "accepted/P4_depot_room/depot_props_sheet/cell_2_3.png",
-    "accepted/P4_depot_room/depot_props_sheet/cell_3_1.png",
-    "accepted/P4_depot_room/depot_props_sheet/cell_3_2.png",
-    "accepted/P4_depot_room/depot_props_sheet/cell_3_3.png"
-   ]
-  },
-  {
-   "id": "P4-A4",
-   "file": "depot_floor_tile.png",
-   "package": "П4",
-   "element": "D1",
-   "format": "3:2",
-   "background": "magenta",
-   "tile": true,
-   "status": "подключено",
-   "note": "подключено в preview.77",
-   "notes": [
-    "шов тайла в порядке"
-   ],
-   "received": "2026-11-04 21:51",
-   "outputs": [
-    "accepted/P4_depot_room/depot_floor_tile.png"
-   ]
-  },
-  {
-   "id": "P4-A5",
-   "file": "depot_lamp_glow.png",
-   "package": "П4",
-   "element": "D2",
-   "format": "1:1",
-   "background": "black",
-   "status": "подключено",
-   "note": "подключено в preview.77",
-   "notes": [],
-   "received": "2026-11-04 21:51",
-   "outputs": [
-    "accepted/P4_depot_room/depot_lamp_glow.png"
-   ]
-  },
-  {
-   "id": "K-A1",
-   "file": "kazik_facade.png",
-   "package": "П9",
-   "element": "K",
-   "format": "3:2",
-   "background": "full-bleed",
-   "status": "принято",
-   "note": "принято, пока не использована (фасад для входа в казик)",
-   "notes": [],
-   "received": "2026-11-04 22:00",
-   "outputs": [
-    "accepted/kazik/kazik_facade.png"
-   ]
-  },
-  {
-   "id": "K-A2",
-   "file": "kazik_interior.png",
-   "package": "П9",
-   "element": "K",
-   "format": "3:2",
-   "background": "full-bleed",
-   "status": "подключено",
-   "note": "подключено в экране казика (preview.78)",
-   "notes": [],
-   "received": "2026-11-04 22:00",
-   "outputs": [
-    "accepted/kazik/kazik_interior.png"
-   ]
-  },
-  {
-   "id": "K-B1",
-   "file": "kazik_wheel.png",
-   "package": "П9",
-   "element": "K",
-   "format": "1:1",
-   "background": "transparent",
-   "status": "подключено",
-   "note": "подключено в экране казика (preview.78)",
-   "notes": [],
-   "received": "2026-11-04 22:00",
-   "outputs": [
-    "accepted/kazik/kazik_wheel.png"
-   ]
-  },
-  {
-   "id": "K-B2",
-   "file": "kazik_wheel_pointer.png",
-   "package": "П9",
-   "element": "K",
-   "format": "1:1",
-   "background": "transparent",
-   "status": "подключено",
-   "note": "подключено в экране казика (preview.78)",
-   "notes": [],
-   "received": "2026-11-04 22:00",
-   "outputs": [
-    "accepted/kazik/kazik_wheel_pointer.png"
-   ]
-  },
-  {
-   "id": "K-B3",
-   "file": "kazik_wheel_glow.png",
-   "package": "П9",
-   "element": "K",
-   "format": "1:1",
-   "background": "black",
-   "status": "подключено",
-   "note": "подключено в экране казика (preview.78)",
-   "notes": [],
-   "received": "2026-11-04 22:00",
-   "outputs": [
-    "accepted/kazik/kazik_wheel_glow.png"
-   ]
-  },
-  {
-   "id": "K-C1",
-   "file": "kazik_mikhalych.png",
-   "package": "П9",
-   "element": "K",
-   "format": "2:3",
-   "background": "transparent",
-   "status": "подключено",
-   "note": "подключено в экране казика (preview.78)",
-   "notes": [
-    "ПРЕДУПРЕЖДЕНИЕ: предмет близко к краю кадра, возможно обрезан"
-   ],
-   "received": "2026-11-04 22:00",
-   "outputs": [
-    "accepted/kazik/kazik_mikhalych.png"
-   ]
-  },
-  {
-   "id": "K-D1",
-   "file": "kazik_token.png",
-   "package": "П9",
-   "element": "K",
-   "format": "1:1",
-   "background": "transparent",
-   "status": "подключено",
-   "note": "подключено в экране казика (preview.78)",
-   "notes": [],
-   "received": "2026-11-04 22:00",
-   "outputs": [
-    "accepted/kazik/kazik_token.png"
-   ]
-  },
-  {
-   "id": "K-E1",
-   "file": "kazik_junk_sheet1.png",
-   "package": "П9",
-   "element": "K",
-   "format": "1:1",
-   "background": "transparent",
-   "status": "подключено",
-   "note": "подключено в экране казика (preview.78)",
-   "sheet": {
-    "cols": 3,
-    "rows": 3
-   },
-   "notes": [
-    "ПРЕДУПРЕЖДЕНИЕ: предмет упирается в край ячейки: 2,2; 2,3; 3,1; 3,2; 3,3"
-   ],
-   "received": "2026-11-04 22:00",
-   "outputs": [
-    "accepted/kazik/kazik_junk_sheet1_sheet.png",
-    "accepted/kazik/kazik_junk_sheet1/cell_1_1.png",
-    "accepted/kazik/kazik_junk_sheet1/cell_1_2.png",
-    "accepted/kazik/kazik_junk_sheet1/cell_1_3.png",
-    "accepted/kazik/kazik_junk_sheet1/cell_2_1.png",
-    "accepted/kazik/kazik_junk_sheet1/cell_2_2.png",
-    "accepted/kazik/kazik_junk_sheet1/cell_2_3.png",
-    "accepted/kazik/kazik_junk_sheet1/cell_3_1.png",
-    "accepted/kazik/kazik_junk_sheet1/cell_3_2.png",
-    "accepted/kazik/kazik_junk_sheet1/cell_3_3.png"
-   ]
-  },
-  {
-   "id": "P9B-A1",
-   "file": "sector_icons.png",
-   "package": "П9б",
-   "element": "K",
-   "format": "1:1",
-   "background": "transparent",
-   "status": "принято",
-   "note": "",
-   "sheet": {
-    "cols": 3,
-    "rows": 3
-   },
-   "notes": [
-    "ПРЕДУПРЕЖДЕНИЕ: предмет упирается в край ячейки: 3,1; 3,2; 3,3"
-   ],
-   "received": "2026-11-04 22:23",
-   "outputs": [
-    "accepted/P9b_kazik_part2/sector_icons_sheet.png",
-    "accepted/P9b_kazik_part2/sector_icons/cell_1_1.png",
-    "accepted/P9b_kazik_part2/sector_icons/cell_1_2.png",
-    "accepted/P9b_kazik_part2/sector_icons/cell_1_3.png",
-    "accepted/P9b_kazik_part2/sector_icons/cell_2_1.png",
-    "accepted/P9b_kazik_part2/sector_icons/cell_2_2.png",
-    "accepted/P9b_kazik_part2/sector_icons/cell_2_3.png",
-    "accepted/P9b_kazik_part2/sector_icons/cell_3_1.png",
-    "accepted/P9b_kazik_part2/sector_icons/cell_3_2.png",
-    "accepted/P9b_kazik_part2/sector_icons/cell_3_3.png"
-   ]
-  },
-  {
-   "id": "P9B-A2",
-   "file": "kazik_junk_sheet2.png",
-   "package": "П9б",
-   "element": "K",
-   "format": "1:1",
-   "background": "transparent",
-   "status": "принято",
-   "note": "",
-   "sheet": {
-    "cols": 3,
-    "rows": 3
-   },
-   "notes": [
-    "ПРЕДУПРЕЖДЕНИЕ: предмет упирается в край ячейки: 3,2; 3,3"
-   ],
-   "received": "2026-11-04 22:23",
-   "outputs": [
-    "accepted/P9b_kazik_part2/kazik_junk_sheet2_sheet.png",
-    "accepted/P9b_kazik_part2/kazik_junk_sheet2/cell_1_1.png",
-    "accepted/P9b_kazik_part2/kazik_junk_sheet2/cell_1_2.png",
-    "accepted/P9b_kazik_part2/kazik_junk_sheet2/cell_1_3.png",
-    "accepted/P9b_kazik_part2/kazik_junk_sheet2/cell_2_1.png",
-    "accepted/P9b_kazik_part2/kazik_junk_sheet2/cell_2_2.png",
-    "accepted/P9b_kazik_part2/kazik_junk_sheet2/cell_2_3.png",
-    "accepted/P9b_kazik_part2/kazik_junk_sheet2/cell_3_1.png",
-    "accepted/P9b_kazik_part2/kazik_junk_sheet2/cell_3_2.png",
-    "accepted/P9b_kazik_part2/kazik_junk_sheet2/cell_3_3.png"
-   ]
-  },
-  {
-   "id": "P9B-A3",
-   "file": "kazik_junk_bag.png",
-   "package": "П9б",
-   "element": "K",
-   "format": "1:1",
-   "background": "transparent",
-   "status": "принято",
-   "note": "",
-   "notes": [],
-   "received": "2026-11-04 22:23",
-   "outputs": [
-    "accepted/P9b_kazik_part2/kazik_junk_bag.png"
-   ]
-  },
-  {
-   "id": "P9B-A4",
-   "file": "kazik_mikhalych_happy.png",
-   "package": "П9б",
-   "element": "K",
-   "format": "2:3",
-   "background": "transparent",
-   "status": "принято",
-   "note": "",
-   "notes": [
-    "ПРЕДУПРЕЖДЕНИЕ: предмет близко к краю кадра, возможно обрезан"
-   ],
-   "received": "2026-11-04 22:23",
-   "outputs": [
-    "accepted/P9b_kazik_part2/kazik_mikhalych_happy.png"
-   ]
-  },
-  {
-   "id": "P9B-A5",
-   "file": "kazik_mikhalych_sad.png",
-   "package": "П9б",
-   "element": "K",
-   "format": "2:3",
-   "background": "transparent",
-   "status": "принято",
-   "note": "",
-   "notes": [
-    "ПРЕДУПРЕЖДЕНИЕ: предмет близко к краю кадра, возможно обрезан"
-   ],
-   "received": "2026-11-04 22:23",
-   "outputs": [
-    "accepted/P9b_kazik_part2/kazik_mikhalych_sad.png"
-   ]
-  },
-  {
-   "id": "P9B-A6",
-   "file": "kazik_mikhalych_surprised.png",
-   "package": "П9б",
-   "element": "K",
-   "format": "2:3",
-   "background": "transparent",
-   "status": "принято",
-   "note": "",
-   "notes": [
-    "ПРЕДУПРЕЖДЕНИЕ: предмет близко к краю кадра, возможно обрезан"
-   ],
-   "received": "2026-11-04 22:23",
-   "outputs": [
-    "accepted/P9b_kazik_part2/kazik_mikhalych_surprised.png"
-   ]
-  },
-  {
-   "id": "P9B-A7",
-   "file": "kazik_mikhalych_pouring.png",
-   "package": "П9б",
-   "element": "K",
-   "format": "2:3",
-   "background": "transparent",
-   "status": "принято",
-   "note": "",
-   "notes": [
-    "ПРЕДУПРЕЖДЕНИЕ: предмет близко к краю кадра, возможно обрезан"
-   ],
-   "received": "2026-11-04 22:23",
-   "outputs": [
-    "accepted/P9b_kazik_part2/kazik_mikhalych_pouring.png"
-   ]
-  },
-  {
-   "id": "P9B-A8",
-   "file": "kazik_card_frame.png",
-   "package": "П9б",
-   "element": "K",
-   "format": "2:3",
-   "background": "transparent",
-   "status": "принято",
-   "note": "",
-   "notes": [
-    "ПРЕДУПРЕЖДЕНИЕ: предмет близко к краю кадра, возможно обрезан"
-   ],
-   "received": "2026-11-04 22:23",
-   "outputs": [
-    "accepted/P9b_kazik_part2/kazik_card_frame.png"
-   ]
-  },
-  {
-   "id": "P10-A1",
-   "file": "card_00_fool.png",
-   "package": "П10",
-   "element": "K",
-   "format": "1:1",
-   "background": "full-bleed",
-   "status": "промпт готов",
-   "note": "0 Шут (Пого-шест)"
-  },
-  {
-   "id": "P10-A2",
-   "file": "card_01_magician.png",
-   "package": "П10",
-   "element": "K",
-   "format": "1:1",
-   "background": "full-bleed",
-   "status": "промпт готов",
-   "note": "I Маг (Механический кочегар)"
-  },
-  {
-   "id": "P10-A3",
-   "file": "card_02_priestess.png",
-   "package": "П10",
-   "element": "K",
-   "format": "1:1",
-   "background": "full-bleed",
-   "status": "промпт готов",
-   "note": "II Верховная жрица (Флюгер-автопилот)"
-  },
-  {
-   "id": "P10-A4",
-   "file": "card_03_empress.png",
-   "package": "П10",
-   "element": "K",
-   "format": "1:1",
-   "background": "full-bleed",
-   "status": "промпт готов",
-   "note": "III Императрица (Запасной баллон)"
-  },
-  {
-   "id": "P10-A5",
-   "file": "card_04_emperor.png",
-   "package": "П10",
-   "element": "K",
-   "format": "1:1",
-   "background": "full-bleed",
-   "status": "промпт готов",
-   "note": "IV Император (Автоматическая КПП)"
-  },
-  {
-   "id": "P10-A6",
-   "file": "card_05_hierophant.png",
-   "package": "П10",
-   "element": "K",
-   "format": "1:1",
-   "background": "full-bleed",
-   "status": "промпт готов",
-   "note": "V Иерофант (Автоматический редуктор)"
-  },
-  {
-   "id": "P10-A7",
-   "file": "card_06_lovers.png",
-   "package": "П10",
-   "element": "K",
-   "format": "1:1",
-   "background": "full-bleed",
-   "status": "промпт готов",
-   "note": "VI Влюблённые (Храповик)"
-  },
-  {
-   "id": "P10-A8",
-   "file": "card_07_chariot.png",
-   "package": "П10",
-   "element": "K",
-   "format": "1:1",
-   "background": "full-bleed",
-   "status": "промпт готов",
-   "note": "VII Колесница (Суперконденсатор)"
-  },
-  {
-   "id": "P10-A9",
-   "file": "card_08_strength.png",
-   "package": "П10",
-   "element": "K",
-   "format": "1:1",
-   "background": "full-bleed",
-   "status": "промпт готов",
-   "note": "VIII Сила (Закись азота)"
-  },
-  {
-   "id": "P10-A10",
-   "file": "card_09_hermit.png",
-   "package": "П10",
-   "element": "K",
-   "format": "1:1",
-   "background": "full-bleed",
-   "status": "промпт готов",
-   "note": "IX Отшельник (Триммер)"
-  },
-  {
-   "id": "P10-A11",
-   "file": "card_10_wheel_of_fortune.png",
-   "package": "П10",
-   "element": "K",
-   "format": "1:1",
-   "background": "full-bleed",
-   "status": "промпт готов",
-   "note": "X Колесо Фортуны (Маховик-накопитель)"
-  },
-  {
-   "id": "P10-A12",
-   "file": "card_11_justice.png",
-   "package": "П10",
-   "element": "K",
-   "format": "1:1",
-   "background": "full-bleed",
-   "status": "промпт готов",
-   "note": "XI Справедливость (Жидкостное охлаждение)"
-  },
-  {
-   "id": "P10-A13",
-   "file": "card_12_hanged_man.png",
-   "package": "П10",
-   "element": "K",
-   "format": "1:1",
-   "background": "full-bleed",
-   "status": "промпт готов",
-   "note": "XII Повешенный (Кошка с лебёдкой)"
-  },
-  {
-   "id": "P10-A14",
-   "file": "card_13_death.png",
-   "package": "П10",
-   "element": "K",
-   "format": "1:1",
-   "background": "full-bleed",
-   "status": "промпт готов",
-   "note": "XIII Смерть (Двойной парашют)"
-  },
-  {
-   "id": "P10-A15",
-   "file": "card_14_temperance.png",
-   "package": "П10",
-   "element": "K",
-   "format": "1:1",
-   "background": "full-bleed",
-   "status": "промпт готов",
-   "note": "XIV Умеренность (Пароперегреватель)"
-  },
-  {
-   "id": "P10-A16",
-   "file": "card_15_devil.png",
-   "package": "П10",
-   "element": "K",
-   "format": "1:1",
-   "background": "full-bleed",
-   "status": "промпт готов",
-   "note": "XV Дьявол (Форсаж)"
-  },
-  {
-   "id": "P10-A17",
-   "file": "card_16_tower.png",
-   "package": "П10",
-   "element": "K",
-   "format": "1:1",
-   "background": "full-bleed",
-   "status": "промпт готов",
-   "note": "XVI Башня (Спинакер)"
-  },
-  {
-   "id": "P10-A18",
-   "file": "card_17_star.png",
-   "package": "П10",
-   "element": "K",
-   "format": "1:1",
-   "background": "full-bleed",
-   "status": "промпт готов",
-   "note": "XVII Звезда (Закрылки)"
-  },
-  {
-   "id": "P10-A19",
-   "file": "card_18_moon.png",
-   "package": "П10",
-   "element": "K",
-   "format": "1:1",
-   "background": "full-bleed",
-   "status": "промпт готов",
-   "note": "XVIII Луна (тайная)"
-  },
-  {
-   "id": "P10-A20",
-   "file": "card_19_sun.png",
-   "package": "П10",
-   "element": "K",
-   "format": "1:1",
-   "background": "full-bleed",
-   "status": "промпт готов",
-   "note": "XIX Солнце (тайная)"
-  },
-  {
-   "id": "P10-A21",
-   "file": "card_20_judgement.png",
-   "package": "П10",
-   "element": "K",
-   "format": "1:1",
-   "background": "full-bleed",
-   "status": "промпт готов",
-   "note": "XX Суд (тайная)"
-  },
-  {
-   "id": "P10-A22",
-   "file": "card_21_world.png",
-   "package": "П10",
-   "element": "K",
-   "format": "1:1",
-   "background": "full-bleed",
-   "status": "промпт готов",
-   "note": "XXI Мир (тайная)"
-  },
-  {
-   "id": "P11-A1",
-   "file": "gadget_icons_1.png",
-   "package": "П11",
-   "element": "K",
-   "format": "1:1",
-   "background": "magenta",
-   "status": "принято",
-   "note": "иконки 0-8: Пого-шест, Механический кочегар, Флюгер-автопилот, Запасной баллон, Автоматическая КПП, Автоматический редуктор, Храповик, Суперконденсатор, Закись азота",
-   "sheet": {
-    "cols": 3,
-    "rows": 3
-   },
-   "notes": [],
-   "received": "2026-11-04 23:53",
-   "outputs": [
-    "accepted/P11_gadget_icons/gadget_icons_1_sheet.png",
-    "accepted/P11_gadget_icons/gadget_icons_1/cell_1_1.png",
-    "accepted/P11_gadget_icons/gadget_icons_1/cell_1_2.png",
-    "accepted/P11_gadget_icons/gadget_icons_1/cell_1_3.png",
-    "accepted/P11_gadget_icons/gadget_icons_1/cell_2_1.png",
-    "accepted/P11_gadget_icons/gadget_icons_1/cell_2_2.png",
-    "accepted/P11_gadget_icons/gadget_icons_1/cell_2_3.png",
-    "accepted/P11_gadget_icons/gadget_icons_1/cell_3_1.png",
-    "accepted/P11_gadget_icons/gadget_icons_1/cell_3_2.png",
-    "accepted/P11_gadget_icons/gadget_icons_1/cell_3_3.png"
-   ]
-  },
-  {
-   "id": "P11-A2",
-   "file": "gadget_icons_2.png",
-   "package": "П11",
-   "element": "K",
-   "format": "1:1",
-   "background": "magenta",
-   "status": "принято",
-   "note": "иконки 9-17: Триммер, Маховик-накопитель, Жидкостное охлаждение, Кошка с лебёдкой, Двойной парашют, Пароперегреватель, Форсаж, Спинакер, Закрылки",
-   "sheet": {
-    "cols": 3,
-    "rows": 3
-   },
-   "notes": [],
-   "received": "2026-11-04 23:53",
-   "outputs": [
-    "accepted/P11_gadget_icons/gadget_icons_2_sheet.png",
-    "accepted/P11_gadget_icons/gadget_icons_2/cell_1_1.png",
-    "accepted/P11_gadget_icons/gadget_icons_2/cell_1_2.png",
-    "accepted/P11_gadget_icons/gadget_icons_2/cell_1_3.png",
-    "accepted/P11_gadget_icons/gadget_icons_2/cell_2_1.png",
-    "accepted/P11_gadget_icons/gadget_icons_2/cell_2_2.png",
-    "accepted/P11_gadget_icons/gadget_icons_2/cell_2_3.png",
-    "accepted/P11_gadget_icons/gadget_icons_2/cell_3_1.png",
-    "accepted/P11_gadget_icons/gadget_icons_2/cell_3_2.png",
-    "accepted/P11_gadget_icons/gadget_icons_2/cell_3_3.png"
-   ]
-  },
-  {
-   "id": "P3-A1",
-   "file": "cab_dash_wood.png",
-   "package": "П3",
-   "element": "K",
-   "format": "3:2",
-   "background": "full-bleed",
-   "status": "принято",
-   "note": "Приборная панель из дерева и латуни (текстура)",
-   "notes": [],
-   "received": "2026-11-05 00:21",
-   "outputs": [
-    "accepted/P3_cab_glass/cab_dash_wood.png"
-   ]
-  },
-  {
-   "id": "P3-A2",
-   "file": "cab_dash_steel.png",
-   "package": "П3",
-   "element": "K",
-   "format": "3:2",
-   "background": "full-bleed",
-   "status": "принято",
-   "note": "Панель из зелёного металла с заклёпками",
-   "notes": [],
-   "received": "2026-11-05 00:21",
-   "outputs": [
-    "accepted/P3_cab_glass/cab_dash_steel.png"
-   ]
-  },
-  {
-   "id": "P3-A3",
-   "file": "cab_window_frame.png",
-   "package": "П3",
-   "element": "K",
-   "format": "3:2",
-   "background": "magenta",
-   "status": "принято",
-   "note": "Рама лобового стекла кабины",
-   "notes": [
-    "ПРЕДУПРЕЖДЕНИЕ: предмет близко к краю кадра, возможно обрезан"
-   ],
-   "received": "2026-11-05 00:21",
-   "outputs": [
-    "accepted/P3_cab_glass/cab_window_frame.png"
-   ]
-  },
-  {
-   "id": "P5-A1",
-   "file": "electric_loco_body.png",
-   "package": "П5",
-   "element": "K",
-   "format": "3:2",
-   "background": "magenta",
-   "status": "получено",
-   "note": "Кузов электровоза, вид сбоку",
-   "notes": [],
-   "received": "2026-11-05 00:24",
-   "outputs": [
-    "accepted/P5_electric_loco/electric_loco_body.png"
-   ]
-  },
-  {
-   "id": "P5-A2",
-   "file": "electric_parts.png",
-   "package": "П5",
-   "element": "K",
-   "format": "1:1",
-   "background": "magenta",
-   "status": "принято",
-   "note": "Лист деталей электровоза (3 на 3)",
-   "sheet": {
-    "cols": 3,
-    "rows": 3
-   },
-   "notes": [],
-   "received": "2026-11-05 00:24",
-   "outputs": [
-    "accepted/P5_electric_loco/electric_parts_sheet.png",
-    "accepted/P5_electric_loco/electric_parts/cell_1_1.png",
-    "accepted/P5_electric_loco/electric_parts/cell_1_2.png",
-    "accepted/P5_electric_loco/electric_parts/cell_1_3.png",
-    "accepted/P5_electric_loco/electric_parts/cell_2_1.png",
-    "accepted/P5_electric_loco/electric_parts/cell_2_2.png",
-    "accepted/P5_electric_loco/electric_parts/cell_2_3.png",
-    "accepted/P5_electric_loco/electric_parts/cell_3_1.png",
-    "accepted/P5_electric_loco/electric_parts/cell_3_2.png",
-    "accepted/P5_electric_loco/electric_parts/cell_3_3.png"
-   ]
-  },
-  {
-   "id": "P6-A1",
-   "file": "station_e.png",
-   "package": "П6",
-   "element": "K",
-   "format": "3:2",
-   "background": "magenta",
-   "status": "принято",
-   "note": "Станция E «Верхний бор»",
-   "notes": [
-    "ПРЕДУПРЕЖДЕНИЕ: предмет близко к краю кадра, возможно обрезан"
-   ],
-   "received": "2026-11-05 00:24",
-   "outputs": [
-    "accepted/P6_stations_ef/station_e.png"
-   ]
-  },
-  {
-   "id": "P6-A2",
-   "file": "station_f.png",
-   "package": "П6",
-   "element": "K",
-   "format": "3:2",
-   "background": "magenta",
-   "status": "принято",
-   "note": "Конечная F «Дальний бор»: крупнее, вечер",
-   "notes": [
-    "ПРЕДУПРЕЖДЕНИЕ: предмет близко к краю кадра, возможно обрезан"
-   ],
-   "received": "2026-11-05 00:24",
-   "outputs": [
-    "accepted/P6_stations_ef/station_f.png"
-   ]
-  },
-  {
-   "id": "P6-A3",
-   "file": "station_b_small.png",
-   "package": "П6",
-   "element": "K",
-   "format": "3:2",
-   "background": "magenta",
-   "status": "принято",
-   "note": "Малый разъезд для станции B",
-   "notes": [],
-   "received": "2026-11-05 00:24",
-   "outputs": [
-    "accepted/P6_stations_ef/station_b_small.png"
-   ]
-  },
-  {
-   "id": "P12-A1",
-   "file": "gadgets_handcar.png",
-   "package": "П12",
-   "element": "K",
-   "format": "3:2",
-   "background": "magenta",
-   "status": "принято",
-   "note": "Ручная дрезина: Храповик (карта VI Влюблённые) и Маховик-накопитель (карта X Колесо Фортуны)",
-   "notes": [],
-   "received": "2026-11-05 02:51",
-   "outputs": [
-    "accepted/P12_gadgets_on_machines/gadgets_handcar.png"
-   ]
-  },
-  {
-   "id": "P12-A2",
-   "file": "gadgets_pole.png",
-   "package": "П12",
-   "element": "K",
-   "format": "3:2",
-   "background": "magenta",
-   "status": "принято",
-   "note": "Шестовая дрезина: Пого-шест (карта 0 Шут) и Кошка с лебёдкой (карта XII Повешенный)",
-   "notes": [],
-   "received": "2026-11-05 02:51",
-   "outputs": [
-    "accepted/P12_gadgets_on_machines/gadgets_pole.png"
-   ]
-  },
-  {
-   "id": "P12-A3",
-   "file": "gadgets_sail.png",
-   "package": "П12",
-   "element": "K",
-   "format": "3:2",
-   "background": "magenta",
-   "status": "принято",
-   "note": "Парусная дрезина: Флюгер-автопилот (карта II Верховная жрица) и Спинакер (карта XVI Башня)",
-   "notes": [
-    "ПРЕДУПРЕЖДЕНИЕ: предмет близко к краю кадра, возможно обрезан"
-   ],
-   "received": "2026-11-05 02:51",
-   "outputs": [
-    "accepted/P12_gadgets_on_machines/gadgets_sail.png"
-   ]
-  },
-  {
-   "id": "P12-A4",
-   "file": "gadgets_steam.png",
-   "package": "П12",
-   "element": "K",
-   "format": "3:2",
-   "background": "magenta",
-   "status": "принято",
-   "note": "Паровоз: Механический кочегар (карта I Маг) и Пароперегреватель (карта XIV Умеренность)",
-   "notes": [],
-   "received": "2026-11-05 02:51",
-   "outputs": [
-    "accepted/P12_gadgets_on_machines/gadgets_steam.png"
-   ]
-  },
-  {
-   "id": "P12-A5",
-   "file": "gadgets_motorcar.png",
-   "package": "П12",
-   "element": "K",
-   "format": "3:2",
-   "background": "magenta",
-   "status": "принято",
-   "note": "Бензиновая дрезина: Автоматическая КПП (карта IV Император) и Закись азота (карта VIII Сила)",
-   "notes": [],
-   "received": "2026-11-05 02:51",
-   "outputs": [
-    "accepted/P12_gadgets_on_machines/gadgets_motorcar.png"
-   ]
-  },
-  {
-   "id": "P12-A6",
-   "file": "gadgets_pneumatic.png",
-   "package": "П12",
-   "element": "K",
-   "format": "3:2",
-   "background": "magenta",
-   "status": "получено",
-   "note": "Пневматическая дрезина: Запасной баллон (карта III Императрица) и Автоматический редуктор (карта V Иерофант)",
-   "notes": [],
-   "received": "2026-11-05 02:51",
-   "outputs": [
-    "accepted/P12_gadgets_on_machines/gadgets_pneumatic.png"
-   ]
-  },
-  {
-   "id": "P12-A7",
-   "file": "gadgets_locomotive.png",
-   "package": "П12",
-   "element": "K",
-   "format": "3:2",
-   "background": "magenta",
-   "status": "принято",
-   "note": "Электровоз: Суперконденсатор (карта VII Колесница) и Жидкостное охлаждение (карта XI Справедливость)",
-   "notes": [
-    "ПРЕДУПРЕЖДЕНИЕ: предмет близко к краю кадра, возможно обрезан"
-   ],
-   "received": "2026-11-05 02:51",
-   "outputs": [
-    "accepted/P12_gadgets_on_machines/gadgets_locomotive.png"
-   ]
-  },
-  {
-   "id": "P12-A8",
-   "file": "gadgets_zeppelin.png",
-   "package": "П12",
-   "element": "K",
-   "format": "3:2",
-   "background": "magenta",
-   "status": "принято",
-   "note": "Цеппелин: Триммер (карта IX Отшельник) и Закрылки (карта XVII Звезда)",
-   "notes": [
-    "ПРЕДУПРЕЖДЕНИЕ: предмет близко к краю кадра, возможно обрезан"
-   ],
-   "received": "2026-11-05 02:51",
-   "outputs": [
-    "accepted/P12_gadgets_on_machines/gadgets_zeppelin.png"
-   ]
-  },
-  {
-   "id": "P12-A9",
-   "file": "gadgets_jet.png",
-   "package": "П12",
-   "element": "K",
-   "format": "3:2",
-   "background": "magenta",
-   "status": "принято",
-   "note": "Реактивный: Двойной парашют (карта XIII Смерть) и Форсаж (карта XV Дьявол)",
-   "notes": [
-    "ПРЕДУПРЕЖДЕНИЕ: предмет близко к краю кадра, возможно обрезан"
-   ],
-   "received": "2026-11-05 02:51",
-   "outputs": [
-    "accepted/P12_gadgets_on_machines/gadgets_jet.png"
-   ]
-  },
-  {
-   "id": "P12-A10",
-   "file": "gadget_parts_1.png",
-   "package": "П12",
-   "element": "K",
-   "format": "1:1",
-   "background": "magenta",
-   "status": "принято",
-   "note": "детали гаджетов, лист 1",
-   "sheet": {
-    "cols": 3,
-    "rows": 3
-   },
-   "notes": [
-    "ПРЕДУПРЕЖДЕНИЕ: предмет упирается в край ячейки: 2,1"
-   ],
-   "received": "2026-11-05 02:52",
-   "outputs": [
-    "accepted/P12_gadgets_on_machines/gadget_parts_1_sheet.png",
-    "accepted/P12_gadgets_on_machines/gadget_parts_1/cell_1_1.png",
-    "accepted/P12_gadgets_on_machines/gadget_parts_1/cell_1_2.png",
-    "accepted/P12_gadgets_on_machines/gadget_parts_1/cell_1_3.png",
-    "accepted/P12_gadgets_on_machines/gadget_parts_1/cell_2_1.png",
-    "accepted/P12_gadgets_on_machines/gadget_parts_1/cell_2_2.png",
-    "accepted/P12_gadgets_on_machines/gadget_parts_1/cell_2_3.png",
-    "accepted/P12_gadgets_on_machines/gadget_parts_1/cell_3_1.png",
-    "accepted/P12_gadgets_on_machines/gadget_parts_1/cell_3_2.png",
-    "accepted/P12_gadgets_on_machines/gadget_parts_1/cell_3_3.png"
-   ]
-  },
-  {
-   "id": "P12-A11",
-   "file": "gadget_parts_2.png",
-   "package": "П12",
-   "element": "K",
-   "format": "1:1",
-   "background": "magenta",
-   "status": "принято",
-   "note": "детали гаджетов, лист 2",
-   "sheet": {
-    "cols": 3,
-    "rows": 3
-   },
-   "notes": [
-    "ПРЕДУПРЕЖДЕНИЕ: предмет упирается в край ячейки: 3,3"
-   ],
-   "received": "2026-11-05 02:52",
-   "outputs": [
-    "accepted/P12_gadgets_on_machines/gadget_parts_2_sheet.png",
-    "accepted/P12_gadgets_on_machines/gadget_parts_2/cell_1_1.png",
-    "accepted/P12_gadgets_on_machines/gadget_parts_2/cell_1_2.png",
-    "accepted/P12_gadgets_on_machines/gadget_parts_2/cell_1_3.png",
-    "accepted/P12_gadgets_on_machines/gadget_parts_2/cell_2_1.png",
-    "accepted/P12_gadgets_on_machines/gadget_parts_2/cell_2_2.png",
-    "accepted/P12_gadgets_on_machines/gadget_parts_2/cell_2_3.png",
-    "accepted/P12_gadgets_on_machines/gadget_parts_2/cell_3_1.png",
-    "accepted/P12_gadgets_on_machines/gadget_parts_2/cell_3_2.png",
-    "accepted/P12_gadgets_on_machines/gadget_parts_2/cell_3_3.png"
-   ]
-  }
- ],
- "help": "Фон: magenta (плоский #FF00FF), black (свет), transparent, full-bleed (текстура на весь кадр). sheet: сетка листа {cols, rows}. Статусы: в списке, промпт готов, запрошено, получено, получено с проблемами, принято, отклонено, подключено."
+  "schema": 1,
+  "statuses": [
+    "в списке",
+    "промпт готов",
+    "запрошено",
+    "получено",
+    "принято",
+    "отклонено",
+    "подключено"
+  ],
+  "packages": {
+    "П2": {
+      "name": "Шестовая и парусная",
+      "brief": "tools/art_sources/briefs/P2_pole_sail/BRIEF_RU.md",
+      "inbox": "tools/art_sources/inbox/P2_pole_sail/"
+    },
+    "П2б": {
+      "name": "Парусник сидя",
+      "brief": "tools/art_sources/briefs/P2b_sailor_seated/BRIEF_RU.md",
+      "inbox": "tools/art_sources/inbox/P2b_sailor_seated/"
+    },
+    "П1": {
+      "name": "Дорога и земля",
+      "brief": "tools/art_sources/briefs/P1_road_ground/BRIEF_RU.md",
+      "inbox": "tools/art_sources/inbox/P1_road_ground/"
+    },
+    "П4": {
+      "name": "Депо как комната",
+      "brief": "tools/art_sources/briefs/P4_depot_room/BRIEF_RU.md",
+      "inbox": "tools/art_sources/inbox/P4_depot_room/"
+    },
+    "П9": {
+      "name": "Казик, часть 1",
+      "brief": "docs/KAZIK_IMAGE_PROMPTS_RU.md",
+      "inbox": "tools/art_sources/inbox/kazik/"
+    },
+    "П9б": {
+      "name": "Казик, часть 2",
+      "brief": "tools/art_sources/briefs/P9b_kazik_part2/BRIEF_RU.md",
+      "inbox": "tools/art_sources/inbox/P9b_kazik_part2/"
+    },
+    "П10": {
+      "name": "Карточки Таро Михалыча",
+      "brief": "tools/art_sources/briefs/P10_tarot_cards/BRIEF_RU.md",
+      "inbox": "tools/art_sources/inbox/P10_tarot_cards/"
+    },
+    "П11": {
+      "name": "Иконки гаджетов",
+      "brief": "tools/art_sources/briefs/P11_gadget_icons/BRIEF_RU.md",
+      "inbox": "tools/art_sources/inbox/P11_gadget_icons/"
+    },
+    "П3": {
+      "name": "Кабина: панель и рама",
+      "brief": "tools/art_sources/briefs/P3_cab_glass/BRIEF_RU.md",
+      "inbox": "tools/art_sources/inbox/P3_cab_glass/"
+    },
+    "П5": {
+      "name": "Электровоз",
+      "brief": "tools/art_sources/briefs/P5_electric_loco/BRIEF_RU.md",
+      "inbox": "tools/art_sources/inbox/P5_electric_loco/"
+    },
+    "П6": {
+      "name": "Станции E и F",
+      "brief": "tools/art_sources/briefs/P6_stations_ef/BRIEF_RU.md",
+      "inbox": "tools/art_sources/inbox/P6_stations_ef/"
+    },
+    "П12": {
+      "name": "Гаджеты на машинах",
+      "brief": "tools/art_sources/briefs/P12_gadgets_on_machines/BRIEF_RU.md",
+      "inbox": "tools/art_sources/inbox/P12_gadgets_on_machines/"
+    },
+    "П13": {
+      "name": "Шестовая дрезина",
+      "brief": "tools/art_sources/briefs/P13_pole_truck/BRIEF_RU.md",
+      "inbox": "tools/art_sources/inbox/P13_pole_truck/"
+    }
+  },
+  "assets": [
+    {
+      "id": "P2-A1",
+      "file": "pole_parts.png",
+      "package": "П2",
+      "element": "V2",
+      "format": "3:2",
+      "background": "magenta",
+      "status": "подключено",
+      "note": "подключено в preview.73",
+      "sheet": {
+        "cols": 1,
+        "rows": 3
+      },
+      "notes": [],
+      "received": "2026-11-04 16:45",
+      "outputs": [
+        "accepted/P2_pole_sail/pole_parts_sheet.png",
+        "accepted/P2_pole_sail/pole_parts/cell_1_1.png",
+        "accepted/P2_pole_sail/pole_parts/cell_2_1.png",
+        "accepted/P2_pole_sail/pole_parts/cell_3_1.png"
+      ]
+    },
+    {
+      "id": "P2-A2",
+      "file": "worker_arm_parts.png",
+      "package": "П2",
+      "element": "V2",
+      "format": "1:1",
+      "background": "magenta",
+      "status": "подключено",
+      "note": "подключено в preview.73",
+      "sheet": {
+        "cols": 2,
+        "rows": 2
+      },
+      "notes": [],
+      "received": "2026-11-04 16:45",
+      "outputs": [
+        "accepted/P2_pole_sail/worker_arm_parts_sheet.png",
+        "accepted/P2_pole_sail/worker_arm_parts/cell_1_1.png",
+        "accepted/P2_pole_sail/worker_arm_parts/cell_1_2.png",
+        "accepted/P2_pole_sail/worker_arm_parts/cell_2_1.png",
+        "accepted/P2_pole_sail/worker_arm_parts/cell_2_2.png"
+      ]
+    },
+    {
+      "id": "P2-A3",
+      "file": "sail_cloth.png",
+      "package": "П2",
+      "element": "V3",
+      "format": "3:2",
+      "background": "full-bleed",
+      "status": "подключено",
+      "note": "подключено в preview.73",
+      "notes": [],
+      "received": "2026-11-04 16:45",
+      "outputs": [
+        "accepted/P2_pole_sail/sail_cloth.png"
+      ]
+    },
+    {
+      "id": "P2-A4",
+      "file": "sail_hardware.png",
+      "package": "П2",
+      "element": "V3",
+      "format": "1:1",
+      "background": "magenta",
+      "status": "подключено",
+      "note": "подключено частично в preview.73: вымпел и утка; остальные 7 предметов ждут применения",
+      "sheet": {
+        "cols": 3,
+        "rows": 3
+      },
+      "notes": [],
+      "received": "2026-11-04 16:45",
+      "outputs": [
+        "accepted/P2_pole_sail/sail_hardware_sheet.png",
+        "accepted/P2_pole_sail/sail_hardware/cell_1_1.png",
+        "accepted/P2_pole_sail/sail_hardware/cell_1_2.png",
+        "accepted/P2_pole_sail/sail_hardware/cell_1_3.png",
+        "accepted/P2_pole_sail/sail_hardware/cell_2_1.png",
+        "accepted/P2_pole_sail/sail_hardware/cell_2_2.png",
+        "accepted/P2_pole_sail/sail_hardware/cell_2_3.png",
+        "accepted/P2_pole_sail/sail_hardware/cell_3_1.png",
+        "accepted/P2_pole_sail/sail_hardware/cell_3_2.png",
+        "accepted/P2_pole_sail/sail_hardware/cell_3_3.png"
+      ]
+    },
+    {
+      "id": "P2B-A1",
+      "file": "sailor_seated.png",
+      "package": "П2б",
+      "element": "V3",
+      "format": "1:1",
+      "background": "magenta",
+      "status": "подключено",
+      "note": "подключено в preview.74: водитель парусной сидит на ящике на корме",
+      "notes": [],
+      "received": "2026-11-04 16:57",
+      "outputs": [
+        "accepted/P2b_sailor_seated/sailor_seated.png"
+      ]
+    },
+    {
+      "id": "P1-A1",
+      "file": "track_tile.png",
+      "package": "П1",
+      "element": "W4",
+      "format": "3:2",
+      "background": "magenta",
+      "tile": true,
+      "status": "получено",
+      "note": "заменён вариантом track_tile_depth.png",
+      "notes": [
+        "шов тайла в порядке"
+      ],
+      "received": "2026-11-04 17:32",
+      "outputs": [
+        "accepted/P1_road_ground/track_tile.png"
+      ]
+    },
+    {
+      "id": "P1-A2",
+      "file": "ground_tile.png",
+      "package": "П1",
+      "element": "W5",
+      "format": "3:2",
+      "background": "magenta",
+      "tile": true,
+      "status": "получено",
+      "note": "подключено в preview.75",
+      "notes": [
+        "шов тайла в порядке"
+      ],
+      "received": "2026-11-04 17:32",
+      "outputs": [
+        "accepted/P1_road_ground/ground_tile.png"
+      ]
+    },
+    {
+      "id": "P1-A3",
+      "file": "trackside_sheet.png",
+      "package": "П1",
+      "element": "W5",
+      "format": "1:1",
+      "background": "magenta",
+      "sheet": {
+        "cols": 3,
+        "rows": 3
+      },
+      "status": "получено",
+      "note": "подключено в preview.75",
+      "notes": [],
+      "received": "2026-11-04 17:32",
+      "outputs": [
+        "accepted/P1_road_ground/trackside_sheet_sheet.png",
+        "accepted/P1_road_ground/trackside_sheet/cell_1_1.png",
+        "accepted/P1_road_ground/trackside_sheet/cell_1_2.png",
+        "accepted/P1_road_ground/trackside_sheet/cell_1_3.png",
+        "accepted/P1_road_ground/trackside_sheet/cell_2_1.png",
+        "accepted/P1_road_ground/trackside_sheet/cell_2_2.png",
+        "accepted/P1_road_ground/trackside_sheet/cell_2_3.png",
+        "accepted/P1_road_ground/trackside_sheet/cell_3_1.png",
+        "accepted/P1_road_ground/trackside_sheet/cell_3_2.png",
+        "accepted/P1_road_ground/trackside_sheet/cell_3_3.png"
+      ]
+    },
+    {
+      "id": "P1-A1b",
+      "file": "track_tile_depth.png",
+      "package": "П1",
+      "element": "W4",
+      "format": "3:2",
+      "background": "magenta",
+      "tile": true,
+      "status": "принято",
+      "note": "вариант «объёмнее» по просьбе владельца 04.11.2026; заменил track_tile.png в игре (preview.76)",
+      "notes": [
+        "шов тайла в порядке"
+      ],
+      "received": "2026-11-04 17:32",
+      "outputs": [
+        "accepted/P1_road_ground/track_tile_depth.png"
+      ]
+    },
+    {
+      "id": "P4-A1",
+      "file": "depot_wall_tile.png",
+      "package": "П4",
+      "element": "D1",
+      "format": "3:2",
+      "background": "full-bleed",
+      "tile": true,
+      "status": "подключено",
+      "note": "подключено в preview.77",
+      "notes": [
+        "шов тайла в порядке"
+      ],
+      "received": "2026-11-04 21:51",
+      "outputs": [
+        "accepted/P4_depot_room/depot_wall_tile.png"
+      ]
+    },
+    {
+      "id": "P4-A2",
+      "file": "depot_rafters_tile.png",
+      "package": "П4",
+      "element": "D1",
+      "format": "3:2",
+      "background": "magenta",
+      "tile": true,
+      "status": "подключено",
+      "note": "подключено в preview.77",
+      "notes": [
+        "шов тайла в порядке"
+      ],
+      "received": "2026-11-04 21:51",
+      "outputs": [
+        "accepted/P4_depot_room/depot_rafters_tile.png"
+      ],
+      "bg_edge": "bottom"
+    },
+    {
+      "id": "P4-A3",
+      "file": "depot_props_sheet.png",
+      "package": "П4",
+      "element": "D1",
+      "format": "1:1",
+      "background": "magenta",
+      "sheet": {
+        "cols": 3,
+        "rows": 3
+      },
+      "status": "подключено",
+      "note": "подключено в preview.77",
+      "notes": [
+        "ПРЕДУПРЕЖДЕНИЕ: предмет упирается в край ячейки: 1,3"
+      ],
+      "received": "2026-11-04 21:51",
+      "outputs": [
+        "accepted/P4_depot_room/depot_props_sheet_sheet.png",
+        "accepted/P4_depot_room/depot_props_sheet/cell_1_1.png",
+        "accepted/P4_depot_room/depot_props_sheet/cell_1_2.png",
+        "accepted/P4_depot_room/depot_props_sheet/cell_1_3.png",
+        "accepted/P4_depot_room/depot_props_sheet/cell_2_1.png",
+        "accepted/P4_depot_room/depot_props_sheet/cell_2_2.png",
+        "accepted/P4_depot_room/depot_props_sheet/cell_2_3.png",
+        "accepted/P4_depot_room/depot_props_sheet/cell_3_1.png",
+        "accepted/P4_depot_room/depot_props_sheet/cell_3_2.png",
+        "accepted/P4_depot_room/depot_props_sheet/cell_3_3.png"
+      ]
+    },
+    {
+      "id": "P4-A4",
+      "file": "depot_floor_tile.png",
+      "package": "П4",
+      "element": "D1",
+      "format": "3:2",
+      "background": "magenta",
+      "tile": true,
+      "status": "подключено",
+      "note": "подключено в preview.77",
+      "notes": [
+        "шов тайла в порядке"
+      ],
+      "received": "2026-11-04 21:51",
+      "outputs": [
+        "accepted/P4_depot_room/depot_floor_tile.png"
+      ]
+    },
+    {
+      "id": "P4-A5",
+      "file": "depot_lamp_glow.png",
+      "package": "П4",
+      "element": "D2",
+      "format": "1:1",
+      "background": "black",
+      "status": "подключено",
+      "note": "подключено в preview.77",
+      "notes": [],
+      "received": "2026-11-04 21:51",
+      "outputs": [
+        "accepted/P4_depot_room/depot_lamp_glow.png"
+      ]
+    },
+    {
+      "id": "K-A1",
+      "file": "kazik_facade.png",
+      "package": "П9",
+      "element": "K",
+      "format": "3:2",
+      "background": "full-bleed",
+      "status": "принято",
+      "note": "принято, пока не использована (фасад для входа в казик)",
+      "notes": [],
+      "received": "2026-11-04 22:00",
+      "outputs": [
+        "accepted/kazik/kazik_facade.png"
+      ]
+    },
+    {
+      "id": "K-A2",
+      "file": "kazik_interior.png",
+      "package": "П9",
+      "element": "K",
+      "format": "3:2",
+      "background": "full-bleed",
+      "status": "подключено",
+      "note": "подключено в экране казика (preview.78)",
+      "notes": [],
+      "received": "2026-11-04 22:00",
+      "outputs": [
+        "accepted/kazik/kazik_interior.png"
+      ]
+    },
+    {
+      "id": "K-B1",
+      "file": "kazik_wheel.png",
+      "package": "П9",
+      "element": "K",
+      "format": "1:1",
+      "background": "transparent",
+      "status": "подключено",
+      "note": "подключено в экране казика (preview.78)",
+      "notes": [],
+      "received": "2026-11-04 22:00",
+      "outputs": [
+        "accepted/kazik/kazik_wheel.png"
+      ]
+    },
+    {
+      "id": "K-B2",
+      "file": "kazik_wheel_pointer.png",
+      "package": "П9",
+      "element": "K",
+      "format": "1:1",
+      "background": "transparent",
+      "status": "подключено",
+      "note": "подключено в экране казика (preview.78)",
+      "notes": [],
+      "received": "2026-11-04 22:00",
+      "outputs": [
+        "accepted/kazik/kazik_wheel_pointer.png"
+      ]
+    },
+    {
+      "id": "K-B3",
+      "file": "kazik_wheel_glow.png",
+      "package": "П9",
+      "element": "K",
+      "format": "1:1",
+      "background": "black",
+      "status": "подключено",
+      "note": "подключено в экране казика (preview.78)",
+      "notes": [],
+      "received": "2026-11-04 22:00",
+      "outputs": [
+        "accepted/kazik/kazik_wheel_glow.png"
+      ]
+    },
+    {
+      "id": "K-C1",
+      "file": "kazik_mikhalych.png",
+      "package": "П9",
+      "element": "K",
+      "format": "2:3",
+      "background": "transparent",
+      "status": "подключено",
+      "note": "подключено в экране казика (preview.78)",
+      "notes": [
+        "ПРЕДУПРЕЖДЕНИЕ: предмет близко к краю кадра, возможно обрезан"
+      ],
+      "received": "2026-11-04 22:00",
+      "outputs": [
+        "accepted/kazik/kazik_mikhalych.png"
+      ]
+    },
+    {
+      "id": "K-D1",
+      "file": "kazik_token.png",
+      "package": "П9",
+      "element": "K",
+      "format": "1:1",
+      "background": "transparent",
+      "status": "подключено",
+      "note": "подключено в экране казика (preview.78)",
+      "notes": [],
+      "received": "2026-11-04 22:00",
+      "outputs": [
+        "accepted/kazik/kazik_token.png"
+      ]
+    },
+    {
+      "id": "K-E1",
+      "file": "kazik_junk_sheet1.png",
+      "package": "П9",
+      "element": "K",
+      "format": "1:1",
+      "background": "transparent",
+      "status": "подключено",
+      "note": "подключено в экране казика (preview.78)",
+      "sheet": {
+        "cols": 3,
+        "rows": 3
+      },
+      "notes": [
+        "ПРЕДУПРЕЖДЕНИЕ: предмет упирается в край ячейки: 2,2; 2,3; 3,1; 3,2; 3,3"
+      ],
+      "received": "2026-11-04 22:00",
+      "outputs": [
+        "accepted/kazik/kazik_junk_sheet1_sheet.png",
+        "accepted/kazik/kazik_junk_sheet1/cell_1_1.png",
+        "accepted/kazik/kazik_junk_sheet1/cell_1_2.png",
+        "accepted/kazik/kazik_junk_sheet1/cell_1_3.png",
+        "accepted/kazik/kazik_junk_sheet1/cell_2_1.png",
+        "accepted/kazik/kazik_junk_sheet1/cell_2_2.png",
+        "accepted/kazik/kazik_junk_sheet1/cell_2_3.png",
+        "accepted/kazik/kazik_junk_sheet1/cell_3_1.png",
+        "accepted/kazik/kazik_junk_sheet1/cell_3_2.png",
+        "accepted/kazik/kazik_junk_sheet1/cell_3_3.png"
+      ]
+    },
+    {
+      "id": "P9B-A1",
+      "file": "sector_icons.png",
+      "package": "П9б",
+      "element": "K",
+      "format": "1:1",
+      "background": "transparent",
+      "status": "принято",
+      "note": "",
+      "sheet": {
+        "cols": 3,
+        "rows": 3
+      },
+      "notes": [
+        "ПРЕДУПРЕЖДЕНИЕ: предмет упирается в край ячейки: 3,1; 3,2; 3,3"
+      ],
+      "received": "2026-11-04 22:23",
+      "outputs": [
+        "accepted/P9b_kazik_part2/sector_icons_sheet.png",
+        "accepted/P9b_kazik_part2/sector_icons/cell_1_1.png",
+        "accepted/P9b_kazik_part2/sector_icons/cell_1_2.png",
+        "accepted/P9b_kazik_part2/sector_icons/cell_1_3.png",
+        "accepted/P9b_kazik_part2/sector_icons/cell_2_1.png",
+        "accepted/P9b_kazik_part2/sector_icons/cell_2_2.png",
+        "accepted/P9b_kazik_part2/sector_icons/cell_2_3.png",
+        "accepted/P9b_kazik_part2/sector_icons/cell_3_1.png",
+        "accepted/P9b_kazik_part2/sector_icons/cell_3_2.png",
+        "accepted/P9b_kazik_part2/sector_icons/cell_3_3.png"
+      ]
+    },
+    {
+      "id": "P9B-A2",
+      "file": "kazik_junk_sheet2.png",
+      "package": "П9б",
+      "element": "K",
+      "format": "1:1",
+      "background": "transparent",
+      "status": "принято",
+      "note": "",
+      "sheet": {
+        "cols": 3,
+        "rows": 3
+      },
+      "notes": [
+        "ПРЕДУПРЕЖДЕНИЕ: предмет упирается в край ячейки: 3,2; 3,3"
+      ],
+      "received": "2026-11-04 22:23",
+      "outputs": [
+        "accepted/P9b_kazik_part2/kazik_junk_sheet2_sheet.png",
+        "accepted/P9b_kazik_part2/kazik_junk_sheet2/cell_1_1.png",
+        "accepted/P9b_kazik_part2/kazik_junk_sheet2/cell_1_2.png",
+        "accepted/P9b_kazik_part2/kazik_junk_sheet2/cell_1_3.png",
+        "accepted/P9b_kazik_part2/kazik_junk_sheet2/cell_2_1.png",
+        "accepted/P9b_kazik_part2/kazik_junk_sheet2/cell_2_2.png",
+        "accepted/P9b_kazik_part2/kazik_junk_sheet2/cell_2_3.png",
+        "accepted/P9b_kazik_part2/kazik_junk_sheet2/cell_3_1.png",
+        "accepted/P9b_kazik_part2/kazik_junk_sheet2/cell_3_2.png",
+        "accepted/P9b_kazik_part2/kazik_junk_sheet2/cell_3_3.png"
+      ]
+    },
+    {
+      "id": "P9B-A3",
+      "file": "kazik_junk_bag.png",
+      "package": "П9б",
+      "element": "K",
+      "format": "1:1",
+      "background": "transparent",
+      "status": "принято",
+      "note": "",
+      "notes": [],
+      "received": "2026-11-04 22:23",
+      "outputs": [
+        "accepted/P9b_kazik_part2/kazik_junk_bag.png"
+      ]
+    },
+    {
+      "id": "P9B-A4",
+      "file": "kazik_mikhalych_happy.png",
+      "package": "П9б",
+      "element": "K",
+      "format": "2:3",
+      "background": "transparent",
+      "status": "принято",
+      "note": "",
+      "notes": [
+        "ПРЕДУПРЕЖДЕНИЕ: предмет близко к краю кадра, возможно обрезан"
+      ],
+      "received": "2026-11-04 22:23",
+      "outputs": [
+        "accepted/P9b_kazik_part2/kazik_mikhalych_happy.png"
+      ]
+    },
+    {
+      "id": "P9B-A5",
+      "file": "kazik_mikhalych_sad.png",
+      "package": "П9б",
+      "element": "K",
+      "format": "2:3",
+      "background": "transparent",
+      "status": "принято",
+      "note": "",
+      "notes": [
+        "ПРЕДУПРЕЖДЕНИЕ: предмет близко к краю кадра, возможно обрезан"
+      ],
+      "received": "2026-11-04 22:23",
+      "outputs": [
+        "accepted/P9b_kazik_part2/kazik_mikhalych_sad.png"
+      ]
+    },
+    {
+      "id": "P9B-A6",
+      "file": "kazik_mikhalych_surprised.png",
+      "package": "П9б",
+      "element": "K",
+      "format": "2:3",
+      "background": "transparent",
+      "status": "принято",
+      "note": "",
+      "notes": [
+        "ПРЕДУПРЕЖДЕНИЕ: предмет близко к краю кадра, возможно обрезан"
+      ],
+      "received": "2026-11-04 22:23",
+      "outputs": [
+        "accepted/P9b_kazik_part2/kazik_mikhalych_surprised.png"
+      ]
+    },
+    {
+      "id": "P9B-A7",
+      "file": "kazik_mikhalych_pouring.png",
+      "package": "П9б",
+      "element": "K",
+      "format": "2:3",
+      "background": "transparent",
+      "status": "принято",
+      "note": "",
+      "notes": [
+        "ПРЕДУПРЕЖДЕНИЕ: предмет близко к краю кадра, возможно обрезан"
+      ],
+      "received": "2026-11-04 22:23",
+      "outputs": [
+        "accepted/P9b_kazik_part2/kazik_mikhalych_pouring.png"
+      ]
+    },
+    {
+      "id": "P9B-A8",
+      "file": "kazik_card_frame.png",
+      "package": "П9б",
+      "element": "K",
+      "format": "2:3",
+      "background": "transparent",
+      "status": "принято",
+      "note": "",
+      "notes": [
+        "ПРЕДУПРЕЖДЕНИЕ: предмет близко к краю кадра, возможно обрезан"
+      ],
+      "received": "2026-11-04 22:23",
+      "outputs": [
+        "accepted/P9b_kazik_part2/kazik_card_frame.png"
+      ]
+    },
+    {
+      "id": "P10-A1",
+      "file": "card_00_fool.png",
+      "package": "П10",
+      "element": "K",
+      "format": "1:1",
+      "background": "full-bleed",
+      "status": "промпт готов",
+      "note": "0 Шут (Пого-шест)"
+    },
+    {
+      "id": "P10-A2",
+      "file": "card_01_magician.png",
+      "package": "П10",
+      "element": "K",
+      "format": "1:1",
+      "background": "full-bleed",
+      "status": "промпт готов",
+      "note": "I Маг (Механический кочегар)"
+    },
+    {
+      "id": "P10-A3",
+      "file": "card_02_priestess.png",
+      "package": "П10",
+      "element": "K",
+      "format": "1:1",
+      "background": "full-bleed",
+      "status": "промпт готов",
+      "note": "II Верховная жрица (Флюгер-автопилот)"
+    },
+    {
+      "id": "P10-A4",
+      "file": "card_03_empress.png",
+      "package": "П10",
+      "element": "K",
+      "format": "1:1",
+      "background": "full-bleed",
+      "status": "промпт готов",
+      "note": "III Императрица (Запасной баллон)"
+    },
+    {
+      "id": "P10-A5",
+      "file": "card_04_emperor.png",
+      "package": "П10",
+      "element": "K",
+      "format": "1:1",
+      "background": "full-bleed",
+      "status": "промпт готов",
+      "note": "IV Император (Автоматическая КПП)"
+    },
+    {
+      "id": "P10-A6",
+      "file": "card_05_hierophant.png",
+      "package": "П10",
+      "element": "K",
+      "format": "1:1",
+      "background": "full-bleed",
+      "status": "промпт готов",
+      "note": "V Иерофант (Автоматический редуктор)"
+    },
+    {
+      "id": "P10-A7",
+      "file": "card_06_lovers.png",
+      "package": "П10",
+      "element": "K",
+      "format": "1:1",
+      "background": "full-bleed",
+      "status": "промпт готов",
+      "note": "VI Влюблённые (Храповик)"
+    },
+    {
+      "id": "P10-A8",
+      "file": "card_07_chariot.png",
+      "package": "П10",
+      "element": "K",
+      "format": "1:1",
+      "background": "full-bleed",
+      "status": "промпт готов",
+      "note": "VII Колесница (Суперконденсатор)"
+    },
+    {
+      "id": "P10-A9",
+      "file": "card_08_strength.png",
+      "package": "П10",
+      "element": "K",
+      "format": "1:1",
+      "background": "full-bleed",
+      "status": "промпт готов",
+      "note": "VIII Сила (Закись азота)"
+    },
+    {
+      "id": "P10-A10",
+      "file": "card_09_hermit.png",
+      "package": "П10",
+      "element": "K",
+      "format": "1:1",
+      "background": "full-bleed",
+      "status": "промпт готов",
+      "note": "IX Отшельник (Триммер)"
+    },
+    {
+      "id": "P10-A11",
+      "file": "card_10_wheel_of_fortune.png",
+      "package": "П10",
+      "element": "K",
+      "format": "1:1",
+      "background": "full-bleed",
+      "status": "промпт готов",
+      "note": "X Колесо Фортуны (Маховик-накопитель)"
+    },
+    {
+      "id": "P10-A12",
+      "file": "card_11_justice.png",
+      "package": "П10",
+      "element": "K",
+      "format": "1:1",
+      "background": "full-bleed",
+      "status": "промпт готов",
+      "note": "XI Справедливость (Жидкостное охлаждение)"
+    },
+    {
+      "id": "P10-A13",
+      "file": "card_12_hanged_man.png",
+      "package": "П10",
+      "element": "K",
+      "format": "1:1",
+      "background": "full-bleed",
+      "status": "промпт готов",
+      "note": "XII Повешенный (Кошка с лебёдкой)"
+    },
+    {
+      "id": "P10-A14",
+      "file": "card_13_death.png",
+      "package": "П10",
+      "element": "K",
+      "format": "1:1",
+      "background": "full-bleed",
+      "status": "промпт готов",
+      "note": "XIII Смерть (Двойной парашют)"
+    },
+    {
+      "id": "P10-A15",
+      "file": "card_14_temperance.png",
+      "package": "П10",
+      "element": "K",
+      "format": "1:1",
+      "background": "full-bleed",
+      "status": "промпт готов",
+      "note": "XIV Умеренность (Пароперегреватель)"
+    },
+    {
+      "id": "P10-A16",
+      "file": "card_15_devil.png",
+      "package": "П10",
+      "element": "K",
+      "format": "1:1",
+      "background": "full-bleed",
+      "status": "промпт готов",
+      "note": "XV Дьявол (Форсаж)"
+    },
+    {
+      "id": "P10-A17",
+      "file": "card_16_tower.png",
+      "package": "П10",
+      "element": "K",
+      "format": "1:1",
+      "background": "full-bleed",
+      "status": "промпт готов",
+      "note": "XVI Башня (Спинакер)"
+    },
+    {
+      "id": "P10-A18",
+      "file": "card_17_star.png",
+      "package": "П10",
+      "element": "K",
+      "format": "1:1",
+      "background": "full-bleed",
+      "status": "промпт готов",
+      "note": "XVII Звезда (Закрылки)"
+    },
+    {
+      "id": "P10-A19",
+      "file": "card_18_moon.png",
+      "package": "П10",
+      "element": "K",
+      "format": "1:1",
+      "background": "full-bleed",
+      "status": "промпт готов",
+      "note": "XVIII Луна (тайная)"
+    },
+    {
+      "id": "P10-A20",
+      "file": "card_19_sun.png",
+      "package": "П10",
+      "element": "K",
+      "format": "1:1",
+      "background": "full-bleed",
+      "status": "промпт готов",
+      "note": "XIX Солнце (тайная)"
+    },
+    {
+      "id": "P10-A21",
+      "file": "card_20_judgement.png",
+      "package": "П10",
+      "element": "K",
+      "format": "1:1",
+      "background": "full-bleed",
+      "status": "промпт готов",
+      "note": "XX Суд (тайная)"
+    },
+    {
+      "id": "P10-A22",
+      "file": "card_21_world.png",
+      "package": "П10",
+      "element": "K",
+      "format": "1:1",
+      "background": "full-bleed",
+      "status": "промпт готов",
+      "note": "XXI Мир (тайная)"
+    },
+    {
+      "id": "P11-A1",
+      "file": "gadget_icons_1.png",
+      "package": "П11",
+      "element": "K",
+      "format": "1:1",
+      "background": "magenta",
+      "status": "принято",
+      "note": "иконки 0-8: Пого-шест, Механический кочегар, Флюгер-автопилот, Запасной баллон, Автоматическая КПП, Автоматический редуктор, Храповик, Суперконденсатор, Закись азота",
+      "sheet": {
+        "cols": 3,
+        "rows": 3
+      },
+      "notes": [],
+      "received": "2026-11-04 23:53",
+      "outputs": [
+        "accepted/P11_gadget_icons/gadget_icons_1_sheet.png",
+        "accepted/P11_gadget_icons/gadget_icons_1/cell_1_1.png",
+        "accepted/P11_gadget_icons/gadget_icons_1/cell_1_2.png",
+        "accepted/P11_gadget_icons/gadget_icons_1/cell_1_3.png",
+        "accepted/P11_gadget_icons/gadget_icons_1/cell_2_1.png",
+        "accepted/P11_gadget_icons/gadget_icons_1/cell_2_2.png",
+        "accepted/P11_gadget_icons/gadget_icons_1/cell_2_3.png",
+        "accepted/P11_gadget_icons/gadget_icons_1/cell_3_1.png",
+        "accepted/P11_gadget_icons/gadget_icons_1/cell_3_2.png",
+        "accepted/P11_gadget_icons/gadget_icons_1/cell_3_3.png"
+      ]
+    },
+    {
+      "id": "P11-A2",
+      "file": "gadget_icons_2.png",
+      "package": "П11",
+      "element": "K",
+      "format": "1:1",
+      "background": "magenta",
+      "status": "принято",
+      "note": "иконки 9-17: Триммер, Маховик-накопитель, Жидкостное охлаждение, Кошка с лебёдкой, Двойной парашют, Пароперегреватель, Форсаж, Спинакер, Закрылки",
+      "sheet": {
+        "cols": 3,
+        "rows": 3
+      },
+      "notes": [],
+      "received": "2026-11-04 23:53",
+      "outputs": [
+        "accepted/P11_gadget_icons/gadget_icons_2_sheet.png",
+        "accepted/P11_gadget_icons/gadget_icons_2/cell_1_1.png",
+        "accepted/P11_gadget_icons/gadget_icons_2/cell_1_2.png",
+        "accepted/P11_gadget_icons/gadget_icons_2/cell_1_3.png",
+        "accepted/P11_gadget_icons/gadget_icons_2/cell_2_1.png",
+        "accepted/P11_gadget_icons/gadget_icons_2/cell_2_2.png",
+        "accepted/P11_gadget_icons/gadget_icons_2/cell_2_3.png",
+        "accepted/P11_gadget_icons/gadget_icons_2/cell_3_1.png",
+        "accepted/P11_gadget_icons/gadget_icons_2/cell_3_2.png",
+        "accepted/P11_gadget_icons/gadget_icons_2/cell_3_3.png"
+      ]
+    },
+    {
+      "id": "P3-A1",
+      "file": "cab_dash_wood.png",
+      "package": "П3",
+      "element": "K",
+      "format": "3:2",
+      "background": "full-bleed",
+      "status": "принято",
+      "note": "Приборная панель из дерева и латуни (текстура)",
+      "notes": [],
+      "received": "2026-11-05 00:21",
+      "outputs": [
+        "accepted/P3_cab_glass/cab_dash_wood.png"
+      ]
+    },
+    {
+      "id": "P3-A2",
+      "file": "cab_dash_steel.png",
+      "package": "П3",
+      "element": "K",
+      "format": "3:2",
+      "background": "full-bleed",
+      "status": "принято",
+      "note": "Панель из зелёного металла с заклёпками",
+      "notes": [],
+      "received": "2026-11-05 00:21",
+      "outputs": [
+        "accepted/P3_cab_glass/cab_dash_steel.png"
+      ]
+    },
+    {
+      "id": "P3-A3",
+      "file": "cab_window_frame.png",
+      "package": "П3",
+      "element": "K",
+      "format": "3:2",
+      "background": "magenta",
+      "status": "принято",
+      "note": "Рама лобового стекла кабины",
+      "notes": [
+        "ПРЕДУПРЕЖДЕНИЕ: предмет близко к краю кадра, возможно обрезан"
+      ],
+      "received": "2026-11-05 00:21",
+      "outputs": [
+        "accepted/P3_cab_glass/cab_window_frame.png"
+      ]
+    },
+    {
+      "id": "P5-A1",
+      "file": "electric_loco_body.png",
+      "package": "П5",
+      "element": "K",
+      "format": "3:2",
+      "background": "magenta",
+      "status": "получено",
+      "note": "Кузов электровоза, вид сбоку",
+      "notes": [],
+      "received": "2026-11-05 00:24",
+      "outputs": [
+        "accepted/P5_electric_loco/electric_loco_body.png"
+      ]
+    },
+    {
+      "id": "P5-A2",
+      "file": "electric_parts.png",
+      "package": "П5",
+      "element": "K",
+      "format": "1:1",
+      "background": "magenta",
+      "status": "принято",
+      "note": "Лист деталей электровоза (3 на 3)",
+      "sheet": {
+        "cols": 3,
+        "rows": 3
+      },
+      "notes": [],
+      "received": "2026-11-05 00:24",
+      "outputs": [
+        "accepted/P5_electric_loco/electric_parts_sheet.png",
+        "accepted/P5_electric_loco/electric_parts/cell_1_1.png",
+        "accepted/P5_electric_loco/electric_parts/cell_1_2.png",
+        "accepted/P5_electric_loco/electric_parts/cell_1_3.png",
+        "accepted/P5_electric_loco/electric_parts/cell_2_1.png",
+        "accepted/P5_electric_loco/electric_parts/cell_2_2.png",
+        "accepted/P5_electric_loco/electric_parts/cell_2_3.png",
+        "accepted/P5_electric_loco/electric_parts/cell_3_1.png",
+        "accepted/P5_electric_loco/electric_parts/cell_3_2.png",
+        "accepted/P5_electric_loco/electric_parts/cell_3_3.png"
+      ]
+    },
+    {
+      "id": "P6-A1",
+      "file": "station_e.png",
+      "package": "П6",
+      "element": "K",
+      "format": "3:2",
+      "background": "magenta",
+      "status": "принято",
+      "note": "Станция E «Верхний бор»",
+      "notes": [
+        "ПРЕДУПРЕЖДЕНИЕ: предмет близко к краю кадра, возможно обрезан"
+      ],
+      "received": "2026-11-05 00:24",
+      "outputs": [
+        "accepted/P6_stations_ef/station_e.png"
+      ]
+    },
+    {
+      "id": "P6-A2",
+      "file": "station_f.png",
+      "package": "П6",
+      "element": "K",
+      "format": "3:2",
+      "background": "magenta",
+      "status": "принято",
+      "note": "Конечная F «Дальний бор»: крупнее, вечер",
+      "notes": [
+        "ПРЕДУПРЕЖДЕНИЕ: предмет близко к краю кадра, возможно обрезан"
+      ],
+      "received": "2026-11-05 00:24",
+      "outputs": [
+        "accepted/P6_stations_ef/station_f.png"
+      ]
+    },
+    {
+      "id": "P6-A3",
+      "file": "station_b_small.png",
+      "package": "П6",
+      "element": "K",
+      "format": "3:2",
+      "background": "magenta",
+      "status": "принято",
+      "note": "Малый разъезд для станции B",
+      "notes": [],
+      "received": "2026-11-05 00:24",
+      "outputs": [
+        "accepted/P6_stations_ef/station_b_small.png"
+      ]
+    },
+    {
+      "id": "P12-A1",
+      "file": "gadgets_handcar.png",
+      "package": "П12",
+      "element": "K",
+      "format": "3:2",
+      "background": "magenta",
+      "status": "принято",
+      "note": "Ручная дрезина: Храповик (карта VI Влюблённые) и Маховик-накопитель (карта X Колесо Фортуны)",
+      "notes": [],
+      "received": "2026-11-05 02:51",
+      "outputs": [
+        "accepted/P12_gadgets_on_machines/gadgets_handcar.png"
+      ]
+    },
+    {
+      "id": "P12-A2",
+      "file": "gadgets_pole.png",
+      "package": "П12",
+      "element": "K",
+      "format": "3:2",
+      "background": "magenta",
+      "status": "принято",
+      "note": "Шестовая дрезина: Пого-шест (карта 0 Шут) и Кошка с лебёдкой (карта XII Повешенный)",
+      "notes": [],
+      "received": "2026-11-05 02:51",
+      "outputs": [
+        "accepted/P12_gadgets_on_machines/gadgets_pole.png"
+      ]
+    },
+    {
+      "id": "P12-A3",
+      "file": "gadgets_sail.png",
+      "package": "П12",
+      "element": "K",
+      "format": "3:2",
+      "background": "magenta",
+      "status": "принято",
+      "note": "Парусная дрезина: Флюгер-автопилот (карта II Верховная жрица) и Спинакер (карта XVI Башня)",
+      "notes": [
+        "ПРЕДУПРЕЖДЕНИЕ: предмет близко к краю кадра, возможно обрезан"
+      ],
+      "received": "2026-11-05 02:51",
+      "outputs": [
+        "accepted/P12_gadgets_on_machines/gadgets_sail.png"
+      ]
+    },
+    {
+      "id": "P12-A4",
+      "file": "gadgets_steam.png",
+      "package": "П12",
+      "element": "K",
+      "format": "3:2",
+      "background": "magenta",
+      "status": "принято",
+      "note": "Паровоз: Механический кочегар (карта I Маг) и Пароперегреватель (карта XIV Умеренность)",
+      "notes": [],
+      "received": "2026-11-05 02:51",
+      "outputs": [
+        "accepted/P12_gadgets_on_machines/gadgets_steam.png"
+      ]
+    },
+    {
+      "id": "P12-A5",
+      "file": "gadgets_motorcar.png",
+      "package": "П12",
+      "element": "K",
+      "format": "3:2",
+      "background": "magenta",
+      "status": "принято",
+      "note": "Бензиновая дрезина: Автоматическая КПП (карта IV Император) и Закись азота (карта VIII Сила)",
+      "notes": [],
+      "received": "2026-11-05 02:51",
+      "outputs": [
+        "accepted/P12_gadgets_on_machines/gadgets_motorcar.png"
+      ]
+    },
+    {
+      "id": "P12-A6",
+      "file": "gadgets_pneumatic.png",
+      "package": "П12",
+      "element": "K",
+      "format": "3:2",
+      "background": "magenta",
+      "status": "получено",
+      "note": "Пневматическая дрезина: Запасной баллон (карта III Императрица) и Автоматический редуктор (карта V Иерофант)",
+      "notes": [],
+      "received": "2026-11-05 02:51",
+      "outputs": [
+        "accepted/P12_gadgets_on_machines/gadgets_pneumatic.png"
+      ]
+    },
+    {
+      "id": "P12-A7",
+      "file": "gadgets_locomotive.png",
+      "package": "П12",
+      "element": "K",
+      "format": "3:2",
+      "background": "magenta",
+      "status": "принято",
+      "note": "Электровоз: Суперконденсатор (карта VII Колесница) и Жидкостное охлаждение (карта XI Справедливость)",
+      "notes": [
+        "ПРЕДУПРЕЖДЕНИЕ: предмет близко к краю кадра, возможно обрезан"
+      ],
+      "received": "2026-11-05 02:51",
+      "outputs": [
+        "accepted/P12_gadgets_on_machines/gadgets_locomotive.png"
+      ]
+    },
+    {
+      "id": "P12-A8",
+      "file": "gadgets_zeppelin.png",
+      "package": "П12",
+      "element": "K",
+      "format": "3:2",
+      "background": "magenta",
+      "status": "принято",
+      "note": "Цеппелин: Триммер (карта IX Отшельник) и Закрылки (карта XVII Звезда)",
+      "notes": [
+        "ПРЕДУПРЕЖДЕНИЕ: предмет близко к краю кадра, возможно обрезан"
+      ],
+      "received": "2026-11-05 02:51",
+      "outputs": [
+        "accepted/P12_gadgets_on_machines/gadgets_zeppelin.png"
+      ]
+    },
+    {
+      "id": "P12-A9",
+      "file": "gadgets_jet.png",
+      "package": "П12",
+      "element": "K",
+      "format": "3:2",
+      "background": "magenta",
+      "status": "принято",
+      "note": "Реактивный: Двойной парашют (карта XIII Смерть) и Форсаж (карта XV Дьявол)",
+      "notes": [
+        "ПРЕДУПРЕЖДЕНИЕ: предмет близко к краю кадра, возможно обрезан"
+      ],
+      "received": "2026-11-05 02:51",
+      "outputs": [
+        "accepted/P12_gadgets_on_machines/gadgets_jet.png"
+      ]
+    },
+    {
+      "id": "P12-A10",
+      "file": "gadget_parts_1.png",
+      "package": "П12",
+      "element": "K",
+      "format": "1:1",
+      "background": "magenta",
+      "status": "принято",
+      "note": "детали гаджетов, лист 1",
+      "sheet": {
+        "cols": 3,
+        "rows": 3
+      },
+      "notes": [
+        "ПРЕДУПРЕЖДЕНИЕ: предмет упирается в край ячейки: 2,1"
+      ],
+      "received": "2026-11-05 02:52",
+      "outputs": [
+        "accepted/P12_gadgets_on_machines/gadget_parts_1_sheet.png",
+        "accepted/P12_gadgets_on_machines/gadget_parts_1/cell_1_1.png",
+        "accepted/P12_gadgets_on_machines/gadget_parts_1/cell_1_2.png",
+        "accepted/P12_gadgets_on_machines/gadget_parts_1/cell_1_3.png",
+        "accepted/P12_gadgets_on_machines/gadget_parts_1/cell_2_1.png",
+        "accepted/P12_gadgets_on_machines/gadget_parts_1/cell_2_2.png",
+        "accepted/P12_gadgets_on_machines/gadget_parts_1/cell_2_3.png",
+        "accepted/P12_gadgets_on_machines/gadget_parts_1/cell_3_1.png",
+        "accepted/P12_gadgets_on_machines/gadget_parts_1/cell_3_2.png",
+        "accepted/P12_gadgets_on_machines/gadget_parts_1/cell_3_3.png"
+      ]
+    },
+    {
+      "id": "P12-A11",
+      "file": "gadget_parts_2.png",
+      "package": "П12",
+      "element": "K",
+      "format": "1:1",
+      "background": "magenta",
+      "status": "принято",
+      "note": "детали гаджетов, лист 2",
+      "sheet": {
+        "cols": 3,
+        "rows": 3
+      },
+      "notes": [
+        "ПРЕДУПРЕЖДЕНИЕ: предмет упирается в край ячейки: 3,3"
+      ],
+      "received": "2026-11-05 02:52",
+      "outputs": [
+        "accepted/P12_gadgets_on_machines/gadget_parts_2_sheet.png",
+        "accepted/P12_gadgets_on_machines/gadget_parts_2/cell_1_1.png",
+        "accepted/P12_gadgets_on_machines/gadget_parts_2/cell_1_2.png",
+        "accepted/P12_gadgets_on_machines/gadget_parts_2/cell_1_3.png",
+        "accepted/P12_gadgets_on_machines/gadget_parts_2/cell_2_1.png",
+        "accepted/P12_gadgets_on_machines/gadget_parts_2/cell_2_2.png",
+        "accepted/P12_gadgets_on_machines/gadget_parts_2/cell_2_3.png",
+        "accepted/P12_gadgets_on_machines/gadget_parts_2/cell_3_1.png",
+        "accepted/P12_gadgets_on_machines/gadget_parts_2/cell_3_2.png",
+        "accepted/P12_gadgets_on_machines/gadget_parts_2/cell_3_3.png"
+      ]
+    },
+    {
+      "id": "P13-A1",
+      "file": "pole_truck_platform.png",
+      "package": "П13",
+      "element": "K",
+      "format": "3:2",
+      "background": "magenta",
+      "status": "промпт готов",
+      "note": "платформа шестовой"
+    },
+    {
+      "id": "P13-A2",
+      "file": "pole_truck_details.png",
+      "package": "П13",
+      "element": "K",
+      "format": "1:1",
+      "background": "magenta",
+      "status": "промпт готов",
+      "note": "детали шестовой",
+      "sheet": {
+        "cols": 3,
+        "rows": 3
+      }
+    }
+  ],
+  "help": "Фон: magenta (плоский #FF00FF), black (свет), transparent, full-bleed (текстура на весь кадр). sheet: сетка листа {cols, rows}. Статусы: в списке, промпт готов, запрошено, получено, получено с проблемами, принято, отклонено, подключено."
 }
