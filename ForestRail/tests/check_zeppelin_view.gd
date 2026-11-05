@@ -143,6 +143,26 @@ func run() -> void:
 	check("Скорость падает" in Pult.hint(lesson, 130.0, 0.0, 1.0), "the lesson: in the air the speed drops")
 	lesson.stalled = true
 	check("заглох" in Pult.hint(lesson, 130.0, 0.0, 1.0), "the lesson: a stalled engine")
+	# the trim gadget: the button appears and switches the trim on in the air
+	game.model.object_state("zeppelin").levels.zeppelin_trim = 1
+	game.model.zep.airborne = true
+	game.model.zep.z = 6.0
+	game.screen = "game"
+	game.model.state.phase = "route"
+	game.queue_redraw()
+	await shot("zeppelin_trim_button")
+	var trim_click = game.zpult.trim_button().get_center()
+	click(trim_click, true)
+	click(Vector2.ZERO, false)
+	check(bool(game.model.state.get("zep_trim", false)), "a click on the trim button switches the trim on in the air")
+	game.queue_redraw()
+	await shot("zeppelin_trim_on")
+	click(trim_click, true)
+	click(Vector2.ZERO, false)
+	check(not bool(game.model.state.get("zep_trim", false)), "and off again")
+	game.model.zep.airborne = false
+	game.model.zep.z = 0.0
+	game.model.object_state("zeppelin").levels.erase("zeppelin_trim")
 	# high in the air the camera climbs after the machine: it stays on the screen
 	game.model.air_fly = true
 	game.model.air_z = 25.0

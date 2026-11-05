@@ -23,7 +23,7 @@ const DEFAULTS = {
 	"redline_wear": 0.20,
 	"landing_max_vz": 5.0, "landing_max_alpha": 12.0, "landing_speed_loss": 0.20, "ceiling_m": 30.0,
 	# the flight is harder than the run (05.11.2026): the propeller pulls less in the air and less still higher up, a climb costs speed
-	"air_thrust": 0.62, "air_thrust_alt": 0.5, "climb_energy": 1.0,
+	"lift_boost": 1.0, "air_thrust": 0.62, "air_thrust_alt": 0.5, "climb_energy": 1.0,
 	"crash_penalty_share": 0.5, "crash_penalty_min": 300,
 }
 
@@ -111,7 +111,7 @@ func lift_coefficient(alpha_deg: float) -> float:
 	return c("cl0") + c("cl_per_deg") * alpha_deg
 
 func lift_force(v_air: float, alpha_deg: float) -> float:
-	return 0.5 * c("rho") * c("wing_area_m2") * lift_coefficient(alpha_deg) * v_air * absf(v_air)
+	return 0.5 * c("rho") * c("wing_area_m2") * lift_coefficient(alpha_deg) * c("lift_boost") * v_air * absf(v_air)
 
 func drag_force(v_air: float, alpha_deg: float) -> float:
 	var cl = lift_coefficient(alpha_deg)
@@ -159,7 +159,7 @@ func wheel_load(v_air: float, alpha_deg: float, slope: float = 0.0) -> float:
 func takeoff_speed(alpha_deg: float) -> float:
 	var cl = lift_coefficient(alpha_deg)
 	if cl <= 0.0: return INF
-	return sqrt(2.0 * weight() / (c("rho") * c("wing_area_m2") * cl))
+	return sqrt(2.0 * weight() / (c("rho") * c("wing_area_m2") * cl * c("lift_boost")))
 
 # --- one step of the machine; slope in radians (+ uphill), wind along the rail in m/s (+ tail wind)
 # the movable parts: the wing and the tail plane follow the stick, the flaps open with the air brake, the propeller turns
@@ -244,6 +244,14 @@ func step(dt: float, slope: float = 0.0, wind_along: float = 0.0) -> void:
 	if health <= 0.0 and not stalled:
 		stalled = true
 		events.append("stall")
+
+# The trim (the gadget, 06.11.2026): holds the height at which it was switched on: the stick follows a gentle rule of the height and the vertical speed.
+# Returns the stick (degrees) the trim wants; the model moves the real stick towards it.
+func trim_stick(hold_z: float) -> float:
+	var speed = maxf(absf(v), 14.0)
+	var cl_needed = weight() / (0.5 * c("rho") * c("wing_area_m2") * c("lift_boost") * speed * speed)
+	var level_alpha = (cl_needed - c("cl0")) / c("cl_per_deg")   # the angle that carries the weight at this speed
+	return clampf(level_alpha + (hold_z - z) * 0.5 - vz * 1.0, -2.0, c("alpha_max"))
 
 func crash(reason: String) -> void:
 	crashed = true

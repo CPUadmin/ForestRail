@@ -43,6 +43,9 @@ func start_button() -> Rect2:
 func air_button() -> Rect2:
 	return rect(312.0, 106.0, 78.0, 44.0)
 
+func trim_button() -> Rect2:
+	return rect(312.0, 154.0, 78.0, 22.0)
+
 # the value of a slider 0..1 (the stick is the angle of attack mapped onto its travel)
 func slider_value(id: String) -> float:
 	match id:
@@ -53,6 +56,7 @@ func slider_value(id: String) -> float:
 	return 0.0
 
 func set_slider(id: String, level: float) -> void:
+	if id == "stick": model.state.zep_trim = false   # the hand takes the stick back from the trim
 	level = clampf(level, 0.0, 1.0)
 	if level < 0.02: level = 0.0
 	elif level > 0.98: level = 1.0
@@ -80,6 +84,9 @@ func press(pos: Vector2) -> bool:
 			return true
 	if start_button().has_point(pos):
 		if bool(model.zep.stalled) or not bool(model.state.engine): model.zeppelin_restart()
+		return true
+	if model.zeppelin_trim_installed() and trim_button().has_point(pos):
+		model.set_zeppelin_trim(not bool(model.state.get("zep_trim", false)))
 		return true
 	if air_button().has_point(pos):
 		model.set_zeppelin_air_brake(not bool(model.state.get("zep_air_brake", false)))
@@ -112,6 +119,7 @@ func draw(canvas, mouse: Vector2) -> void:
 	for i in range(SLIDER_IDS.size()):
 		draw_slider(canvas, i, mouse)
 	draw_buttons(canvas)
+	draw_trim(canvas)
 	draw_airspeed(canvas, zep)
 	draw_revs(canvas, zep)
 	draw_bars(canvas, zep)
@@ -155,6 +163,13 @@ func draw_buttons(canvas) -> void:
 	var a = air_button()
 	box(canvas, a, Color("8a5a2a") if air_on else Color("26312d"), GOLD if air_on else EDGE, 6, 2)
 	canvas.draw_string(font, a.position + Vector2(0.0, a.size.y * 0.64), "Щитки", HORIZONTAL_ALIGNMENT_CENTER, a.size.x, int(round(17.0 * k)), PAPER)
+
+func draw_trim(canvas) -> void:
+	if not model.zeppelin_trim_installed(): return
+	var on = bool(model.state.get("zep_trim", false))
+	var b = trim_button()
+	box(canvas, b, Color("2f5d6a") if on else Color("26312d"), Color("8fd0e0") if on else EDGE, 5, 2)
+	canvas.draw_string(font, b.position + Vector2(0.0, b.size.y * 0.74), "Триммер", HORIZONTAL_ALIGNMENT_CENTER, b.size.x, int(round(13.0 * k)), PAPER)
 
 func gauge_arc(canvas, centre: Vector2, radius: float, from: float, to: float, color: Color, width: float) -> void:
 	# a share of the dial from..to (0..1) over 270 degrees starting at the lower left
@@ -221,7 +236,7 @@ static func hint(zep, takeoff_kmh: float, brake: float, throttle: float) -> Stri
 		if float(zep.z) > 0.6 * float(zep.c("ceiling_m")): return "Высоко: ручку вниз, иначе потеряешь скорость и упадёшь."
 		if kmh < 85.0: return "Скорость падает: ручку вниз, пусть самолёт разгонится."
 		if float(zep.vz) < -3.5: return "Падаешь быстро: ручку на себя, но не резко."
-		return "В воздухе винт слабее: ручка вниз добавляет скорость. Садись плавно: газ меньше, ручка к 0."
+		return "В воздухе винт слабее: ручка вниз даёт скорость. Садись плавно: газ меньше."
 	if brake > 0.5 and throttle < 0.05: return "Тормоз затянут. Отпусти красный ползунок, потом газ."
 	if throttle < 0.05 and kmh < 3.0: return "Отпусти тормоз, дай газ и поставь шаг мелким (ползунок «Шаг» вниз)."
 	if float(zep.rpm) > float(zep.c("rpm_max")): return "Красная зона: шаг крупнее (ползунок «Шаг» вверх), следи за зелёной меткой."
@@ -239,7 +254,7 @@ func draw_warning(canvas, zep) -> void:
 	elif float(zep.rpm) > float(zep.c("rpm_max")): line = "КРАСНАЯ ЗОНА: шаг крупнее"; color = RED
 	elif float(zep.rpm) < float(zep.c("rpm_idle")) * 1.3 and float(model.state.throttle) > 0.3 and not bool(zep.airborne): line = "ВИНТ ТЯЖЁЛЫЙ: шаг мельче"
 	elif bool(zep.airborne): line = "ПОЛЁТ: держи ручку, садись плавно"
-	if line != "": text(canvas, Vector2(300.0, 178.0), line, 14, color, 280.0)
+	if line != "": text(canvas, Vector2(300.0, 187.0), line, 13, color, 290.0)
 	if bool(model.state.get("tutorial", false)):
 		var lesson = hint(zep, float(model.vehicle_base("zeppelin").zeppelin.takeoff_kmh), float(model.state.brake), float(model.state.throttle))
 		if lesson != "": text(canvas, Vector2(20.0, 22.0), lesson, 14, Color("e9ce83"), 640.0, HORIZONTAL_ALIGNMENT_LEFT)

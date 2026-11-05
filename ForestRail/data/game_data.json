@@ -1299,6 +1299,30 @@
       "scope": "selected_vehicle_id"
     },
     {
+      "id": "zeppelin_trim",
+      "target_type": "zeppelin",
+      "name": "Триммер",
+      "gadget": true,
+      "level_costs": [2400],
+      "levels": 1,
+      "effects_at_level": {
+        "zep_trim": [true]
+      },
+      "scope": "selected_vehicle_id"
+    },
+    {
+      "id": "zeppelin_flaps",
+      "target_type": "zeppelin",
+      "name": "Закрылки",
+      "gadget": true,
+      "level_costs": [2400],
+      "levels": 1,
+      "effects_at_level": {
+        "zep_flaps_gadget": [true]
+      },
+      "scope": "selected_vehicle_id"
+    },
+    {
       "id": "sail_spinnaker",
       "target_type": "sail",
       "name": "Спинакер",

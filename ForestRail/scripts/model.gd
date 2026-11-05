@@ -1746,11 +1746,23 @@ func set_zeppelin_pitch(value: float) -> bool:
 func set_zeppelin_stick(degrees: float) -> bool:
 	if vehicle_id() != "zeppelin": return false
 	state.zep_stick = clampf(degrees, -6.0, 12.0)
+	state.zep_trim = false   # the hand on the stick takes the control back from the trim
 	return true
 
 func set_zeppelin_air_brake(on: bool) -> bool:
 	if vehicle_id() != "zeppelin": return false
 	state.zep_air_brake = on
+	return true
+
+func zeppelin_trim_installed() -> bool:
+	return bool(effects("zeppelin").get("zep_trim", false))
+
+# the trim: switched on in the air it keeps the height it had at that moment; the player's hand on the stick switches it off
+func set_zeppelin_trim(on: bool) -> bool:
+	if vehicle_id() != "zeppelin" or not zeppelin_trim_installed(): return false
+	if on and not zep.airborne: return fail("Триммер держит высоту только в полёте")
+	state.zep_trim = on
+	state.zep_trim_z = zep.z
 	return true
 
 func zeppelin_restart() -> bool:
@@ -1774,6 +1786,16 @@ func zeppelin_step(dt: float, fleet: Dictionary, old_v: float) -> float:
 	zep.cfg.power_w = float(zcfg.get("power_w", 40000.0)) * float(ef.get("zep_power_multiplier", 1.0))
 	zep.cfg.wing_area_m2 = float(zcfg.get("wing_area_m2", 12.0)) * float(ef.get("zep_wing_multiplier", 1.0))
 	zep.cfg.pad_brake_n = float(object_stats("zeppelin").brake)
+	# the gadgets: the flaps lift at a speed lower by a fifth (lift x1.5625) and cost 5% of the drag; the trim costs a little petrol
+	var flaps_gadget = bool(ef.get("zep_flaps_gadget", false))
+	zep.cfg.lift_boost = 1.5625 if flaps_gadget else 1.0
+	zep.cfg.frontal_cd_area = 0.75 * (1.05 if flaps_gadget else 1.0)
+	if bool(state.get("zep_trim", false)):
+		if not bool(ef.get("zep_trim", false)) or not zep.airborne:
+			state.zep_trim = false
+		else:
+			var want = zep.trim_stick(float(state.get("zep_trim_z", zep.z)))
+			state.zep_stick = move_toward(zeppelin_stick(), want, 8.0 * dt)
 	zep.fuel = float(fleet.fuel)
 	zep.v = old_v * forward
 	zep.set_throttle(float(state.throttle))

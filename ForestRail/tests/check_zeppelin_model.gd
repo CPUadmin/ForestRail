@@ -122,5 +122,48 @@ func run() -> void:
 	check(up.zep.takeoff_speed(3.5) < base_takeoff * 0.97, "a bigger wing lifts at a lower speed (%.1f against %.1f m/s)" % [up.zep.takeoff_speed(3.5), base_takeoff])
 	check(up.zep.c("pad_brake_n") > base_brake * 1.2, "the pads grip harder (%.0f N)" % up.zep.c("pad_brake_n"))
 	check(up.zep.c("fuel_l") > 40.0 * 1.3, "the tank holds more (%.0f l)" % up.zep.c("fuel_l"))
+	# the gadgets: the flaps (a lower takeoff speed), the trim (holds the height)
+	var gadgets = Model.new()
+	gadgets.new_game(42, 2)
+	gadgets.state.money = 100000
+	Fixtures.equip(gadgets, "zeppelin")
+	gadgets.state.phase = "route"
+	gadgets.state.engine = true
+	gadgets.state.brake = 0.0
+	gadgets.physics_step(1.0 / 60.0)
+	var plain_takeoff = gadgets.zep.takeoff_speed(3.5)
+	check(not gadgets.zeppelin_trim_installed() and not gadgets.set_zeppelin_trim(true), "no trim without the gadget")
+	gadgets.object_state("zeppelin").levels.zeppelin_flaps = 1
+	gadgets.object_state("zeppelin").levels.zeppelin_trim = 1
+	gadgets.physics_step(1.0 / 60.0)
+	check(absf(gadgets.zep.takeoff_speed(3.5) / plain_takeoff - 0.8) < 0.01, "the flaps lower the takeoff speed by a fifth (%.1f against %.1f m/s)" % [gadgets.zep.takeoff_speed(3.5), plain_takeoff])
+	check(gadgets.zep.c("frontal_cd_area") > 0.75 * 1.04, "and cost a few percent of the drag")
+	check(not gadgets.set_zeppelin_trim(true), "the trim does not work on the ground")
+	gadgets.state.throttle = 1.0
+	gadgets.state.v = 36.0
+	gadgets.zep.v = 36.0
+	gadgets.zep.airborne = true
+	gadgets.zep.z = 5.0
+	gadgets.zep.vz = 1.5
+	gadgets.state.zep_stick = 6.0
+	check(gadgets.set_zeppelin_trim(true) and bool(gadgets.state.zep_trim), "in the air the trim goes on")
+	var lowest = 99.0
+	var highest = 0.0
+	var tail_sum = 0.0
+	var tail_n = 0
+	for i in range(60 * 20):
+		gadgets.set_zeppelin_pitch(clampf((absf(float(gadgets.state.v)) + 3.0 - 10.0) / 24.0, 0.0, 1.0))
+		gadgets.physics_step(1.0 / 60.0)
+		if gadgets.zep.crashed or not gadgets.zep.airborne: break
+		lowest = minf(lowest, gadgets.zep.z)
+		highest = maxf(highest, gadgets.zep.z)
+		if i >= 60 * 15:
+			tail_sum += gadgets.zep.z
+			tail_n += 1
+	check(not gadgets.zep.crashed and gadgets.zep.airborne, "with the trim the zeppelin keeps flying for twenty seconds")
+	check(lowest > 2.5 and highest < 9.0, "and does not wander far (%.1f .. %.1f m)" % [lowest, highest])
+	check(tail_n > 0 and absf(tail_sum / float(maxi(1, tail_n)) - 5.0) < 1.0, "in the end it holds the height it had (%.2f m of 5)" % (tail_sum / float(maxi(1, tail_n))))
+	gadgets.set_zeppelin_stick(2.0)
+	check(not bool(gadgets.state.zep_trim), "a hand on the stick switches the trim off")
 	print("ZEPPELIN MODEL CHECKS ", checks, "; FAILURES ", failures)
 	get_tree().quit(0 if failures.is_empty() else 1)
