@@ -327,5 +327,17 @@ func run() -> void:
 		game.model.state.stats.seconds = fog_at
 		for i in range(8): await frame()
 		await shot("fog_outside_motorcar")
+	game.model.route = w1.route
+	game.model.state.stats.seconds = 0.0
+	var uphill = 100.0
+	var downhill = 100.0
+	for s in range(100, int(w1.route.length_m) - 100, 10):
+		if w1.route.slope(s) > w1.route.slope(uphill): uphill = float(s)
+		if w1.route.slope(s) < w1.route.slope(downhill): downhill = float(s)
+	check(w1.route.slope(uphill) > 0.01 and w1.route.slope(downhill) < -0.01, "the route has uphill and downhill views")
+	await key(KEY_E)
+	for grade in [["uphill", uphill], ["downhill", downhill]]:
+		game.model.state.s = grade[1]
+		await shot("cab_" + grade[0])
 	print("CAB CHECKS ", checks, "; FAILURES ", failures)
 	get_tree().quit(0 if failures.is_empty() else 1)

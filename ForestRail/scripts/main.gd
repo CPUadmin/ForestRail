@@ -2892,9 +2892,6 @@ func cab_needle(key: String, target: float) -> float:
 func cab_hash(i: int, salt: float = 0.0) -> float:
 	return fposmod(sin(float(i) * 12.9898 + salt * 78.233) * 43758.5453, 1.0)
 
-func cab_project(x: float, z: float, horizon: float, focal: float, cx: float, camera_height: float) -> Vector2:
-	return Vector2(cx + x * focal / z, horizon + camera_height * focal / z)
-
 func cab_fog(color: Color, z: float) -> Color:
 	return color.lerp(Color("cfe0dc"), clampf(z / 170.0, 0.0, 0.85))
 
@@ -2934,7 +2931,7 @@ func draw_cab_scene(size: Vector2) -> void:
 
 # The view forward along the track. Returns the horizon line and focal length so the
 # nose of the machine can be placed against it.
-func draw_cab_ground(horizon: float, focal: float, cx: float, camera_height: float, travelled: float) -> void:
+func draw_cab_ground(project: Callable, travelled: float) -> void:
 	# Use the grass above the exposed cross-section in the existing roadside tile.
 	const TILE_LENGTH = 6.0
 	const TILE_WIDTH = 8.0
@@ -2957,10 +2954,10 @@ func draw_cab_ground(horizon: float, focal: float, cx: float, camera_height: flo
 			var left = float(col) * TILE_WIDTH
 			var right = left + TILE_WIDTH
 			var points = PackedVector2Array([
-				cab_project(left, near, horizon, focal, cx, camera_height),
-				cab_project(right, near, horizon, focal, cx, camera_height),
-				cab_project(right, end, horizon, focal, cx, camera_height),
-				cab_project(left, end, horizon, focal, cx, camera_height),
+				project.call(left, near),
+				project.call(right, near),
+				project.call(right, end),
+				project.call(left, end),
 			])
 			draw_polygon(points, PackedColorArray([tint_near, tint_near, tint_far, tint_far]), PackedVector2Array([
 				Vector2(0, v_near), Vector2(1, v_near), Vector2(1, v_far), Vector2(0, v_far),
@@ -2970,12 +2967,19 @@ func draw_cab_forward(view: Rect2) -> Dictionary:
 	var facing = int(model.state.direction)
 	var travelled = model.render_s() * facing
 	var speed = absf(float(model.state.v))
-	var slope = tan(model.route.slope(float(model.state.s) + facing * 40.0))
+	var origin = model.render_s()
+	var rail_height: float = model.route.sample(origin).y
+	var pitch = (model.route.sample(origin + facing * 6.0).y - rail_height) / 6.0
 	var bob = sin(time * 9.0) * minf(1.6, speed * 0.25)
-	var horizon = view.position.y + view.size.y * 0.47 - clampf(slope, -0.08, 0.08) * view.size.y * 2.0 + bob
 	var focal = view.size.y * 0.95
+	var horizon = view.position.y + view.size.y * 0.47 + clampf(pitch, -0.08, 0.08) * focal + bob
 	var cx = view.size.x * 0.5
 	var camera_height = 1.7
+	var elevations := {}
+	var project := func(x: float, z: float) -> Vector2:
+		if not elevations.has(z):
+			elevations[z] = model.route.sample(origin + facing * z).y - rail_height
+		return Vector2(cx + x * focal / z, horizon + (camera_height - float(elevations[z])) * focal / z)
 	var look = {"horizon": horizon, "focal": focal, "cx": cx, "speed": speed, "travelled": travelled}
 	# C1: the sky and the three layers of the forest are the same painted pictures as outside the window
 	var sky: Texture2D = art.textures["parallax/sky"]
@@ -2992,29 +2996,33 @@ func draw_cab_forward(view: Rect2) -> Dictionary:
 			layer_x += layer_w
 	draw_polygon(PackedVector2Array([Vector2(0, horizon - 3), Vector2(view.size.x, horizon - 3), Vector2(view.size.x, horizon + 28), Vector2(0, horizon + 28)]), PackedColorArray([Color(0.85, 0.92, 0.9, 0.0), Color(0.85, 0.92, 0.9, 0.0), Color(0.85, 0.92, 0.9, 0.5), Color(0.85, 0.92, 0.9, 0.5)]))
 	draw_polygon(PackedVector2Array([Vector2(0, horizon), Vector2(view.size.x, horizon), view.end, Vector2(0, view.end.y)]), PackedColorArray([Color("77a06a"), Color("77a06a"), Color("3a5e3c"), Color("3a5e3c")]))
-	draw_cab_ground(horizon, focal, cx, camera_height, travelled)
+	draw_cab_ground(project, travelled)
 	var near = 1.3
 	var far = 170.0
-	draw_colored_polygon(PackedVector2Array([cab_project(-2.6, near, horizon, focal, cx, camera_height), cab_project(2.6, near, horizon, focal, cx, camera_height), cab_project(2.6, far, horizon, focal, cx, camera_height), cab_project(-2.6, far, horizon, focal, cx, camera_height)]), Color("5f7f54"))
-	draw_colored_polygon(PackedVector2Array([cab_project(-1.9, near, horizon, focal, cx, camera_height), cab_project(1.9, near, horizon, focal, cx, camera_height), cab_project(1.9, far, horizon, focal, cx, camera_height), cab_project(-1.9, far, horizon, focal, cx, camera_height)]), Color("8a8174"))
+	var steps = [near, 2.0, 3.0, 4.5, 7.0, 11.0, 18.0, 25.0, 33.0, 44.0, 55.0, 70.0, 85.0, 100.0, 125.0, 150.0, far]
+	for bed in [[2.6, Color("5f7f54")], [1.9, Color("8a8174")]]:
+		var half: float = bed[0]
+		for i in range(steps.size() - 1):
+			var a: float = steps[i]
+			var b: float = steps[i + 1]
+			draw_colored_polygon(PackedVector2Array([project.call(-half, a), project.call(half, a), project.call(half, b), project.call(-half, b)]), bed[1])
 	# ballast speckle close to the train
 	for i in range(60):
 		var z = near + 0.4 + fposmod(cab_hash(i, 6.0) * 14.0 - travelled, 14.0)
-		var spot = cab_project((cab_hash(i, 7.0) - 0.5) * 3.4, z, horizon, focal, cx, camera_height)
+		var spot = project.call((cab_hash(i, 7.0) - 0.5) * 3.4, z)
 		draw_rect(Rect2(spot, Vector2(clampf(0.06 * focal / z, 1, 5), clampf(0.03 * focal / z, 1, 3))), Color(0.35, 0.32, 0.28, 0.6))
 	var phase = fposmod(-travelled, 0.9)
 	for k in range(0, 150):
 		var z = near + phase + k * 0.9
 		if z > 120.0: break
-		var a = cab_project(-1.15, z, horizon, focal, cx, camera_height)
-		var b = cab_project(1.15, z, horizon, focal, cx, camera_height)
+		var a = project.call(-1.15, z)
+		var b = project.call(1.15, z)
 		draw_line(a, b, cab_fog(Color("4a3b2e"), z), clampf(0.2 * focal / z, 1.0, 20.0), true)
 		draw_line(a + Vector2(0, -clampf(0.07 * focal / z, 0, 6)), b + Vector2(0, -clampf(0.07 * focal / z, 0, 6)), cab_fog(Color("6a5646"), z), clampf(0.05 * focal / z, 0.5, 5.0), true)
-	var steps = [near, 2.0, 3.0, 4.5, 7.0, 11.0, 18.0, 30.0, 55.0, 100.0, far]
 	for rail_x in [-0.55, 0.55]:
 		for i in range(steps.size() - 1):
-			var a = cab_project(rail_x, steps[i], horizon, focal, cx, camera_height)
-			var b = cab_project(rail_x, steps[i + 1], horizon, focal, cx, camera_height)
+			var a = project.call(rail_x, steps[i])
+			var b = project.call(rail_x, steps[i + 1])
 			draw_line(a, b, cab_fog(Color("8d8a84"), steps[i]), clampf(0.09 * focal / steps[i], 1.5, 12.0), true)
 			draw_line(a + Vector2(0, -clampf(0.03 * focal / steps[i], 0, 4)), b + Vector2(0, -clampf(0.03 * focal / steps[i], 0, 4)), cab_fog(Color("e2dfd6"), steps[i]), clampf(0.03 * focal / steps[i], 0.5, 3.0), true)
 	# rail joints every 12 m
@@ -3023,7 +3031,7 @@ func draw_cab_forward(view: Rect2) -> Dictionary:
 		var z = near + joint_phase + j * 12.0
 		if z > 110.0: break
 		for rail_x in [-0.55, 0.55]:
-			var p = cab_project(rail_x, z, horizon, focal, cx, camera_height)
+			var p = project.call(rail_x, z)
 			draw_rect(Rect2(p + Vector2(-clampf(0.08 * focal / z, 1, 9), -1), Vector2(clampf(0.16 * focal / z, 2, 18), clampf(0.03 * focal / z, 1, 3))), cab_fog(Color("2c2a27"), z))
 	# stations ahead: platform, building, sign
 	for i in range(model.route.station_s.size()):
@@ -3031,12 +3039,12 @@ func draw_cab_forward(view: Rect2) -> Dictionary:
 		if z < 6.0 or z > 190.0: continue
 		var z0 = maxf(near + 0.5, z - 9.0)
 		var z1 = z + 9.0
-		draw_colored_polygon(PackedVector2Array([cab_project(1.5, z0, horizon, focal, cx, camera_height), cab_project(3.4, z0, horizon, focal, cx, camera_height), cab_project(3.4, z1, horizon, focal, cx, camera_height), cab_project(1.5, z1, horizon, focal, cx, camera_height)]), cab_fog(Color("b7ab94"), z))
-		var edge_a = cab_project(1.5, z0, horizon, focal, cx, camera_height)
-		var edge_b = cab_project(1.5, z1, horizon, focal, cx, camera_height)
+		draw_colored_polygon(PackedVector2Array([project.call(1.5, z0), project.call(3.4, z0), project.call(3.4, z1), project.call(1.5, z1)]), cab_fog(Color("b7ab94"), z))
+		var edge_a = project.call(1.5, z0)
+		var edge_b = project.call(1.5, z1)
 		draw_line(edge_a, edge_b, cab_fog(Color("e6d9a8"), z), clampf(0.06 * focal / z, 1, 5), true)
-		var base_l = cab_project(4.2, z, horizon, focal, cx, camera_height)
-		var base_r = cab_project(11.0, z, horizon, focal, cx, camera_height)
+		var base_l = project.call(4.2, z)
+		var base_r = project.call(11.0, z)
 		var wall_h = 4.2 * focal / z
 		draw_rect(Rect2(base_l.x, base_l.y - wall_h, base_r.x - base_l.x, wall_h), cab_fog(Color("7c4f34"), z))
 		draw_colored_polygon(PackedVector2Array([Vector2(base_l.x - wall_h * 0.12, base_l.y - wall_h), Vector2((base_l.x + base_r.x) * 0.5, base_l.y - wall_h * 1.5), Vector2(base_r.x + wall_h * 0.12, base_l.y - wall_h)]), cab_fog(Color("8e3b2e"), z))
@@ -3052,7 +3060,7 @@ func draw_cab_forward(view: Rect2) -> Dictionary:
 	for i in range(pole_last, pole_first - 1, -1):
 		var z = i * 40.0 - travelled
 		if z < 5.0 or z > 160.0: continue
-		var base = cab_project(-4.6, z, horizon, focal, cx, camera_height)
+		var base = project.call(-4.6, z)
 		var tall = 7.0 * focal / z
 		draw_line(base, base + Vector2(0, -tall), cab_fog(Color("4b3a2c"), z), clampf(0.2 * focal / z, 1, 9), true)
 		draw_line(base + Vector2(-tall * 0.16, -tall * 0.92), base + Vector2(tall * 0.16, -tall * 0.92), cab_fog(Color("4b3a2c"), z), clampf(0.1 * focal / z, 1, 5), true)
@@ -3067,7 +3075,7 @@ func draw_cab_forward(view: Rect2) -> Dictionary:
 	for i in range(post_first + 2, post_first - 1, -1):
 		var z = i * 100.0 - travelled
 		if z < 6.0 or z > 160.0: continue
-		var base = cab_project(2.6, z, horizon, focal, cx, camera_height)
+		var base = project.call(2.6, z)
 		var tall = 1.1 * focal / z
 		draw_rect(Rect2(base.x - 0.16 * focal / z, base.y - tall, 0.32 * focal / z, tall), cab_fog(Color("e8e4d4"), z))
 		draw_string(font, Vector2(base.x - 0.2 * focal / z, base.y - tall * 0.45), str(i), HORIZONTAL_ALIGNMENT_CENTER, 0.4 * focal / z, clampi(roundi(0.35 * focal / z), 6, 20), Color("2c2a27"))
@@ -3084,7 +3092,7 @@ func draw_cab_forward(view: Rect2) -> Dictionary:
 		var kind = int(cab_hash(i, 5.0) * 6.0) % 6
 		var thing: Texture2D = art_world.TRACKSIDE[kind]
 		var thing_m = float(art_world.TRACKSIDE_M[kind]) * (1.7 + cab_hash(i, 3.0) * 1.3)
-		var base = cab_project(lateral, z, horizon, focal, cx, camera_height)
+		var base = project.call(lateral, z)
 		var h = thing_m * focal / z
 		var w = h * float(thing.get_width()) / float(thing.get_height())
 		draw_texture_rect(thing, Rect2(base.x - w * 0.5, base.y - h, w, h), false, cab_fog(Color(0.95, 0.96, 0.9), z))
