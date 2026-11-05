@@ -1191,17 +1191,19 @@ func weather_noise(channel: int, days: float) -> float:
 
 var weather_force: Dictionary = {}   # tests (and nothing else) may fix the weather
 var weather_effect = 1.0             # the player's setting: 1 normal, 0.5 weaker, 0 none (rain, fog and cold of the weather)
+var weather_frequency = 1.0
 
 func weather_at(seconds: float) -> Dictionary:
 	if not weather_force.is_empty(): return weather_force
 	var days = (DAY_START_HOUR / 24.0) + seconds / DAY_SECONDS
+	var weather_days = (DAY_START_HOUR / 24.0) + seconds / DAY_SECONDS * weather_frequency
 	var early = smoothstep(0.05, 0.4, seconds / DAY_SECONDS)
-	var n = weather_noise(1, days)
+	var n = weather_noise(1, weather_days)
 	var cloud = smoothstep(0.35, 0.8, n) * early
 	var rain = smoothstep(0.7, 0.88, n) * early
 	var hour = fposmod(days * 24.0, 24.0)
 	var morning = 1.0 if hour >= 4.0 and hour <= 10.0 else 0.55
-	var fog = smoothstep(0.68, 0.9, weather_noise(2, days)) * morning * early
+	var fog = smoothstep(0.68, 0.9, weather_noise(2, weather_days)) * morning * early
 	return {"cloud": cloud, "rain": rain, "fog": fog}
 
 func weather() -> Dictionary:

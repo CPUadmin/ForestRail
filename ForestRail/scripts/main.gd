@@ -65,7 +65,7 @@ var modal_kind = ""
 const DEFAULT_SETTINGS = {"master": 0.65, "mechanisms": 0.7, "forest": 0.6, "music": 0.25, "interface": 0.8,
 	"sensitivity": 1.0, "text_scale": 1.0, "fullscreen": false, "borderless": false, "window_size": 1,
 	"vsync": true, "fps_cap": 0, "msaa": 0, "instrument_hz": 30, "reduce_motion": false, "cab_shake": 1.0,
-	"autosave": 60, "night_light": 0.0, "light_flicker": true, "weather": 0, "keys": {"map": KEY_M, "cab": KEY_E, "ice": KEY_I, "brake": KEY_SPACE, "sail_side": KEY_F}}
+	"autosave": 60, "night_light": 0.0, "light_flicker": true, "weather": 0, "weather_frequency": 1.0, "keys": {"map": KEY_M, "cab": KEY_E, "ice": KEY_I, "brake": KEY_SPACE, "sail_side": KEY_F}}
 const WINDOW_SIZES = [Vector2i(1280, 720), Vector2i(1600, 900), Vector2i(1920, 1080)]
 const SETTINGS_TABS = ["Звук", "Графика", "Управление", "Игра", "Доступность", "Служебное"]
 var settings = DEFAULT_SETTINGS.duplicate(true)
@@ -336,6 +336,8 @@ func apply_settings() -> void:
 	settings.night_light = clampf(float(settings.night_light), 0.0, 1.0)
 	settings.light_flicker = settings.light_flicker is not bool or settings.light_flicker
 	settings.weather = int(settings.weather) if int(settings.weather) in [0, 1, 2] else 0
+	settings.weather_frequency = float(settings.weather_frequency) if float(settings.weather_frequency) in [0.5, 1.0, 2.0] else 1.0
+	model.weather_frequency = float(settings.weather_frequency)
 	# Hot keys: valid, never Escape (it always pauses), never twice; otherwise back to the defaults.
 	var keys: Dictionary = settings.keys
 	var seen: Array = []
@@ -489,6 +491,7 @@ func build_settings(box: VBoxContainer) -> void:
 		settings_slider(box, "night_light", "Яркость ночи (0 тёмная, 1 светлее)", 0.0, 1.0, 0.1)
 		settings_toggle(box, "light_flicker", "Мерцание ламп и искры")
 		settings_choice(box, "weather", "Погода", [[0, "Обычная"], [1, "Реже и слабее"], [2, "Без осадков и тумана"]])
+		settings_choice(box, "weather_frequency", "Частота смены погоды", [[0.5, "Медленнее"], [1.0, "Обычно"], [2.0, "Быстрее"]])
 	elif settings_tab == "Управление":
 		settings_slider(box, "sensitivity", "Чувствительность ручной дрезины", 0.5, 2, 0.05)
 		add_label(box, "Клавиши (Esc всегда пауза):", 20)
