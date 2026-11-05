@@ -2934,6 +2934,38 @@ func draw_cab_scene(size: Vector2) -> void:
 
 # The view forward along the track. Returns the horizon line and focal length so the
 # nose of the machine can be placed against it.
+func draw_cab_ground(horizon: float, focal: float, cx: float, camera_height: float, travelled: float) -> void:
+	# Use the grass above the exposed cross-section in the existing roadside tile.
+	const TILE_LENGTH = 6.0
+	const TILE_WIDTH = 8.0
+	const GRASS_TOP = 0.08
+	const GRASS_BOTTOM = 0.20
+	const ROW_LENGTH = TILE_LENGTH / 4.0
+	var phase = fposmod(travelled, TILE_LENGTH)
+	for row in range(24, -1, -1):
+		var start = float(row) * ROW_LENGTH - phase
+		var end = start + ROW_LENGTH
+		if end <= 1.3: continue
+		var near = maxf(start, 1.3)
+		var fraction = float(row % 4) * 0.25
+		var v_near = lerpf(GRASS_BOTTOM, GRASS_TOP, fraction + (near - start) / TILE_LENGTH)
+		var v_far = lerpf(GRASS_BOTTOM, GRASS_TOP, fraction + 0.25)
+		var tint_near = Color(0.83, 0.96, 0.83, 0.34 * (1.0 - smoothstep(9.0, 29.0, near)))
+		var tint_far = Color(tint_near, 0.34 * (1.0 - smoothstep(9.0, 29.0, end)))
+		if tint_near.a <= 0.0: continue
+		for col in range(-4, 4):
+			var left = float(col) * TILE_WIDTH
+			var right = left + TILE_WIDTH
+			var points = PackedVector2Array([
+				cab_project(left, near, horizon, focal, cx, camera_height),
+				cab_project(right, near, horizon, focal, cx, camera_height),
+				cab_project(right, end, horizon, focal, cx, camera_height),
+				cab_project(left, end, horizon, focal, cx, camera_height),
+			])
+			draw_polygon(points, PackedColorArray([tint_near, tint_near, tint_far, tint_far]), PackedVector2Array([
+				Vector2(0, v_near), Vector2(1, v_near), Vector2(1, v_far), Vector2(0, v_far),
+			]), ArtWorld.ROAD_GROUND)
+
 func draw_cab_forward(view: Rect2) -> Dictionary:
 	var facing = int(model.state.direction)
 	var travelled = model.render_s() * facing
@@ -2960,6 +2992,7 @@ func draw_cab_forward(view: Rect2) -> Dictionary:
 			layer_x += layer_w
 	draw_polygon(PackedVector2Array([Vector2(0, horizon - 3), Vector2(view.size.x, horizon - 3), Vector2(view.size.x, horizon + 28), Vector2(0, horizon + 28)]), PackedColorArray([Color(0.85, 0.92, 0.9, 0.0), Color(0.85, 0.92, 0.9, 0.0), Color(0.85, 0.92, 0.9, 0.5), Color(0.85, 0.92, 0.9, 0.5)]))
 	draw_polygon(PackedVector2Array([Vector2(0, horizon), Vector2(view.size.x, horizon), view.end, Vector2(0, view.end.y)]), PackedColorArray([Color("77a06a"), Color("77a06a"), Color("3a5e3c"), Color("3a5e3c")]))
+	draw_cab_ground(horizon, focal, cx, camera_height, travelled)
 	var near = 1.3
 	var far = 170.0
 	draw_colored_polygon(PackedVector2Array([cab_project(-2.6, near, horizon, focal, cx, camera_height), cab_project(2.6, near, horizon, focal, cx, camera_height), cab_project(2.6, far, horizon, focal, cx, camera_height), cab_project(-2.6, far, horizon, focal, cx, camera_height)]), Color("5f7f54"))
