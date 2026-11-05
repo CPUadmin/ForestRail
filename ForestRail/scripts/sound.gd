@@ -5,7 +5,7 @@ extends Node
 # Pause silences the machine; interface, payment and finale cues always play.
 const MECHANISM_CLIPS = ["pump", "rail_clack", "rail_clack_a", "rail_clack_b", "rail_tick_a", "rail_tick_b", "rail_tick_c", "gear", "cargo", "steam_chuff", "steam_blow", "whistle", "horn", "petrol_start", "petrol_stall", "contactor", "coupler_clank", "land_thud"]
 const CLIP_NAMES = ["pump", "rail_clack", "rail_clack_a", "rail_clack_b", "rail_tick_a", "rail_tick_b", "rail_tick_c", "gear", "cargo", "coins", "finale", "ui_click", "sting_start", "steam_chuff", "steam_blow", "whistle", "horn", "petrol_start", "petrol_stall", "contactor", "coupler_clank", "land_thud", "bird_1", "bird_2", "bird_3", "bird_4"]
-const LOOP_NAMES = ["amb_wind", "amb_insects", "amb_water", "music_menu", "steam_hiss", "fire_crackle", "petrol_idle", "petrol_run", "electric_hum", "electric_whine", "brake"]
+const LOOP_NAMES = ["amb_wind", "amb_rain", "amb_insects", "amb_water", "music_menu", "steam_hiss", "fire_crackle", "petrol_idle", "petrol_run", "electric_hum", "electric_whine", "brake"]
 const MACHINE_LOOPS = ["steam_hiss", "fire_crackle", "petrol_idle", "petrol_run", "electric_hum", "electric_whine", "brake"]
 const INTERFACE_CLIPS = ["coins", "finale", "ui_click", "sting_start"]
 const JOINT_SPACING = 12.0
@@ -143,6 +143,8 @@ func update(model, paused: bool, in_menu: bool, dt: float, in_cab: bool = false)
 		apparent_wind = (wind - Vector2(motion, 0)).length()
 	var wind_level = smoothstep(0.0, 24.0, apparent_wind)
 	run_loop("amb_wind", nature * (0.12 if in_menu else lerpf(0.22, 0.50, wind_level) * (1.0 - 0.55 * cab_mix)), true, lerpf(0.90, 1.12, wind_level))
+	var rain = model.rain_effect() if in_game else 0.0
+	run_loop("amb_rain", nature * rain * 0.58 * (1.0 - 0.30 * cab_mix), rain > 0.01)
 	run_loop("amb_insects", nature * 0.07 * (0.4 if speed > 4.0 else 1.0) * (1.0 - 0.7 * cab_mix), in_game)
 	var lake = 0.0
 	if in_game and model.route.station_s.size() > 3:

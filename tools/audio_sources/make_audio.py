@@ -390,11 +390,25 @@ def make_landing():
     write("land_thud.wav", buf + creak + rattle, peak=0.85)
 
 
+def make_rain():
+    rain_rng = np.random.default_rng(20261105)
+    rain = 0.18 * band(rain_rng.normal(size=8 * SR), 650, 6500)
+    drop_time = tt(0.026)
+    for start in rain_rng.uniform(0, 7.95, 180):
+        frequency = rain_rng.uniform(650, 2400)
+        drop = np.sin(2 * np.pi * frequency * drop_time) * np.exp(-drop_time * 210)
+        put(rain, drop * rain_rng.uniform(0.08, 0.28), start)
+    write("amb_rain.wav", loopify(rain, 0.45), loop=True, peak=0.65)
+
+
 if __name__ == "__main__":
     import sys
     OUT.mkdir(parents=True, exist_ok=True)
     if len(sys.argv) > 1 and sys.argv[1] == "landing":
         make_landing()
+        sys.exit(0)
+    if len(sys.argv) > 1 and sys.argv[1] == "rain":
+        make_rain()
         sys.exit(0)
     make_ambient()
     make_music()
@@ -403,6 +417,7 @@ if __name__ == "__main__":
     make_electric()
     make_rails_and_ui()
     make_landing()
+    make_rain()
     print("%-22s %7s %6s %6s %8s" % ("file", "sec", "peak", "rms", "seam"))
     for name, seconds, peak, rms, seam in report:
         print("%-22s %7.2f %6.2f %6.3f %8.4f" % (name, seconds, peak, rms, seam))

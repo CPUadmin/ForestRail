@@ -130,6 +130,14 @@ func run() -> void:
 	m.state.v = 30.0
 	sound.update(m, false, false, 0.016)
 	check(sound.loops["amb_wind"].volume_db > calm_level, "apparent wind gets louder with speed")
+	m.weather_force = {"cloud": 1.0, "rain": 1.0, "fog": 0.0}
+	sound.update(m, false, false, 0.016)
+	check(sound.loops["amb_rain"].playing and sound.loops["amb_rain"].bus == "Outside", "rain plays through the outside bus")
+	m.weather_effect = 0.0
+	sound.update(m, false, false, 0.016)
+	check(not sound.loops["amb_rain"].playing, "disabling weather silences rain")
+	m.weather_effect = 1.0
+	m.weather_force.clear()
 	# the cab muffles the outside and keeps the machine
 	var index = AudioServer.get_bus_index("Outside")
 	var open_cutoff = AudioServer.get_bus_effect(index, 0).cutoff_hz
