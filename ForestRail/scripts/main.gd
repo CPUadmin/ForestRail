@@ -3092,6 +3092,10 @@ func draw_cab_forward(view: Rect2) -> Dictionary:
 		var kind = int(cab_hash(i, 5.0) * 6.0) % 6
 		var thing: Texture2D = art_world.TRACKSIDE[kind]
 		var thing_m = float(art_world.TRACKSIDE_M[kind]) * (1.7 + cab_hash(i, 3.0) * 1.3)
+		if i % 7 == 0:
+			thing = textures["birch" if cab_hash(i, 4.0) > 0.65 else "pine"]
+			thing_m = lerpf(2.8, 4.5, cab_hash(i, 3.0))
+			lateral = side * (7.0 + cab_hash(i, 2.0) * 13.0)
 		var base = project.call(lateral, z)
 		var h = thing_m * focal / z
 		var w = h * float(thing.get_width()) / float(thing.get_height())
