@@ -3012,7 +3012,8 @@ func draw_cab_forward(view: Rect2) -> Dictionary:
 	var bob = sin(time * 9.0) * minf(1.6, speed * 0.25)
 	var focal = view.size.y * 0.95
 	var horizon = view.position.y + view.size.y * 0.47 + clampf(pitch, -0.08, 0.08) * focal + bob
-	var cx = view.size.x * 0.5
+	# Look through the driver's pane so the centre pillar leaves the track visible.
+	var cx = view.size.x * 0.40
 	var camera_height = 1.7
 	var elevations := {}
 	var project := func(x: float, z: float) -> Vector2:
@@ -3060,17 +3061,25 @@ func draw_cab_forward(view: Rect2) -> Dictionary:
 		draw_line(a + Vector2(0, -clampf(0.07 * focal / z, 0, 6)), b + Vector2(0, -clampf(0.07 * focal / z, 0, 6)), cab_fog(Color("6a5646"), z), clampf(0.05 * focal / z, 0.5, 5.0), true)
 	for rail_x in [-0.55, 0.55]:
 		for i in range(steps.size() - 1):
-			var a = project.call(rail_x, steps[i])
-			var b = project.call(rail_x, steps[i + 1])
-			draw_line(a, b, cab_fog(Color("8d8a84"), steps[i]), clampf(0.09 * focal / steps[i], 1.5, 12.0), true)
-			draw_line(a + Vector2(0, -clampf(0.03 * focal / steps[i], 0, 4)), b + Vector2(0, -clampf(0.03 * focal / steps[i], 0, 4)), cab_fog(Color("e2dfd6"), steps[i]), clampf(0.03 * focal / steps[i], 0.5, 3.0), true)
+			var z0: float = steps[i]
+			var z1: float = steps[i + 1]
+			var a: Vector2 = project.call(rail_x, z0)
+			var b: Vector2 = project.call(rail_x, z1)
+			var head_a = a - Vector2(0, 0.14 * focal / z0)
+			var head_b = b - Vector2(0, 0.14 * focal / z1)
+			draw_colored_polygon(PackedVector2Array([a, b, head_b, head_a]), cab_fog(Color("554d43"), z0))
+			var width_a = Vector2(0.035 * focal / z0, 0)
+			var width_b = Vector2(0.035 * focal / z1, 0)
+			if absf(head_a.y - head_b.y) >= 0.1:
+				draw_colored_polygon(PackedVector2Array([head_a - width_a, head_a + width_a, head_b + width_b, head_b - width_b]), cab_fog(Color("b8b4a9"), z0))
+			draw_line(head_a - width_a, head_b - width_b, cab_fog(Color("e2dfd6"), z0), clampf(0.015 * focal / z0, 0.4, 2.0), true)
 	# rail joints every 12 m
 	var joint_phase = fposmod(-travelled, 12.0)
 	for j in range(0, 12):
 		var z = near + joint_phase + j * 12.0
 		if z > 110.0: break
 		for rail_x in [-0.55, 0.55]:
-			var p = project.call(rail_x, z)
+			var p: Vector2 = project.call(rail_x, z) - Vector2(0, 0.14 * focal / z)
 			draw_rect(Rect2(p + Vector2(-clampf(0.08 * focal / z, 1, 9), -1), Vector2(clampf(0.16 * focal / z, 2, 18), clampf(0.03 * focal / z, 1, 3))), cab_fog(Color("2c2a27"), z))
 	# stations ahead: platform, building, sign
 	for i in range(model.route.station_s.size()):
