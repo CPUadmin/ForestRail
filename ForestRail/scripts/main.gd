@@ -187,6 +187,13 @@ var smoke_frames = -1
 var screenshot_path = ""
 var settings_path = "user://settings.json"
 
+# A test suite may be started by name from the command line when its script exists in res://tests and the name is of the test kind.
+func qa_suite_allowed(suite: String) -> bool:
+	var name_ok = suite.begins_with("check_") or suite.begins_with("probe_") or suite.begins_with("drive_")
+	for c in suite:
+		if not (c >= "a" and c <= "z") and not (c >= "0" and c <= "9") and c != "_": name_ok = false
+	return name_ok and ResourceLoader.exists("res://tests/" + suite + ".gd")
+
 func _ready() -> void:
 	Input.use_accumulated_input=false
 	font = ThemeDB.fallback_font
@@ -210,7 +217,7 @@ func _ready() -> void:
 				# Tests and debugging runs are silent: nobody listens to the clicks and the engine.
 				AudioServer.set_bus_mute(0, true)
 				var suite = arg.trim_prefix("--qa-suite=")
-				if suite not in ["check_model", "check_physics", "check_interaction", "drive_campaign", "check_presentation", "check_handcar_revision", "check_art_v3", "check_instruments", "check_station_service", "check_world_geometry", "check_mechanism", "check_mechanism_bench", "check_handcar_drive", "check_handcar_input", "check_motor_controls", "check_loading_selection", "check_layout_p7", "check_steam", "check_steam_view", "check_gearbox", "check_petrol_view", "check_skins", "check_perf", "check_cab", "check_sound", "check_forecast", "check_line_v2", "check_line_spread", "check_thermal", "check_upgrades_new", "check_deadlines", "check_casino", "check_live", "check_live_view", "check_grip", "check_wear", "check_wear_view", "check_road_junk", "check_road_junk_view", "check_receiving", "check_receiving_view", "check_casino_view", "check_card_view", "check_album_view", "check_upgrade_text", "check_electric_gadgets", "check_pneumatic_controls", "check_wind_view", "check_zeppelin", "check_jet", "check_zeppelin_model", "check_zeppelin_view", "probe_live_motion", "check_speeds", "check_creative", "check_settings", "check_pneumatic", "check_pneumatic_view", "check_pole", "check_pole_view", "check_air", "check_sail", "check_sail_view", "check_loading_flow", "check_depot_entry", "check_forecast_long", "drive_long", "check_forecast_view", "check_soak_p8", "check_save_p8"]: get_tree().quit(2); return
+				if not qa_suite_allowed(suite): get_tree().quit(2); return   # any tests/check_*, probe_* or drive_* script that exists (T8: no list to extend by hand)
 				get_tree().root.set_meta("qa_running", true)
 				set_process(false)
 				set_physics_process(false)
