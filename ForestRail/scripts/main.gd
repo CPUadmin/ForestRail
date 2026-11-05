@@ -2194,6 +2194,10 @@ func _process(dt: float) -> void:
 		# train driving away from a frozen camera.
 		if drag in ["","pump","brake","throttle","gear","start","coal","sail","pole"]:
 			camera_s = lerpf(camera_s, target_s, 1 - exp(-dt * 6))
+			if screen == "game":
+				# Limit the lag in screen space so zoom and speed cannot carry the engine out of frame.
+				var max_lag = get_viewport_rect().size.x * 0.17 / (ArtV3.PX * view_scale())
+				camera_s = clampf(camera_s, target_s - max_lag, target_s + max_lag)
 			camera_y = lerpf(camera_y, model.route.sample(camera_s).y, 1 - exp(-dt * 4))
 		var target_x = get_viewport_rect().size.x * (0.31 if screen == "depot" else (0.65 if model.state.direction > 0 else 0.35))
 		if screen == "depot" and not model.state.consist_ids.is_empty(): target_x = get_viewport_rect().size.x * 0.46 - 136

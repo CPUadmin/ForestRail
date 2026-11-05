@@ -153,17 +153,20 @@ func run_high_speed_trial() -> Dictionary:
 	var previous = game.model.render_s()
 	var worst_lag = 0.0
 	var worst_step = 0.0
+	var furthest_x = 0.0
 	for frame_index in range(FRAMES):
 		await get_tree().process_frame
 		var position: float = game.model.render_s()
 		worst_lag = maxf(worst_lag, absf(position - game.camera_s))
 		worst_step = maxf(worst_step, position - previous)
+		furthest_x = maxf(furthest_x, game.world_point(position).x)
 		if position < previous - 0.01: failures.append("60 m/s interpolation moved backwards")
 		previous = position
 	var elapsed = (Time.get_ticks_usec() - start) / 1000000.0
 	if worst_lag > 30.0: failures.append("60 m/s camera lag exceeded 30 m")
+	if furthest_x > root.size.x * 0.90: failures.append("60 m/s camera should keep the head of the train inside the frame")
 	await shot("high_speed_trial")
 	get_tree().physics_frame.disconnect(advance)
-	var result = {"speed_m_s": SPEED, "average_fps": FRAMES / elapsed, "max_camera_lag_m": worst_lag, "max_frame_step_m": worst_step}
+	var result = {"speed_m_s": SPEED, "average_fps": FRAMES / elapsed, "max_camera_lag_m": worst_lag, "max_frame_step_m": worst_step, "max_head_screen_x": furthest_x}
 	print("HIGH SPEED TRIAL ", result)
 	return result
