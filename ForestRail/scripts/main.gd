@@ -810,8 +810,8 @@ func build_depot(size: Vector2) -> void:
 			var label = str(base.name)
 			var c = picture_card(right, id, owned, GOLD if model.vehicle_id() == id else CARD_EDGE)
 			add_label(c, label, 23)
-			add_label(c, "до %d км/ч  ·  %s" % [roundi(model.top_speed_kmh(id)), VEHICLE_ROLE.get(id, "")], 16, INK)
-			add_label(c, vehicle_summary(id), 15, MUTED_INK)
+			add_label(c, "до %d км/ч  ·  %s" % [roundi(model.top_speed_kmh(id)), VEHICLE_ROLE.get(id, "")], 18, INK)
+			add_label(c, vehicle_summary(id), 17, MUTED_INK)
 			if owned:
 				add_button(c, "Выбрана" if model.vehicle_id() == id else "Выбрать", func():
 					if model.select_vehicle(id):
@@ -1079,7 +1079,7 @@ func build_upgrades(right: VBoxContainer) -> void:
 			continue
 		if str(branch.id) == workshop_branch: branches.push_front(branch)
 		else: branches.append(branch)
-	if not branches.is_empty(): add_label(right, "Укажи деталь на машине слева или выбери здесь.", 16, MUTED_INK)
+	if not branches.is_empty(): add_label(right, "Укажи деталь на машине слева или выбери здесь.", 17, MUTED_INK)
 	for branch in branches:
 		var lv = int(model.object_state(selected_object).levels.get(branch.id, 0))
 		var name = upgrade_branch_name(selected_object, branch)
@@ -1395,9 +1395,9 @@ func mission_notice(parent: Node, mission: Dictionary, kind: String, take_text: 
 	var notice = card(parent, GOLD if highlighted else CARD_EDGE)
 	var top = HBoxContainer.new()
 	notice.add_child(top)
-	add_label(top, kind, 14, Color("9a7a3c"))
+	add_label(top, kind, 17, Color("755921"))
 	var far = model.mission_far_s(mission)
-	var distance = add_label(top, "%.1f км" % (far / 1000.0), 15, MUTED_INK)
+	var distance = add_label(top, "%.1f км" % (far / 1000.0), 17, MUTED_INK)
 	distance.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	add_label(notice, str(mission.title), 22)
 	var places: Array = [model.station_name("A")]
@@ -1408,7 +1408,7 @@ func mission_notice(parent: Node, mission: Dictionary, kind: String, take_text: 
 	var goods: Array = []
 	for stop in mission.dropoffs:
 		for pair in stop.cargo: goods.append("%s × %d" % [model.cargo_base(pair[0]).name, pair[1]])
-	add_label(notice, "Груз: " + ", ".join(goods), 16, MUTED_INK)
+	add_label(notice, "Груз: " + ", ".join(goods), 17, MUTED_INK)
 	var grade = route_climb_to(far)
 	var hard = grade > (0.03 if model.human_powered() else 0.045)
 	var road_text = "Ровный путь" if grade <= 0.02 else ("Подъёмы до %.1f%%" % (grade * 100.0))
@@ -1420,8 +1420,8 @@ func mission_notice(parent: Node, mission: Dictionary, kind: String, take_text: 
 		var minutes = model.mission_budget_s(mission) / 60.0
 		var rule = "Срок %d:%02d езды: раньше +10–25%%, опоздал штраф" % [int(minutes), int(fposmod(minutes, 1.0) * 60.0)]
 		if not mission.get("free", false): rule = "Срок %d:%02d езды: раньше +10–25%%, опоздал рейс отменится" % [int(minutes), int(fposmod(minutes, 1.0) * 60.0)]
-		add_label(notice, rule, 15, MUTED_INK)
-	var road = add_label(bottom, road_text, 16, RED if hard else (GREEN if grade <= 0.02 else MUTED_INK))
+		add_label(notice, rule, 17, MUTED_INK)
+	var road = add_label(bottom, road_text, 17, RED if hard else (GREEN if grade <= 0.02 else MUTED_INK))
 	road.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	if problem != "": add_label(notice, problem, 16, RED)
 	add_button(notice, take_text, func(): take_mission(mission), problem != "")
