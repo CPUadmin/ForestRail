@@ -103,14 +103,14 @@ func run() -> void:
 		r.physics_step(1.0 / 60.0)
 		nose_up = maxf(nose_up, r.live.rock_rad(0))
 		worst_lift = maxf(worst_lift, absf(r.live.lift_m(0)))
-	check(nose_up > 0.0001 and nose_up <= 0.006, "acceleration produces only subtle suspension pitch (%.4f rad)" % nose_up)
+	check(nose_up > 0.0001 and nose_up <= Live.ROCK_LIMIT, "acceleration lifts the nose within the soft limit of the suspension (%.4f rad)" % nose_up)
 	r.state.throttle = 0.0
 	r.state.brake = 1.0
 	var nose_down = 0.0
 	for i in range(60 * 3):
 		r.physics_step(1.0 / 60.0)
 		nose_down = minf(nose_down, r.live.rock_rad(0))
-	check(nose_down < -0.0001 and nose_down >= -0.006, "braking pitch stays subtle (%.4f rad)" % nose_down)
+	check(nose_down < -0.0001 and nose_down >= -Live.ROCK_LIMIT, "braking dips the nose within the soft limit (%.4f rad)" % nose_down)
 	check(worst_lift > 0.0005 and worst_lift <= Live.LIFT_LIMIT, "the body bobs on the joints at speed (%.4f m)" % worst_lift)
 	# Constant acceleration must not wind up angular velocity against the pitch stop.
 	var pitch_model = fresh(true)
@@ -119,7 +119,7 @@ func run() -> void:
 		pitch_model.acceleration = acceleration
 		for step in range(120):
 			pitch_model.live.step(pitch_model, 1.0 / 60.0)
-		check(absf(pitch_model.live.rock_rad(0)) <= 0.006, "strong acceleration keeps the body aligned with the rail")
+		check(absf(pitch_model.live.rock_rad(0)) <= Live.ROCK_LIMIT, "strong acceleration keeps the body within the soft limit of the rail")
 		pitch_model.acceleration = 0.0
 		for step in range(120):
 			pitch_model.live.step(pitch_model, 1.0 / 60.0)
@@ -171,5 +171,17 @@ func run() -> void:
 	t.physics_step(1.0 / 60.0)
 	check(t.live.n == 0, "in the depot the layer sleeps")
 	Model.live_effects = false
+	# the redesign: soft limits (no shelf), every joint differs, every body has its own stiffness, the pitch never exceeds the limit
+	check(absf(Live.soft(10.0, Live.LIFT_LIMIT)) <= Live.LIFT_LIMIT and Live.soft(Live.LIFT_LIMIT, Live.LIFT_LIMIT) < 0.8 * Live.LIFT_LIMIT and Live.soft(0.001, Live.LIFT_LIMIT) > 0.00099, "the soft limit is smooth near zero and slows down before the stop")
+	var strengths: Array = []
+	for j in range(12): strengths.append(Live.hash01(float(j), 1.0))
+	var spread = 0.0
+	for v in strengths: spread = maxf(spread, absf(v - strengths[0]))
+	check(spread > 0.25, "the rail joints are not all alike (spread %.2f)" % spread)
+	var ks = Live.new()
+	ks.reset(6)
+	var distinct: Dictionary = {}
+	for k in ks.body_k: distinct[snappedf(float(k), 0.01)] = true
+	check(distinct.size() >= 4, "the bodies have their own stiffness of the suspension (%d kinds)" % distinct.size())
 	print("LIVE CHECKS ", checks, "; FAILURES ", failures)
 	get_tree().quit(0 if failures.is_empty() else 1)

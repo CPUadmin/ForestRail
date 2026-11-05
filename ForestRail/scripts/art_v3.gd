@@ -367,7 +367,10 @@ func draw_stock_body(canvas: Node2D, id: String, outer: Transform2D) -> void:
 		var end = stock_body_point(id, strip.end)
 		canvas.draw_texture_rect_region(texture, Rect2(start, end - start), strip)
 
-func draw_vehicle(canvas: Node2D, id: String, distance: float, facing: int, outer: Transform2D, model, active: bool, pose_override: Dictionary = {}, draw_open_rig: bool = true) -> void:
+# `outer` is the transform of the body (it may sway on its springs); `rail_outer` is the transform of the running gear: the wheels
+# and the rods always stand on the rail (null: the same as the body, as in the depot and in the menu).
+func draw_vehicle(canvas: Node2D, id: String, distance: float, facing: int, outer: Transform2D, model, active: bool, pose_override: Dictionary = {}, draw_open_rig: bool = true, rail_outer = null) -> void:
+	var run: Transform2D = outer if rail_outer == null else rail_outer
 	if is_skinned(id):
 		draw_part(canvas, body_key(id), Vector2(0, axis_height(id)), 0, scale_for(body_key(id)), outer)
 	else:
@@ -398,13 +401,13 @@ func draw_vehicle(canvas: Node2D, id: String, distance: float, facing: int, oute
 			var tread: Vector2 = PAINTED_WHEEL_TREAD[wheel_id]
 			var fit = Vector2(2.0 * radius, 2.0 * radius) / tread
 			var centre = pivot(wheel_id) - Vector2(region[0], region[1])
-			canvas.draw_set_transform_matrix(outer * Transform2D(wheel_angle, position))
+			canvas.draw_set_transform_matrix(run * Transform2D(wheel_angle, position))
 			canvas.draw_texture_rect(textures[wheel_id], Rect2(-centre * fit, Vector2(region[2], region[3]) * fit), false, STOCK_WHEEL_TINT.get(id, Color.WHITE))
-			canvas.draw_set_transform_matrix(outer)
+			canvas.draw_set_transform_matrix(run)
 		else:
-			draw_part(canvas, wheel_id, position, wheel_angle, scale_for(wheel_id), outer)
-	if id == "steam" or id == "pneumatic": draw_steam_motion(canvas, distance, facing, outer, id)
-	if id == "motorcar": draw_side_rod(canvas, id, distance, facing, outer)
+			draw_part(canvas, wheel_id, position, wheel_angle, scale_for(wheel_id), run)
+	if id == "steam" or id == "pneumatic": draw_steam_motion(canvas, distance, facing, run, id)
+	if id == "motorcar": draw_side_rod(canvas, id, distance, facing, run)
 	if id == "handcar": draw_mechanism(canvas, model, outer,p)
 
 func headlamp_point(id: String) -> Vector2:

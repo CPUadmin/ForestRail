@@ -203,7 +203,7 @@ func _ready() -> void:
 				# Tests and debugging runs are silent: nobody listens to the clicks and the engine.
 				AudioServer.set_bus_mute(0, true)
 				var suite = arg.trim_prefix("--qa-suite=")
-				if suite not in ["check_model", "check_physics", "check_interaction", "drive_campaign", "check_presentation", "check_handcar_revision", "check_art_v3", "check_instruments", "check_station_service", "check_world_geometry", "check_mechanism", "check_mechanism_bench", "check_handcar_drive", "check_handcar_input", "check_motor_controls", "check_loading_selection", "check_layout_p7", "check_steam", "check_steam_view", "check_gearbox", "check_petrol_view", "check_skins", "check_perf", "check_cab", "check_sound", "check_forecast", "check_line_v2", "check_line_spread", "check_thermal", "check_upgrades_new", "check_deadlines", "check_casino", "check_live", "check_live_view", "check_grip", "check_wear", "check_wear_view", "check_road_junk", "check_road_junk_view", "check_receiving", "check_receiving_view", "check_casino_view", "check_card_view", "check_album_view", "check_upgrade_text", "check_electric_gadgets", "check_speeds", "check_creative", "check_settings", "check_pneumatic", "check_pneumatic_view", "check_pole", "check_pole_view", "check_air", "check_sail", "check_sail_view", "check_loading_flow", "check_depot_entry", "check_forecast_long", "drive_long", "check_forecast_view", "check_soak_p8", "check_save_p8"]: get_tree().quit(2); return
+				if suite not in ["check_model", "check_physics", "check_interaction", "drive_campaign", "check_presentation", "check_handcar_revision", "check_art_v3", "check_instruments", "check_station_service", "check_world_geometry", "check_mechanism", "check_mechanism_bench", "check_handcar_drive", "check_handcar_input", "check_motor_controls", "check_loading_selection", "check_layout_p7", "check_steam", "check_steam_view", "check_gearbox", "check_petrol_view", "check_skins", "check_perf", "check_cab", "check_sound", "check_forecast", "check_line_v2", "check_line_spread", "check_thermal", "check_upgrades_new", "check_deadlines", "check_casino", "check_live", "check_live_view", "check_grip", "check_wear", "check_wear_view", "check_road_junk", "check_road_junk_view", "check_receiving", "check_receiving_view", "check_casino_view", "check_card_view", "check_album_view", "check_upgrade_text", "check_electric_gadgets", "probe_live_motion", "check_speeds", "check_creative", "check_settings", "check_pneumatic", "check_pneumatic_view", "check_pole", "check_pole_view", "check_air", "check_sail", "check_sail_view", "check_loading_flow", "check_depot_entry", "check_forecast_long", "drive_long", "check_forecast_view", "check_soak_p8", "check_save_p8"]: get_tree().quit(2); return
 				get_tree().root.set_meta("qa_running", true)
 				set_process(false)
 				set_physics_process(false)
@@ -4049,7 +4049,7 @@ func advance_shunting(dt: float) -> void:
 	save_game()
 	rebuild()
 
-func body_transform(id: String, s: float) -> Transform2D:
+func body_transform(id: String, s: float, swaying: bool = true) -> Transform2D:
 	var direction = int(model.state.direction) if screen!="depot" else 1
 	var wheels = art.wheel_positions(id)
 	var a = world_point(s+direction*wheels[0].x/ArtV3.PX)
@@ -4060,7 +4060,7 @@ func body_transform(id: String, s: float) -> Transform2D:
 	var sc = view_scale()
 	var lift = Vector2(0, float(model.air_z) * ArtV3.PX * sc) if screen != "depot" else Vector2.ZERO
 	var result = Transform2D(x*sc,y*sc,(a+b)*0.5-x*mean_x*sc-lift)
-	if screen == "game" and Model.live_effects:
+	if screen == "game" and Model.live_effects and swaying:
 		# B5.1: the body rides on its springs: it bobs on the joints and the crests and rocks when the train
 		# speeds up or brakes (the nose comes up and dips). It turns about the middle of the wheelbase.
 		var index = model.body_ids().find(id)
@@ -4088,9 +4088,10 @@ func draw_coupler(a: Vector2, b: Vector2) -> void:
 
 func draw_body(id: String, s: float, controls: bool) -> void:
 	var outer = body_transform(id, s)
+	var rail = body_transform(id, s, false)   # the running gear stands on the rail while the body sways above it
 	var air_height = float(model.air_z) if screen == "game" else 0.0
 	ellipse(Vector2(10, 7 + air_height * ArtV3.PX), Vector2(art.body_width(id)*0.48/(1.0 + air_height * 0.8), 7.0/(1.0 + air_height * 0.8)), Color(0.05, 0.08, 0.05, 0.23/(1.0 + air_height * 1.5)))
-	art.draw_vehicle(self, id, s, int(model.state.direction) if screen != "depot" else 1, outer, model, controls, {}, false)
+	art.draw_vehicle(self, id, s, int(model.state.direction) if screen != "depot" else 1, outer, model, controls, {}, false, rail)
 	if not id.begins_with("W"): art.draw_added_headlamp(self, id)
 	if id == "locomotive" and screen == "game":
 		draw_charge_strip(outer)

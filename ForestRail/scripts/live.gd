@@ -15,13 +15,21 @@ const C_COUPLER = 1300.0   # демпфирование, Н·с/м
 const LIMIT = 0.22         # дальше сцепка не растягивается и не сжимается (буфера), м
 const SUBSTEPS = 4
 const JOINT_SPACING = 12.0  # стыки рельсов, как в звуке
-const BODY_OMEGA = 10.0     # подвеска: ~1,6 Гц
-const BODY_ZETA = 0.28
-const ROCK_OMEGA = 7.5
-const ROCK_ZETA = 0.75
-const ROCK_GAIN = 0.002     # subtle suspension pitch, rad per m/s²; wheelsets share the rendered transform
-const LIFT_LIMIT = 0.06
-const ROCK_LIMIT = 0.006    # at most 0.34 degrees relative to the rail
+# Подвеска (переработана 05.11.2026, «выглядело грубо и криво»): колёса всегда стоят на рельсе, а кузов качается
+# на пружинах НАД ними (колёсные пары и сам кузов рисуются отдельными преобразованиями). Ход небольшой, зато живой:
+# колебания затухают быстро (нет резонанса, при котором вагон подпрыгивал на 6 см вместе с колёсами), у каждого
+# стыка своя сила удара, у каждого кузова своя жёсткость, пределы мягкие (без «полок»), а на рельсе всегда есть
+# мелкая неровность, поэтому кузов не стоит мёртво.
+const BODY_OMEGA = 11.5     # подвеска: ~1,8 Гц
+const BODY_ZETA = 0.5       # хорошо задемпфирована: стык даёт один-два качка, а не звон
+const ROCK_OMEGA = 8.0
+const ROCK_ZETA = 0.7
+const ROCK_GAIN = 0.0028    # наклон кузова от ускорения, рад на м/с²: на разгоне нос поднимается, на торможении клюёт
+const LIFT_LIMIT = 0.022    # мягкий предел хода кузова над колёсами, м (≈ 3 пикселя картинки)
+const ROCK_LIMIT = 0.012    # мягкий предел наклона, рад (≈ 0,7 градуса)
+const JOINT_KICK = 0.0035   # удар стыка по подвеске, м/с на м/с скорости
+const JOINT_ROCK_KICK = 0.0011
+const RAIL_ROUGH = 0.20     # мелкая неровность пути, м/с² (тихое живое покачивание на ходу)
 const LASH_OMEGA = 6.0      # крепление груза упругое: ремни
 const LASH_ZETA = 0.4
 const CARGO_PLAY = 0.2      # груз упирается в борт или соседа, м
@@ -37,6 +45,7 @@ var lift_v: Array = []
 var rock: Array = []     # наклон кузова, рад (+ нос вверх)
 var rock_v: Array = []
 var joint_at: Array = []
+var body_k: Array = []     # у каждого кузова своя жёсткость подвески (0,88..1,14), чтобы вагоны не качались в унисон
 var load_shift: Dictionary = {}   # id груза -> {p, v} положение вдоль кузова, м (+ вперёд по ходу)
 var clank = 0.0          # самый сильный удар сцепки за последний шаг (скорость удара, м/с)
 var peak_tension = 0.0   # самая большая сила в сцепках за последний шаг
@@ -45,10 +54,11 @@ var hits: Array = []     # события этого шага: {"body", "speed",
 
 func reset(count: int = 0) -> void:
 	n = count
-	q.clear(); qd.clear(); ext.clear(); tension.clear(); lift.clear(); lift_v.clear(); rock.clear(); rock_v.clear(); joint_at.clear()
+	q.clear(); qd.clear(); ext.clear(); tension.clear(); lift.clear(); lift_v.clear(); rock.clear(); rock_v.clear(); joint_at.clear(); body_k.clear()
 	for i in range(n):
 		q.append(0.0); qd.append(0.0); ext.append(0.0); tension.append(0.0)
 		lift.append(0.0); lift_v.append(0.0); rock.append(0.0); rock_v.append(0.0); joint_at.append([-99999, -99999])
+		body_k.append(0.88 + 0.26 * hash01(float(i), 3.7))
 	load_shift.clear()
 	clank = 0.0
 	peak_tension = 0.0
@@ -59,11 +69,18 @@ func reset(count: int = 0) -> void:
 func slack_m(i: int) -> float:
 	return float(q[i]) if i >= 0 and i < q.size() else 0.0
 
+# a smooth limit instead of a flat clamp: the body slows down near the stop and does not hit a "shelf"
+static func soft(x: float, limit: float) -> float:
+	return limit * tanh(x / limit)
+
+static func hash01(a: float, b: float) -> float:
+	return fposmod(sin(a * 12.9898 + b * 78.233) * 43758.5453, 1.0)
+
 func lift_m(i: int) -> float:
-	return float(lift[i]) if i >= 0 and i < lift.size() else 0.0
+	return soft(float(lift[i]), LIFT_LIMIT) if i >= 0 and i < lift.size() else 0.0
 
 func rock_rad(i: int) -> float:
-	return float(rock[i]) if i >= 0 and i < rock.size() else 0.0
+	return soft(float(rock[i]), ROCK_LIMIT) if i >= 0 and i < rock.size() else 0.0
 
 func extension(i: int) -> float:
 	return float(ext[i]) if i >= 0 and i < ext.size() else 0.0
@@ -74,8 +91,8 @@ func cargo_p(item_id) -> float:
 # --- a hard landing shakes every body, the nearer to the head the harder
 func landed(impact: float) -> void:
 	for i in range(n):
-		lift_v[i] = float(lift_v[i]) - impact * 0.12 * pow(0.85, float(i))
-		rock_v[i] = float(rock_v[i]) + impact * 0.05 * (1.0 if i % 2 == 0 else -1.0)
+		lift_v[i] = float(lift_v[i]) - impact * 0.06 * pow(0.85, float(i))
+		rock_v[i] = float(rock_v[i]) + impact * 0.02 * (1.0 if i % 2 == 0 else -1.0)
 
 func step(m, dt: float) -> void:
 	var ids: Array = m.body_ids()
@@ -137,28 +154,33 @@ func step(m, dt: float) -> void:
 	# --- suspension and rocking
 	for i in range(n):
 		var s = m.body_s(i)
+		var k = float(body_k[i])
+		var omega = BODY_OMEGA * k
 		var kappa = -(m.route.slope(s + 1.5) - m.route.slope(s - 1.5)) / 3.0   # + on a crest
 		var force_up = speed * speed * kappa
-		# the rail joints kick the wheels: the front and the rear axle one after another
+		# the rail is never perfectly even: a quiet slow unevenness, stronger with speed
+		force_up += RAIL_ROUGH * minf(speed / 12.0, 1.0) * (sin(s * 0.9 + float(i) * 1.3) + 0.6 * sin(s * 2.31 + float(i) * 2.9))
+		# the rail joints kick the wheels: the front and the rear axle one after another, every joint a little different
 		var marks: Array = joint_at[i]
-		for k in range(2):
-			var axle = -0.9 if k == 0 else 0.9
+		for axle_index in range(2):
+			var axle = -0.9 if axle_index == 0 else 0.9
 			var j = floori((s + axle) / JOINT_SPACING)
-			if int(marks[k]) == -99999:
-				marks[k] = j
-			elif j != int(marks[k]):
-				marks[k] = j
+			if int(marks[axle_index]) == -99999:
+				marks[axle_index] = j
+			elif j != int(marks[axle_index]):
+				marks[axle_index] = j
 				if speed > 0.25:
-					lift_v[i] = float(lift_v[i]) - 0.005 * minf(speed, 25.0)
-					rock_v[i] = float(rock_v[i]) + (0.004 if k == 0 else -0.004) * minf(speed, 25.0)
-		lift_v[i] = float(lift_v[i]) + (force_up - 2.0 * BODY_ZETA * BODY_OMEGA * float(lift_v[i]) - BODY_OMEGA * BODY_OMEGA * float(lift[i])) * dt
-		lift[i] = clampf(float(lift[i]) + float(lift_v[i]) * dt, -LIFT_LIMIT, LIFT_LIMIT)
+					var strength = 0.45 + 1.0 * hash01(float(j), 1.0 + float(axle_index))   # the joint is worn more or less
+					var sp = minf(speed, 25.0)
+					lift_v[i] = float(lift_v[i]) - JOINT_KICK * sp * strength
+					rock_v[i] = float(rock_v[i]) + (JOINT_ROCK_KICK if axle_index == 0 else -JOINT_ROCK_KICK) * sp * strength
+		lift_v[i] = float(lift_v[i]) + (force_up - 2.0 * BODY_ZETA * omega * float(lift_v[i]) - omega * omega * float(lift[i])) * dt
+		lift[i] = clampf(float(lift[i]) + float(lift_v[i]) * dt, -3.0 * LIFT_LIMIT, 3.0 * LIFT_LIMIT)
 		var drive_a = a_head if i == 0 else float(a_abs[i])
-		var target_rock = clampf(ROCK_GAIN * drive_a, -ROCK_LIMIT, ROCK_LIMIT)
-		rock_v[i] = float(rock_v[i]) + (ROCK_OMEGA * ROCK_OMEGA * (target_rock - float(rock[i])) - 2.0 * ROCK_ZETA * ROCK_OMEGA * float(rock_v[i])) * dt
-		rock[i] = clampf(float(rock[i]) + float(rock_v[i]) * dt, -ROCK_LIMIT, ROCK_LIMIT)
-		if absf(float(rock[i])) >= ROCK_LIMIT and float(rock[i]) * float(rock_v[i]) > 0.0:
-			rock_v[i] = 0.0
+		var target_rock = ROCK_GAIN * drive_a
+		var r_omega = ROCK_OMEGA * k
+		rock_v[i] = float(rock_v[i]) + (r_omega * r_omega * (target_rock - float(rock[i])) - 2.0 * ROCK_ZETA * r_omega * float(rock_v[i])) * dt
+		rock[i] = clampf(float(rock[i]) + float(rock_v[i]) * dt, -3.0 * ROCK_LIMIT, 3.0 * ROCK_LIMIT)
 	# --- cargo on its straps
 	for item in m.state.cargo:
 		if str(item.slot) == "" or item.delivered: continue
