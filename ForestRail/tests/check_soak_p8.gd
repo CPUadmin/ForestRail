@@ -46,9 +46,13 @@ func brake(value: float) -> void:
 	for hit in game.grip_hits:
 		if hit.id=="brake" and not hit.get("closeup",false): point=hit.position
 	cursor=point;await button(point,true)
+	if game.drag != "brake":
+		check(false, "soak captures brake at %s (captured %s)" % [point, game.drag])
+		return
 	var geo=game.lever_geometry("brake")
-	var target=game.body_transform(game.model.vehicle_id(),game.model.body_s(0))*(geo.pivot+Vector2(0,-geo.pivot.distance_to(geo.grip)).rotated(lerpf(-0.55,0.55,value)))
-	var delta=target-point
+	var target=geo.pivot+Vector2(0,-geo.pivot.distance_to(geo.grip)).rotated(lerpf(-0.55,0.55,value))
+	var outer=game.body_transform(game.model.vehicle_id(),game.model.body_s_render(0))
+	var delta=outer.basis_xform(target-game.lever_target_point)
 	await move(delta);await button(cursor,false)
 	check(absf(float(game.model.state.brake)-value)<0.01,"soak brake changes through mouse")
 
@@ -83,6 +87,13 @@ func run() -> void:
 	await frame(6)
 	started_ms=Time.get_ticks_msec()
 	check(await click_button("Новая игра"),"soak starts from actual new-game button")
+	if game.model.vehicle_id() != "handcar":
+		# The normal career now starts with a pole. Use a fresh isolated lever
+		# handcar career so the timed part still exercises the intended controls.
+		game.model.new_game(42, 2)
+		game.selected_object = game.model.vehicle_id()
+		game.rebuild()
+		await frame(3)
 	while (Time.get_ticks_msec()-started_ms)/1000.0<duration_s and failures.is_empty():
 		if stop_file!="" and FileAccess.file_exists(stop_file):
 			game.save_game();report(false,"autonomous guard requested stop");get_tree().quit(3);return
@@ -127,6 +138,7 @@ func run() -> void:
 				await target(float(pose.angle)+signf(pose.dangle_dphase)*0.32)
 		await frame(1)
 	game.cancel_drag();game.save_game()
+	if not failures.is_empty(): await shot("soak_failure")
 	check((Time.get_ticks_msec()-started_ms)/1000.0>=duration_s,"full soak wall duration reached")
 	if duration_s>=1200: check(station_visits>=2 and completed>=1,"continuous soak includes stations and payout")
 	report(failures.is_empty(),"finished" if failures.is_empty() else "check failed")

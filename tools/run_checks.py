@@ -12,10 +12,14 @@ parser.add_argument('--report-dir', type=Path)
 parser.add_argument('--suite', default='check_model,check_physics,check_interaction,drive_campaign')
 parser.add_argument('--partial-first', action='store_true')
 parser.add_argument('--migration-save', type=Path, help='Legacy save copy to use with check_save_p8')
+parser.add_argument('--soak-duration', type=int, default=1200, help='Wall-clock seconds for check_soak_p8')
+parser.add_argument('--stop-file', type=Path, help='Stop marker for check_soak_p8')
 parser.add_argument('--manual-run', action='store_true', help='Run on a new human request despite a completed autonomous stop marker')
 args = parser.parse_args()
 if 'check_save_p8' in args.suite.split(',') and (args.migration_save is None or not args.migration_save.is_file()):
     parser.error('check_save_p8 requires --migration-save pointing to a legacy save copy')
+if args.soak_duration <= 0:
+    parser.error('--soak-duration must be positive')
 root = Path(__file__).resolve().parents[1]
 reports = args.report_dir.resolve() if args.report_dir else root/'qa'
 reports.mkdir(parents=True, exist_ok=True)
@@ -25,7 +29,7 @@ for suite in args.suite.split(','):
         raise SystemExit('Autonomous guard requested a saved stop; no further QA started')
     script = root/'ForestRail'/'tests'/f'{suite}.gd'
     command = [str(args.engine.resolve())]
-    if suite not in ('check_settings', 'check_forecast_view', 'check_interaction', 'check_presentation', 'check_instruments', 'check_station_service', 'check_world_geometry', 'check_mechanism_bench', 'check_handcar_input', 'check_motor_controls', 'check_loading_selection', 'check_layout_p7', 'check_steam_view', 'check_depot_entry', 'check_pneumatic_view', 'check_pole_view', 'check_sail_view', 'check_petrol_view', 'check_perf', 'check_cab', 'check_live_view', 'check_wear_view', 'check_road_junk_view', 'check_receiving_view', 'check_casino_view', 'check_card_view', 'check_album_view', 'check_upgrade_text'):
+    if suite not in ('check_settings', 'check_forecast_view', 'check_interaction', 'check_presentation', 'check_instruments', 'check_station_service', 'check_world_geometry', 'check_mechanism_bench', 'check_handcar_input', 'check_motor_controls', 'check_loading_selection', 'check_layout_p7', 'check_steam_view', 'check_depot_entry', 'check_pneumatic_view', 'check_pole_view', 'check_sail_view', 'check_petrol_view', 'check_perf', 'check_cab', 'check_live_view', 'check_wear_view', 'check_road_junk_view', 'check_receiving_view', 'check_casino_view', 'check_card_view', 'check_album_view', 'check_upgrade_text', 'check_soak_p8'):
         command.append('--headless')
     if not args.exported:
         command += ['--path', str(root/'ForestRail')]
@@ -34,6 +38,10 @@ for suite in args.suite.split(','):
         command.append('--partial-first')
     if suite == 'check_save_p8':
         command.extend(['--p8-output=' + str(reports/'save_p8'), '--migration-save=' + str(args.migration_save.resolve())])
+    if suite == 'check_soak_p8':
+        command.extend(['--soak-output=' + str(reports/'soak_p8'), f'--soak-duration={args.soak_duration}'])
+        if args.stop_file is not None:
+            command.append('--stop-file=' + str(args.stop_file.resolve()))
     if suite == 'check_station_service':
         command.append('--station-output='+str(root/'qa'/'v3_p1'))
     if suite.startswith('check_mechanism'):
@@ -79,17 +87,19 @@ for suite in args.suite.split(','):
     log = reports/f'{"export" if args.exported else "source"}_{suite}.log'
     start = time.monotonic()
     exit_code = 124
+    timeout = {'check_forecast_long': 1500, 'drive_long': 1500, 'drive_campaign': 400,
+               'check_soak_p8': args.soak_duration + 120}.get(suite, 180)
     with log.open('w', encoding='utf-8') as output:
         try:
-            process = subprocess.run(command, stdout=output, stderr=subprocess.STDOUT, timeout={'check_forecast_long': 1500, 'drive_long': 1500, 'drive_campaign': 400}.get(suite, 180),
+            process = subprocess.run(command, stdout=output, stderr=subprocess.STDOUT, timeout=timeout,
                                      cwd=args.engine.resolve().parent, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
             exit_code = process.returncode
         except subprocess.TimeoutExpired:
-            output.write('\nFAIL: QA process exceeded 180 seconds; terminated by runner\n')
+            output.write(f'\nFAIL: QA process exceeded {timeout} seconds; terminated by runner\n')
     content = log.read_text(encoding='utf-8', errors='replace')
     success = exit_code == 0 and 'SCRIPT ERROR' not in content and 'FAIL:' not in content
     # A script unavailable in an exported build must not be confused with a passed check.
-    marker = {'check_model': 'MODEL CHECKS', 'check_physics': 'PHYSICS CHECKS', 'check_save_p8': 'SAVE P8 CHECKS',
+    marker = {'check_model': 'MODEL CHECKS', 'check_physics': 'PHYSICS CHECKS', 'check_save_p8': 'SAVE P8 CHECKS', 'check_soak_p8': 'SOAK P8',
               'check_interaction': 'INTERACTION CHECKS', 'drive_campaign': 'DRIVE CAMPAIGN', 'check_handcar_revision': 'HANDCAR CHECKS', 'check_art_v3': 'ART V3 CHECKS', 'check_instruments': 'INSTRUMENT CHECKS', 'check_station_service': 'STATION SERVICE CHECKS', 'check_world_geometry':'WORLD GEOMETRY CHECKS','check_mechanism':'MECHANISM CHECKS','check_mechanism_bench':'MECHANISM BENCH CHECKS','check_handcar_drive':'HANDCAR DRIVE CHECKS','check_handcar_input':'HANDCAR INPUT CHECKS','check_motor_controls':'MOTOR CONTROL CHECKS','check_loading_selection':'LOADING SELECTION CHECKS','check_layout_p7':'LAYOUT P7 CHECKS','check_steam':'STEAM CHECKS','check_steam_view':'STEAM VIEW CHECKS','check_gearbox':'GEARBOX CHECKS','check_petrol_view':'PETROL VIEW CHECKS','check_skins':'SKIN CHECKS','check_perf':'PERF CHECKS','check_cab':'CAB CHECKS','check_sound':'SOUND CHECKS','check_forecast':'FORECAST CHECKS','check_line_v2':'LINE V2 CHECKS','check_line_spread':'LINE SPREAD CHECKS','check_thermal':'THERMAL CHECKS','check_upgrades_new':'NEW UPGRADES CHECKS','check_deadlines':'DEADLINE CHECKS','check_casino':'CASINO CHECKS','check_live':'LIVE CHECKS','check_live_view':'LIVE VIEW CHECKS','check_grip':'GRIP CHECKS','check_wear':'WEAR CHECKS','check_wear_view':'WEAR VIEW CHECKS','check_road_junk':'ROAD JUNK CHECKS','check_road_junk_view':'ROAD JUNK VIEW CHECKS','check_receiving':'RECEIVING CHECKS','check_receiving_view':'RECEIVING VIEW CHECKS','check_casino_view':'CASINO VIEW CHECKS','check_card_view':'CARD VIEW CHECKS','check_album_view':'ALBUM VIEW CHECKS','check_upgrade_text':'UPGRADE TEXT CHECKS','check_speeds':'SPEED CHECKS','check_creative':'CREATIVE CHECKS','check_settings':'SETTINGS CHECKS','check_pneumatic':'PNEUMATIC CHECKS','check_pneumatic_view':'PNEUMATIC VIEW CHECKS','check_pole':'POLE CHECKS','check_air':'AIR CHECKS','check_sail':'SAIL CHECKS','check_sail_view':'SAIL VIEW CHECKS','check_loading_flow':'LOADING FLOW CHECKS','check_depot_entry':'DEPOT ENTRY CHECKS','check_pole_view':'POLE VIEW CHECKS','check_forecast_long':'FORECAST LONG CHECKS','drive_long':'DRIVE CAMPAIGN','check_forecast_view':'FORECAST VIEW CHECKS'}
     success &= marker.get(suite, 'PRESENTATION') in content
     result = {'suite': suite, 'exit_code': exit_code, 'success': success,
