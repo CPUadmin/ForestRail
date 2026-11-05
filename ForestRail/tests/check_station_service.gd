@@ -230,6 +230,11 @@ func run() -> void:
 		await frame()
 		check(is_instance_valid(game.unload_selected_button) and not game.unload_selected_button.disabled,"single click selects and enables backup unload button")
 		var bp=game.unload_selected_button.get_global_rect().get_center()
+		var pointer := InputEventMouseMotion.new()
+		pointer.position = bp
+		pointer.global_position = bp
+		get_tree().root.push_input(pointer, true)
+		await frame()
 		await button(bp,true)
 		await button(bp,false)
 		check(game.model.state.cargo[1].delivered and game.model.state.active.phase=="outbound","GUI backup button unloads motorcar without ending multipoint order")
