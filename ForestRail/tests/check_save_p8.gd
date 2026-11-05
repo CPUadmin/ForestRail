@@ -45,13 +45,17 @@ func run() -> void:
 	check(storage.read_valid("save_v2.backup.json").money==initial.money,"recovery does not replace good backup with corrupt primary")
 	check(FileAccess.get_file_as_bytes(legacy_path)==raw,"migration input copy remains byte-identical")
 	# New coupled motion survives disk round-trip; capture never survives load.
-	m.new_game(42);m.accept_mission(m.current_mission());m.transfer(m.state.cargo[0].id,m.slots()[0].key);m.depart()
+	m.new_game(42)
+	check(m.accept_mission(m.current_mission()), "accept current starting order")
+	check(m.transfer(m.state.cargo[0].id,m.slots()[0].key), "load only one cargo item")
+	var expected_reward = m.selected_reward()
+	check(m.depart() and m.state.cargo.size() == 1, "depart with a partial load")
 	m.state.v=2;m.handcar.set_phase(1234.56);m.grab_pump()
 	check(storage.write(m),"moving coupled drive saves to disk")
 	var phase=m.handcar.phase
 	check(m.restore(storage.read_valid("save_v2.json")),"moving drive restores from disk")
 	check(m.state.v==2 and absf(m.handcar.phase-phase)<1e-9 and not m.hand_drive.held,"load keeps phase/speed and releases hand")
-	check(m.state.active.reward==50 and m.state.cargo.size()==1,"frozen partial order survives motion save")
+	check(m.state.active.reward==expected_reward and m.state.cargo.size()==1 and m.state.active.selection_locked,"frozen partial order survives motion save")
 	var report={"checks":checks,"failures":failures,"legacy_money":old.money,"legacy_chapter":old.chapter,
 		"legacy_fleet":old.fleet_by_id.keys(),"scope":"native model/storage checks on a copy; no user files modified"}
 	f=FileAccess.open(out_dir.path_join("save_results.json"),FileAccess.WRITE)

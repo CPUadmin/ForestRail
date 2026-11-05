@@ -11,8 +11,11 @@ parser.add_argument('--exported', action='store_true')
 parser.add_argument('--report-dir', type=Path)
 parser.add_argument('--suite', default='check_model,check_physics,check_interaction,drive_campaign')
 parser.add_argument('--partial-first', action='store_true')
+parser.add_argument('--migration-save', type=Path, help='Legacy save copy to use with check_save_p8')
 parser.add_argument('--manual-run', action='store_true', help='Run on a new human request despite a completed autonomous stop marker')
 args = parser.parse_args()
+if 'check_save_p8' in args.suite.split(',') and (args.migration_save is None or not args.migration_save.is_file()):
+    parser.error('check_save_p8 requires --migration-save pointing to a legacy save copy')
 root = Path(__file__).resolve().parents[1]
 reports = args.report_dir.resolve() if args.report_dir else root/'qa'
 reports.mkdir(parents=True, exist_ok=True)
@@ -29,6 +32,8 @@ for suite in args.suite.split(','):
     command += ['--', '--qa-suite='+suite]
     if suite == 'drive_campaign' and args.partial_first:
         command.append('--partial-first')
+    if suite == 'check_save_p8':
+        command.extend(['--p8-output=' + str(reports/'save_p8'), '--migration-save=' + str(args.migration_save.resolve())])
     if suite == 'check_station_service':
         command.append('--station-output='+str(root/'qa'/'v3_p1'))
     if suite.startswith('check_mechanism'):
@@ -84,7 +89,7 @@ for suite in args.suite.split(','):
     content = log.read_text(encoding='utf-8', errors='replace')
     success = exit_code == 0 and 'SCRIPT ERROR' not in content and 'FAIL:' not in content
     # A script unavailable in an exported build must not be confused with a passed check.
-    marker = {'check_model': 'MODEL CHECKS', 'check_physics': 'PHYSICS CHECKS',
+    marker = {'check_model': 'MODEL CHECKS', 'check_physics': 'PHYSICS CHECKS', 'check_save_p8': 'SAVE P8 CHECKS',
               'check_interaction': 'INTERACTION CHECKS', 'drive_campaign': 'DRIVE CAMPAIGN', 'check_handcar_revision': 'HANDCAR CHECKS', 'check_art_v3': 'ART V3 CHECKS', 'check_instruments': 'INSTRUMENT CHECKS', 'check_station_service': 'STATION SERVICE CHECKS', 'check_world_geometry':'WORLD GEOMETRY CHECKS','check_mechanism':'MECHANISM CHECKS','check_mechanism_bench':'MECHANISM BENCH CHECKS','check_handcar_drive':'HANDCAR DRIVE CHECKS','check_handcar_input':'HANDCAR INPUT CHECKS','check_motor_controls':'MOTOR CONTROL CHECKS','check_loading_selection':'LOADING SELECTION CHECKS','check_layout_p7':'LAYOUT P7 CHECKS','check_steam':'STEAM CHECKS','check_steam_view':'STEAM VIEW CHECKS','check_gearbox':'GEARBOX CHECKS','check_petrol_view':'PETROL VIEW CHECKS','check_skins':'SKIN CHECKS','check_perf':'PERF CHECKS','check_cab':'CAB CHECKS','check_sound':'SOUND CHECKS','check_forecast':'FORECAST CHECKS','check_line_v2':'LINE V2 CHECKS','check_line_spread':'LINE SPREAD CHECKS','check_thermal':'THERMAL CHECKS','check_upgrades_new':'NEW UPGRADES CHECKS','check_deadlines':'DEADLINE CHECKS','check_casino':'CASINO CHECKS','check_live':'LIVE CHECKS','check_live_view':'LIVE VIEW CHECKS','check_grip':'GRIP CHECKS','check_wear':'WEAR CHECKS','check_wear_view':'WEAR VIEW CHECKS','check_road_junk':'ROAD JUNK CHECKS','check_road_junk_view':'ROAD JUNK VIEW CHECKS','check_receiving':'RECEIVING CHECKS','check_receiving_view':'RECEIVING VIEW CHECKS','check_casino_view':'CASINO VIEW CHECKS','check_card_view':'CARD VIEW CHECKS','check_album_view':'ALBUM VIEW CHECKS','check_upgrade_text':'UPGRADE TEXT CHECKS','check_speeds':'SPEED CHECKS','check_creative':'CREATIVE CHECKS','check_settings':'SETTINGS CHECKS','check_pneumatic':'PNEUMATIC CHECKS','check_pneumatic_view':'PNEUMATIC VIEW CHECKS','check_pole':'POLE CHECKS','check_air':'AIR CHECKS','check_sail':'SAIL CHECKS','check_sail_view':'SAIL VIEW CHECKS','check_loading_flow':'LOADING FLOW CHECKS','check_depot_entry':'DEPOT ENTRY CHECKS','check_pole_view':'POLE VIEW CHECKS','check_forecast_long':'FORECAST LONG CHECKS','drive_long':'DRIVE CAMPAIGN','check_forecast_view':'FORECAST VIEW CHECKS'}
     success &= marker.get(suite, 'PRESENTATION') in content
     result = {'suite': suite, 'exit_code': exit_code, 'success': success,
