@@ -97,6 +97,7 @@ var cab_resume = false
 # takes it over (lamp_manual 1 on, 0 off, -1 by itself); the wipers only matter in rain.
 var lamp_manual = -1
 var wiper_on = false
+var wiper_phase = 0.0
 var mini_button: Button   # the invisible button over the minimap; the cab dashboard has its own gauges there
 var was_docked = false
 var cab_hits: Array = []
@@ -2144,6 +2145,10 @@ func cancel_drag() -> void:
 
 func _process(dt: float) -> void:
 	time += dt
+	if wiper_on or wiper_phase > 0.0:
+		wiper_phase += dt * 0.75
+		if wiper_phase >= 1.0:
+			wiper_phase = fposmod(wiper_phase, 1.0) if wiper_on else 0.0
 	var electric_powered = screen == "game" and not model.state.is_empty() and model.vehicle_id() == "locomotive" and bool(model.state.engine)
 	if electric_powered and not electric_was_powered and not paused:
 		electric_start_flash = ELECTRIC_START_FLASH
@@ -3275,12 +3280,13 @@ func draw_cab_frame(size: Vector2, top: float) -> void:
 			draw_colored_polygon(PackedVector2Array([Vector2(corner_x, roof + 3), Vector2(corner_x - side * (12 + fold * 9), roof + 3), Vector2(corner_x - side * (6 + fold * 9), roof + 50 + fold * 6)]), Color("6f3a34") if fold % 2 == 0 else Color("55292a"))
 	draw_line(Vector2(pillar + 6, roof + 6), Vector2(size.x - pillar - 6, roof + 6), Color("171c19"), 6.0)
 	# windscreen wipers resting at the bottom of the glass
-	for wiper_x in [0.36, 0.64]:
-		var pivot = Vector2(size.x * wiper_x, top - 6)
-		var sweep = -0.95 * (0.5 - 0.5 * cos(time * 3.2)) if (wiper_on and dash_v2()) else 0.0
-		var tip = pivot + Vector2(size.x * 0.1, -size.y * 0.08).rotated(sweep)
+	var sweep = 0.95 * (0.5 - 0.5 * cos(wiper_phase * TAU)) if dash_v2() and not settings.reduce_motion else 0.0
+	for side in [-1.0, 1.0]:
+		var pivot = Vector2(size.x * (0.5 + side * 0.14), top - 24)
+		var arm = Vector2(side * size.x * 0.10, -size.y * 0.06).rotated(-side * sweep)
+		var tip = pivot + arm
 		draw_line(pivot, tip, Color("101412"), 5.0, true)
-		draw_line(pivot + Vector2(size.x * 0.02, -size.y * 0.016).rotated(sweep), tip, Color("050605"), 7.0, true)
+		draw_line(pivot + arm * 0.24, tip, Color("050605"), 7.0, true)
 		draw_circle(pivot, 6, brass)
 	# glass: sheen, reflections and a few specks of dust
 	draw_colored_polygon(PackedVector2Array([Vector2(pillar * 1.6, roof), Vector2(pillar * 2.6, roof), Vector2(pillar * 1.6, top), Vector2(pillar * 0.7, top)]), Color(1, 1, 1, 0.05))

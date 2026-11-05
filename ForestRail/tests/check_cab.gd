@@ -245,6 +245,8 @@ func run() -> void:
 	await mouse(wanted.wiper.get_center(), true)
 	await mouse(wanted.wiper.get_center(), false)
 	check(game.wiper_on, "the wiper button switches the wipers on")
+	game.wiper_phase = 0.45
+	await shot("petrol_wipers_sweep")
 	await mouse(wanted.whistle.get_center(), true)
 	await mouse(wanted.whistle.get_center(), false)
 	check(game.cab_active(), "the horn button leaves the cab as it was")
@@ -253,7 +255,10 @@ func run() -> void:
 	for i in range(6): await frame()
 	await shot("petrol_night_lamp")
 	game.lamp_manual = -1
+	game.wiper_phase = 0.97
 	game.wiper_on = false
+	await get_tree().create_timer(0.12).timeout
+	check(game.wiper_phase == 0.0, "wipers complete the pass and park when switched off")
 	await key(KEY_E)
 	# B4.1: the time of day. A day is 24 minutes of driving, it starts at seven and is the same for a save.
 	context = "daynight "
