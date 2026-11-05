@@ -32,7 +32,7 @@ python tools/run_checks.py "<путь к Godot_v4.7.2-stable_win64.exe>" --manua
 2. Собирай **из чистой копии коммита**: `git worktree add <папка> HEAD`, скопируй вручную `tools/templates/windows_release_x86_64.exe` в `<папка>/tools/templates/`.
 3. `godot --headless --path <папка>/ForestRail --import` (может упасть с Segmentation fault, это безвредно, экспорт всё равно работает), затем `--export-release "Windows Desktop" <экспорт>\ForestRail.exe`.
 4. Проверь собранный exe: `run_checks.py <exe> --exported --suite check_model,check_casino_view,...`.
-5. Скопируй в `%LOCALAPPDATA%\Programs\ForestRail\<версия>\ForestRail.exe`, перенаправь ярлык «Лесная колея» на рабочем столе (PowerShell `WScript.Shell`).
+5. Скопируй в `%LOCALAPPDATA%\Programs\ForestRail\<версия>\ForestRail.exe`, перенаправь ярлык «Лесная колея» на рабочем столе (PowerShell `WScript.Shell`). **Оставляй только три последние установленные версии** (старые `1.2.0-preview.N` с меньшим N удаляй, остальное в этой папке не трогай: `Profiles`, `Backups`, `1.0.x`, `1.1.0`): каждая версия весит 150-220 МБ, раньше накопилось 99 штук и 14 ГБ.
 6. `git tag v<версия>`, `git push origin main v<версия>`, архив `ForestRail-<версия>-windows.zip` и `gh release create ... --prerelease`. Копию архива положи в `release/` (там держи только последнюю). Репозиторий приватный: друзьям отдавай архив, не ссылку.
 
 ## Обмен картинками (уже налажено)

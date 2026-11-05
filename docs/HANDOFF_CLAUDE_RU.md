@@ -57,7 +57,7 @@
 1. Подними `config/version` в `ForestRail/project.godot` (сейчас `1.2.0-preview.13`).
 2. `godot --headless --path ForestRail --import`, затем `--export-release "Windows Desktop" <путь>\ForestRail.exe` (один exe, pck встроен, шаблон `tools/templates/windows_release_x86_64.exe`). Экспорт кладите во временную папку, не в `release/` (она в `.gitignore`).
 3. Проверь собранный exe: `run_checks.py <exe> --exported --suite check_model,check_gearbox,check_steam`.
-4. Скопируй exe в `%LOCALAPPDATA%\Programs\ForestRail\<версия>\ForestRail.exe` (старые версии не удалять) и перенаправь ярлык «Лесная колея» на рабочем столе (поиск `.lnk` по цели `Programs\ForestRail\*ForestRail.exe`, PowerShell `WScript.Shell`).
+4. Скопируй exe в `%LOCALAPPDATA%\Programs\ForestRail\<версия>\ForestRail.exe` (оставляй три последние версии, старые удаляй: каждая 150-220 МБ) и перенаправь ярлык «Лесная колея» на рабочем столе (поиск `.lnk` по цели `Programs\ForestRail\*ForestRail.exe`, PowerShell `WScript.Shell`).
 5. Сохранения в `%APPDATA%\ForestRail`; новая версия должна читать старые.
 
 ## Правила работы
