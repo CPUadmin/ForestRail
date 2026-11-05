@@ -448,6 +448,40 @@ def make_sail():
     write("sail_creak.wav", (creak + scrape) * env, peak=0.55)
 
 
+def make_zeppelin():
+    # B6.5: the rail zeppelin: a buzzing two-stroke engine (the pitch follows the revs), the whoosh of the blades, the wind of the speed,
+    # the clank of the flaps and the crash. Written by the same rule: whole cycles in the loops, so that they repeat without a click.
+    zrng = np.random.default_rng(20261106)
+    def nz(seconds):
+        return zrng.standard_normal(int(seconds * SR))
+    t = tt(2.0)
+    # the engine at about 1800 rpm: a ragged two-stroke buzz, 60 bangs a second with a little unevenness
+    engine = np.zeros_like(t)
+    for k in range(1, 30):
+        engine += (k ** -0.9) * np.sin(2 * np.pi * 60 * k * t + zrng.uniform(0, 6))
+    engine += 0.25 * band(nz(2.0), 300, 3000)
+    engine *= 0.75 + 0.25 * np.sin(2 * np.pi * 30 * t) + 0.08 * np.sin(2 * np.pi * 4 * t)
+    write("zep_engine.wav", engine, loop=True, peak=0.7)
+    # the blades: a soft pulsing whoosh, 40 passes a second
+    prop = band(nz(2.0), 160, 1800) * (0.55 + 0.45 * np.sin(2 * np.pi * 40 * t)) + 0.4 * band(nz(2.0), 1800, 5000) * (0.5 + 0.5 * np.sin(2 * np.pi * 40 * t + 1.2))
+    write("zep_prop.wav", prop, loop=True, peak=0.6)
+    # the wind of the speed
+    wind = band(nz(3.0), 220, 5200) * (0.8 + 0.2 * smooth_noise(3.0, 3.0))
+    write("zep_wind.wav", loopify(wind, 0.4), loop=True, peak=0.6)
+    s = 0.6
+    ts = tt(s)
+    flaps = band(nz(s), 200, 2400) * np.sin(np.pi * np.clip(ts / s, 0, 1)) * 0.5
+    flaps += np.sin(2 * np.pi * 140 * ts) * np.exp(-ts * 22) * 0.6 + band(nz(s), 1200, 6000) * np.exp(-ts * 70) * 0.5 * (ts > 0.25)
+    write("zep_flaps.wav", flaps, peak=0.75)
+    s = 1.6
+    ts = tt(s)
+    crash = band(nz(s), 80, 2200) * np.exp(-ts * 4.5) * 0.9 + thump(90, 38, s, 7.0) * 0.8
+    for at in (0.12, 0.31, 0.55, 0.8):
+        tp = tt(0.25)
+        put(crash, (band(nz(0.25), 600, 5000) * np.exp(-tp * 26) + np.sin(2 * np.pi * zrng.uniform(300, 900) * tp) * np.exp(-tp * 20) * 0.4) * 0.6, at)
+    write("zep_crash.wav", crash, peak=0.85)
+
+
 def make_rain():
     rain_rng = np.random.default_rng(20261105)
     rain = 0.18 * band(rain_rng.normal(size=8 * SR), 650, 6500)
@@ -474,6 +508,9 @@ if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "sail":
         make_sail()
         sys.exit(0)
+    if len(sys.argv) > 1 and sys.argv[1] == "zeppelin":
+        make_zeppelin()
+        sys.exit(0)
     make_ambient()
     make_music()
     make_steam()
@@ -484,6 +521,7 @@ if __name__ == "__main__":
     make_rain()
     make_pole()
     make_sail()
+    make_zeppelin()
     print("%-22s %7s %6s %6s %8s" % ("file", "sec", "peak", "rms", "seam"))
     for name, seconds, peak, rms, seam in report:
         print("%-22s %7.2f %6.2f %6.3f %8.4f" % (name, seconds, peak, rms, seam))

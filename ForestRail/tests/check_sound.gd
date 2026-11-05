@@ -119,6 +119,29 @@ func run() -> void:
 	m.state.throttle = 0.0
 	run_frames(sound, m, 300, 4.0)
 	check(int(sound.played.get("steam_chuff", 0)) == chuffs, "no chuffs with the regulator closed")
+	# B6.5: the rail zeppelin: the engine and the blades follow the revs, the wind follows the speed, the flaps clank
+	m = vehicle("zeppelin")
+	m.state.engine = true
+	m.state.throttle = 0.6
+	m.zep.rpm = 1500.0
+	m.zep.v = 10.0
+	run_frames(sound, m, 60, 10.0)
+	check(sound.loops["zep_engine"].playing and sound.loops["zep_prop"].playing and sound.loops["zep_wind"].playing, "the zeppelin: engine, blades and wind sound")
+	var low_pitch = sound.loops["zep_engine"].pitch_scale
+	m.zep.rpm = 2500.0
+	m.zep.v = 30.0
+	m.state.throttle = 1.0
+	run_frames(sound, m, 60, 30.0)
+	check(sound.loops["zep_engine"].pitch_scale > low_pitch, "the engine pitch rises with the revs")
+	m.zep.stalled = true
+	run_frames(sound, m, 30, 20.0)
+	check(not sound.loops["zep_engine"].playing and not sound.loops["zep_prop"].playing, "a stalled engine falls silent, the wind stays")
+	m.state.zep_air_brake = true
+	run_frames(sound, m, 30, 20.0)
+	check(int(sound.played.get("zep_flaps", 0)) >= 1, "opening the flaps clanks")
+	m = vehicle("handcar")
+	run_frames(sound, m, 30, 2.0)
+	check(not sound.loops["zep_engine"].playing and not sound.loops["zep_wind"].playing, "other machines are silent of the zeppelin loops")
 	# electric: hum while powered, contactor on throttle
 	m = vehicle("locomotive")
 	m.state.throttle = 0.5

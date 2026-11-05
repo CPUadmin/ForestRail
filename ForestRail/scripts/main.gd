@@ -2316,6 +2316,21 @@ func _process(dt: float) -> void:
 			sound.play("land_thud", clampf(0.35 + float(model.last_landing) * 0.18, 0.35, 1.0), clampf(1.15 - float(model.last_landing) * 0.08, 0.8, 1.15))
 			sound.play("cargo", clampf(0.15 + float(model.last_landing) * 0.1, 0.15, 0.6), 0.7)
 			cab_jolt = 1.0
+		elif event_name == "zep_takeoff":
+			sound.play("horn", 0.5, 1.25)
+			notify("Взлёт! Держи ручку и следи за скоростью")
+		elif event_name == "zep_land":
+			land_dust = {"t": 0.0, "s": float(model.state.s), "power": 0.8}
+			sound.play("land_thud", 0.7, 1.0)
+			cab_jolt = 1.0
+		elif event_name == "zep_stall":
+			sound.play("petrol_stall", 0.6)
+			notify("Мотор заглох: газ в ноль и «Пуск»")
+		elif event_name == "zep_overheat":
+			notify("Мотор перегрет и встал: дай ему остыть")
+		elif event_name == "crash":
+			sound.play("zep_crash", 0.9)
+			cab_jolt = 1.0
 		elif event_name == "clank":
 			# B5.2: a coupler takes up the slack with a knock, harder when the jerk is
 			sound.play("coupler_clank", clampf(0.25 + float(model.last_clank) * 0.5, 0.25, 0.9), randf_range(0.92, 1.08))

@@ -3,10 +3,10 @@ extends Node
 # N8: layered ambience, machine sound per class, rail joints in step with the track,
 # a muffled cab. All the audio is synthesised by tools/audio_sources/make_audio.py.
 # Pause silences the machine; interface, payment and finale cues always play.
-const MECHANISM_CLIPS = ["pump", "rail_clack", "rail_clack_a", "rail_clack_b", "rail_tick_a", "rail_tick_b", "rail_tick_c", "gear", "cargo", "steam_chuff", "steam_blow", "whistle", "horn", "petrol_start", "petrol_stall", "contactor", "coupler_clank", "land_thud", "pole_plant_dense", "pole_plant_clay", "pole_plant_stones", "pole_plant_roots", "pole_lift", "sail_flap", "sail_creak"]
-const CLIP_NAMES = ["pump", "rail_clack", "rail_clack_a", "rail_clack_b", "rail_tick_a", "rail_tick_b", "rail_tick_c", "gear", "cargo", "coins", "finale", "ui_click", "sting_start", "steam_chuff", "steam_blow", "whistle", "horn", "petrol_start", "petrol_stall", "contactor", "coupler_clank", "land_thud", "bird_1", "bird_2", "bird_3", "bird_4", "pole_plant_dense", "pole_plant_clay", "pole_plant_stones", "pole_plant_roots", "pole_lift", "sail_flap", "sail_creak"]
-const LOOP_NAMES = ["amb_wind", "amb_rain", "amb_insects", "amb_water", "music_menu", "steam_hiss", "fire_crackle", "petrol_idle", "petrol_run", "electric_hum", "electric_whine", "brake"]
-const MACHINE_LOOPS = ["steam_hiss", "fire_crackle", "petrol_idle", "petrol_run", "electric_hum", "electric_whine", "brake"]
+const MECHANISM_CLIPS = ["pump", "rail_clack", "rail_clack_a", "rail_clack_b", "rail_tick_a", "rail_tick_b", "rail_tick_c", "gear", "cargo", "steam_chuff", "steam_blow", "whistle", "horn", "petrol_start", "petrol_stall", "contactor", "coupler_clank", "land_thud", "pole_plant_dense", "pole_plant_clay", "pole_plant_stones", "pole_plant_roots", "pole_lift", "sail_flap", "sail_creak", "zep_flaps", "zep_crash"]
+const CLIP_NAMES = ["pump", "rail_clack", "rail_clack_a", "rail_clack_b", "rail_tick_a", "rail_tick_b", "rail_tick_c", "gear", "cargo", "coins", "finale", "ui_click", "sting_start", "steam_chuff", "steam_blow", "whistle", "horn", "petrol_start", "petrol_stall", "contactor", "coupler_clank", "land_thud", "bird_1", "bird_2", "bird_3", "bird_4", "pole_plant_dense", "pole_plant_clay", "pole_plant_stones", "pole_plant_roots", "pole_lift", "sail_flap", "sail_creak", "zep_flaps", "zep_crash"]
+const LOOP_NAMES = ["amb_wind", "amb_rain", "amb_insects", "amb_water", "music_menu", "steam_hiss", "fire_crackle", "petrol_idle", "petrol_run", "electric_hum", "electric_whine", "brake", "zep_engine", "zep_prop", "zep_wind"]
+const MACHINE_LOOPS = ["steam_hiss", "fire_crackle", "petrol_idle", "petrol_run", "electric_hum", "electric_whine", "brake", "zep_engine", "zep_prop", "zep_wind"]
 const INTERFACE_CLIPS = ["coins", "finale", "ui_click", "sting_start"]
 const JOINT_SPACING = 12.0
 const Geometry = preload("res://scripts/world_geometry.gd")
@@ -34,6 +34,7 @@ var last_throttle = 0.0
 var last_gear = 0
 var petrol_delay = 0.0
 var contactor_on = false
+var zep_flaps_were = false
 
 func _ready() -> void:
 	ensure_bus("Outside")
@@ -212,6 +213,7 @@ func update(model, paused: bool, in_menu: bool, dt: float, in_cab: bool = false)
 	for name in ["steam_hiss", "fire_crackle"]: if kind != "steam" and not (kind == "pneumatic" and name == "steam_hiss"): run_loop(name, 0.0, false)
 	for name in ["petrol_idle", "petrol_run"]: if kind != "motorcar": run_loop(name, 0.0, false)
 	for name in ["electric_hum", "electric_whine"]: if kind != "locomotive": run_loop(name, 0.0, false)
+	for name in ["zep_engine", "zep_prop", "zep_wind"]: if kind != "zeppelin": run_loop(name, 0.0, false)
 	if kind == "steam":
 		var boiler = model.boiler()
 		var pressure = float(boiler.pressure)
@@ -253,6 +255,19 @@ func update(model, paused: bool, in_menu: bool, dt: float, in_cab: bool = false)
 		if contact != contactor_on:
 			contactor_on = contact
 			play("contactor", 0.45 * loud)
+	elif kind == "zeppelin":
+		# B6.5: the engine and the blades follow the revs, the wind follows the speed in the air; the flaps clank when they move
+		var zep = model.zep
+		var running = engine_on and not bool(zep.stalled) and not bool(zep.crashed)
+		var rev_pitch = clampf(float(zep.rpm) / 1800.0, 0.45, 1.7)
+		run_loop("zep_engine", machine * (0.22 + 0.42 * throttle) * loud, running, rev_pitch)
+		run_loop("zep_prop", machine * (0.10 + 0.34 * clampf(float(zep.rpm) / 2700.0, 0.0, 1.0)) * loud, running, rev_pitch)
+		var air_share = clampf(absf(float(zep.v)) / 37.0, 0.0, 1.0)
+		run_loop("zep_wind", machine * (0.55 * pow(air_share, 1.4) + (0.12 if bool(zep.airborne) else 0.0)) * loud, air_share > 0.05, 0.75 + 0.5 * air_share)
+		var flaps_out = bool(model.state.get("zep_air_brake", false))
+		if flaps_out != zep_flaps_were: play("zep_flaps", 0.5 * loud, 1.0 if flaps_out else 0.85)
+		zep_flaps_were = flaps_out
+		if engine_on and not engine_was_on: play("petrol_start", 0.5 * loud, 0.9)
 	engine_was_on = engine_on
 	last_throttle = throttle
 	last_gear = int(model.state.gear)
