@@ -124,11 +124,46 @@ func run() -> void:
 	var seconds = (Time.get_ticks_usec() - start) / 1000000.0
 	var perf = {"frames": 180, "seconds": seconds, "average_fps": 180.0 / seconds, "renderer": RenderingServer.get_video_adapter_name()}
 	await shot("electric_1080")
+	var fast_trial = await run_high_speed_trial()
 	var file = FileAccess.open(output_dir.path_join("results.json"), FileAccess.WRITE)
-	file.store_string(JSON.stringify({"failures": failures, "frames": frames, "performance": perf}, "\t"))
+	file.store_string(JSON.stringify({"failures": failures, "frames": frames, "performance": perf, "high_speed_trial": fast_trial}, "\t"))
 	file.close()
 	print("PRESENTATION ", failures, " PERFORMANCE ", perf)
 	game.queue_free()
 	await get_tree().process_frame
 	await get_tree().process_frame
 	quit(0 if failures.is_empty() else 1)
+
+func run_high_speed_trial() -> Dictionary:
+	const SPEED = 60.0
+	const FRAMES = 240
+	game.set_physics_process(false)
+	game.model.state.s = 1000.0
+	game.model.state.v = SPEED
+	game.model.state.direction = 1
+	game.model.air_z = 0.7
+	game.camera_s = 1000.0
+	game.camera_y = game.model.route.sample(1000.0).y
+	var advance := func():
+		var step = SPEED / Engine.physics_ticks_per_second
+		game.model.last_movement = step
+		game.model.state.s += step
+	get_tree().physics_frame.connect(advance)
+	var start = Time.get_ticks_usec()
+	var previous = game.model.render_s()
+	var worst_lag = 0.0
+	var worst_step = 0.0
+	for frame_index in range(FRAMES):
+		await get_tree().process_frame
+		var position: float = game.model.render_s()
+		worst_lag = maxf(worst_lag, absf(position - game.camera_s))
+		worst_step = maxf(worst_step, position - previous)
+		if position < previous - 0.01: failures.append("60 m/s interpolation moved backwards")
+		previous = position
+	var elapsed = (Time.get_ticks_usec() - start) / 1000000.0
+	if worst_lag > 30.0: failures.append("60 m/s camera lag exceeded 30 m")
+	await shot("high_speed_trial")
+	get_tree().physics_frame.disconnect(advance)
+	var result = {"speed_m_s": SPEED, "average_fps": FRAMES / elapsed, "max_camera_lag_m": worst_lag, "max_frame_step_m": worst_step}
+	print("HIGH SPEED TRIAL ", result)
+	return result
