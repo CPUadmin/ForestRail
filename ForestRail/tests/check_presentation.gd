@@ -38,6 +38,18 @@ func run() -> void:
 	game.saves.directory = "user://qa_visual_runtime"
 	DirAccess.make_dir_recursive_absolute(game.saves.directory)
 	game.model.new_game(42)
+	if "--high-speed-only" in OS.get_cmdline_user_args():
+		root.size = Vector2i(1280, 720)
+		game.model.state.money = 10000
+		Fixtures.equip(game.model, "locomotive")
+		game.model.state.phase = "route"
+		game.model.state.engine = true
+		game.screen = "game"
+		game.rebuild()
+		await run_high_speed_trial()
+		print("PRESENTATION ", failures)
+		quit(0 if failures.is_empty() else 1)
+		return
 	game.model.accept_mission(game.model.current_mission())
 	game.screen = "game"
 	game.camera_s = 0
