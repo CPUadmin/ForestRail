@@ -28,6 +28,16 @@ static func round_trip(m, station: String, count: int, cargo_type: String = "sac
 		var target_s = m.service_stop(index_of(m, destination))
 		var remaining = (target_s - float(m.state.s)) * int(m.state.direction)
 		var speed = absf(float(m.state.v))
+		# Overshot the platform (as in drive_campaign, T14/T15): a driver puts the reverser back, rolls back to the platform and puts it forward again.
+		if m.vehicle_id() not in ["handcar", "pole", "sail"]:
+			if remaining < -0.6 and speed < 0.1 and int(m.state.get("reverser", 1)) == 1:
+				m.state.throttle = 0
+				m.set_reverser(-1)
+			if int(m.state.get("reverser", 1)) == -1:
+				remaining = -remaining
+				if absf(remaining) < 0.6 and speed < 0.05:
+					m.state.throttle = 0
+					m.set_reverser(1)
 		var braking_distance = m.stopping_distance(speed) + 0.3   # a careful driver brakes earlier on wet rails and downhill
 		if remaining < maxf(0.5, braking_distance) and not (speed < 0.05 and remaining > 0.6):
 			m.state.throttle = 0
