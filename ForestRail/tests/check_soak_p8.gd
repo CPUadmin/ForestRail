@@ -53,8 +53,15 @@ func brake(value: float) -> void:
 	var target=geo.pivot+Vector2(0,-geo.pivot.distance_to(geo.grip)).rotated(lerpf(-0.55,0.55,value))
 	var outer=game.body_transform(game.model.vehicle_id(),game.model.body_s_render(0))
 	var delta=outer.basis_xform(target-game.lever_target_point)
-	await move(delta);await button(cursor,false)
-	check(absf(float(game.model.state.brake)-value)<0.01,"soak brake changes through mouse")
+	await move(delta)
+	# The input point follows the live transform. After turning the consist, one
+	# frame can contain the last pose from the previous direction.
+	if absf(float(game.model.state.brake)-value)>=0.01 and game.drag=="brake":
+		outer=game.body_transform(game.model.vehicle_id(),game.model.body_s_render(0))
+		await move(outer.basis_xform(target-game.lever_target_point))
+	var actual=float(game.model.state.brake)
+	await button(cursor,false)
+	check(absf(actual-value)<0.01,"soak brake changes through mouse (wanted %.3f, got %.3f)" % [value,actual])
 
 func report(done: bool,reason: String="") -> void:
 	var elapsed=(Time.get_ticks_msec()-started_ms)/1000.0
