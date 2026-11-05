@@ -49,7 +49,13 @@ const STOCK_LOCO = preload("res://assets/art_electric/electric_loco_body.png")
 # P13 (GPT, 05.11.2026): the pole truck has its own platform (wheels are drawn behind it, the rims are cut from the picture)
 const STOCK_POLE = preload("res://assets/art_pole_truck/pole_truck_body.png")
 # B6.5: the rail zeppelin (the picture of the other helper, the file is not changed)
-const STOCK_ZEPPELIN = preload("res://assets/art_consists/rail_zeppelin_compact_body.png")
+const STOCK_ZEPPELIN = preload("res://assets/art_zeppelin/body_clean.png")   # the same picture without the movable parts (tools/make_zeppelin_wings.py)
+const ZEP_PARTS = {
+	"tailplane": {"texture": preload("res://assets/art_zeppelin/tailplane.png"), "rect": Rect2(219, 140, 398, 75), "pivot": Vector2(507, 195)},
+	"wing": {"texture": preload("res://assets/art_zeppelin/wing.png"), "rect": Rect2(411, 424, 362, 80), "pivot": Vector2(540, 467)},
+	"prop_top": {"texture": preload("res://assets/art_zeppelin/prop_top.png"), "rect": Rect2(174, 123, 43, 273), "pivot": Vector2(196, 447)},
+	"prop_bottom": {"texture": preload("res://assets/art_zeppelin/prop_bottom.png"), "rect": Rect2(177, 498, 40, 243), "pivot": Vector2(196, 447)},
+}
 # Source rectangle, deck line and axle line in each atlas. The deck and the
 # running gear remain fixed while the upper body and frame are fitted separately.
 const STOCK_BODY = {
@@ -383,6 +389,7 @@ func draw_vehicle(canvas: Node2D, id: String, distance: float, facing: int, oute
 		draw_part(canvas, body_key(id), Vector2(0, axis_height(id)), 0, scale_for(body_key(id)), outer)
 	else:
 		draw_stock_body(canvas, id, outer)
+		if id == "zeppelin" and model != null: draw_zeppelin_parts(canvas, outer, model.zep)
 	if id=="locomotive" and is_skinned(id):
 		for x in [0.70,1.35]:
 			var box=Rect2(Vector2(x-0.26,-1.08)*PX,Vector2(0.52,0.40)*PX)
@@ -403,6 +410,37 @@ func draw_vehicle(canvas: Node2D, id: String, distance: float, facing: int, oute
 	if id == "steam" or id == "pneumatic": draw_steam_motion(canvas, distance, facing, run, id)
 	if id == "motorcar": draw_side_rod(canvas, id, distance, facing, run)
 	if id == "handcar": draw_mechanism(canvas, model, outer,p)
+
+# The movable parts of the zeppelin (B6.5): the tail plane and the wing turn about their pivots, the propeller blades are drawn
+# as they foreshorten with the turn, and above some revs a soft disc replaces them.
+func zeppelin_part_draw(canvas: Node2D, outer: Transform2D, name: String, angle: float, scale_y: float = 1.0, alpha: float = 1.0) -> void:
+	var part = ZEP_PARTS[name]
+	var rect: Rect2 = part.rect
+	var pivot: Vector2 = part.pivot
+	var s = body_width("zeppelin") / 1774.0
+	var origin = stock_body_point("zeppelin", pivot)
+	canvas.draw_set_transform_matrix(outer * Transform2D(angle, origin) * Transform2D(Vector2(1.0, 0.0), Vector2(0.0, scale_y), Vector2.ZERO))
+	canvas.draw_texture_rect(part.texture, Rect2((rect.position - pivot) * s, rect.size * s), false, Color(1, 1, 1, alpha))
+	canvas.draw_set_transform_matrix(outer)
+
+func draw_zeppelin_parts(canvas: Node2D, outer: Transform2D, zep) -> void:
+	var shake = sin(zep.prop_phase * 7.0) * deg_to_rad(clampf(absf(zep.v) / 37.0, 0.0, 1.0) * 0.8)   # the surfaces flutter at speed
+	zeppelin_part_draw(canvas, outer, "tailplane", deg_to_rad(zep.tail_angle) + shake * 0.6)
+	zeppelin_part_draw(canvas, outer, "wing", deg_to_rad(zep.wing_angle) - shake)
+	var blur = clampf((zep.rpm - 500.0) / 1400.0, 0.0, 1.0)
+	var turn = cos(zep.prop_phase)
+	var pivot = stock_body_point("zeppelin", ZEP_PARTS.prop_top.pivot)
+	var s = body_width("zeppelin") / 1774.0
+	if blur > 0.02:
+		var disc = PackedVector2Array()
+		for i in range(24):
+			var a = TAU * i / 24.0
+			disc.append(pivot + Vector2(cos(a) * 7.0 * s, sin(a) * 292.0 * s))
+		canvas.draw_set_transform_matrix(outer)
+		canvas.draw_colored_polygon(disc, Color(0.82, 0.85, 0.88, 0.24 * blur))
+	var blade_alpha = 1.0 - 0.65 * blur
+	zeppelin_part_draw(canvas, outer, "prop_top", 0.0, turn, blade_alpha)
+	zeppelin_part_draw(canvas, outer, "prop_bottom", 0.0, turn, blade_alpha)
 
 func draw_wheels(canvas: Node2D, id: String, distance: float, facing: int, run: Transform2D, p: Dictionary) -> void:
 	var wheel_id = skin_wheel.get(id, "vehicles/wheel_large" if id in LARGE_WHEELS else "vehicles/wheel_small")

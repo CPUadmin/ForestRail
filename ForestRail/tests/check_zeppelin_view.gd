@@ -100,6 +100,30 @@ func run() -> void:
 		game.cab_view = false
 		game.model.state.throttle = 0.0
 		game.model.set_zeppelin_stick(0.0)
+	# the movable parts: the stick up, the flaps open, the propeller turns: pictures of the machine close by
+	game.cab_view = false
+	game.screen = "game"
+	game.model.state.phase = "route"
+	game.model.state.s = 600.0
+	game.camera_s = 600.0
+	game.model.state.v = 30.0
+	game.model.zep.v = 30.0
+	game.model.state.engine = true
+	game.model.state.throttle = 1.0
+	game.model.zep.rpm = 2300.0
+	game.zoom_level = 1.5
+	game.model.zep.set_stick(-4.0)
+	for i in range(90): game.model.zep.animate(1.0 / 60.0)
+	game.queue_redraw()
+	await shot("zeppelin_parts_down")
+	game.model.zep.set_stick(10.0)
+	game.model.zep.set_air_brake(true)
+	for i in range(150): game.model.zep.animate(1.0 / 60.0)
+	game.model.zep.rpm = 400.0
+	game.queue_redraw()
+	await shot("zeppelin_parts_up_flaps")
+	check(game.model.zep.wing_angle < -30.0 and game.model.zep.tail_angle < -5.0, "the picture state follows the levers (wing %.1f, tail %.1f)" % [game.model.zep.wing_angle, game.model.zep.tail_angle])
+	game.zoom_level = 1.0
 	# the garage and the depot with the zeppelin chosen
 	game.model.state.phase = "depot"
 	game.screen = "depot"

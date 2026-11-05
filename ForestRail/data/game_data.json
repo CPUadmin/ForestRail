@@ -312,7 +312,7 @@
         "takeoff_alpha": 3.5,
         "crash_penalty_share": 0.5,
         "crash_penalty_min": 300,
-        "ceiling_m": 6
+        "ceiling_m": 12
       }
     },
     {

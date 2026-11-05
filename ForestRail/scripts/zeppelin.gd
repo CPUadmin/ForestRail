@@ -21,7 +21,7 @@ const DEFAULTS = {
 	"engine_efficiency": 0.25, "joule_per_liter": 8500000.0, "fuel_l": 40.0,
 	"heat": 0.04, "cooling_base": 0.03, "cooling_per_mps": 0.003, "ambient": 0.1,
 	"redline_wear": 0.20,
-	"landing_max_vz": 3.0, "landing_max_alpha": 8.0, "landing_speed_loss": 0.20, "ceiling_m": 6.0,
+	"landing_max_vz": 3.0, "landing_max_alpha": 8.0, "landing_speed_loss": 0.20, "ceiling_m": 12.0,
 	"crash_penalty_share": 0.5, "crash_penalty_min": 300,
 }
 
@@ -50,6 +50,11 @@ var load_fraction = 1.0   # the load on the wheels: 1 standing, 0 when the wing 
 var thrust = 0.0
 var drag = 0.0
 var lift = 0.0
+# --- what the picture shows (B6.5): the surfaces follow the levers smoothly, the propeller turns with the revs
+var wing_angle = 0.0      # degrees on the picture, negative: the front edge up
+var tail_angle = 0.0
+var flaps = 0.0           # 0..1, the air brake opens the flaps
+var prop_phase = 0.0
 var events: Array = []    # "stall", "overheat", "takeoff", "land", "crash", "redline"
 
 func _init(config: Dictionary = {}) -> void:
@@ -155,8 +160,18 @@ func takeoff_speed(alpha_deg: float) -> float:
 	return sqrt(2.0 * weight() / (c("rho") * c("wing_area_m2") * cl))
 
 # --- one step of the machine; slope in radians (+ uphill), wind along the rail in m/s (+ tail wind)
+# the movable parts: the wing and the tail plane follow the stick, the flaps open with the air brake, the propeller turns
+func animate(dt: float) -> void:
+	flaps = move_toward(flaps, 1.0 if air_brake else 0.0, dt * 2.5)
+	var wing_target = -stick * 1.0 - 38.0 * flaps
+	var tail_target = -stick * 0.7
+	wing_angle = move_toward(wing_angle, wing_target, 70.0 * dt)
+	tail_angle = move_toward(tail_angle, tail_target, 50.0 * dt)
+	prop_phase = fposmod(prop_phase + TAU * clampf(rpm, 0.0, 2700.0) / 60.0 * 0.06 * dt, TAU)
+
 func step(dt: float, slope: float = 0.0, wind_along: float = 0.0) -> void:
 	events.clear()
+	animate(dt)
 	if crashed or dt <= 0.0: return
 	var v_air = v - wind_along
 	# the revs follow the target

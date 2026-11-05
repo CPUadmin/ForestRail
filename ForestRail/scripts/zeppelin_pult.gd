@@ -196,7 +196,7 @@ func draw_bars(canvas, zep) -> void:
 	var bars = [
 		["Мотор t", clampf(float(zep.temp), 0.0, 1.0), Color("d0813c") if float(zep.temp) < 0.85 else RED, 0.85, 1.0],
 		["Колёса", clampf(float(zep.load_fraction), 0.0, 1.0), Color("5f8fc4"), 0.10, 0.20],
-		["Высота", clampf(float(zep.z) / float(zep.c("ceiling_m")), 0.0, 1.0), Color("a8b3a3") if float(zep.z) < 4.8 else RED, 0.8, 1.0],
+		["Высота", clampf(float(zep.z) / float(zep.c("ceiling_m")), 0.0, 1.0), Color("a8b3a3") if float(zep.z) < 0.8 * float(zep.c("ceiling_m")) else RED, 0.8, 1.0],
 		["Бензин", clampf(float(zep.fuel) / maxf(1.0, float(zep.c("fuel_l"))), 0.0, 1.0), Color("c9af73") if float(zep.fuel) > 5.0 else RED, 0.0, 0.12],
 	]
 	for i in range(bars.size()):

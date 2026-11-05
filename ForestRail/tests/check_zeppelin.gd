@@ -149,8 +149,8 @@ func run() -> void:
 	rocket.set_throttle(1.0)
 	accelerate(rocket, 100.0)
 	rocket.set_stick(12.0)
-	run_steps(rocket, 8.0)
-	check(rocket.crashed and rocket.crash_reason.begins_with("врезался"), "climbing above 6 m is a crash into the treetops (%s)" % rocket.crash_reason)
+	run_steps(rocket, 25.0)
+	check(rocket.crashed and rocket.crash_reason.begins_with("врезался"), "climbing above 12 m is a crash into the treetops (%s)" % rocket.crash_reason)
 	# the penalty: half of the money, not less than 300, never more than the money
 	check(z.crash_penalty(1000) == 500 and z.crash_penalty(400) == 300 and z.crash_penalty(250) == 250 and z.crash_penalty(0) == 0, "the penalty is half of the money, at least 300, never above the money")
 	# the wind: a head wind raises the airspeed, so the wheels are unloaded more
@@ -162,5 +162,22 @@ func run() -> void:
 	windy.v = 30.0
 	windy.step(1.0 / 60.0, 0.0, -6.0)
 	check(windy.load_fraction < load_calm, "a head wind raises the airspeed and unloads the wheels more")
+	# the picture: the surfaces follow the stick smoothly, the flaps open with the air brake, the propeller turns with the revs
+	var pic = Zeppelin.new()
+	pic.set_stick(8.0)
+	pic.step(1.0 / 60.0)
+	check(pic.wing_angle < 0.0 and pic.wing_angle > -3.0, "the wing starts to turn at once, but not in a jump (%.2f)" % pic.wing_angle)
+	run_steps(pic, 2.0)
+	check(absf(pic.wing_angle + 8.0) < 0.5 and absf(pic.tail_angle + 5.6) < 0.5, "the wing and the tail plane follow the stick (%.1f, %.1f)" % [pic.wing_angle, pic.tail_angle])
+	pic.set_air_brake(true)
+	run_steps(pic, 1.0)
+	check(pic.flaps > 0.3 and pic.wing_angle < -20.0, "the air brake opens the flaps on the wing (%.2f, %.1f)" % [pic.flaps, pic.wing_angle])
+	run_steps(pic, 2.0)
+	check(pic.flaps == 1.0, "and they open fully")
+	var spin = Zeppelin.new()
+	spin.set_throttle(1.0)
+	var phase0 = spin.prop_phase
+	run_steps(spin, 0.5)
+	check(spin.prop_phase != phase0, "the propeller turns when the engine runs")
 	print("ZEPPELIN CHECKS ", checks, "; FAILURES ", failures)
 	get_tree().quit(0 if failures.is_empty() else 1)
