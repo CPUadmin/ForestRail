@@ -46,11 +46,13 @@ const STOCK_MOTORS = preload("res://assets/art_consists/stock_motor_bodies.png")
 const STOCK_FLATBEDS = preload("res://assets/art_consists/stock_flatbeds.png")
 # P5 (GPT, 05.11.2026): the battery locomotive has its own picture; the deck line and the axle line are measured on it
 const STOCK_LOCO = preload("res://assets/art_electric/electric_loco_body.png")
+# P13 (GPT, 05.11.2026): the pole truck has its own platform (wheels are drawn behind it, the rims are cut from the picture)
+const STOCK_POLE = preload("res://assets/art_pole_truck/pole_truck_body.png")
 # Source rectangle, deck line and axle line in each atlas. The deck and the
 # running gear remain fixed while the upper body and frame are fitted separately.
 const STOCK_BODY = {
 	"handcar": [Rect2(50, 207, 802, 168), 210.0, 328.0],
-	"pole": [Rect2(926, 210, 801, 164), 213.0, 327.0],
+	"pole": [Rect2(0, 0, 1497, 304), 48.0, 250.0],   # the new platform: the plank top and the axle line in its own pixels
 	"sail": [Rect2(47, 564, 804, 166), 566.0, 681.0],
 	"wagon": [Rect2(919, 565, 817, 165), 568.0, 683.0],
 	"steam": [Rect2(57, 28, 788, 394), 314.0, 386.0],
@@ -70,6 +72,7 @@ const STOCK_CAB_AXLES = {
 	"motorcar": Vector2(1158, 1546),
 	"locomotive": Vector2(398, 1004),
 	"pneumatic": Vector2(1162, 1547),
+	"pole": Vector2(437, 1057),
 }
 var manifest: Dictionary
 var assets: Dictionary
@@ -361,7 +364,7 @@ func draw_stock_body(canvas: Node2D, id: String, outer: Transform2D) -> void:
 	var seam = Vector2(region.position.x, spec[1])
 	var upper = Rect2(region.position, Vector2(region.size.x, seam.y - region.position.y))
 	var lower = Rect2(seam, Vector2(region.size.x, region.end.y - seam.y))
-	var texture = STOCK_LOCO if id == "locomotive" else (STOCK_MOTORS if STOCK_LAMPS.has(id) else STOCK_FLATBEDS)
+	var texture = STOCK_LOCO if id == "locomotive" else (STOCK_POLE if id == "pole" else STOCK_MOTORS if STOCK_LAMPS.has(id) else STOCK_FLATBEDS)
 	canvas.draw_set_transform_matrix(outer)
 	for strip in [upper, lower]:
 		var start = stock_body_point(id, strip.position)
@@ -372,6 +375,7 @@ func draw_stock_body(canvas: Node2D, id: String, outer: Transform2D) -> void:
 # and the rods always stand on the rail (null: the same as the body, as in the depot and in the menu).
 func draw_vehicle(canvas: Node2D, id: String, distance: float, facing: int, outer: Transform2D, model, active: bool, pose_override: Dictionary = {}, draw_open_rig: bool = true, rail_outer = null) -> void:
 	var run: Transform2D = outer if rail_outer == null else rail_outer
+	if id == "pole" and not is_skinned(id): draw_wheels(canvas, id, distance, facing, run, {})   # behind the platform
 	if is_skinned(id):
 		draw_part(canvas, body_key(id), Vector2(0, axis_height(id)), 0, scale_for(body_key(id)), outer)
 	else:
@@ -392,6 +396,12 @@ func draw_vehicle(canvas: Node2D, id: String, distance: float, facing: int, oute
 	if draw_open_rig and id=="pole": draw_pole_overlay(canvas, model)
 	if draw_open_rig and id=="sail": draw_sail_overlay(canvas, model)
 	if id=="motorcar": draw_petrol_overlay(canvas, model)
+	if not (id == "pole" and not is_skinned(id)): draw_wheels(canvas, id, distance, facing, run, p)
+	if id == "steam" or id == "pneumatic": draw_steam_motion(canvas, distance, facing, run, id)
+	if id == "motorcar": draw_side_rod(canvas, id, distance, facing, run)
+	if id == "handcar": draw_mechanism(canvas, model, outer,p)
+
+func draw_wheels(canvas: Node2D, id: String, distance: float, facing: int, run: Transform2D, p: Dictionary) -> void:
 	var wheel_id = skin_wheel.get(id, "vehicles/wheel_large" if id in LARGE_WHEELS else "vehicles/wheel_small")
 	var radius = -axis_height(id)
 	for position in wheel_positions(id):
@@ -407,9 +417,6 @@ func draw_vehicle(canvas: Node2D, id: String, distance: float, facing: int, oute
 			canvas.draw_set_transform_matrix(run)
 		else:
 			draw_part(canvas, wheel_id, position, wheel_angle, scale_for(wheel_id), run)
-	if id == "steam" or id == "pneumatic": draw_steam_motion(canvas, distance, facing, run, id)
-	if id == "motorcar": draw_side_rod(canvas, id, distance, facing, run)
-	if id == "handcar": draw_mechanism(canvas, model, outer,p)
 
 func headlamp_point(id: String) -> Vector2:
 	if STOCK_LAMPS.has(id) and not is_skinned(id): return stock_body_point(id, STOCK_LAMPS[id])
