@@ -382,7 +382,7 @@ func draw_full_map() -> void:
 	var floor_y=area.end.y+90
 	var view=map_view()
 	var zoomed=view_to>=0
-	put("Профиль пути · высота увеличена ×%d · %s" % [roundi(vertical_exaggeration(area,view.x,view.y)),"участок %.0f–%.0f м · двойной щелчок — вся линия" % [view.x,view.y] if zoomed else "колесо — приблизить, перетащи — сдвинуть, щелчок по выбранной станции — её участок"],Vector2(50,99),size.x-100,16,MUTED)
+	put("Профиль пути · высота ×%d · %s" % [roundi(vertical_exaggeration(area,view.x,view.y)),"участок %.0f–%.0f м · двойной щелчок — вся линия" % [view.x,view.y] if zoomed else "колесо — масштаб · перетащи — сдвиг · повторный щелчок по станции — её участок"],Vector2(50,125),size.x-100,16,MUTED)
 	draw_profile(area,view.x,view.y,floor_y,240,5)
 	draw_map_forest(total,floor_y)
 	station_hits.clear()
