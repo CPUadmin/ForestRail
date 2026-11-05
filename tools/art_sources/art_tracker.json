@@ -74,6 +74,11 @@
    "name": "Шестовая дрезина",
    "brief": "tools/art_sources/briefs/P13_pole_truck/BRIEF_RU.md",
    "inbox": "tools/art_sources/inbox/P13_pole_truck/"
+  },
+  "П14": {
+   "name": "Цеппелин: чистый кузов и подвижные части",
+   "brief": "tools/art_sources/briefs/P14_zeppelin_parts/BRIEF_RU.md",
+   "inbox": "tools/art_sources/inbox/P14_zeppelin_parts/"
   }
  },
  "assets": [
@@ -1301,7 +1306,7 @@
    "element": "K",
    "format": "1:1",
    "background": "magenta",
-   "status": "получено",
+   "status": "принято",
    "note": "детали шестовой",
    "sheet": {
     "cols": 3,
@@ -1321,6 +1326,32 @@
     "accepted/P13_pole_truck/pole_truck_details/cell_3_2.png",
     "accepted/P13_pole_truck/pole_truck_details/cell_3_3.png"
    ]
+  },
+  {
+   "package": "П14",
+   "element": "K",
+   "background": "magenta",
+   "status": "промпт готов",
+   "notes": [],
+   "id": "P14-A1",
+   "file": "zeppelin_body_clean.png",
+   "format": "2:1",
+   "note": "чистый кузов цеппелина"
+  },
+  {
+   "package": "П14",
+   "element": "K",
+   "background": "magenta",
+   "status": "промпт готов",
+   "notes": [],
+   "id": "P14-A2",
+   "file": "zeppelin_parts.png",
+   "format": "1:1",
+   "note": "подвижные части цеппелина",
+   "sheet": {
+    "cols": 3,
+    "rows": 3
+   }
   }
  ],
  "help": "Фон: magenta (плоский #FF00FF), black (свет), transparent, full-bleed (текстура на весь кадр). sheet: сетка листа {cols, rows}. Статусы: в списке, промпт готов, запрошено, получено, получено с проблемами, принято, отклонено, подключено."
