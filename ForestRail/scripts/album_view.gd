@@ -63,12 +63,30 @@ func _ready() -> void:
 		hit.size = view.size
 		hit.position = view.position
 		hit.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-		hit.disabled = not view.revealed
-		hit.pressed.connect(func(): show_card(id))
+		hit.disabled = not view.revealed and not cas().can_gift(id)   # in the creative mode the cards on their backs can be asked from Mikhalych
+		hit.pressed.connect(func(): ask_or_show(id))
 		add_child(hit)
+	if game.model.creative():
+		var note = Label.new()
+		note.text = "Творческий режим: щёлкни по рубашке, и Михалыч даст эту карту даром."
+		note.add_theme_font_size_override("font_size", 20)
+		note.add_theme_color_override("font_color", Color("d9b95b"))
+		note.position = Vector2(30, size.y - 52.0)
+		add_child(note)
 	close_button = game.add_button(self, "Назад", Callable(self, "on_close"))
 	close_button.position = Vector2(size.x - 220.0, size.y - 60.0)
 	close_button.size = Vector2(190, 46)
+
+# A card in the hand opens big; in the creative mode a card on its back is given by Mikhalych for free
+func ask_or_show(id: String) -> void:
+	if owned(id):
+		show_card(id)
+		return
+	if cas().gift(id):
+		game.notify("Михалыч даёт карту даром. Установи гаджет в мастерской, во вкладке «Улучшения».")
+		game.sound.play("coins", 0.4)
+		game.save_game()
+		game.rebuild()
 
 func on_close() -> void:
 	if detail != null:

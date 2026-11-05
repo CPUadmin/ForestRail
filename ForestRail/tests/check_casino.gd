@@ -157,5 +157,15 @@ func run() -> void:
 	keep.casino().st().pity = 123
 	var loaded = Model.new()
 	check(loaded.restore(keep.serialize()) and loaded.casino().junk_count("track_spike") == 7 and loaded.casino().tokens() == 42 and loaded.casino().pity() == 123, "bolts, tokens and the guarantee survive saving and loading")
+	# Mikhalych's gift: only in the creative mode, any card of the deck (secret ones too), once
+	var career = fresh(5)
+	check(not career.casino().can_gift("fool") and not career.casino().gift("fool"), "in the career Mikhalych gives nothing for free")
+	var sandbox = fresh(5)
+	sandbox.state.mode = "creative"
+	check(sandbox.casino().gift("fool") and sandbox.casino().card_owned("fool"), "in the creative mode he gives a card for free")
+	check(not sandbox.casino().gift("fool"), "a card that is already in the album is not given twice")
+	check(sandbox.casino().gift("moon") and sandbox.casino().card_owned("moon"), "a secret card is given too")
+	check(not sandbox.casino().gift("nonsense"), "there is no such card")
+	check(sandbox.casino().tokens() == int(sandbox.casino().cfg().start_tokens if sandbox.casino().cfg().has("start_tokens") else sandbox.casino().tokens()), "the gift costs no tokens")
 	print("CASINO CHECKS ", checks, "; FAILURES ", failures)
 	get_tree().quit(0 if failures.is_empty() else 1)

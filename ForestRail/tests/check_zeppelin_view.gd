@@ -143,6 +143,22 @@ func run() -> void:
 	check("Скорость падает" in Pult.hint(lesson, 130.0, 0.0, 1.0), "the lesson: in the air the speed drops")
 	lesson.stalled = true
 	check("заглох" in Pult.hint(lesson, 130.0, 0.0, 1.0), "the lesson: a stalled engine")
+	# high in the air the camera climbs after the machine: it stays on the screen
+	game.model.air_fly = true
+	game.model.air_z = 25.0
+	game.model.zep.z = 25.0
+	game.model.zep.airborne = true
+	check(absf(game.camera_climb() - 21.0) < 0.01, "the camera climbs after the zeppelin (%.1f m)" % game.camera_climb())
+	game.camera_y = game.model.route.sample(game.camera_s).y + game.camera_climb()
+	var high = game.body_transform("zeppelin", float(game.model.state.s), false)
+	check(high.origin.y > 150.0 and high.origin.y < game.get_viewport_rect().size.y, "at 25 m the machine is still on the screen (y %.0f)" % high.origin.y)
+	game.queue_redraw()
+	await shot("zeppelin_high")
+	game.model.air_fly = false
+	game.model.air_z = 0.0
+	game.model.zep.z = 0.0
+	game.model.zep.airborne = false
+	game.camera_y = game.model.route.sample(game.camera_s).y
 	# the garage and the depot with the zeppelin chosen
 	game.model.state.phase = "depot"
 	game.screen = "depot"

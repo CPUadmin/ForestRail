@@ -257,6 +257,24 @@ func spin() -> Dictionary:
 			s.pity = 0
 	return result
 
+# ---- Mikhalych's gift (the owner's request, 05.11.2026): in the creative mode he gives any card of the deck for free, no tokens, no wheel.
+# The career is not touched: the card of a career comes only from the wheel. A card whose gadget is not in the game yet is given too
+# (it lies in the album), it can be put on the machine when the gadget appears.
+const SECRET_IDS = ["moon", "sun", "judgement", "world"]
+
+func card_ids() -> Array:
+	var ids: Array = []
+	for card in cfg().cards: ids.append(str(card.id))
+	return ids + SECRET_IDS
+
+func can_gift(card_id: String) -> bool:
+	return m.creative() and card_id in card_ids() and not card_owned(card_id)
+
+func gift(card_id: String) -> bool:
+	if not can_gift(card_id): return false
+	st().cards.append(card_id)
+	return true
+
 # ---- putting a card on the machine (the only way to get a gadget)
 
 func install(card_id: String) -> bool:

@@ -76,5 +76,26 @@ func run() -> void:
 	var slot = view.views.tower
 	slot.flip()
 	check(slot.flip_p < 0.0 and not slot.show_back, "an empty slot does not turn")
+	# the creative mode: a card on its back is given by Mikhalych for free (the owner, 05.11.2026)
+	view.on_close()
+	check(not game.model.creative(), "the career album does not give cards for free")
+	game.close_modal()
+	game.model.state.mode = "creative"
+	game.model.state.money = 500
+	game.screen = "depot"
+	game.tab = "Казик"
+	game.rebuild()
+	game.show_modal("album")
+	await get_tree().process_frame
+	view = game.overlay.get_child(game.overlay.get_child_count() - 1)
+	check(not view.views.tower.revealed, "the tower is still on its back")
+	view.ask_or_show("tower")
+	await get_tree().process_frame
+	check(game.model.casino().card_owned("tower"), "a click on the back in the creative mode gets the card from Mikhalych")
+	game.show_modal("album")
+	await get_tree().process_frame
+	view = game.overlay.get_child(game.overlay.get_child_count() - 1)
+	check(view.views.tower.revealed, "the album shows it face up now")
+	await shot("album_creative")
 	print("ALBUM VIEW CHECKS ", checks, "; FAILURES ", failures)
 	get_tree().quit(0 if failures.is_empty() else 1)

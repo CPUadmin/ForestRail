@@ -2280,7 +2280,7 @@ func _process(dt: float) -> void:
 				# Limit the lag in screen space so zoom and speed cannot carry the engine out of frame.
 				var max_lag = get_viewport_rect().size.x * 0.17 / (ArtV3.PX * view_scale())
 				camera_s = clampf(camera_s, target_s - max_lag, target_s + max_lag)
-			camera_y = lerpf(camera_y, model.route.sample(camera_s).y, 1 - exp(-dt * 4))
+			camera_y = lerpf(camera_y, model.route.sample(camera_s).y + camera_climb(), 1 - exp(-dt * 4))
 		var target_x = get_viewport_rect().size.x * (0.31 if screen == "depot" else (0.65 if model.state.direction > 0 else 0.35))
 		if screen == "depot" and not model.state.consist_ids.is_empty(): target_x = get_viewport_rect().size.x * 0.46 - 136
 		if drag in ["","pump","brake","throttle","gear","start","coal","sail","pole","zpult"]: camera_x = lerpf(camera_x if camera_x > 0 else target_x, target_x, 1 - exp(-dt * 3))
@@ -2789,6 +2789,11 @@ func deadline_text() -> String:
 	if left > 1.0e8: return ""
 	if left < 0.0: return " · СРОК ВЫШЕЛ"
 	return " · срок %d:%02d" % [int(left / 60.0), int(fposmod(left, 60.0))]
+
+# The zeppelin climbs high (the ceiling is 30 m): the camera climbs after it, so that the machine stays on the screen and the ground falls away.
+func camera_climb() -> float:
+	if screen != "game" or model.vehicle_id() != "zeppelin" or not model.air_fly: return 0.0
+	return maxf(0.0, float(model.air_z) - 4.0)
 
 func world_point(s: float) -> Vector2:
 	var size = get_viewport_rect().size
