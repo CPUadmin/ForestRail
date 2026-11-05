@@ -84,6 +84,10 @@ func reset(fuel_liters: float = -1.0) -> void:
 	drag = 0.0
 	lift = 0.0
 	events.clear()
+	wing_angle = 0.0   # the picture: the wings lie level again
+	tail_angle = 0.0
+	flaps = 0.0
+	land_vz = 0.0
 	throttle = 0.0
 	pitch = 0.0
 	stick = 0.0
