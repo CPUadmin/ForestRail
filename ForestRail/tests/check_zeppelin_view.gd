@@ -143,6 +143,24 @@ func run() -> void:
 	check("Скорость падает" in Pult.hint(lesson, 130.0, 0.0, 1.0), "the lesson: in the air the speed drops")
 	lesson.stalled = true
 	check("заглох" in Pult.hint(lesson, 130.0, 0.0, 1.0), "the lesson: a stalled engine")
+	# cargo on the deck: the two places of the zeppelin carry the load in sight
+	var loader = game.model
+	loader.state.phase = "depot"
+	loader.state.v = 0.0
+	loader.state.s = 0.0
+	loader.zep.v = 0.0
+	loader.state.throttle = 0.0
+	loader.state.cargo.clear()
+	loader.state.active = {}
+	if loader.accept_mission(loader.current_mission()):
+		for i in range(mini(loader.state.cargo.size(), loader.slots().size())): loader.transfer(loader.state.cargo[i].id, loader.slots()[i].key)
+	check(loader.state.cargo.filter(func(c): return str(c.slot) != "").size() == 2, "two loads stand on the two places of the zeppelin")
+	loader.state.phase = "route"
+	game.screen = "game"
+	game.zoom_level = 1.5
+	game.queue_redraw()
+	await shot("zeppelin_cargo")
+	game.zoom_level = 1.0
 	# the trim gadget: the button appears and switches the trim on in the air
 	game.model.object_state("zeppelin").levels.zeppelin_trim = 1
 	game.model.zep.airborne = true
