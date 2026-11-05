@@ -133,6 +133,10 @@ var gate_pos = Vector2(1, 0)
 var wheel_last = 0.0
 var wheel_acc = 0.0
 const WHEEL_SWEEP = PI * 1.5
+const REDUCER_SWEEP = TAU * 3.0   # the reducer wheel of the pneumatic train: three full turns
+
+func wheel_sweep() -> float:
+	return REDUCER_SWEEP if model.vehicle_id() == "pneumatic" else WHEEL_SWEEP
 const GATE_SLOTS = {1: Vector2(0, -1), 2: Vector2(0, 1), 3: Vector2(1, -1), 4: Vector2(1, 1), 5: Vector2(2, -1), 6: Vector2(2, 1), 0: Vector2(1, 0)}
 # Petrol gearbox on the lever arc: R, N, 1, 2, 3, 4, 5 (gear numbers as in the model, R is 6).
 const GEAR_ORDER = [6, 0, 1, 2, 3, 4, 5]
@@ -144,6 +148,7 @@ var pump_target_point = Vector2.ZERO
 var pump_grip_side = 1.0
 var push_cursor = Vector2.ZERO
 var grip_hits: Array = []
+var valve_hits: Array = []   # the four condensate valves under the frosted places (B6.2)
 var ice_hits: Array = []   # the four frosted places on the pneumatic train's pipes (B1.3)
 var steam_hits: Array = []
 var slot_hits: Array = []
@@ -1800,8 +1805,8 @@ func toggle_cab_view() -> void:
 func control_ids() -> Array:
 	if model.vehicle_id() == "handcar": return ["pump", "brake"]
 	if model.vehicle_id() in ["pole", "sail"]: return ["brake"]
-	if model.vehicle_id() in ["locomotive", "pneumatic"]: return ["brake", "throttle"]
-	return ["brake", "throttle", "gear", "start"]
+	if model.vehicle_id() == "locomotive": return ["brake", "throttle"]
+	return ["brake", "throttle", "gear", "start"]   # the pneumatic train: gear is the wheel of the reducer, start is the tap of the heating (B6.2)
 
 func steam_fire_rect(rect: Rect2) -> Rect2:
 	return Rect2(rect.position+Vector2(150,282),Vector2(130,64))
@@ -1906,6 +1911,13 @@ func draw_steam_panel(rect: Rect2) -> void:
 # Clicks on the dashboard buttons: the direction switch (steam, electric) and the
 # emergency stop (electric). The direction rules are the same as the buttons outside.
 func cab_button(id: String) -> void:
+	if id.begins_with("drain"):
+		var spot = int(id.trim_prefix("drain"))
+		var was_plugged = model.plugged(spot)
+		if model.drain(spot):
+			sound.play("steam_blow", 0.4, 1.6)
+			notify("Клапан %d: конденсат сброшен%s" % [spot + 1, ", ледяная пробка растаяла" if was_plugged else ""])
+		return
 	if id == "light":
 		lamp_manual = 0 if lights_lit() else 1
 		notify("Фара включена" if lamp_manual == 1 else "Фара выключена")
@@ -2003,9 +2015,9 @@ func draw_control_zoom() -> void:
 			draw_set_transform_matrix(pult_t)
 		grip_hits.append({"id":id,"position":pult_t*point,"closeup":true})
 		var steam=model.vehicle_id()=="steam"
-		var title={"brake":"Тормоз","throttle":{"locomotive":"Тяга","steam":"Вентиль","pneumatic":"Вентиль"}.get(model.vehicle_id(),"Газ"),"gear":"Вода" if steam else "Передача","start":"Розжиг" if steam else "Пуск"}[id]
+		var title={"brake":"Тормоз","throttle":{"locomotive":"Тяга","steam":"Вентиль","pneumatic":"Вентиль"}.get(model.vehicle_id(),"Газ"),"gear":"Вода" if steam else ("Редуктор" if model.vehicle_id()=="pneumatic" else "Передача"),"start":"Розжиг" if steam else ("Обогрев" if model.vehicle_id()=="pneumatic" else "Пуск")}[id]
 		var shown_gear=lever_pending_gear if drag=="gear" else int(model.state.gear)
-		var label={"brake":"%d%%" % (model.state.brake*100),"throttle":"%d%%" % (model.state.throttle*100),"gear":("%d%%" % (float(model.boiler().feed)*100)) if steam else GEAR_LABELS[shown_gear],"start":("Горит" if model.state.engine else "Разжечь") if steam else ("Вкл." if model.state.engine else "Выкл.")}[id]
+		var label={"brake":"%d%%" % (model.state.brake*100),"throttle":"%d%%" % (model.state.throttle*100),"gear":("%d%%" % (float(model.boiler().feed)*100)) if steam else (("%.0f бар" % model.working_pressure()) if model.vehicle_id()=="pneumatic" else GEAR_LABELS[shown_gear]),"start":("Горит" if model.state.engine else "Разжечь") if steam else (("Греет" if model.heating_on() else "Выкл.") if model.vehicle_id()=="pneumatic" else ("Вкл." if model.state.engine else "Выкл."))}[id]
 		draw_string(font,rect.position+Vector2(15+100*i,78),title,HORIZONTAL_ALIGNMENT_CENTER,100,16,PAPER)
 		draw_string(font,rect.position+Vector2(15+100*i,168 if id=="start" else (268 if kind=="slider" else 253)),label,HORIZONTAL_ALIGNMENT_CENTER,100,16,GOLD)
 		if kind=="lever":
@@ -2015,7 +2027,7 @@ func draw_control_zoom() -> void:
 				draw_string(font,mark+Vector2(-17,-27 if endpoint==1 else -12),["0","100"][endpoint],HORIZONTAL_ALIGNMENT_CENTER,34,13,PAPER)
 		if drag==id or (pult_t*point).distance_to(get_global_mouse_position())<24: draw_arc(point,10,0,TAU,28,PAPER,1.5,true)
 	if model.vehicle_id()=="steam": draw_steam_panel(rect)
-	var feedback=toast if toast_seconds>0 else ("Крути вентиль по кругу, отпусти — закроется сам. Розжиг — щелчком." if model.vehicle_id()=="steam" else ("Веди шар рычага по кулисе: через N в нужный паз. Пуск — щелчком." if model.vehicle_id()=="motorcar" else ("Двигай ручки вверх и вниз по прорезям, они держат положение." if model.vehicle_id()=="locomotive" else "Веди рукоять по дуге: вентиль открывает воздух, тормоз держит состав.")))
+	var feedback=toast if toast_seconds>0 else ("Крути вентиль по кругу, отпусти — закроется сам. Розжиг — щелчком." if model.vehicle_id()=="steam" else ("Веди шар рычага по кулисе: через N в нужный паз. Пуск — щелчком." if model.vehicle_id()=="motorcar" else ("Двигай ручки вверх и вниз по прорезям, они держат положение." if model.vehicle_id()=="locomotive" else "Редуктор: крути колесо, 3 оборота. Обогрев и клапаны: щелчок.")))
 	draw_multiline_string(font,rect.position+Vector2(16,rect.size.y-35),feedback,HORIZONTAL_ALIGNMENT_LEFT,310,15,2,GOLD if toast_seconds>0 else Color("c7c3a0"))
 
 func show_modal(kind: String) -> void:
@@ -2493,12 +2505,14 @@ func _input(event: InputEvent) -> void:
 				elif kind=="wheel":
 					var turn=lever_target_point-geo.pivot
 					var now=atan2(turn.x,-turn.y)
-					wheel_acc=clampf(wheel_acc+wrapf(now-wheel_last,-PI,PI),0.0,WHEEL_SWEEP)
+					wheel_acc=clampf(wheel_acc+wrapf(now-wheel_last,-PI,PI),0.0,wheel_sweep())
 					wheel_last=now
-					var spin=wheel_acc/WHEEL_SWEEP
+					var spin=wheel_acc/wheel_sweep()
 					if spin<0.001: spin=0.0
 					elif spin>0.999: spin=1.0
-					if drag=="gear": model.set_feed(spin)
+					if drag=="gear":
+						if model.vehicle_id()=="pneumatic": model.set_reducer(spin)
+						else: model.set_feed(spin)
 					else: model.state[drag]=spin
 				else:
 					var arm=lever_target_point-geo.pivot
@@ -2560,6 +2574,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		if model.vehicle_id() == "pneumatic" and not in_closeup:
 			# B1.3: a click on the white frost of a pipe knocks a quarter of the ice off that place
 			var ice_radius = 0.18 * ArtV3.PX * view_scale()
+			for hit in valve_hits:
+				if mouse.distance_to(hit.position) < 0.07 * ArtV3.PX * view_scale() + 6.0:
+					cab_button("drain%d" % int(hit.spot))
+					get_viewport().set_input_as_handled()
+					return
 			for hit in ice_hits:
 				if mouse.distance_to(hit.position) < ice_radius and model.chip_ice(int(hit.spot)):
 					notify("Иней сбит: %d%%" % roundi(model.frost() * 100.0))
@@ -2688,7 +2707,10 @@ func finish_drag(mouse: Vector2) -> void:
 	elif drag == "gear" and lever_pending_gear!=int(model.state.gear):
 		if not model.set_gear(lever_pending_gear): notify(model.message)
 	elif drag == "start" and lever_travel<8 and mouse.distance_to(lever_click_origin)<8:
-		if not model.start_engine(not model.state.engine): notify(model.message)
+		if model.vehicle_id()=="pneumatic":
+			model.set_heating(not model.heating_on())
+			notify("Обогрев трубок включён: иней растёт медленнее, воздуха уходит больше" if model.heating_on() else "Обогрев выключен")
+		elif not model.start_engine(not model.state.engine): notify(model.message)
 	cancel_drag()
 
 func lights_lit() -> bool:
@@ -2854,6 +2876,7 @@ func _draw() -> void:
 	if art_world == null: draw_background(size)
 	grip_hits.clear()
 	ice_hits.clear()
+	valve_hits.clear()
 	glint_hits.clear()
 	sail_rect = Rect2()
 	sail_cleat_point = Vector2.ZERO
@@ -3604,6 +3627,23 @@ func draw_pneumatic_cab_extras(size: Vector2, layout: Dictionary) -> void:
 		if lamps[lamp][1]: draw_circle(at, 15, Color(lamps[lamp][2], 0.2))
 		draw_string(font, at + Vector2(-30, 24), lamps[lamp][0], HORIZONTAL_ALIGNMENT_CENTER, 60, 9, Color("a9a589"))
 
+	# B6.2: four valves that let the condensate out of the pipes; a ring blinks when it is time (60 s of running without a press)
+	var valves_at = Vector2(size.x - 350.0, top + 52.0)
+	draw_string(font, valves_at + Vector2(-8, -16), "КОНДЕНСАТ", HORIZONTAL_ALIGNMENT_LEFT, 120, 9, Color("a9a589"))
+	for spot in range(4):
+		var valve = valves_at + Vector2(spot * 34.0 + 12.0, 6.0)
+		var due = model.drain_due(spot)
+		var plug = model.plugged(spot)
+		var pulse = (0.5 + 0.5 * sin(time * 6.0)) if due and not settings.reduce_motion else (1.0 if due else 0.0)
+		if due: draw_circle(valve, 17.0, Color(0.9, 0.35 if plug else 0.7, 0.2, 0.18 + 0.3 * pulse))
+		draw_circle(valve, 12.0, Color("c9a85a"))
+		draw_circle(valve, 9.5, Color("1d2320"))
+		for spoke in range(3):
+			var a = TAU * float(spoke) / 3.0 + (1.0 - clampf(model.drain_age(spot) / 60.0, 0.0, 1.0)) * 1.2
+			draw_line(valve, valve + Vector2.from_angle(a) * 9.0, Color("e6cf8b") if not plug else Color("e0564a"), 2.0, true)
+		draw_string(font, valve + Vector2(-5, 26), str(spot + 1), HORIZONTAL_ALIGNMENT_CENTER, 10, 10, Color("a9a589"))
+		cab_hits.append({"id": "drain%d" % spot, "rect": Rect2(valve - Vector2(16, 16), Vector2(32, 32))})
+
 # Petrol cab: ignition lock, choke, fuse box, oil and temperature gauges, gear lamps,
 # a rear-view mirror and pedal pads. The two small gauges are live.
 func draw_petrol_cab_extras(size: Vector2, layout: Dictionary) -> void:
@@ -3753,6 +3793,7 @@ func draw_cab_gauges(size: Vector2, layout: Dictionary) -> void:
 	elif kind == "pneumatic":
 		draw_round_gauge(Vector2(left + radius * 1.1, y), radius, amount / float(stats.tank), "ДАВЛЕНИЕ", "%.0f бар" % amount, [[0.4, Color("e0564a")], [0.7, Color("e6b34a")], [1.0, Color("5cc17f")]], 10, [0, int(stats.tank * 0.2), int(stats.tank * 0.4), int(stats.tank * 0.6), int(stats.tank * 0.8), int(stats.tank)])
 		draw_round_gauge(Vector2(right - radius * 0.9, y), radius, model.frost(), "ИНЕЙ", "%d%%" % roundi(model.frost() * 100.0), [[0.3, Color("5cc17f")], [0.6, Color("e6b34a")], [1.0, Color("e0564a")]], 4, ["0", "", "50", "", "100"])
+		draw_round_gauge(Vector2(right + radius * 1.1 + 28.0, y), radius, model.working_pressure() / float(stats.tank), "РАБОЧЕЕ", "%.0f бар" % model.working_pressure(), [[0.2, Color("e6b34a")], [0.7, Color("5cc17f")], [1.0, Color("e6b34a")]], 10, [0, 10, 20, 30, 40, 50])
 	elif kind == "steam":
 		var work = float(model.boiler_cfg().work_pressure_bar) / float(model.boiler_cfg().max_pressure_bar)
 		draw_round_gauge(Vector2(left + radius * 1.1, y), radius, float(model.boiler().pressure), "ДАВЛЕНИЕ", "%.1f бар" % model.pressure_bar(), [[work, Color("e6b34a")], [0.9, Color("5cc17f")], [1.0, Color("e0564a")]], 10, [0, 2, 4, 6, 8, 10])
@@ -4192,6 +4233,7 @@ func control_kind(id: String) -> String:
 	# The electric locomotive has aircraft-style handles: vertical sliders in slots.
 	if model.vehicle_id() == "locomotive" and id in ["brake", "throttle"]: return "slider"
 	if model.vehicle_id() == "steam" and id in ["throttle", "gear"]: return "wheel"
+	if model.vehicle_id() == "pneumatic" and id == "gear": return "wheel"   # the reducer: a hand wheel, turn it round like the valve of the steam locomotive
 	if model.vehicle_id() == "motorcar" and id == "gear": return "gate"
 	return "toggle" if id == "start" else "lever"
 
@@ -4338,7 +4380,7 @@ func control_geometry(id: String, closeup: bool = false) -> Dictionary:
 		var radius=34.0 if closeup else 0.17*ArtV3.PX
 		var center=control_anchor(id)*ArtV3.PX
 		if closeup: center=control_zoom_rect().position+Vector2(65+100*["brake","throttle","gear","start"].find(id),188)
-		var turn=(float(model.boiler().feed) if id=="gear" else float(model.state.throttle))*WHEEL_SWEEP
+		var turn=((model.reducer_position() if model.vehicle_id()=="pneumatic" else float(model.boiler().feed)) if id=="gear" else float(model.state.throttle))*wheel_sweep()
 		return {"pivot":center,"grip":center+Vector2(0,-radius).rotated(turn),"angle":turn,"radius":radius}
 	var pivot=control_anchor(id)*ArtV3.PX
 	var length_key = id + "_length_m"
@@ -4350,7 +4392,7 @@ func control_geometry(id: String, closeup: bool = false) -> Dictionary:
 	var value=float(model.state.get(id,0))
 	if id=="gear": value=float(model.boiler().feed) if model.vehicle_id()=="steam" else float(GEAR_ORDER.find(lever_pending_gear if drag=="gear" else int(model.state.gear)))/6.0
 	var angle=lerpf(-0.55,0.55,value)
-	if id=="start": angle=0.0 if model.state.engine else PI
+	if id=="start": angle=0.0 if (model.heating_on() if model.vehicle_id()=="pneumatic" else model.state.engine) else PI
 	return {"pivot":pivot,"grip":pivot+Vector2(0,-length).rotated(angle),"angle":angle}
 
 func draw_controls(body_transform: Transform2D, show_labels: bool = true) -> void:
@@ -4386,7 +4428,7 @@ func draw_controls(body_transform: Transform2D, show_labels: bool = true) -> voi
 		else:
 			if id not in ["pump","start"]:
 				draw_arc(geo.pivot,geo.pivot.distance_to(geo.grip),-PI/2-0.55,-PI/2+0.55,24,Color("918363"),1.0,true)
-			if id == "start": angle = 0.0 if model.state.engine else PI
+			if id == "start": angle = 0.0 if (model.heating_on() if model.vehicle_id() == "pneumatic" else model.state.engine) else PI
 			var pivot = Vector2(128, 128 if id == "pump" else 224)
 			# The base stays fixed; only the independent supplied SVG part rotates.
 			if id != "pump": sprite("control_mount", Rect2(geo.pivot - Vector2(0.065,0.065)*ArtV3.PX, Vector2.ONE*0.13*ArtV3.PX))
@@ -4420,6 +4462,7 @@ func add_world_hits(id: String, index: int, transform: Transform2D) -> void:
 		if id=="pneumatic":
 			for i in range(ArtV3.FROST_SPOTS.size()):
 				ice_hits.append({"spot": i, "position": transform * art.steam_point(ArtV3.FROST_SPOTS[i].x, ArtV3.FROST_SPOTS[i].y)})
+				valve_hits.append({"spot": i, "position": transform * (art.steam_point(ArtV3.FROST_SPOTS[i].x, ArtV3.FROST_SPOTS[i].y) + Vector2(0, ArtV3.VALVE_DROP * ArtV3.PX))})
 	var boxes = cargo_layout(id)
 	for i in range(boxes.size()):
 		var key = id + ":" + str(i)

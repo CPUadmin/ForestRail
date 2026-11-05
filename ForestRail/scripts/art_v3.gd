@@ -790,6 +790,7 @@ func draw_pole_overlay(canvas: Node2D, model) -> void:
 # Live parts of the pneumatic train on top of the painted body (tools/make_pneumatic_art.py):
 # the manometer needle, frost on the four pipe places (the same places the model counts) and
 # the puffs of spent air at the working cylinder.
+const VALVE_DROP = 0.17   # the drain valve hangs this far (m) under its frosted place
 const FROST_SPOTS = [Vector2(1.36, 0.62), Vector2(1.28, 0.93), Vector2(1.20, 1.20), Vector2(0.40, 1.82)]
 
 func draw_pneumatic_overlay(canvas: Node2D, model) -> void:
@@ -799,6 +800,16 @@ func draw_pneumatic_overlay(canvas: Node2D, model) -> void:
 	var needle = deg_to_rad(150.0) + deg_to_rad(240.0) * clampf(float(fleet.get("fuel", 0.0)) / float(model.object_stats("pneumatic").tank), 0.0, 1.0)
 	canvas.draw_line(center, center + Vector2.from_angle(needle) * 0.075 * PX, Color("a8231c"), 2.0, true)
 	canvas.draw_circle(center, 2.0, Color("2a2a2a"))
+	# B6.2: a little brass valve under every frosted place lets the condensate out; it rings when it is time (60 s of running)
+	for i in range(FROST_SPOTS.size()):
+		var valve = steam_point(FROST_SPOTS[i].x, FROST_SPOTS[i].y) + Vector2(0, VALVE_DROP * PX)
+		var age = model.drain_age(i)
+		if age > 0.8 * 60.0:
+			var pulse = 0.5 + 0.5 * sin(Time.get_ticks_msec() / 180.0)
+			canvas.draw_arc(valve, 0.075 * PX, 0, TAU, 20, Color(1.0, 0.62 if age <= 60.0 else 0.35, 0.2, 0.4 + 0.5 * pulse), 2.0, true)
+		canvas.draw_circle(valve, 0.032 * PX, Color("2a2218"))
+		canvas.draw_circle(valve, 0.024 * PX, Color("c9af73"))
+		canvas.draw_line(valve + Vector2(-0.02, 0) * PX, valve + Vector2(0.02, 0) * PX, Color("5a4a2a"), 1.5, true)
 	var spots: Array = fleet.get("ice_spots", [])
 	for i in range(mini(spots.size(), FROST_SPOTS.size())):
 		var amount = clampf(float(spots[i]), 0.0, 1.0)
