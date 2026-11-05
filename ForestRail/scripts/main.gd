@@ -3151,7 +3151,7 @@ func draw_cab_forward(view: Rect2) -> Dictionary:
 	var horizon = view.position.y + view.size.y * 0.47 + clampf(pitch, -0.08, 0.08) * focal + bob
 	# Look through the driver's pane so the centre pillar leaves the track visible.
 	var cx = view.size.x * 0.40
-	var camera_height = 1.7
+	var camera_height = 1.7 + (float(model.air_z) if model.vehicle_id() == "zeppelin" and model.air_fly else 0.0)   # in flight the eye rises with the machine
 	var elevations := {}
 	var project := func(x: float, z: float) -> Vector2:
 		if not elevations.has(z):

@@ -154,6 +154,12 @@ func run() -> void:
 	check(high.origin.y > 150.0 and high.origin.y < game.get_viewport_rect().size.y, "at 25 m the machine is still on the screen (y %.0f)" % high.origin.y)
 	game.queue_redraw()
 	await shot("zeppelin_high")
+	game.cab_view = true
+	game.update_pult_transform()
+	for i in range(8): await get_tree().process_frame
+	game.queue_redraw()
+	await shot("zeppelin_cab_high")
+	game.cab_view = false
 	game.model.air_fly = false
 	game.model.air_z = 0.0
 	game.model.zep.z = 0.0
