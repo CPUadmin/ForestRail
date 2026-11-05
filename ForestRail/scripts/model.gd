@@ -1774,7 +1774,7 @@ func set_zeppelin_trim(on: bool) -> bool:
 func zeppelin_restart() -> bool:
 	if vehicle_id() != "zeppelin": return false
 	zep.throttle = float(state.throttle)
-	if not zep.restart(): return fail("Мотор не заводится: закрой газ и дай ему остыть")
+	if zep.stalled and not zep.restart(): return fail("Мотор не заводится: закрой газ и дай ему остыть")
 	state.engine = true
 	return true
 
