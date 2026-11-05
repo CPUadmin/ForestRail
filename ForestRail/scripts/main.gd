@@ -1828,7 +1828,11 @@ func draw_steam_cab_props(bucket: Rect2, fire: Rect2, door_button: Rect2, boiler
 	else:
 		draw_polygon(PackedVector2Array([fire.position + Vector2(-26, -4), fire.position + Vector2(-2, 6), fire.position + Vector2(-2, fire.size.y - 6), fire.position + Vector2(-26, fire.size.y + 4)]), PackedColorArray([Color("3a403d"), Color("2d3230"), Color("2d3230"), Color("3a403d")]))
 		draw_rect(fire, GOLD if drag == "coal" else Color("a98a4a"), false, 2.5)
-	draw_arc(Vector2(fire.get_center().x, fire.position.y), fire.size.x * 0.5, PI, TAU, 18, Color("5c615a"), 3.0, true)
+	var lintel := PackedVector2Array()
+	for segment in range(13):
+		var angle = PI * float(segment) / 12.0
+		lintel.append(Vector2(fire.get_center().x - cos(angle) * fire.size.x * 0.5, fire.position.y - sin(angle) * 9.0))
+	draw_polyline(lintel, Color("5c615a"), 3.0, true)
 
 # Boiler corner of the steam pult: coal bucket, firebox with door, manometer.
 func draw_steam_panel(rect: Rect2) -> void:
