@@ -165,5 +165,17 @@ func run() -> void:
 	check(tail_n > 0 and absf(tail_sum / float(maxi(1, tail_n)) - 5.0) < 1.0, "in the end it holds the height it had (%.2f m of 5)" % (tail_sum / float(maxi(1, tail_n))))
 	gadgets.set_zeppelin_stick(2.0)
 	check(not bool(gadgets.state.zep_trim), "a hand on the stick switches the trim off")
+	# the save: the zeppelin, its levers and its upgrades survive a save and a load
+	var saved = Model.new()
+	saved.new_game(42, 2)
+	saved.state.money = 100000
+	Fixtures.equip(saved, "zeppelin")
+	saved.upgrade("zeppelin", "zeppelin_tank")
+	saved.set_zeppelin_pitch(0.4)
+	saved.set_zeppelin_stick(3.5)
+	var loaded = Model.new()
+	check(loaded.restore(saved.serialize()), "a game with the zeppelin loads")
+	check(loaded.vehicle_id() == "zeppelin" and is_equal_approx(loaded.zeppelin_pitch(), 0.4) and is_equal_approx(loaded.zeppelin_stick(), 3.5), "the levers are where they were left")
+	check(int(loaded.object_state("zeppelin").levels.get("zeppelin_tank", 0)) == 1, "the upgrade is kept")
 	print("ZEPPELIN MODEL CHECKS ", checks, "; FAILURES ", failures)
 	get_tree().quit(0 if failures.is_empty() else 1)
