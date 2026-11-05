@@ -124,6 +124,12 @@ func run() -> void:
 	m.state.throttle = 0.5
 	run_frames(sound, m, 120, 3.0)
 	check(sound.loops["electric_hum"].playing and int(sound.played.get("contactor", 0)) >= 1, "electric hum and the contactor click")
+	m.state.v = 0.0
+	sound.update(m, false, false, 0.016)
+	var calm_level = sound.loops["amb_wind"].volume_db
+	m.state.v = 30.0
+	sound.update(m, false, false, 0.016)
+	check(sound.loops["amb_wind"].volume_db > calm_level, "apparent wind gets louder with speed")
 	# the cab muffles the outside and keeps the machine
 	var index = AudioServer.get_bus_index("Outside")
 	var open_cutoff = AudioServer.get_bus_effect(index, 0).cutoff_hz

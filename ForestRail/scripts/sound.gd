@@ -136,7 +136,13 @@ func update(model, paused: bool, in_menu: bool, dt: float, in_cab: bool = false)
 	was_menu = in_menu
 	# ambience: wind always, insects and the lake where they belong, birds now and then
 	var speed = 0.0 if not in_game else absf(float(model.state.v))
-	run_loop("amb_wind", nature * (0.12 if in_menu else 0.34 * (1.0 - 0.55 * cab_mix)), true)
+	var apparent_wind = 0.0
+	if in_game:
+		var wind: Vector2 = model.wind_here()
+		var motion = 0.0 if paused else float(model.state.v) * int(model.state.direction)
+		apparent_wind = (wind - Vector2(motion, 0)).length()
+	var wind_level = smoothstep(0.0, 24.0, apparent_wind)
+	run_loop("amb_wind", nature * (0.12 if in_menu else lerpf(0.22, 0.50, wind_level) * (1.0 - 0.55 * cab_mix)), true, lerpf(0.90, 1.12, wind_level))
 	run_loop("amb_insects", nature * 0.07 * (0.4 if speed > 4.0 else 1.0) * (1.0 - 0.7 * cab_mix), in_game)
 	var lake = 0.0
 	if in_game and model.route.station_s.size() > 3:
