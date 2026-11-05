@@ -358,7 +358,11 @@ func buy_vehicle(id: String) -> bool:
 		return fail("Не хватает %d монет" % (int(base.cost) - int(state.money)))
 	state.money -= int(base.cost)
 	state.fleet_by_id[id] = {"levels": {}, "fuel": 0.0, "consist": []}
-	if id == "pneumatic": state.fleet_by_id[id].ice_spots = [0.0, 0.0, 0.0, 0.0]
+	if id == "pneumatic":
+		state.fleet_by_id[id].ice_spots = [0.0, 0.0, 0.0, 0.0]
+		state.fleet_by_id[id].drain_t = [0.0, 0.0, 0.0, 0.0]
+		state.fleet_by_id[id].reducer = 1.0
+		state.fleet_by_id[id].heating = false
 	var stats = object_stats(id)
 	state.fleet_by_id[id].fuel = float(stats.tank)
 	if float(stats.water) > 0: state.fleet_by_id[id].water = float(stats.water)
@@ -1369,20 +1373,85 @@ func frost() -> float:
 	for spot in spots: total += float(spot)
 	return total / maxf(1.0, float(spots.size()))
 
+# --- B6.2: the reducer and the heating of the pipes (decision of the owner 01.11.2026, ROADMAP_RU.md section 6.6)
+# Two pressures: the receiver (the store, `fuel`) and the working pressure that goes to the cylinders. The wheel of the reducer
+# (3 turns, position 0..1) sets the working pressure from 10% to 60% of a full tank; the pull grows with it, the frost on
+# the pipes grows with its 1.5th power. The heating tap slows the frost down 5 times and costs 15% more air; four drain
+# valves let the condensate out: not pressed for 60 s of running, a spot gets an ice plug (the frost there grows twice as fast).
+const REDUCER_MIN = 0.10
+const REDUCER_MAX = 0.60
+const HEATING_FROST = 0.2
+const HEATING_AIR = 1.15
+const DRAIN_SECONDS = 60.0
+const PLUG_FROST = 2.0
+
+func reducer_position() -> float:
+	return clampf(float(pneumatic_fleet().get("reducer", 1.0)), 0.0, 1.0)
+
+func set_reducer(position: float) -> bool:
+	if vehicle_id() != "pneumatic": return false
+	state.fleet_by_id.pneumatic.reducer = clampf(position, 0.0, 1.0)
+	return true
+
+# The setting of the reducer as a fraction of a full tank (0.10 .. 0.60)
+func reducer_setting() -> float:
+	return lerpf(REDUCER_MIN, REDUCER_MAX, reducer_position())
+
+# The working pressure in bar: what the reducer lets through, but not more than the receiver holds
+func working_pressure() -> float:
+	if vehicle_id() != "pneumatic": return 0.0
+	return minf(float(state.fleet_by_id.pneumatic.fuel), reducer_setting() * float(object_stats("pneumatic").tank))
+
+func heating_on() -> bool:
+	return bool(pneumatic_fleet().get("heating", false))
+
+func set_heating(on: bool) -> bool:
+	if vehicle_id() != "pneumatic": return false
+	state.fleet_by_id.pneumatic.heating = on
+	events.append("gear")
+	return true
+
+# Seconds of running since the drain valve of the spot was pressed
+func drain_age(spot: int) -> float:
+	var ages: Array = pneumatic_fleet().get("drain_t", [0.0, 0.0, 0.0, 0.0])
+	return float(ages[spot]) if spot >= 0 and spot < ages.size() else 0.0
+
+func plugged(spot: int) -> bool:
+	return drain_age(spot) > DRAIN_SECONDS
+
+func drain_due(spot: int) -> bool:
+	return drain_age(spot) > 0.8 * DRAIN_SECONDS
+
+func drain(spot: int) -> bool:
+	if vehicle_id() != "pneumatic": return false
+	var fleet = state.fleet_by_id.pneumatic
+	var ages: Array = fleet.get("drain_t", [0.0, 0.0, 0.0, 0.0])
+	if spot < 0 or spot >= ages.size(): return false
+	ages[spot] = 0.0
+	fleet.drain_t = ages
+	events.append("gear")
+	return true
+
 func pneumatic_factor() -> float:
 	if vehicle_id() != "pneumatic": return 1.0
-	var pressure = float(state.fleet_by_id.pneumatic.fuel)
-	# the pull is full from 40% of a full tank upwards (it was 60 bar of 150)
-	return minf(1.0, pressure / (0.4 * float(object_stats("pneumatic").tank))) * (1.0 - 0.7 * frost())
+	# the pull is full from 40% of a full tank upwards (it was 60 bar of 150); now the working pressure counts, not the receiver
+	return minf(1.0, working_pressure() / (0.4 * float(object_stats("pneumatic").tank))) * (1.0 - 0.7 * frost())
 
 func update_frost(fleet: Dictionary, dt: float) -> void:
 	var spots: Array = fleet.get("ice_spots", [0.0, 0.0, 0.0, 0.0])
 	var running = absf(float(state.v)) > 0.3 and float(state.throttle) > 0.0
 	var weights = [1.0, 0.8, 0.6, 0.4]
+	var ages: Array = fleet.get("drain_t", [0.0, 0.0, 0.0, 0.0])
+	var reducer_k = pow(reducer_setting() / REDUCER_MAX, 1.5)   # the frost grows with the 1.5th power of the working pressure (1 with the wheel all the way open)
+	var heating_k = HEATING_FROST if bool(fleet.get("heating", false)) else 1.0
 	for i in range(spots.size()):
-		if running: spots[i] = minf(1.0, float(spots[i]) + 0.02 * float(effects("pneumatic").get("frost_multiplier", 1.0)) * (1.0 + 0.8 * cold()) * float(state.throttle) * (float(fleet.fuel) / float(object_stats("pneumatic").tank)) * float(weights[i]) * dt)
+		if absf(float(state.v)) > 0.3: ages[i] = float(ages[i]) + dt   # the condensate gathers while the train is moving
+		if running:
+			var plug_k = PLUG_FROST if float(ages[i]) > DRAIN_SECONDS else 1.0
+			spots[i] = minf(1.0, float(spots[i]) + 0.02 * float(effects("pneumatic").get("frost_multiplier", 1.0)) * (1.0 + 0.8 * cold()) * float(state.throttle) * (float(fleet.fuel) / float(object_stats("pneumatic").tank)) * float(weights[i]) * reducer_k * heating_k * plug_k * dt)
 		elif absf(float(state.v)) < 0.1: spots[i] = maxf(0.0, float(spots[i]) - 0.01 * dt)
 	fleet.ice_spots = spots
+	fleet.drain_t = ages
 	if wear_rules and frost() > 0.5: wear().damage("pneumatic", "seals", 0.01 * dt / 60.0, "иней на трубках")
 
 # A click on a frosted spot knocks a quarter of the ice off it.
@@ -1970,7 +2039,7 @@ func physics_step(dt: float) -> void:
 			used=shaft_work
 		elif vehicle_id()=="pneumatic":
 			# Air is spent by the work on the shaft; the pipes frost over while it runs.
-			used=shaft_work/0.85
+			used=shaft_work/0.85 * (HEATING_AIR if bool(fleet.get("heating", false)) else 1.0)   # the heating of the pipes costs 15% more air
 			fleet.fuel=maxf(0.0,before-used/air_joule_per_bar())
 			update_frost(fleet,dt)
 		else:
