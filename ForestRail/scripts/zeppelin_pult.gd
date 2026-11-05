@@ -211,6 +211,25 @@ func draw_bars(canvas, zep) -> void:
 	var shown = "%.1f м" % float(zep.z) if bool(zep.airborne) else "на рельсах"
 	text(canvas, Vector2(690.0, 183.0), shown, 13, GOLD, 132.0, HORIZONTAL_ALIGNMENT_LEFT)
 
+# The lesson of the flight (the owner found the control not clear, 05.11.2026): one line that says what to do now, by the state of the machine.
+# Shown while the hints of the game are on. Pure: it only reads the state of the model.
+static func hint(zep, takeoff_kmh: float, brake: float, throttle: float) -> String:
+	var kmh = absf(float(zep.v)) * 3.6
+	if bool(zep.crashed): return ""
+	if bool(zep.stalled): return "Мотор заглох: газ в ноль, подожди, нажми «Пуск»."
+	if bool(zep.airborne):
+		if float(zep.z) > 0.6 * float(zep.c("ceiling_m")): return "Высоко: ручку вниз, иначе потеряешь скорость и упадёшь."
+		if kmh < 85.0: return "Скорость падает: ручку вниз, пусть самолёт разгонится."
+		if float(zep.vz) < -3.5: return "Падаешь быстро: ручку на себя, но не резко."
+		return "В воздухе винт слабее: ручка вниз добавляет скорость. Садись плавно: газ меньше, ручка к 0."
+	if brake > 0.5 and throttle < 0.05: return "Тормоз затянут. Отпусти красный ползунок, потом газ."
+	if throttle < 0.05 and kmh < 3.0: return "Отпусти тормоз, дай газ и поставь шаг мелким (ползунок «Шаг» вниз)."
+	if float(zep.rpm) > float(zep.c("rpm_max")): return "Красная зона: шаг крупнее (ползунок «Шаг» вверх), следи за зелёной меткой."
+	if float(zep.rpm) < float(zep.c("rpm_idle")) * 1.3 and throttle > 0.3: return "Винт тяжёлый: шаг мельче (ползунок «Шаг» вниз)."
+	if kmh >= takeoff_kmh - 8.0: return "Скорость взлёта: потяни ручку до зелёной черты (+3,5°)."
+	if kmh > 10.0: return "Разгоняйся: шаг крупнее по мере скорости, держи его у зелёной метки."
+	return "Газ вперёд: поехали."
+
 func draw_warning(canvas, zep) -> void:
 	var line = ""
 	var color = GOLD
@@ -218,6 +237,9 @@ func draw_warning(canvas, zep) -> void:
 	elif bool(zep.stalled): line = "МОТОР ГЛОХ: газ в ноль и «Пуск»"; color = RED
 	elif float(zep.temp) > 0.85: line = "ПЕРЕГРЕВ: убавь газ"; color = RED
 	elif float(zep.rpm) > float(zep.c("rpm_max")): line = "КРАСНАЯ ЗОНА: шаг крупнее"; color = RED
-	elif float(zep.rpm) < float(zep.c("rpm_idle")) * 1.3 and float(zep.throttle) > 0.3 and not bool(zep.airborne): line = "ВИНТ ТЯЖЁЛЫЙ: шаг мельче"
+	elif float(zep.rpm) < float(zep.c("rpm_idle")) * 1.3 and float(model.state.throttle) > 0.3 and not bool(zep.airborne): line = "ВИНТ ТЯЖЁЛЫЙ: шаг мельче"
 	elif bool(zep.airborne): line = "ПОЛЁТ: держи ручку, садись плавно"
 	if line != "": text(canvas, Vector2(300.0, 178.0), line, 14, color, 280.0)
+	if bool(model.state.get("tutorial", false)):
+		var lesson = hint(zep, float(model.vehicle_base("zeppelin").zeppelin.takeoff_kmh), float(model.state.brake), float(model.state.throttle))
+		if lesson != "": text(canvas, Vector2(20.0, 22.0), lesson, 14, Color("e9ce83"), 640.0, HORIZONTAL_ALIGNMENT_LEFT)

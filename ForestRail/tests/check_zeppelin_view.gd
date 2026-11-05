@@ -124,6 +124,25 @@ func run() -> void:
 	await shot("zeppelin_parts_up_flaps")
 	check(game.model.zep.wing_angle < -30.0 and game.model.zep.tail_angle < -5.0, "the picture state follows the levers (wing %.1f, tail %.1f)" % [game.model.zep.wing_angle, game.model.zep.tail_angle])
 	game.zoom_level = 1.0
+	# the lesson line follows the state of the machine
+	var Pult = preload("res://scripts/zeppelin_pult.gd")
+	var Zep = preload("res://scripts/zeppelin.gd")
+	var lesson = Zep.new()
+	check(Pult.hint(lesson, 130.0, 1.0, 0.0).begins_with("Тормоз"), "the lesson: the brake first")
+	check(Pult.hint(lesson, 130.0, 0.0, 0.0).begins_with("Отпусти тормоз"), "the lesson: throttle and fine pitch at the start")
+	lesson.throttle = 1.0
+	lesson.v = 20.0
+	lesson.rpm = 3000.0
+	check("Красная" in Pult.hint(lesson, 130.0, 0.0, 1.0), "the lesson: red zone, coarser pitch")
+	lesson.rpm = 2000.0
+	lesson.v = 35.0
+	check("взлёта" in Pult.hint(lesson, 130.0, 0.0, 1.0), "the lesson: takeoff speed, pull the stick")
+	lesson.airborne = true
+	lesson.z = 3.0
+	lesson.v = 20.0
+	check("Скорость падает" in Pult.hint(lesson, 130.0, 0.0, 1.0), "the lesson: in the air the speed drops")
+	lesson.stalled = true
+	check("заглох" in Pult.hint(lesson, 130.0, 0.0, 1.0), "the lesson: a stalled engine")
 	# the garage and the depot with the zeppelin chosen
 	game.model.state.phase = "depot"
 	game.screen = "depot"
