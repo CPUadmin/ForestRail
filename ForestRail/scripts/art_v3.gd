@@ -565,12 +565,25 @@ func draw_steam_overlay(canvas: Node2D, model) -> void:
 	if not model.state.get("engine", false): return
 	# Smoke thickens with the regulator and trails backwards.
 	var throttle = float(model.state.get("throttle", 0))
+	var origin = skin_point("steam", "stack_m", Vector2(1.168, 2.30))
+	var stack = steam_point(origin.x, origin.y) if is_skinned("steam") else stock_body_point("steam", Vector2(706, 34))
 	for i in range(6):
 		var age = fposmod(t * 0.9 + i / 6.0, 1.0)
-		var origin = skin_point("steam", "stack_m", Vector2(1.168, 2.30))
-		var stack = steam_point(origin.x, origin.y) if is_skinned("steam") else stock_body_point("steam", Vector2(706, 34))
 		var puff = stack + Vector2(-age * 1.4, -age * 0.7) * PX
 		canvas.draw_circle(puff, (0.10 + age * 0.22) * PX, Color(0.86, 0.86, 0.82, (0.35 + 0.35 * throttle) * (1.0 - age)))
+	var travelled = float(model.state.stats.distance)
+	var cycle = fposmod(travelled, 85.0)
+	if travelled < 85.0 or absf(float(model.state.v)) < 1.0 or cycle >= 4.0: return
+	var age = cycle / 4.0
+	var cloud = stack + Vector2(-0.28 - age * 1.3, -0.25 - age * 0.85) * PX
+	var radius = lerpf(0.10, 0.27, age) * PX
+	var ring = PackedVector2Array()
+	for i in range(49):
+		var phase = float(i) * TAU / 48.0
+		ring.append(cloud + Vector2(sin(phase) * 1.65, sin(phase * 2.0) * 0.75) * radius)
+	var alpha = smoothstep(0.0, 0.15, age) * (1.0 - smoothstep(0.40, 1.0, age))
+	canvas.draw_polyline(ring, Color(0.70, 0.75, 0.72, alpha * 0.28), radius * 0.34, true)
+	canvas.draw_polyline(ring, Color(0.90, 0.91, 0.85, alpha * 0.82), radius * 0.17, true)
 
 # The sail car's mast, rigging, sail and sailor, drawn live over the painted platform
 # (tools/make_sail_art.py). The mast stands at the front end in the direction of travel, the boom runs

@@ -61,5 +61,12 @@ func run() -> void:
 		check(game.steam_hits.size() == 2, "steam pult has bucket and door %d" % size.y)
 		game.cab_view = false
 		game.update_pult_transform()
+	game.model.state.stats.distance = 86.6
+	game.model.state.s = 86.6
+	game.model.state.v = 4.0
+	game.camera_s = 86.6
+	game.camera_y = game.model.route.sample(86.6).y
+	game.toast_seconds = 0.0
+	await shot("steam_smoke_ring")
 	print("STEAM VIEW CHECKS ", checks, "; FAILURES ", failures)
 	get_tree().quit(0 if failures.is_empty() else 1)
