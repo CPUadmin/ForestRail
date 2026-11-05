@@ -23,6 +23,29 @@ func accelerate(z, seconds: float) -> void:
 		z.set_pitch(clampf((z.v + 3.0 - 10.0) / 24.0, 0.0, 1.0))
 		z.step(1.0 / 60.0)
 
+# Takes off, holds about 4 m for eight seconds, then comes down with the given stick and throttle. Returns what happened.
+func scripted_flight(descent_stick: float, descent_throttle: float) -> String:
+	var z = Zeppelin.new()
+	z.set_throttle(1.0)
+	accelerate(z, 100.0)
+	z.set_stick(4.0)
+	var seconds = 0.0
+	var phase = "climb"
+	for i in range(60 * 90):
+		seconds += 1.0 / 60.0
+		z.set_pitch(clampf((z.v + 3.0 - 10.0) / 24.0, 0.0, 1.0))
+		if phase == "climb" and z.z > 4.0: phase = "cruise"
+		if phase == "cruise":
+			z.set_stick(clampf(3.5 + (4.0 - z.z) * 0.6 - z.vz * 0.8, -2.0, 12.0))
+			if seconds > 8.0: phase = "descend"
+		if phase == "descend":
+			z.set_throttle(descent_throttle)
+			z.set_stick(descent_stick)
+		z.step(1.0 / 60.0)
+		if z.events.has("land"): return "LANDED vz=%.2f" % z.land_vz
+		if z.crashed: return "CRASH " + z.crash_reason
+	return "still flying"
+
 func run() -> void:
 	var z = Zeppelin.new()
 	# the takeoff speed of the owner: 130 km/h at +3.5 degrees, the wheels carry nothing there
@@ -215,5 +238,9 @@ func run() -> void:
 	var phase0 = spin.prop_phase
 	run_steps(spin, 0.5)
 	check(spin.prop_phase != phase0, "the propeller turns when the engine runs")
+	# a playable flight: a pilot takes off, flies a few seconds at 4 m and comes down. With a little nose up the touch is soft, in a dive it is a crash.
+	check(scripted_flight(3.5, 0.2).begins_with("LANDED"), "a landing with the nose a little up is soft (%s)" % scripted_flight(3.5, 0.2))
+	check(scripted_flight(5.0, 0.0).begins_with("LANDED"), "a landing with the nose up and no throttle is soft too (%s)" % scripted_flight(5.0, 0.0))
+	check(scripted_flight(-2.0, 0.5).begins_with("CRASH"), "a dive into the rail is a crash (%s)" % scripted_flight(-2.0, 0.5))
 	print("ZEPPELIN CHECKS ", checks, "; FAILURES ", failures)
 	get_tree().quit(0 if failures.is_empty() else 1)
