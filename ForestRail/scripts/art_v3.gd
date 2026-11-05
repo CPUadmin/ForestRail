@@ -59,11 +59,11 @@ const ZEP_PARTS = {
 # Source rectangle, deck line and axle line in each atlas. The deck and the
 # running gear remain fixed while the upper body and frame are fitted separately.
 const STOCK_BODY = {
-	"handcar": [Rect2(50, 207, 802, 168), 210.0, 328.0],
+	"handcar": [Rect2(50, 207, 802, 168), 210.0, 330.0],
 	"zeppelin": [Rect2(0, 0, 1774, 751), 580.0, 712.0],
 	"pole": [Rect2(0, 0, 1497, 304), 48.0, 250.0],   # the new platform: the plank top and the axle line in its own pixels
-	"sail": [Rect2(47, 564, 804, 166), 566.0, 681.0],
-	"wagon": [Rect2(919, 565, 817, 165), 568.0, 683.0],
+	"sail": [Rect2(47, 564, 804, 166), 566.0, 686.0],
+	"wagon": [Rect2(919, 565, 817, 165), 568.0, 686.0],
 	"steam": [Rect2(57, 28, 788, 394), 314.0, 386.0],
 	"motorcar": [Rect2(944, 47, 779, 375), 315.0, 386.0],
 	"locomotive": [Rect2(0, 0, 1357, 844), 652.0, 783.0],
