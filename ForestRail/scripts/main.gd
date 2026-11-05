@@ -445,8 +445,8 @@ func build_settings(box: VBoxContainer) -> void:
 		save_settings()
 		settings_backup = settings.duplicate(true)
 		notify("Настройки сохранены")
-		close_modal())
-	add_button(actions, "Отменить", close_modal)
+		close_modal(), false, false, &"PrimaryAction")
+	add_button(actions, "Отменить", close_modal, false, false, &"QuietAction")
 	add_button(actions, "По умолчанию", func():
 		copy_settings(settings, DEFAULT_SETTINGS)
 		apply_settings()
@@ -558,6 +558,10 @@ func setup_theme() -> void:
 	theme.set_stylebox("pressed", "Button", style(INK, GOLD, 8))
 	theme.set_stylebox("disabled", "Button", style(Color(0.16, 0.24, 0.2, 0.55), Color(0.62, 0.68, 0.58, 0.25), 8))
 	theme.set_stylebox("focus", "Button", style(Color(0, 0, 0, 0), GOLD, 8))
+	theme.set_type_variation("PrimaryAction", "Button")
+	theme.set_stylebox("normal", "PrimaryAction", style(Color("426e4e"), GOLD, 8))
+	theme.set_type_variation("QuietAction", "Button")
+	theme.set_stylebox("normal", "QuietAction", style(Color("34473d"), Color("536759"), 8))
 	theme.set_stylebox("panel", "PanelContainer", style(PAPER))
 	ui.theme = theme
 	overlay.theme = theme
@@ -574,8 +578,9 @@ func add_label(parent: Node, text: String, size: int = 20, color: Color = INK) -
 
 # selected marks the current choice in a group (tab, vehicle, direction): it is
 # inert like a disabled button but must read as active, not unavailable.
-func add_button(parent: Node, text: String, action: Callable, disabled: bool = false, selected: bool = false) -> Button:
+func add_button(parent: Node, text: String, action: Callable, disabled: bool = false, selected: bool = false, appearance: StringName = &"Button") -> Button:
 	var button = Button.new()
+	button.theme_type_variation = appearance
 	button.text = text
 	button.disabled = disabled or selected
 	if selected:
@@ -699,7 +704,7 @@ func build_menu(size: Vector2) -> void:
 
 # Menu entries are a plain list on the scrim; only the main action is filled.
 func menu_button(parent: Node, text: String, action: Callable, primary: bool = false) -> Button:
-	var button = add_button(parent, text, action)
+	var button = add_button(parent, text, action, false, false, &"PrimaryAction" if primary else &"Button")
 	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	button.custom_minimum_size.y = 46
 	if not primary:
@@ -708,8 +713,6 @@ func menu_button(parent: Node, text: String, action: Callable, primary: bool = f
 		button.add_theme_stylebox_override("hover", style(Color(1, 1, 1, 0.08), Color(0.89, 0.76, 0.48, 0.5), 8))
 		button.add_theme_stylebox_override("pressed", style(Color(0, 0, 0, 0.25), Color(0.89, 0.76, 0.48, 0.5), 8))
 		button.add_theme_color_override("font_color", Color(PAPER, 0.88))
-	else:
-		button.add_theme_stylebox_override("normal", style(Color("3f6b4c"), Color("e2c27a"), 8))
 	return button
 
 func begin_new(seed_number: int = -1, creative_mode: bool = false) -> void:
@@ -2043,12 +2046,12 @@ func build_modal(size: Vector2) -> void:
 			paused = false
 			toast = ""
 			action.call()
-			rebuild())
-		add_button(box, "Отмена", close_modal)
+			rebuild(), false, false, &"PrimaryAction")
+		add_button(box, "Отмена", close_modal, false, false, &"QuietAction")
 	elif modal_kind == "pause":
 		add_label(box, "Пауза", 34)
 		if resume_prompt: add_label(box, "Готов продолжить поездку?", 23)
-		add_button(box, "Продолжить", close_modal)
+		add_button(box, "Продолжить", close_modal, false, false, &"PrimaryAction")
 		add_button(box, "Сохранить", func(): save_game(); notify("Сохранено"))
 		add_button(box, "Настройки", func(): show_modal("settings"))
 		add_button(box, "Как играть", func(): show_modal("help"))
@@ -2092,8 +2095,8 @@ func build_modal(size: Vector2) -> void:
 				total += int(entry.count)
 				parts.append("%s%s" % [str(entry.name).to_lower(), (" ×%d" % int(entry.count)) if int(entry.count) > 1 else ""])
 			add_label(box, "Принесли с дороги: %d шт.\n%s" % [total, ", ".join(parts)], 20)
-		add_button(box, "Продолжить перевозки", close_modal)
-		add_button(box, "В главное меню", func(): screen = "menu"; close_modal())
+		add_button(box, "Продолжить перевозки", close_modal, false, false, &"PrimaryAction")
+		add_button(box, "В главное меню", func(): screen = "menu"; close_modal(), false, false, &"QuietAction")
 	else:
 		add_label(box, "Лесная колея", 36)
 		add_label(box, "Небольшая игра о работе лесной железной дороги.\nРазработка: Codex совместно с владельцем проекта, 2026.\nГрафика: предоставленный комплект ForestRail, созданный с image_gen. Звуки синтезированы для этого комплекта.\nGodot Engine 4.7.2, лицензия MIT. Полные лицензии движка и его компонентов включены в поставку.\n\nВерсия игры %s · ТЗ 3.0 · проверка P8." % ProjectSettings.get_setting("application/config/version"), 22)
