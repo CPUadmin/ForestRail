@@ -11,8 +11,13 @@ var max_contact_error = 0.0
 var max_coupling_error = 0.0
 
 class ScaleSheet extends Node2D:
+	const ZEPPELIN = preload("res://assets/art_consists/rail_zeppelin_compact_body.png")
 	var game
+	var show_zeppelin = false
 	func _draw() -> void:
+		if show_zeppelin:
+			draw_zeppelin_fit()
+			return
 		var font = ThemeDB.fallback_font
 		draw_rect(Rect2(0,0,1600,1000),Color("263b38"))
 		draw_string(font,Vector2(36,40),"ЛЕСНАЯ КОЛЕЯ · P2 · ОБЩИЙ МАСШТАБ",HORIZONTAL_ALIGNMENT_LEFT,-1,25,Color("f5ecd6"))
@@ -46,6 +51,21 @@ class ScaleSheet extends Node2D:
 		for side in [-1,1]:
 			draw_line(foot+Vector2(0,-0.8)*scale,foot+Vector2(0.20*side,0)*scale,color,0.10*scale,true)
 			draw_line(foot+Vector2(0,-1.35)*scale,foot+Vector2(0.28*side,-0.85)*scale,color,0.09*scale,true)
+	func draw_zeppelin_fit() -> void:
+		var font = ThemeDB.fallback_font
+		var rail = Vector2(get_viewport_rect().size.x * 0.5, 470)
+		var crop = Rect2(158, 122, 1412, 635)
+		var scale = 4.4 * game.art.PX / crop.size.x
+		var source_anchor = Vector2(897, 714)
+		var wheel_y = -game.art.PX * 0.55 * 0.5
+		var body_at = rail + Vector2(0, wheel_y) + (crop.position - source_anchor) * scale
+		draw_rect(Rect2(Vector2.ZERO, get_viewport_rect().size), Color("263b38"))
+		draw_line(rail + Vector2(-350, 0), rail + Vector2(350, 0), Color("adac84"), 2.0)
+		draw_texture_rect_region(ZEPPELIN, Rect2(body_at, crop.size * scale), crop)
+		for x in [534.0, 1260.0]:
+			var axle = rail + Vector2((x - source_anchor.x) * scale, wheel_y)
+			game.art.draw_part(self, "vehicles/wheel_large", axle, 0.0, game.art.scale_for("vehicles/wheel_large"))
+		draw_string(font, rail + Vector2(-265, 40), "Цеппелин · пробная длина 4,4 м · колёса 0,55 м", HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Color("f5ecd6"))
 
 func check(ok: bool, text: String) -> void:
 	checks += 1
@@ -179,6 +199,9 @@ func run() -> void:
 	get_tree().root.add_child(sheet)
 	game.hide()
 	await shot("scale_sheet")
+	sheet.show_zeppelin = true
+	sheet.queue_redraw()
+	await shot("zeppelin_alignment")
 	sheet.queue_free()
 	game.show()
 	var terrain = {"flat":0.0,"up":0.0,"crest":0.0,"down":0.0}
