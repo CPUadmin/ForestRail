@@ -7,6 +7,7 @@ const ArtV3 = preload("res://scripts/art_v3.gd")
 const ArtWorld = preload("res://scripts/art_world.gd")
 const Geometry = preload("res://scripts/world_geometry.gd")
 const Instruments = preload("res://scripts/instruments.gd")
+const ZeppelinPult = preload("res://scripts/zeppelin_pult.gd")
 const CabSide = preload("res://scripts/cab_side.gd")
 const CHARGING_PLUG = preload("res://assets/art_electric/charging_plug.png")
 const CONTACTOR_HATCH = preload("res://assets/art_electric/contactor_hatch.png")
@@ -108,6 +109,7 @@ var cab_hits: Array = []
 # pult_t maps its own coordinates to the screen (identity for the panel on C).
 var pult_t = Transform2D.IDENTITY
 var cab_exit_rect = Rect2()
+var zpult = ZeppelinPult.new()   # the cockpit of the rail zeppelin (B6.5): its own levers and dials
 var cab_sides: Array = []
 # Visual-only engine temperature of the petrol car, 0..1: warms up while it runs.
 var cab_temp = 0.05
@@ -208,7 +210,7 @@ func _ready() -> void:
 				# Tests and debugging runs are silent: nobody listens to the clicks and the engine.
 				AudioServer.set_bus_mute(0, true)
 				var suite = arg.trim_prefix("--qa-suite=")
-				if suite not in ["check_model", "check_physics", "check_interaction", "drive_campaign", "check_presentation", "check_handcar_revision", "check_art_v3", "check_instruments", "check_station_service", "check_world_geometry", "check_mechanism", "check_mechanism_bench", "check_handcar_drive", "check_handcar_input", "check_motor_controls", "check_loading_selection", "check_layout_p7", "check_steam", "check_steam_view", "check_gearbox", "check_petrol_view", "check_skins", "check_perf", "check_cab", "check_sound", "check_forecast", "check_line_v2", "check_line_spread", "check_thermal", "check_upgrades_new", "check_deadlines", "check_casino", "check_live", "check_live_view", "check_grip", "check_wear", "check_wear_view", "check_road_junk", "check_road_junk_view", "check_receiving", "check_receiving_view", "check_casino_view", "check_card_view", "check_album_view", "check_upgrade_text", "check_electric_gadgets", "check_pneumatic_controls", "check_wind_view", "check_zeppelin", "check_zeppelin_model", "probe_live_motion", "check_speeds", "check_creative", "check_settings", "check_pneumatic", "check_pneumatic_view", "check_pole", "check_pole_view", "check_air", "check_sail", "check_sail_view", "check_loading_flow", "check_depot_entry", "check_forecast_long", "drive_long", "check_forecast_view", "check_soak_p8", "check_save_p8"]: get_tree().quit(2); return
+				if suite not in ["check_model", "check_physics", "check_interaction", "drive_campaign", "check_presentation", "check_handcar_revision", "check_art_v3", "check_instruments", "check_station_service", "check_world_geometry", "check_mechanism", "check_mechanism_bench", "check_handcar_drive", "check_handcar_input", "check_motor_controls", "check_loading_selection", "check_layout_p7", "check_steam", "check_steam_view", "check_gearbox", "check_petrol_view", "check_skins", "check_perf", "check_cab", "check_sound", "check_forecast", "check_line_v2", "check_line_spread", "check_thermal", "check_upgrades_new", "check_deadlines", "check_casino", "check_live", "check_live_view", "check_grip", "check_wear", "check_wear_view", "check_road_junk", "check_road_junk_view", "check_receiving", "check_receiving_view", "check_casino_view", "check_card_view", "check_album_view", "check_upgrade_text", "check_electric_gadgets", "check_pneumatic_controls", "check_wind_view", "check_zeppelin", "check_zeppelin_model", "check_zeppelin_view", "probe_live_motion", "check_speeds", "check_creative", "check_settings", "check_pneumatic", "check_pneumatic_view", "check_pole", "check_pole_view", "check_air", "check_sail", "check_sail_view", "check_loading_flow", "check_depot_entry", "check_forecast_long", "drive_long", "check_forecast_view", "check_soak_p8", "check_save_p8"]: get_tree().quit(2); return
 				get_tree().root.set_meta("qa_running", true)
 				set_process(false)
 				set_physics_process(false)
@@ -1947,6 +1949,7 @@ func cab_button(id: String) -> void:
 # What is drawn and grabbed on the machine itself: the main organs only. The
 # rest (gearbox, tap, ignition, fire door, coal) live in the pult on C.
 func world_control_ids() -> Array:
+	if model.vehicle_id() == "zeppelin": return []   # the zeppelin has its own pult, drawn by zpult
 	if model.vehicle_id() == "handcar": return ["pump", "brake"]
 	if model.vehicle_id() in ["pole", "sail"]: return ["brake"]
 	return ["brake", "throttle"]
@@ -1975,7 +1978,25 @@ func draw_lever(base: Transform2D, pivot: Vector2, length: float, angle: float, 
 	draw_circle(Vector2.ZERO, w * 0.45, Color("2a2f2c"))
 	draw_set_transform_matrix(base)
 
+# The pult of the zeppelin in the world view stands on the side the machine is not on (the camera keeps it on the other side),
+# above the loading panel when that is open.
+func zpult_world_visible() -> bool:
+	return screen == "game" and not paused and model.vehicle_id() == "zeppelin" and model.state.phase in ["route", "loading"]
+
+func zpult_world_origin(size: Vector2) -> Vector2:
+	var height = ZeppelinPult.H * 0.8
+	var bottom = (dock_rect().position.y - 6.0) if dock_visible() else ((instruments.hud_top() if instruments != null and is_instance_valid(instruments) else size.y - 174.0) - 10.0)
+	var x = 22.0 if model.state.direction > 0 else size.x - 22.0 - ZeppelinPult.W * 0.8
+	return Vector2(x, bottom - height)
+
+func draw_zeppelin_pult(origin: Vector2, scale: float) -> void:
+	zpult.model = model
+	zpult.font = font
+	zpult.place(origin, scale)
+	zpult.draw(self, get_global_mouse_position())
+
 func control_zoom_rect() -> Rect2:
+	if model.vehicle_id() == "zeppelin": return Rect2(36, 90, ZeppelinPult.W, ZeppelinPult.H)
 	return Rect2(36,90,430,456 if model.vehicle_id()=="steam" else 320)
 
 func control_zoom_transform() -> Transform2D:
@@ -2252,7 +2273,7 @@ func _process(dt: float) -> void:
 		# The camera keeps following while a cab lever, the sail or the pole is held; lever input is read in
 		# the machine's own frame, so the grip stays under the cursor instead of the
 		# train driving away from a frozen camera.
-		if drag in ["","pump","brake","throttle","gear","start","coal","sail","pole"]:
+		if drag in ["","pump","brake","throttle","gear","start","coal","sail","pole","zpult"]:
 			camera_s = lerpf(camera_s, target_s, 1 - exp(-dt * 6))
 			if screen == "game":
 				# Limit the lag in screen space so zoom and speed cannot carry the engine out of frame.
@@ -2261,7 +2282,7 @@ func _process(dt: float) -> void:
 			camera_y = lerpf(camera_y, model.route.sample(camera_s).y, 1 - exp(-dt * 4))
 		var target_x = get_viewport_rect().size.x * (0.31 if screen == "depot" else (0.65 if model.state.direction > 0 else 0.35))
 		if screen == "depot" and not model.state.consist_ids.is_empty(): target_x = get_viewport_rect().size.x * 0.46 - 136
-		if drag in ["","pump","brake","throttle","gear","start","coal","sail","pole"]: camera_x = lerpf(camera_x if camera_x > 0 else target_x, target_x, 1 - exp(-dt * 3))
+		if drag in ["","pump","brake","throttle","gear","start","coal","sail","pole","zpult"]: camera_x = lerpf(camera_x if camera_x > 0 else target_x, target_x, 1 - exp(-dt * 3))
 		refresh_seconds += dt
 		if refresh_seconds >= 0.08:
 			refresh_seconds = 0
@@ -2443,6 +2464,10 @@ func _input(event: InputEvent) -> void:
 	if drag == "": return
 	if event is InputEventMouseMotion:
 		if paused: cancel_drag(); return
+		if drag == "zpult":
+			zpult.motion(event.position)
+			get_viewport().set_input_as_handled()
+			return
 		if drag == "sail":
 			# relative motion in the machine's own frame, so that the car running away from the camera
 			# does not drag the sail with it (the same lesson as with the brake lever)
@@ -2548,6 +2573,13 @@ func _unhandled_input(event: InputEvent) -> void:
 			for hit in body_hits:
 				if hit.rect.has_point(mouse): selected_object = hit.id; tab = "Улучшения"; rebuild(); return
 			return
+		if cab_active() and model.vehicle_id() == "zeppelin" or zpult_world_visible():
+			zpult.model = model
+			if not cab_active(): zpult.place(zpult_world_origin(get_viewport_rect().size), 0.8)
+			if zpult.press(mouse):
+				drag = "zpult"
+				get_viewport().set_input_as_handled()
+				return
 		var nearest: Dictionary = {}
 		var distance = float(Geometry.data().controls.hit_diameter_px)*0.5
 		if cab_active() and cab_exit_rect.has_point(mouse):
@@ -2680,7 +2712,9 @@ func pole_mouse_rel(mouse: Vector2) -> float:
 	return (outer.affine_inverse() * mouse).x / ArtV3.PX * float(int(model.state.direction))
 
 func finish_drag(mouse: Vector2) -> void:
-	if drag == "cargo":
+	if drag == "zpult":
+		zpult.release()
+	elif drag == "cargo":
 		if mouse.distance_to(drag_source)<5:
 			cancel_drag()
 			return
@@ -2933,6 +2967,7 @@ func _draw() -> void:
 				draw_arc(sail_cleat_point, 34.0 + 4.0 * pulse, 0, TAU, 28, GOLD, 2.4, true)
 				draw_string(font, sail_cleat_point + Vector2(-34, 52), "утка: отпусти тут", HORIZONTAL_ALIGNMENT_LEFT, 120, 14, GOLD)
 			draw_cargo_feedback()
+			if zpult_world_visible(): draw_zeppelin_pult(zpult_world_origin(size), 0.8)
 			draw_tooltip()
 	if toast_seconds > 0 and modal_kind != "confirm":
 		var width = minf(1100, size.x - 100)
@@ -3035,9 +3070,12 @@ func draw_cab_scene(size: Vector2) -> void:
 			draw_polygon(PackedVector2Array([vanishing_point, track_center, track_center + spread]), PackedColorArray([clear_beam, beam, clear_beam]))
 	draw_set_transform_matrix(Transform2D.IDENTITY)
 	draw_cab_frame(size, top)
-	draw_cab_dash_details(size, layout)
-	draw_cab_gauges(size, layout)
-	draw_control_zoom()
+	if model.vehicle_id() == "zeppelin":
+		draw_zeppelin_pult(Rect2(layout.rect).position, float(layout.k))
+	else:
+		draw_cab_dash_details(size, layout)
+		draw_cab_gauges(size, layout)
+		draw_control_zoom()
 	draw_set_transform_matrix(Transform2D.IDENTITY)
 	cab_exit_rect = Rect2(size.x - 206, 14, 190, 40)
 	draw_style_box(style(Color(0.08, 0.12, 0.10, 0.86), GOLD, 8), cab_exit_rect)
