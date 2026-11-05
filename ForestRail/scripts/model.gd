@@ -9,12 +9,13 @@ const Casino = preload("res://scripts/casino.gd")
 const Live = preload("res://scripts/live.gd")
 const Wear = preload("res://scripts/wear.gd")
 const Wind = preload("res://scripts/wind.gd")
+const Zeppelin = preload("res://scripts/zeppelin.gd")
 const G = 9.81
 const BUFFER_SAFE_SPEED = 1.0
 const VEHICLE_IDS = ["handcar", "pole", "sail", "steam", "motorcar", "pneumatic", "locomotive"]
 const WAGON_IDS = ["W01", "W02", "W03"]
 # Classes that exist in the data but are not shown to the player yet (no view, no cab).
-const HIDDEN_VEHICLE_IDS = []
+const HIDDEN_VEHICLE_IDS = ["zeppelin"]   # B6.5: the model and the physics exist, the cab and the picture follow
 # Holds cargo migrated from an old petrol deck until it is unloaded (ECONOMY_v3_2_RU.md).
 const TEMP_WAGON = "WT"
 var data: Dictionary
@@ -28,6 +29,7 @@ var pole = Pole.new()
 # The sail car (B6.4): the wind over the line, the trim of the sail (0 edge-on .. 1 wide open) and
 # the numbers of the last step for the hud and the picture.
 var wind = Wind.new()
+var zep = Zeppelin.new()   # the running model of the rail zeppelin (B6.5), only used while it is the chosen machine
 var sail_trim = 0.6
 # Holding (as with the handcar lever): the sail pulls only while the hand holds the free corner or the
 # sheet is made fast on the cleat; let go and it flogs like a flag and pulls nothing.
@@ -1728,6 +1730,81 @@ func push_handcar(distance_m: float) -> bool:
 	hand_drive.push_used+=amount
 	return true
 
+# --- Rail zeppelin (B6.5): the levers live in the state (the throttle and the brake are the usual ones), the physics in zeppelin.gd
+func zeppelin_pitch() -> float:
+	return clampf(float(state.get("zep_pitch", 0.0)), 0.0, 1.0)
+
+func zeppelin_stick() -> float:
+	return clampf(float(state.get("zep_stick", 0.0)), -6.0, 12.0)
+
+func set_zeppelin_pitch(value: float) -> bool:
+	if vehicle_id() != "zeppelin": return false
+	state.zep_pitch = clampf(value, 0.0, 1.0)
+	return true
+
+# the joystick: the angle of attack in degrees; it stays where it was left
+func set_zeppelin_stick(degrees: float) -> bool:
+	if vehicle_id() != "zeppelin": return false
+	state.zep_stick = clampf(degrees, -6.0, 12.0)
+	return true
+
+func set_zeppelin_air_brake(on: bool) -> bool:
+	if vehicle_id() != "zeppelin": return false
+	state.zep_air_brake = on
+	return true
+
+func zeppelin_restart() -> bool:
+	if vehicle_id() != "zeppelin": return false
+	zep.throttle = float(state.throttle)
+	if not zep.restart(): return fail("Мотор не заводится: закрой газ и дай ему остыть")
+	state.engine = true
+	return true
+
+# One step of the zeppelin on the line. Returns the new speed along the rail (the movement is integrated by the caller).
+func zeppelin_step(dt: float, fleet: Dictionary, old_v: float) -> float:
+	var forward = float(drive_direction())
+	if forward == 0.0: forward = 1.0
+	var slope = route.slope(float(state.s)) * forward
+	# the wind along the nose: the wind of the line is along the direction of the consist, the reverser turns the nose
+	var wind_along = wind_here().x * float(int(state.get("reverser", 1)))
+	zep.cfg.fuel_l = float(vehicle_base().fuel_l)
+	zep.fuel = float(fleet.fuel)
+	zep.v = old_v * forward
+	zep.set_throttle(float(state.throttle))
+	zep.set_pitch(zeppelin_pitch())
+	zep.set_stick(zeppelin_stick())
+	zep.set_pad_brake(float(state.brake))
+	zep.set_air_brake(bool(state.get("zep_air_brake", false)))
+	zep.step(dt, slope, wind_along)
+	fleet.fuel = zep.fuel
+	state.engine = not zep.stalled and not zep.crashed and zep.fuel > 0.0
+	air_fly = zep.airborne
+	air_z = zep.z
+	air_vy = zep.vz
+	for event in zep.events:
+		if event == "crash":
+			events.append("crash")
+		elif event in ["takeoff", "land", "stall", "overheat", "redline"]:
+			events.append("zep_" + event)
+	return zep.v * forward
+
+# a crashed zeppelin: half of the money (the share is in the data), the machine is brought to the depot as by the rescue
+func zeppelin_crashed() -> void:
+	var cfg = vehicle_base("zeppelin").get("zeppelin", {})
+	zep.cfg.crash_penalty_share = float(cfg.get("crash_penalty_share", 0.5))
+	zep.cfg.crash_penalty_min = float(cfg.get("crash_penalty_min", 300))
+	var penalty = zep.crash_penalty(int(state.money))
+	state.money = maxi(0, int(state.money) - penalty)
+	var reason = zep.crash_reason
+	zep.reset(float(vehicle_base("zeppelin").fuel_l))
+	air_fly = false
+	air_z = 0.0
+	air_vy = 0.0
+	state.zep_pitch = 0.0
+	state.zep_stick = 0.0
+	rescue()
+	message = "Крушение: %s. Штраф %d монет. Машину привезли в депо" % [reason, penalty]
+
 # --- Sail car (B6.4): the sail takes the force from the apparent wind, the player trims it ---
 func wind_ready() -> void:
 	if wind.station_s != route.station_s: wind.build(int(route.seed_value), route.station_s)
@@ -1972,7 +2049,7 @@ func physics_step(dt: float) -> void:
 			pole.grip_scale = float(effects("pole").get("pole_grip_multiplier", 1.0)) * wear().factor("pole", "rig")
 			drive = pole.step(dt, float(state.s), float(state.v), int(state.direction))
 		elif fleet.fuel <= 0: state.engine = false
-		if vehicle_id() != "steam" and state.engine and fleet.fuel > 0:
+		if vehicle_id() != "steam" and vehicle_id() != "zeppelin" and state.engine and fleet.fuel > 0:
 			if fleet.fuel <= 0:
 				state.engine = false
 			if int(state.gear) > 0:
@@ -1997,7 +2074,13 @@ func physics_step(dt: float) -> void:
 	var old_v = float(state.v)
 	var new_v = old_v
 	var movement=0.0
-	if vehicle_id()=="handcar":
+	if vehicle_id()=="zeppelin":
+		new_v = zeppelin_step(dt, state.fleet_by_id.zeppelin, old_v)
+		movement = (old_v + new_v) * 0.5 * dt
+		if zep.crashed:
+			zeppelin_crashed()
+			return
+	elif vehicle_id()=="handcar":
 		new_v=hand_result.velocity
 		movement=hand_result.delta_s
 	else:
@@ -2010,7 +2093,7 @@ func physics_step(dt: float) -> void:
 			new_v = old_v + (external - movement_sign * resist) / total * dt
 			if signf(new_v) != movement_sign and absf(external) <= rolling + brake: new_v = 0.0
 		movement=(old_v+new_v)*0.5*dt
-	if vehicle_id()!="handcar":
+	if vehicle_id()!="handcar" and vehicle_id()!="zeppelin":
 		# Settle energy against the distance actually integrated, including
 		# the first accelerating step and the last stopping step.
 		var shaft_work=absf(drive*movement)
@@ -2057,7 +2140,7 @@ func physics_step(dt: float) -> void:
 	state.v=new_v
 	last_movement = movement
 	state.s+=movement
-	update_air(dt, float(state.s) - movement)
+	if vehicle_id() != "zeppelin": update_air(dt, float(state.s) - movement)   # the zeppelin has its own flight
 	update_auto_hold()
 	state.stats.distance += absf(movement)
 	if wear_rules and not creative():

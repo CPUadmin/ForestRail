@@ -281,6 +281,42 @@
       "free_reach": "F"
     },
     {
+      "id": "zeppelin",
+      "name": "Рельсовый цеппелин",
+      "hidden": true,
+      "cost": 5000,
+      "mass_kg": 400,
+      "deck_slots": 2,
+      "default_wagons": 0,
+      "fuel_l": 40,
+      "traction_n": [1800, 700],
+      "gear_speed_mps": [37.5, 37.5],
+      "drag": 0.0,
+      "top_speed_kmh": 135,
+      "rank": 4,
+      "max_wagons": 0,
+      "brake_n": 3000,
+      "refill_price": 720,
+      "energy_per_m": 0.0004,
+      "energy_per_m_v2": 0.0004,
+      "energy_fixed": 0.2,
+      "energy_fixed_v2": 0.2,
+      "line_tank_factor": 1.0,
+      "energy_unit": "л",
+      "free_reward_multiplier": 2.0,
+      "free_reach": "F",
+      "zeppelin": {
+        "power_w": 40000,
+        "prop_efficiency": 0.7,
+        "wing_area_m2": 12,
+        "takeoff_kmh": 130,
+        "takeoff_alpha": 3.5,
+        "crash_penalty_share": 0.5,
+        "crash_penalty_min": 300,
+        "ceiling_m": 6
+      }
+    },
+    {
       "id": "pneumatic",
       "name": "Пневматический поезд",
       "cost": 1800,
@@ -1871,6 +1907,43 @@
           "effect": "power",
           "floor": 0.6,
           "per_km": 0.0015
+        },
+        {
+          "id": "bearings",
+          "name": "Подшипники",
+          "effect": "roll",
+          "floor": 0.4,
+          "per_km": 0.002
+        },
+        {
+          "id": "brake",
+          "name": "Тормоз",
+          "effect": "brake",
+          "floor": 0.6,
+          "per_km": 0.0025
+        }
+      ],
+      "zeppelin": [
+        {
+          "id": "motor",
+          "name": "Мотор",
+          "effect": "power",
+          "floor": 0.5,
+          "per_km": 0.0018
+        },
+        {
+          "id": "propeller",
+          "name": "Винт",
+          "effect": "power",
+          "floor": 0.7,
+          "per_km": 0.0012
+        },
+        {
+          "id": "wing",
+          "name": "Крыло и рули",
+          "effect": "roll",
+          "floor": 0.6,
+          "per_km": 0.001
         },
         {
           "id": "bearings",

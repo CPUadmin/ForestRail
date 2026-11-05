@@ -116,6 +116,7 @@ func _init(skins_path: String = "") -> void:
 	# stays at the axle line; wheel centres and all attachments share it.
 	for kind in Geometry.data().bodies:
 		var spec = Geometry.body(kind)
+		if spec.get("separate_art", false): continue   # B6.5: the zeppelin has its own picture, connected by its own code
 		var id = "vehicles/freight_wagon_body" if kind=="wagon" else BODY[kind]
 		# The pneumatic train (tools/make_pneumatic_art.py) has no manifest entry of its own;
 		# it takes the steam body's entry as a template for the fields that are overwritten below.
