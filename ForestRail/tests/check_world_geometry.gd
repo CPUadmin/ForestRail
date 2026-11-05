@@ -14,6 +14,7 @@ class ScaleSheet extends Node2D:
 	const ZEPPELIN = preload("res://assets/art_consists/rail_zeppelin_compact_body.png")
 	var game
 	var show_zeppelin = false
+	var propeller_phase = 0.0
 	func _draw() -> void:
 		if show_zeppelin:
 			draw_zeppelin_fit()
@@ -61,7 +62,17 @@ class ScaleSheet extends Node2D:
 		var body_at = rail + Vector2(0, wheel_y) + (crop.position - source_anchor) * scale
 		draw_rect(Rect2(Vector2.ZERO, get_viewport_rect().size), Color("263b38"))
 		draw_line(rail + Vector2(-350, 0), rail + Vector2(350, 0), Color("adac84"), 2.0)
-		draw_texture_rect_region(ZEPPELIN, Rect2(body_at, crop.size * scale), crop)
+		# Keep the hub and the fixed body in place. The two blade tips are clear of the hull.
+		var hub_y = 445.0
+		var blade_span = maxf(0.035, absf(cos(propeller_phase)))
+		var fixed_parts = [Rect2(219, 122, 1351, 635), Rect2(158, 390, 61, 106)]
+		for part: Rect2 in fixed_parts:
+			draw_texture_rect_region(ZEPPELIN, Rect2(body_at + (part.position - crop.position) * scale, part.size * scale), part)
+		for blade: Rect2 in [Rect2(158, 122, 61, 268), Rect2(158, 496, 61, 261)]:
+			var root_y = blade.end.y if blade.position.y < hub_y else blade.position.y
+			var blade_y = root_y + (blade.position.y - root_y) * blade_span
+			var at = body_at + (Vector2(blade.position.x, blade_y) - crop.position) * scale
+			draw_texture_rect_region(ZEPPELIN, Rect2(at, blade.size * Vector2(scale, scale * blade_span)), blade)
 		for x in [534.0, 1260.0]:
 			var axle = rail + Vector2((x - source_anchor.x) * scale, wheel_y)
 			game.art.draw_part(self, "vehicles/wheel_large", axle, 0.0, game.art.scale_for("vehicles/wheel_large"))
@@ -202,6 +213,9 @@ func run() -> void:
 	sheet.show_zeppelin = true
 	sheet.queue_redraw()
 	await shot("zeppelin_alignment")
+	sheet.propeller_phase = PI * 0.43
+	sheet.queue_redraw()
+	await shot("zeppelin_propeller_edge")
 	sheet.queue_free()
 	game.show()
 	var terrain = {"flat":0.0,"up":0.0,"crest":0.0,"down":0.0}
