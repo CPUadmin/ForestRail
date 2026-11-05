@@ -103,15 +103,27 @@ func run() -> void:
 		r.physics_step(1.0 / 60.0)
 		nose_up = maxf(nose_up, r.live.rock_rad(0))
 		worst_lift = maxf(worst_lift, absf(r.live.lift_m(0)))
-	check(nose_up > 0.005 and nose_up <= Live.ROCK_LIMIT, "the nose comes up when the train speeds up (%.4f rad)" % nose_up)
+	check(nose_up > 0.0001 and nose_up <= 0.006, "acceleration produces only subtle suspension pitch (%.4f rad)" % nose_up)
 	r.state.throttle = 0.0
 	r.state.brake = 1.0
 	var nose_down = 0.0
 	for i in range(60 * 3):
 		r.physics_step(1.0 / 60.0)
 		nose_down = minf(nose_down, r.live.rock_rad(0))
-	check(nose_down < -0.005, "and dips when it brakes (%.4f rad)" % nose_down)
+	check(nose_down < -0.0001 and nose_down >= -0.006, "braking pitch stays subtle (%.4f rad)" % nose_down)
 	check(worst_lift > 0.0005 and worst_lift <= Live.LIFT_LIMIT, "the body bobs on the joints at speed (%.4f m)" % worst_lift)
+	# Constant acceleration must not wind up angular velocity against the pitch stop.
+	var pitch_model = fresh(true)
+	for acceleration in [20.0, -20.0]:
+		pitch_model.live.reset(pitch_model.body_ids().size())
+		pitch_model.acceleration = acceleration
+		for step in range(120):
+			pitch_model.live.step(pitch_model, 1.0 / 60.0)
+		check(absf(pitch_model.live.rock_rad(0)) <= 0.006, "strong acceleration keeps the body aligned with the rail")
+		pitch_model.acceleration = 0.0
+		for step in range(120):
+			pitch_model.live.step(pitch_model, 1.0 / 60.0)
+		check(absf(pitch_model.live.rock_rad(0)) < 0.0001 and absf(float(pitch_model.live.rock_v[0])) < 0.0001, "pitch settles after forward or reverse acceleration ends")
 	# a landing shakes every body
 	var l = fresh(true)
 	run_steps(l, 0.1)

@@ -18,10 +18,10 @@ const JOINT_SPACING = 12.0  # стыки рельсов, как в звуке
 const BODY_OMEGA = 10.0     # подвеска: ~1,6 Гц
 const BODY_ZETA = 0.28
 const ROCK_OMEGA = 7.5
-const ROCK_ZETA = 0.3
-const ROCK_GAIN = 0.47      # рад на (м/с²) разгона: нос приподнимается при разгоне и клюёт при торможении
+const ROCK_ZETA = 0.75
+const ROCK_GAIN = 0.002     # subtle suspension pitch, rad per m/s²; wheelsets share the rendered transform
 const LIFT_LIMIT = 0.06
-const ROCK_LIMIT = 0.05
+const ROCK_LIMIT = 0.006    # at most 0.34 degrees relative to the rail
 const LASH_OMEGA = 6.0      # крепление груза упругое: ремни
 const LASH_ZETA = 0.4
 const CARGO_PLAY = 0.2      # груз упирается в борт или соседа, м
@@ -154,8 +154,11 @@ func step(m, dt: float) -> void:
 		lift_v[i] = float(lift_v[i]) + (force_up - 2.0 * BODY_ZETA * BODY_OMEGA * float(lift_v[i]) - BODY_OMEGA * BODY_OMEGA * float(lift[i])) * dt
 		lift[i] = clampf(float(lift[i]) + float(lift_v[i]) * dt, -LIFT_LIMIT, LIFT_LIMIT)
 		var drive_a = a_head if i == 0 else float(a_abs[i])
-		rock_v[i] = float(rock_v[i]) + (ROCK_OMEGA * ROCK_OMEGA * (ROCK_GAIN * drive_a - float(rock[i])) - 2.0 * ROCK_ZETA * ROCK_OMEGA * float(rock_v[i])) * dt
+		var target_rock = clampf(ROCK_GAIN * drive_a, -ROCK_LIMIT, ROCK_LIMIT)
+		rock_v[i] = float(rock_v[i]) + (ROCK_OMEGA * ROCK_OMEGA * (target_rock - float(rock[i])) - 2.0 * ROCK_ZETA * ROCK_OMEGA * float(rock_v[i])) * dt
 		rock[i] = clampf(float(rock[i]) + float(rock_v[i]) * dt, -ROCK_LIMIT, ROCK_LIMIT)
+		if absf(float(rock[i])) >= ROCK_LIMIT and float(rock[i]) * float(rock_v[i]) > 0.0:
+			rock_v[i] = 0.0
 	# --- cargo on its straps
 	for item in m.state.cargo:
 		if str(item.slot) == "" or item.delivered: continue
