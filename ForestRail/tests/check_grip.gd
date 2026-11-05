@@ -92,6 +92,17 @@ func run() -> void:
 		check(real.way > predicted * 0.85 and real.way < predicted * 1.15, "%s: the hinted way (%.0f m) is the real one (%.0f m)" % [id, predicted, real.way])
 	check(fresh("motorcar", true, 0.0).stopping_distance() == 0.0, "a standing train needs no way")
 	check(fresh("motorcar", true, 30.0).stopping_distance() > fresh("motorcar", true, 15.0).stopping_distance() * 3.0, "the way grows with the square of the speed")
+	# V6.5 prerequisite: measure the current fastest railcar before adding a faster one.
+	var high_speed_distances: Array[float] = []
+	for rain in [0.0, 1.0]:
+		var fast = fresh("motorcar", false, 120.0 / 3.6, rain)
+		var forecast = fast.stopping_distance()
+		var actual = stop(fast, fast.brake_safe())
+		high_speed_distances.append(actual.way)
+		check(absf(float(fast.state.v)) < 0.05 and not actual.locked, "the railcar stops from 120 km/h without skidding (rain %.0f)" % rain)
+		check(actual.way <= forecast, "120 km/h: the forecast does not underestimate the stopping distance (rain %.0f)" % rain)
+		print("120 KM/H BRAKING: rain ", rain, ", measured ", actual.way, " m, forecast ", forecast, " m")
+	check(high_speed_distances[1] > high_speed_distances[0], "wet rails increase the stopping distance at 120 km/h")
 	# --- the driving wheels: spin in the rain, not on a dry rail
 	var dry_pull = fresh("locomotive", true, 0.0)
 	dry_pull.state.throttle = 1.0
