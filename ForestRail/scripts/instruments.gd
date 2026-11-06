@@ -313,7 +313,7 @@ func draw_status() -> void:
 		value = "%d / %d Вт" % [roundi(m.output_power),roundi(stats.power)]
 		fraction = m.output_power / float(stats.power)
 	else:
-		title = {"locomotive":"АККУМУЛЯТОР","steam":"УГОЛЬ · ВОДА","pneumatic":"ВОЗДУХ"}.get(m.vehicle_id(),"БЕНЗИН")
+		title = {"locomotive":"АККУМУЛЯТОР","steam":"УГОЛЬ · ВОДА","pneumatic":"ВОЗДУХ","jet":"КЕРОСИН"}.get(m.vehicle_id(),"БЕНЗИН")
 		value = "%.2f / %.2f кВт·ч" % [amount,stats.tank] if m.vehicle_id()=="locomotive" else ("%.0f / %.0f бар" % [amount,stats.tank] if m.vehicle_id()=="pneumatic" else "%.2f / %.1f л" % [amount,stats.tank])
 		if m.vehicle_id()=="pneumatic": title="ВОЗДУХ  ·  иней %d%%" % roundi(m.frost()*100.0)
 		fraction = amount / maxf(0.001,float(stats.tank))

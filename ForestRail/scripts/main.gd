@@ -8,6 +8,7 @@ const ArtWorld = preload("res://scripts/art_world.gd")
 const Geometry = preload("res://scripts/world_geometry.gd")
 const Instruments = preload("res://scripts/instruments.gd")
 const ZeppelinPult = preload("res://scripts/zeppelin_pult.gd")
+const JetPult = preload("res://scripts/jet_pult.gd")
 const CabSide = preload("res://scripts/cab_side.gd")
 const CHARGING_PLUG = preload("res://assets/art_electric/charging_plug.png")
 const CONTACTOR_HATCH = preload("res://assets/art_electric/contactor_hatch.png")
@@ -110,6 +111,7 @@ var cab_hits: Array = []
 var pult_t = Transform2D.IDENTITY
 var cab_exit_rect = Rect2()
 var zpult = ZeppelinPult.new()   # the cockpit of the rail zeppelin (B6.5): its own levers and dials
+var jpult = JetPult.new()   # the cockpit of the jet (rocket) train (B6.6): the fuses, the cover, the countdown
 var cab_sides: Array = []
 # Visual-only engine temperature of the petrol car, 0..1: warms up while it runs.
 var cab_temp = 0.05
@@ -894,7 +896,7 @@ func build_depot(size: Vector2) -> void:
 		elif model.vehicle_id() == "handcar":
 			details += "\nРучной привод · без топлива\nМаховик сохраняет накат"
 		else:
-			var drive = {"motorcar":"Передачи R / N / 1–5","steam":"Паровой вентиль","pneumatic":"Воздушный вентиль","locomotive":"Регулятор электротяги","zeppelin":"Газ, шаг винта, ручка"}
+			var drive = {"motorcar":"Передачи R / N / 1–5","steam":"Паровой вентиль","pneumatic":"Воздушный вентиль","locomotive":"Регулятор электротяги","zeppelin":"Газ, шаг винта, ручка","jet":"Предохранители, пуск, тяга"}
 			details += "\n%s · до %.0f км/ч\n" % [drive[model.vehicle_id()], model.top_speed_kmh()] + energy_text() + "\n" + forecast_line(model.current_mission())
 		var details_y = maxf(info_top + 88, info_top + 7 + line_height(32) + 6)
 		var details_lines = wrapped_lines(details, left_width - 20, 19)
@@ -1957,7 +1959,7 @@ func cab_button(id: String) -> void:
 # What is drawn and grabbed on the machine itself: the main organs only. The
 # rest (gearbox, tap, ignition, fire door, coal) live in the pult on C.
 func world_control_ids() -> Array:
-	if model.vehicle_id() == "zeppelin": return []   # the zeppelin has its own pult, drawn by zpult
+	if has_own_pult(): return []   # the zeppelin and the jet have their own pults
 	if model.vehicle_id() == "handcar": return ["pump", "brake"]
 	if model.vehicle_id() in ["pole", "sail"]: return ["brake"]
 	return ["brake", "throttle"]
@@ -1988,23 +1990,30 @@ func draw_lever(base: Transform2D, pivot: Vector2, length: float, angle: float, 
 
 # The pult of the zeppelin in the world view stands on the side the machine is not on (the camera keeps it on the other side),
 # above the loading panel when that is open.
+func has_own_pult() -> bool:
+	return model.vehicle_id() in ["zeppelin", "jet"]
+
+func own_pult():
+	return jpult if model.vehicle_id() == "jet" else zpult
+
 func zpult_world_visible() -> bool:
-	return screen == "game" and not paused and model.vehicle_id() == "zeppelin" and model.state.phase in ["route", "loading"]
+	return screen == "game" and not paused and has_own_pult() and model.state.phase in ["route", "loading"]
 
 func zpult_world_origin(size: Vector2) -> Vector2:
-	var height = ZeppelinPult.H * 0.8
+	var height = own_pult().H * 0.8
 	var bottom = (dock_rect().position.y - 6.0) if dock_visible() else ((instruments.hud_top() if instruments != null and is_instance_valid(instruments) else size.y - 174.0) - 10.0)
-	var x = 22.0 if model.state.direction > 0 else size.x - 22.0 - ZeppelinPult.W * 0.8
+	var x = 22.0 if model.state.direction > 0 else size.x - 22.0 - own_pult().W * 0.8
 	return Vector2(x, bottom - height)
 
 func draw_zeppelin_pult(origin: Vector2, scale: float) -> void:
-	zpult.model = model
-	zpult.font = font
-	zpult.place(origin, scale)
-	zpult.draw(self, get_global_mouse_position())
+	var pult = own_pult()
+	pult.model = model
+	pult.font = font
+	pult.place(origin, scale)
+	pult.draw(self, get_global_mouse_position())
 
 func control_zoom_rect() -> Rect2:
-	if model.vehicle_id() == "zeppelin": return Rect2(36, 90, ZeppelinPult.W, ZeppelinPult.H)
+	if has_own_pult(): return Rect2(36, 90, own_pult().W, own_pult().H)
 	return Rect2(36,90,430,456 if model.vehicle_id()=="steam" else 320)
 
 func control_zoom_transform() -> Transform2D:
@@ -2325,6 +2334,19 @@ func _process(dt: float) -> void:
 			sound.play("land_thud", clampf(0.35 + float(model.last_landing) * 0.18, 0.35, 1.0), clampf(1.15 - float(model.last_landing) * 0.08, 0.8, 1.15))
 			sound.play("cargo", clampf(0.15 + float(model.last_landing) * 0.1, 0.15, 0.6), 0.7)
 			cab_jolt = 1.0
+		elif event_name == "jet_countdown":
+			notify("Отсчёт пошёл: десять секунд")
+		elif event_name == "jet_abort":
+			notify("Отсчёт сброшен: тронули предохранитель")
+		elif event_name == "jet_ignition":
+			notify("Зажигание! Мощность рычагом")
+			cab_jolt = 1.0
+		elif event_name == "jet_misfire":
+			notify("Осечка: двигатель не зажёгся. Пуск ещё раз")
+		elif event_name == "jet_chute_cut":
+			notify("Состав встал, парашют обрезан")
+		elif event_name == "jet_overheat":
+			notify("Двигатель перегрет и встал")
 		elif event_name == "zep_takeoff":
 			sound.play("horn", 0.5, 1.25)
 			notify("Взлёт! Держи ручку и следи за скоростью")
@@ -2490,7 +2512,7 @@ func _input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion:
 		if paused: cancel_drag(); return
 		if drag == "zpult":
-			zpult.motion(event.position)
+			own_pult().motion(event.position)
 			get_viewport().set_input_as_handled()
 			return
 		if drag == "sail":
@@ -2598,10 +2620,11 @@ func _unhandled_input(event: InputEvent) -> void:
 			for hit in body_hits:
 				if hit.rect.has_point(mouse): selected_object = hit.id; tab = "Улучшения"; rebuild(); return
 			return
-		if cab_active() and model.vehicle_id() == "zeppelin" or zpult_world_visible():
-			zpult.model = model
-			if not cab_active(): zpult.place(zpult_world_origin(get_viewport_rect().size), 0.8)
-			if zpult.press(mouse):
+		if cab_active() and has_own_pult() or zpult_world_visible():
+			var pult = own_pult()
+			pult.model = model
+			if not cab_active(): pult.place(zpult_world_origin(get_viewport_rect().size), 0.8)
+			if pult.press(mouse):
 				drag = "zpult"
 				get_viewport().set_input_as_handled()
 				return
@@ -2739,6 +2762,7 @@ func pole_mouse_rel(mouse: Vector2) -> float:
 func finish_drag(mouse: Vector2) -> void:
 	if drag == "zpult":
 		zpult.release()
+		jpult.release()
 	elif drag == "cargo":
 		if mouse.distance_to(drag_source)<5:
 			cancel_drag()
@@ -3100,7 +3124,7 @@ func draw_cab_scene(size: Vector2) -> void:
 			draw_polygon(PackedVector2Array([vanishing_point, track_center, track_center + spread]), PackedColorArray([clear_beam, beam, clear_beam]))
 	draw_set_transform_matrix(Transform2D.IDENTITY)
 	draw_cab_frame(size, top)
-	if model.vehicle_id() == "zeppelin":
+	if has_own_pult():
 		draw_zeppelin_pult(Rect2(layout.rect).position, float(layout.k))
 	else:
 		draw_cab_dash_details(size, layout)
