@@ -1385,6 +1385,45 @@
       "scope": "selected_vehicle_id"
     },
     {
+      "id": "handcar_flywheel",
+      "target_type": "handcar",
+      "name": "Маховик-накопитель",
+      "gadget": true,
+      "level_costs": [2400],
+      "levels": 1,
+      "effects_at_level": {
+        "flywheel_rolling": [0.8],
+        "gadget_mass_kg": [25]
+      },
+      "scope": "selected_vehicle_id"
+    },
+    {
+      "id": "pneumatic_spare_tank",
+      "target_type": "pneumatic",
+      "name": "Запасной баллон",
+      "gadget": true,
+      "level_costs": [2200],
+      "levels": 1,
+      "effects_at_level": {
+        "spare_tank_multiplier": [1.35],
+        "gadget_mass_kg": [20]
+      },
+      "scope": "selected_vehicle_id"
+    },
+    {
+      "id": "pole_pogo",
+      "target_type": "pole",
+      "name": "Пого-шест",
+      "gadget": true,
+      "level_costs": [2400],
+      "levels": 1,
+      "effects_at_level": {
+        "pogo_length": [1.35],
+        "gadget_mass_kg": [5]
+      },
+      "scope": "selected_vehicle_id"
+    },
+    {
       "id": "sail_spinnaker",
       "target_type": "sail",
       "name": "Спинакер",

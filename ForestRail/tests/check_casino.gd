@@ -9,6 +9,14 @@ var failures: Array = []
 func _ready() -> void:
 	call_deferred("run")
 
+func expected_gadgets(c) -> int:
+	var ids: Dictionary = {}
+	for branch in c.m.data.upgrade_catalog: ids[str(branch.id)] = true
+	var n = 0
+	for card in c.m.data.casino.cards:
+		if ids.has(str(card.upgrade)) and str(card.machine) not in c.m.HIDDEN_VEHICLE_IDS: n += 1
+	return n
+
 func check(ok: bool, label: String) -> void:
 	checks += 1
 	if not ok: failures.append(label); print("FAIL: ", label)
@@ -38,7 +46,7 @@ func run() -> void:
 	var two_each = true
 	for machine in per_machine: two_each = two_each and int(per_machine[machine]) == 2
 	check(per_machine.size() == 9 and two_each, "every machine has exactly two cards (%d machines)" % per_machine.size())
-	check(c.unowned_available().size() == 10, "only the gadgets that exist in the game can drop now (%d)" % c.unowned_available().size())   # stoker, autopilot, supercap, cooling, superheater, spinnaker, trim, flaps, double chute, afterburner
+	check(c.unowned_available().size() == expected_gadgets(c), "only the gadgets that exist in the game can drop now (%d)" % c.unowned_available().size())   # the cards whose gadget is in the catalog and whose machine is not hidden
 	# the expected return of the wheel without the card, in tokens
 	var value = 0.0
 	for sector in cfg.sectors:
@@ -98,17 +106,18 @@ func run() -> void:
 	t.casino().trip_done(false)
 	t.casino().trip_done(true)
 	check(t.casino().pity() == 3, "trips feed the guarantee (+1, +2 at night or in the rain)")
-	# no duplicates: the ten existing gadgets come out one after another, then the double in tokens
+	# no duplicates: the existing gadgets come out one after another, then the double in tokens
 	var d = fresh(11)
 	d.casino().st().tokens = 1000
 	var found: Array = []
-	for i in range(10):
+	var gadget_count = d.casino().unowned_available().size()
+	for i in range(gadget_count):
 		d.casino().st().pity = 499
 		var r = d.casino().spin()
 		found.append(str(r.card))
 	var unique: Dictionary = {}
 	for id in found: unique[id] = true
-	check(unique.size() == 10, "ten forced cards are ten different cards (%s)" % str(found))
+	check(unique.size() == gadget_count and gadget_count >= 13, "every forced card is a different card (%d of %d)" % [unique.size(), gadget_count])
 	d.casino().st().pity = 499
 	var tokens_before = d.casino().tokens()
 	var extra = d.casino().spin()

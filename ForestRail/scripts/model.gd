@@ -261,12 +261,12 @@ func object_stats(id: String) -> Dictionary:
 	var base = data.wagon if wagon else vehicle_base(id)
 	var ef = effects(id)
 	var slots = int(base.slots if wagon else base.deck_slots) + int(ef.get("add_slots", 0))
-	var mass = float(base.mass_kg) + float(ef.get("add_mass_kg", 0))
+	var mass = float(base.mass_kg) + float(ef.get("add_mass_kg", 0)) + float(ef.get("gadget_mass_kg", 0))   # a gadget is heavy
 	var brake_base = 0.0 if wagon else float(base.brake_n)
-	var result = {"slots": slots, "mass": mass, "rolling": 0.004 * float(ef.get("rolling_multiplier", 1.0)),
+	var result = {"slots": slots, "mass": mass, "rolling": 0.004 * float(ef.get("rolling_multiplier", 1.0)) * float(ef.get("flywheel_rolling", 1.0)),
 		"brake": brake_base * float(ef.get("brake_multiplier", 1.0)) + float(ef.get("add_brake_n", 0)),
 		"shock": float(ef.get("cargo_shock_multiplier", 1.0)), "power": 220.0,
-		"tank": float(base.get("battery_kwh", base.get("coal_kg", base.get("fuel_l", base.get("air_bar", 0))))) * float(ef.get("fuel_capacity_multiplier", 1.0)) * (1.0 if base.has("air_bar") else line_tank_scale(base)),
+		"tank": float(base.get("battery_kwh", base.get("coal_kg", base.get("fuel_l", base.get("air_bar", 0))))) * float(ef.get("fuel_capacity_multiplier", 1.0)) * float(ef.get("spare_tank_multiplier", 1.0)) * (1.0 if base.has("air_bar") else line_tank_scale(base)),
 		"water": float(base.get("water_l", 0)) * line_tank_scale(base, true) * float(ef.get("water_capacity_multiplier", 1.0))}
 	if not wagon and not human_powered(id):
 		result.traction = [float(base.traction_n[0]) * float(ef.get("traction_multiplier", 1)) * float(ef.get("low_gear_multiplier", 1)),
@@ -2252,6 +2252,7 @@ func physics_step(dt: float) -> void:
 			pole.wet = rain_effect()
 			pole.force_scale = float(effects("pole").get("pole_force_multiplier", 1.0)) * wear().factor("pole", "power")
 			pole.grip_scale = float(effects("pole").get("pole_grip_multiplier", 1.0)) * wear().factor("pole", "rig")
+			pole.length_scale = float(effects("pole").get("pogo_length", 1.0))   # gadget: the pogo pole
 			drive = pole.step(dt, float(state.s), float(state.v), int(state.direction))
 		elif fleet.fuel <= 0: state.engine = false
 		if vehicle_id() != "steam" and vehicle_id() != "zeppelin" and vehicle_id() != "jet" and state.engine and fleet.fuel > 0:

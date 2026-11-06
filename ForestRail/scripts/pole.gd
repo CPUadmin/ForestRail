@@ -33,6 +33,7 @@ const GROUNDS = {
 var segments: Array = []   # [start_s, end_s, type]
 var force_scale = 1.0         # upgrades: a stronger push
 var grip_scale = 1.0          # upgrades: a better tip
+var length_scale = 1.0        # gadget (pogo pole): the spring lets one stroke go further before the tip is pulled out
 var wet = 0.0              # rain, 0..1: the ground is slicker, the clay most of all
 var built_for = ""
 var mode = "free"
@@ -149,7 +150,7 @@ func step(dt: float, s: float, v: float, direction: int) -> float:
 	var a = (tip_s - s) * float(direction)
 	tip = a
 	var axis = sqrt(a * a + HAND_HEIGHT * HAND_HEIGHT)
-	if axis > LENGTH:
+	if axis > LENGTH * length_scale:
 		# The truck has run past the pole's reach: it is pulled out of the ground.
 		lift(s, direction)
 		return 0.0
