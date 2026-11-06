@@ -845,6 +845,56 @@ func draw_sail_overlay(canvas: Node2D, model) -> void:
 func pole_point(x: float, y: float) -> Vector2:
 	return Vector2(x, -(y - 0.21)) * PX
 
+# The grapnel with the winch of the pole truck: the posts, trees, rocks, stumps and bushes along the line (their kind tells how strong they are),
+# the wooden drum on the frame, the hook and the rope (taut when it pulls, sagging when it lies).
+const GRAPNEL_WOOD = Color(0.45, 0.31, 0.18)
+const GRAPNEL_ROPE = Color(0.78, 0.66, 0.42)
+
+func draw_grapnel_anchor(canvas: Node2D, x: float, type: String) -> void:
+	match type:
+		"post":
+			canvas.draw_rect(Rect2(pole_point(x - 0.07, 2.6), Vector2(0.14, 2.6) * PX), GRAPNEL_WOOD)
+			canvas.draw_rect(Rect2(pole_point(x - 0.12, 2.6), Vector2(0.24, 0.1) * PX), Color(0.3, 0.2, 0.12))
+		"tree":
+			canvas.draw_rect(Rect2(pole_point(x - 0.16, 3.2), Vector2(0.32, 3.2) * PX), Color(0.34, 0.24, 0.15))
+			canvas.draw_circle(pole_point(x, 4.6), 1.0 * PX, Color(0.18, 0.36, 0.2))
+		"rock":
+			canvas.draw_colored_polygon(PackedVector2Array([pole_point(x - 0.7, 0.0), pole_point(x - 0.5, 0.8), pole_point(x + 0.05, 1.1), pole_point(x + 0.55, 0.7), pole_point(x + 0.75, 0.0)]), Color(0.52, 0.53, 0.55))
+		"stump":
+			canvas.draw_rect(Rect2(pole_point(x - 0.22, 0.6), Vector2(0.44, 0.6) * PX), Color(0.4, 0.28, 0.17))
+			canvas.draw_rect(Rect2(pole_point(x - 0.22, 0.6), Vector2(0.44, 0.07) * PX), Color(0.66, 0.5, 0.3))
+		"bush":
+			canvas.draw_circle(pole_point(x, 0.5), 0.5 * PX, Color(0.28, 0.46, 0.2))
+			canvas.draw_circle(pole_point(x + 0.3, 0.35), 0.35 * PX, Color(0.22, 0.4, 0.18))
+
+func draw_grapnel_overlay(canvas: Node2D, model) -> void:
+	var dir = int(model.state.direction)
+	var s = float(model.state.s)
+	var g = model.grapnel
+	g.build(int(model.route.seed_value), float(model.route.length_m), model.route.station_s)
+	for a in g.anchors:
+		var x = (float(a.s) - s) * float(dir)
+		if x > -12.0 and x < 22.0: draw_grapnel_anchor(canvas, x, str(a.type))
+	# the drum of the winch on the front of the frame
+	var drum = pole_point(0.8, 0.8)
+	canvas.draw_rect(Rect2(drum, Vector2(0.28, 0.2) * PX), GRAPNEL_WOOD)
+	canvas.draw_arc(drum + Vector2(0.14, 0.1) * PX, 0.1 * PX, 0, TAU, 12, GRAPNEL_ROPE, 2.0, true)
+	var ground_y = Callable(model, "route_y")
+	var hand_y = model.grapnel_hand_y()
+	var off = g.hook_offset(s, dir, hand_y, ground_y)
+	var hook = pole_point(off.x, off.y)
+	var winch = pole_point(0.94, 0.9)
+	var taut = g.mode == "hooked" and g.tension > 1.0
+	var pts: PackedVector2Array = PackedVector2Array()
+	var count = 10
+	var sag = 0.0 if taut else clampf(winch.distance_to(hook) * 0.18, 0.0, 0.6 * PX)
+	for i in range(count + 1):
+		var t = float(i) / float(count)
+		pts.append(winch.lerp(hook, t) + Vector2(0.0, sag * 4.0 * t * (1.0 - t)))
+	canvas.draw_polyline(pts, GRAPNEL_ROPE, maxf(2.0, 0.025 * PX), true)
+	canvas.draw_circle(hook, 0.07 * PX, Color(0.62, 0.64, 0.66))
+	canvas.draw_arc(hook, 0.13 * PX, deg_to_rad(20), deg_to_rad(200), 10, Color(0.62, 0.64, 0.66), 3.0, true)
+
 func draw_pole_overlay(canvas: Node2D, model) -> void:
 	if model == null or model.state.is_empty() or not model.state.fleet_by_id.has("pole"): return
 	var dir = float(int(model.state.direction))
@@ -860,6 +910,7 @@ func draw_pole_overlay(canvas: Node2D, model) -> void:
 				if ground.type == "stones": canvas.draw_circle(pole_point(x, 0.06), 0.05 * PX, Color(0.72, 0.72, 0.74))
 				if ground.type == "roots": canvas.draw_line(pole_point(x - 0.2, 0.0), pole_point(x + 0.2, 0.1), Color(0.35, 0.24, 0.14), 0.04 * PX, true)
 			x += 0.5
+	if model.grapnel_installed(): draw_grapnel_overlay(canvas, model)
 	var pole = model.pole
 	var tip_x = float(pole.tip) * dir
 	var hands = pole_point(0.0, 1.45)

@@ -1473,6 +1473,19 @@
       "scope": "selected_vehicle_id"
     },
     {
+      "id": "pole_grapnel",
+      "target_type": "pole",
+      "name": "Кошка с лебёдкой",
+      "gadget": true,
+      "level_costs": [3000],
+      "levels": 1,
+      "effects_at_level": {
+        "pole_grapnel": [1],
+        "gadget_mass_kg": [12]
+      },
+      "scope": "selected_vehicle_id"
+    },
+    {
       "id": "sail_spinnaker",
       "target_type": "sail",
       "name": "Спинакер",

@@ -13,6 +13,7 @@ const Zeppelin = preload("res://scripts/zeppelin.gd")
 const Jet = preload("res://scripts/jet.gd")
 const Oars = preload("res://scripts/oars.gd")
 const Records = preload("res://scripts/records.gd")
+const Grapnel = preload("res://scripts/grapnel.gd")
 const G = 9.81
 const BUFFER_SAFE_SPEED = 1.0
 const VEHICLE_IDS = ["handcar", "pole", "sail", "steam", "motorcar", "pneumatic", "locomotive", "zeppelin", "jet"]
@@ -33,6 +34,7 @@ var pole = Pole.new()
 # the numbers of the last step for the hud and the picture.
 var wind = Wind.new()
 var zep_loaded = false   # the flight of the zeppelin is taken from the save once after a load
+var grapnel = Grapnel.new()   # the grapnel with the winch of the pole truck (B6.8, gadget): a real hook on a rope
 var records = Records.new()   # the watcher of the record runs A to F and back (B6.6d); the table itself lives in the save: state.records
 var last_record_text = ""
 var oars = Oars.new()   # the oars of the sail car (B6.9): the spare means in a calm
@@ -968,6 +970,7 @@ func depart() -> bool:
 	state.burst_left = 0.0
 	state.burst_cooldown = 0.0
 	state.nitro_charges = NITRO_CHARGES
+	grapnel.reset()   # a new trip: the hook is in its clip
 	if state.active.is_empty() or not all_loaded():
 		return fail("Погрузи хотя бы один предмет" if selectable_loading() else "Сначала размести весь груз на составе")
 	if selectable_loading():
@@ -2180,6 +2183,33 @@ func sail_step(dt: float = 1.0 / 60.0) -> float:
 	return force * float(int(state.direction))
 
 # --- Pole truck (N12): the controls only aim, drop, lift and lean on a real pole ---
+# --- the grapnel with the winch (gadget of the pole truck)
+func grapnel_installed() -> bool:
+	return vehicle_id() == "pole" and float(effects("pole").get("pole_grapnel", 0)) > 0.0
+
+func route_y(s: float) -> float:
+	return float(route.sample(s).y)
+
+func grapnel_hand_y() -> float:
+	return route_y(float(state.s)) + Grapnel.HAND_H
+
+func throw_grapnel() -> bool:
+	if not grapnel_installed(): return fail("Кошки на шестовой нет: она ставится с карточки Повешенного")
+	if state.phase != "route": return fail("Кошку бросают на линии")
+	if grapnel.busy(): return fail("Кошка ещё не в скобе")
+	grapnel.build(int(route.seed_value), float(route.length_m), route.station_s)
+	return grapnel.throw(float(state.s), int(state.direction), grapnel_hand_y(), Callable(self, "route_y"))
+
+func release_grapnel() -> void:
+	if grapnel_installed(): grapnel.release()
+
+func grapnel_step(dt: float) -> float:
+	grapnel.build(int(route.seed_value), float(route.length_m), route.station_s)
+	var f = grapnel.step(dt, float(state.s), int(state.direction), grapnel_hand_y(), train_mass(), Callable(self, "route_y"))
+	for e in grapnel.events: events.append("grapnel_" + str(e))
+	grapnel.events.clear()
+	return f
+
 func pole_ground_at(s: float) -> Dictionary:
 	pole.build(int(route.seed_value), float(route.length_m), route.station_s)
 	return pole.ground_at(s)
@@ -2312,6 +2342,8 @@ func physics_step(dt: float) -> void:
 			pole.grip_scale = float(effects("pole").get("pole_grip_multiplier", 1.0)) * wear().factor("pole", "rig")
 			pole.length_scale = float(effects("pole").get("pogo_length", 1.0))   # gadget: the pogo pole
 			drive = pole.step(dt, float(state.s), float(state.v), int(state.direction))
+			if grapnel_installed(): drive += grapnel_step(dt)   # the winch pulls along the line
+			elif grapnel.busy(): grapnel.reset()
 		elif fleet.fuel <= 0: state.engine = false
 		if vehicle_id() != "steam" and vehicle_id() != "zeppelin" and vehicle_id() != "jet" and state.engine and fleet.fuel > 0:
 			if fleet.fuel <= 0:

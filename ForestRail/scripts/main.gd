@@ -69,7 +69,7 @@ var modal_kind = ""
 const DEFAULT_SETTINGS = {"master": 0.65, "mechanisms": 0.7, "forest": 0.6, "music": 0.25, "interface": 0.8,
 	"sensitivity": 1.0, "text_scale": 1.0, "fullscreen": false, "borderless": false, "window_size": 1,
 	"vsync": true, "fps_cap": 0, "msaa": 0, "instrument_hz": 30, "reduce_motion": false, "cab_shake": 1.0,
-	"autosave": 60, "night_light": 0.0, "light_flicker": true, "weather": 0, "weather_frequency": 1.0, "keys": {"map": KEY_M, "cab": KEY_E, "ice": KEY_I, "brake": KEY_SPACE, "sail_side": KEY_F, "burst": KEY_B}}
+	"autosave": 60, "night_light": 0.0, "light_flicker": true, "weather": 0, "weather_frequency": 1.0, "keys": {"map": KEY_M, "cab": KEY_E, "ice": KEY_I, "brake": KEY_SPACE, "sail_side": KEY_F, "burst": KEY_B, "grapnel": KEY_G}}
 const WINDOW_SIZES = [Vector2i(1280, 720), Vector2i(1600, 900), Vector2i(1920, 1080)]
 const SETTINGS_TABS = ["Звук", "Графика", "Управление", "Игра", "Доступность", "Служебное"]
 var settings = DEFAULT_SETTINGS.duplicate(true)
@@ -93,6 +93,7 @@ var fade_rect: ColorRect = null
 # Cab view (E): the camera closes in on the cab and every control of the machine is
 # drawn and grabbed in the world at human scale. cab_blend animates 0..1.
 var cab_view = false
+var grapnel_button: Button    # the button of the grapnel of the pole truck (nothing without the gadget)
 var burst_button: Button       # the button of the supercapacitor of the electric locomotive (nothing without the gadget)
 var cab_blend = 0.0
 # B3.1: arriving at a platform in the cab lowers it so that the platform and the load are in view;
@@ -363,6 +364,7 @@ func apply_settings() -> void:
 	# Hot keys: valid, never Escape (it always pauses), never twice; otherwise back to the defaults.
 	var keys: Dictionary = settings.keys
 	if not keys.has("burst"): keys["burst"] = KEY_B   # saves from before the supercapacitor keep their own keys
+	if not keys.has("grapnel"): keys["grapnel"] = KEY_G
 	var seen: Array = []
 	var valid = true
 	for action in DEFAULT_SETTINGS.keys:
@@ -521,6 +523,7 @@ func build_settings(box: VBoxContainer) -> void:
 		settings_key(box, "map", "Карта")
 		settings_key(box, "cab", "Кабина")
 		settings_key(box, "burst", "Рывок (суперконденсатор, нитро)")
+		settings_key(box, "grapnel", "Кошка шестовой: бросить или отпустить")
 		settings_key(box, "ice", "Сбить иней (пневматический)")
 		settings_key(box, "brake", "Тормоз: затянуть или отпустить")
 		settings_key(box, "sail_side", "Парусная: гик на другой борт")
@@ -1558,7 +1561,9 @@ func fit_train_zoom() -> float:
 	# a long train (the jet with four wagons) must fit the screen: the head stands at about two thirds of the width, the tail must not leave it
 	var by_length = 10.5 / maxf(10.5, model.train_length())
 	var by_width = 0.62 * get_viewport_rect().size.x / (ArtV3.PX * maxf(1.0, model.train_length()))
-	return clampf(minf(by_length, by_width), 0.45, 1.0)
+	var fit = clampf(minf(by_length, by_width), 0.45, 1.0)
+	if model.grapnel_installed(): fit = minf(fit, 0.7)   # the posts to throw at stand up to 15 m ahead: the view goes out to show them
+	return fit
 
 func build_hud(size: Vector2) -> void:
 	instruments = Instruments.new()
@@ -1573,7 +1578,7 @@ func build_hud(size: Vector2) -> void:
 	for state in ["normal","hover","pressed","focus"]: mini_button.add_theme_stylebox_override(state,StyleBoxEmpty.new())
 	mini_button.pressed.connect(toggle_map)
 	ui.add_child(mini_button)
-	var buttons_width = (270 if model.human_powered() else (760 if model.supercap_installed() else 560))*float(settings.text_scale)
+	var buttons_width = ((480 if model.grapnel_installed() else 270) if model.human_powered() else (760 if model.burst_gadget() != "" else 560))*float(settings.text_scale)   # a gadget button widens the row
 	hud = positioned_label("", Rect2(34, 12, size.x - buttons_width - 90, 42), 20)
 	hud.autowrap_mode=TextServer.AUTOWRAP_OFF
 	hud.text_overrun_behavior=TextServer.OVERRUN_TRIM_ELLIPSIS
@@ -1585,6 +1590,8 @@ func build_hud(size: Vector2) -> void:
 	map_button = add_button(pause_row, "Карта [%s]" % key_name("map"), toggle_map)
 	burst_button = null
 	if model.burst_gadget() != "": burst_button = add_button(pause_row, burst_button_text(), try_burst)
+	grapnel_button = null
+	if model.grapnel_installed(): grapnel_button = add_button(pause_row, grapnel_button_text(), try_grapnel)
 	if not model.human_powered(): add_button(pause_row,"Кабина [%s]" % key_name("cab"),toggle_cab_view)
 	add_button(pause_row, "Пауза", pause_game)
 	for button in pause_row.get_children():
@@ -1661,6 +1668,9 @@ func update_hud() -> void:
 	if burst_button != null and is_instance_valid(burst_button):
 		burst_button.text = burst_button_text()
 		burst_button.disabled = not model.burst_ready()
+	if grapnel_button != null and is_instance_valid(grapnel_button):
+		grapnel_button.text = grapnel_button_text()
+		grapnel_button.disabled = model.state.phase != "route" or model.grapnel.mode in ["flying", "dropped", "torn"]
 	order_label.text=order
 	var hint = ""
 	if state.phase == "loading":
@@ -1846,6 +1856,20 @@ func try_burst() -> void:
 	sound.play("contactor", 0.9, 0.8)
 	sound.play("coins", 0.35, 1.9)
 	cab_jolt = maxf(cab_jolt, 0.5)
+
+# The grapnel of the pole truck: throw at the nearest post, tree or rock ahead; the winch pulls the truck up to it; the same button lets it go.
+func try_grapnel() -> void:
+	if model.grapnel.mode == "hooked":
+		model.release_grapnel()
+		return
+	if not model.throw_grapnel(): notify(model.message)
+
+func grapnel_button_text() -> String:
+	match model.grapnel.mode:
+		"flying": return "Кошка летит"
+		"hooked": return "Снять [%s]" % key_name("grapnel")
+		"dropped", "torn": return "Кошка…"
+	return "Кошка [%s]" % key_name("grapnel")
 
 func burst_button_text() -> String:
 	if model.nitro_installed():
@@ -2352,7 +2376,8 @@ func _process(dt: float) -> void:
 				var max_lag = get_viewport_rect().size.x * 0.17 / (ArtV3.PX * view_scale())
 				camera_s = clampf(camera_s, target_s - max_lag, target_s + max_lag)
 			camera_y = lerpf(camera_y, model.route.sample(camera_s).y + camera_climb(), 1 - exp(-dt * 4))
-		var target_x = get_viewport_rect().size.x * (0.31 if screen == "depot" else (0.65 if model.state.direction > 0 else 0.35))
+		var ahead_x = 0.3 if model.grapnel_installed() else 0.65   # with the grapnel the truck stands far back so that the posts ahead are in the frame
+		var target_x = get_viewport_rect().size.x * (0.31 if screen == "depot" else (ahead_x if model.state.direction > 0 else 1.0 - ahead_x))
 		if screen == "depot" and not model.state.consist_ids.is_empty(): target_x = get_viewport_rect().size.x * 0.46 - 136
 		if drag in ["","pump","brake","throttle","gear","start","coal","sail","pole","zpult","oars"]: camera_x = lerpf(camera_x if camera_x > 0 else target_x, target_x, 1 - exp(-dt * 3))
 		refresh_seconds += dt
@@ -2430,6 +2455,19 @@ func _process(dt: float) -> void:
 			sound.play("coins", 0.4, 1.7)
 		elif event_name == "burst":
 			cab_jolt = maxf(cab_jolt, 0.4)
+		elif event_name == "grapnel_throw":
+			sound.play("sail_flap", 0.5, 1.5)
+		elif event_name == "grapnel_hook":
+			sound.play("coupler_clank", 0.6, 1.2)
+			notify("Крюк зацепился: %s. Лебёдка тянет" % str(model.grapnel.status_text()).trim_prefix("Трос на опоре: "))
+		elif event_name == "grapnel_miss":
+			sound.play("cargo", 0.35, 0.8)
+			notify("Мимо: крюк упал. Бросай с другого места")
+		elif event_name == "grapnel_tear":
+			sound.play("coupler_clank", 0.8, 0.6)
+			notify("Опора не удержала: крюк сорвался")
+		elif event_name == "grapnel_reached":
+			notify("Дрезина у опоры: крюк снят")
 		elif event_name == "wear_warn":
 			sound.play("coupler_clank", 0.35, 0.7)
 		elif event_name == "breakdown":
@@ -2546,6 +2584,10 @@ func _input(event: InputEvent) -> void:
 		return
 	if event is InputEventKey and event.pressed and not event.echo and key_is(event,"burst") and screen=="game" and not paused and model.burst_gadget() != "":
 		try_burst()
+		get_viewport().set_input_as_handled()
+		return
+	if event is InputEventKey and event.pressed and not event.echo and key_is(event,"grapnel") and screen=="game" and not paused and model.grapnel_installed():
+		try_grapnel()
 		get_viewport().set_input_as_handled()
 		return
 	if event is InputEventKey and event.pressed and not event.echo and key_is(event,"cab") and screen=="game" and not paused:
