@@ -12,6 +12,7 @@ const Wind = preload("res://scripts/wind.gd")
 const Zeppelin = preload("res://scripts/zeppelin.gd")
 const Jet = preload("res://scripts/jet.gd")
 const Oars = preload("res://scripts/oars.gd")
+const Records = preload("res://scripts/records.gd")
 const G = 9.81
 const BUFFER_SAFE_SPEED = 1.0
 const VEHICLE_IDS = ["handcar", "pole", "sail", "steam", "motorcar", "pneumatic", "locomotive", "zeppelin", "jet"]
@@ -32,6 +33,8 @@ var pole = Pole.new()
 # the numbers of the last step for the hud and the picture.
 var wind = Wind.new()
 var zep_loaded = false   # the flight of the zeppelin is taken from the save once after a load
+var records = Records.new()   # the watcher of the record runs A to F and back (B6.6d); the table itself lives in the save: state.records
+var last_record_text = ""
 var oars = Oars.new()   # the oars of the sail car (B6.9): the spare means in a calm
 var jet_loaded = false   # the state of the jet (the fuses, the lit engine) is taken from the save once after a load
 var jet_hint_cd = 0.0
@@ -127,7 +130,7 @@ func new_game(world_seed: int = 42, line_version: int = 1, mode: String = "caree
 		"cargo": [], "s": 0.0, "v": 0.0, "direction": 1, "brake": 1.0, "throttle": 0.0,
 		"gear": 0, "gearbox": 5, "engine": false, "phase": "depot", "finale": false, "reverser": 1,
 		"visited_stations": ["A"], "tutorial": true,
-		"stats": {"distance": 0.0, "deliveries": 0, "earned": 0, "rescues": 0, "seconds": 0.0}, "offer_serial": 0}
+		"stats": {"distance": 0.0, "deliveries": 0, "earned": 0, "rescues": 0, "seconds": 0.0}, "records": {}, "offer_serial": 0}
 	reset_input()
 	handcar = HandcarMechanism.new()
 	hand_drive = HandcarDrive.new()
@@ -351,6 +354,30 @@ func body_offset(index: int) -> float:
 
 func train_length() -> float:
 	return preload("res://scripts/world_geometry.gd").train_length(body_ids())
+
+# B6.6d: the record runs. The table is per machine: the best time from the first station to the last and back, the top speed.
+func records_open() -> bool:
+	return creative() or bool(state.get("finale", false))
+
+func track_records() -> void:
+	if not state.has("records") or not state.records is Dictionary: state.records = {}
+	var last = data.stations.size() - 1
+	for news in records.tick(state.records, vehicle_id(), float(state.stats.seconds), station_index(), last, float(state.v), str(state.phase) == "route"):
+		var from_name = str(data.stations[0].name) if news.kind == "a_f" else str(data.stations[last].name)
+		var to_name = str(data.stations[last].name) if news.kind == "a_f" else str(data.stations[0].name)
+		var row = Records.row_of(state.records, vehicle_id())
+		if news.best: last_record_text = "Рекорд линии! %s → %s за %s" % [from_name, to_name, Records.time_text(float(news.seconds))]
+		else: last_record_text = "%s → %s за %s (рекорд %s)" % [from_name, to_name, Records.time_text(float(news.seconds)), Records.time_text(float(row[news.kind]))]
+		events.append("record")
+
+# The rows of the table for the depot: every machine of the garage, the best times and the top speed.
+func record_rows() -> Array:
+	var rows: Array = []
+	if not state.has("records") or not state.records is Dictionary: state.records = {}
+	for id in VEHICLE_IDS:
+		var row = Records.row_of(state.records, id)
+		rows.append({"id": id, "name": str(vehicle_base(id).name), "owned": state.fleet_by_id.has(id), "a_f": float(row.a_f), "f_a": float(row.f_a), "top_kmh": float(row.top_kmh)})
+	return rows
 
 func station_index() -> int:
 	for i in range(route.station_s.size()):
@@ -2322,6 +2349,7 @@ func physics_step(dt: float) -> void:
 	last_movement = movement
 	state.s+=movement
 	if vehicle_id() != "zeppelin": update_air(dt, float(state.s) - movement)   # the zeppelin has its own flight
+	track_records()
 	update_auto_hold()
 	state.stats.distance += absf(movement)
 	if wear_rules and not creative():

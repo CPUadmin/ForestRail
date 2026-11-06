@@ -4,6 +4,7 @@ const Model = preload("res://scripts/model.gd")
 const SaveGame = preload("res://scripts/save_game.gd")
 const Sound = preload("res://scripts/sound.gd")
 const ArtV3 = preload("res://scripts/art_v3.gd")
+const Records = preload("res://scripts/records.gd")
 const ArtWorld = preload("res://scripts/art_world.gd")
 const Geometry = preload("res://scripts/world_geometry.gd")
 const Instruments = preload("res://scripts/instruments.gd")
@@ -821,7 +822,9 @@ func build_depot(size: Vector2) -> void:
 	var tiles = HBoxContainer.new()
 	tiles.add_theme_constant_override("separation", 8)
 	right.add_child(tiles)
-	for entry in [["Гараж", "Гараж", "garage"], ["Состав", "Состав", "wagons"], ["Улучшения", "Мастерская", "bench"], ["Рейсы", "Доска заказов", "board"], ["Казик", "Казик", "casino"]]:
+	var places = [["Гараж", "Гараж", "garage"], ["Состав", "Состав", "wagons"], ["Улучшения", "Мастерская", "bench"], ["Рейсы", "Доска заказов", "board"], ["Казик", "Казик", "casino"]]
+	if model.records_open(): places.append(["Рекорды", "Рекорды", "records"])
+	for entry in places:
 		depot_tile(tiles, entry[0], entry[1], entry[2])
 	add_label(right, tab, 28)
 	if not model.state.active.is_empty():
@@ -860,6 +863,8 @@ func build_depot(size: Vector2) -> void:
 						else: notify(model.message)))
 	elif tab == "Казик":
 		build_casino_tab(right)
+	elif tab == "Рекорды" and model.records_open():
+		build_records_tab(right)
 	elif tab == "Состав":
 		consist_strip(right)
 		add_label(right, "Вагоны твои: их улучшения сохраняются при перестановке. %s допускает вагонов: %d." % [vehicle_display_name(), model.max_wagons(model.vehicle_id())])
@@ -951,6 +956,27 @@ func build_casino_tab(right: VBoxContainer) -> void:
 	add_label(rules, ", ".join(odds) + ". Карточка выпадает наверняка, когда счётчик гаранта дойдёт до %d; он растёт на каждой крутке и на каждом рейсе. Всё только за игровые жетоны." % int(model.data.casino.pity_max), 15, MUTED_INK)
 	add_button(right, "Приёмка болтов за монеты", func(): show_modal("receiving"))
 
+# B6.6d: the table of the records (a free ride from the first station to the last and back; every machine has its own line)
+func build_records_tab(right: Node) -> void:
+	var first = str(model.data.stations[0].name)
+	var last = str(model.data.stations[model.data.stations.size() - 1].name)
+	add_label(right, "Лучшее время между конечными станциями (%s и %s) и высшая скорость. Выезжай без заказа, разгоняйся и останавливайся на конечной." % [first, last], 19, MUTED_INK)
+	var grid = GridContainer.new()
+	grid.columns = 4
+	grid.add_theme_constant_override("h_separation", 12)
+	grid.add_theme_constant_override("v_separation", 4)
+	right.add_child(grid)
+	var scale_text = float(settings.text_scale)
+	for head in ["Машина", "Туда", "Обратно", "Скорость"]:
+		var h = add_label(grid, head, 18, GOLD)
+		if head == "Машина": h.custom_minimum_size.x = 250.0 * scale_text
+	for row in model.record_rows():
+		var tint = INK if row.owned else MUTED_INK
+		add_label(grid, str(row.name), 18, tint)
+		add_label(grid, Records.time_text(float(row.a_f)), 19, tint)
+		add_label(grid, Records.time_text(float(row.f_a)), 19, tint)
+		add_label(grid, ("%d км/ч" % roundi(float(row.top_kmh))) if float(row.top_kmh) > 0.0 else "—", 19, tint)
+
 func depot_tile(parent: Node, tab_name: String, caption: String, icon: String) -> Button:
 	var selected = tab == tab_name
 	var button = Button.new()
@@ -1013,6 +1039,13 @@ func draw_depot_icon(canvas: Control, icon: String, caption: String, selected: b
 			canvas.draw_circle(centre + Vector2(x + 6, 14) * unit, 5.0 * unit, color)
 			canvas.draw_circle(centre + Vector2(x + 21, 14) * unit, 5.0 * unit, color)
 		canvas.draw_line(centre + Vector2(-3, 2) * unit, centre + Vector2(3, 2) * unit, color, line * 1.6)
+	elif icon == "records":
+		# a stopwatch with a button on top
+		canvas.draw_arc(centre + Vector2(0, 3) * unit, 19.0 * unit, 0, TAU, 32, color, line * 1.6, true)
+		canvas.draw_rect(Rect2(centre + Vector2(-4, -22) * unit, Vector2(8, 5) * unit), color)
+		canvas.draw_line(centre + Vector2(0, 3) * unit, centre + Vector2(0, -10) * unit, color, line * 1.4)
+		canvas.draw_line(centre + Vector2(0, 3) * unit, centre + Vector2(9, 8) * unit, color, line)
+		canvas.draw_circle(centre + Vector2(0, 3) * unit, 2.5 * unit, color)
 	elif icon == "casino":
 		# a wheel with spokes and a flag on top
 		canvas.draw_arc(centre + Vector2(0, 2) * unit, 20.0 * unit, 0, TAU, 32, color, line * 1.6, true)
@@ -2346,6 +2379,9 @@ func _process(dt: float) -> void:
 			sound.play("land_thud", clampf(0.35 + float(model.last_landing) * 0.18, 0.35, 1.0), clampf(1.15 - float(model.last_landing) * 0.08, 0.8, 1.15))
 			sound.play("cargo", clampf(0.15 + float(model.last_landing) * 0.1, 0.15, 0.6), 0.7)
 			cab_jolt = 1.0
+		elif event_name == "record":
+			notify(model.last_record_text)
+			sound.play("coins", 0.5, 1.3)
 		elif event_name == "jet_countdown":
 			notify("Отсчёт пошёл: десять секунд")
 		elif event_name == "jet_abort":
