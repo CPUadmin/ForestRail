@@ -2340,9 +2340,13 @@ func _process(dt: float) -> void:
 			notify("Отсчёт сброшен: тронули предохранитель")
 		elif event_name == "jet_ignition":
 			notify("Зажигание! Мощность рычагом")
+			sound.play("jet_ignite", 0.9)
 			cab_jolt = 1.0
 		elif event_name == "jet_misfire":
 			notify("Осечка: двигатель не зажёгся. Пуск ещё раз")
+			sound.play("petrol_stall", 0.6)
+		elif event_name == "jet_chute":
+			sound.play("sail_flap", 0.8, 0.7)
 		elif event_name == "jet_chute_cut":
 			notify("Состав встал, парашют обрезан")
 		elif event_name == "jet_overheat":

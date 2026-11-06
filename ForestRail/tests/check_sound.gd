@@ -142,6 +142,31 @@ func run() -> void:
 	m = vehicle("handcar")
 	run_frames(sound, m, 30, 2.0)
 	check(not sound.loops["zep_engine"].playing and not sound.loops["zep_wind"].playing, "other machines are silent of the zeppelin loops")
+	# B6.6: the jet: the beeps of the countdown, the roar by the thrust, silent when the engine is off
+	m = vehicle("jet")
+	m.jet.open_cover(true)
+	m.jet.start()
+	run_frames(sound, m, 30, 0.0)
+	check(int(sound.played.get("jet_beep", 0)) >= 1 and not sound.loops["jet_roar"].playing, "the countdown beeps and the engine is silent")
+	m.jet.counting = false
+	m.jet.started = true
+	m.jet.thrust = 9000.0
+	m.state.engine = true
+	m.state.throttle = 0.8
+	run_frames(sound, m, 60, 20.0)
+	check(sound.loops["jet_roar"].playing, "a lit engine roars")
+	var quiet = sound.loops["jet_roar"].volume_db
+	m.jet.thrust = 12000.0
+	run_frames(sound, m, 30, 20.0)
+	check(sound.loops["jet_roar"].volume_db > quiet, "the roar grows with the thrust")
+	m.jet.started = false
+	m.jet.thrust = 0.0
+	m.state.engine = false
+	run_frames(sound, m, 30, 0.0)
+	check(not sound.loops["jet_roar"].playing, "the roar stops when the engine goes out")
+	m = vehicle("handcar")
+	run_frames(sound, m, 30, 2.0)
+	check(not sound.loops["jet_roar"].playing, "other machines do not roar")
 	# electric: hum while powered, contactor on throttle
 	m = vehicle("locomotive")
 	m.state.throttle = 0.5

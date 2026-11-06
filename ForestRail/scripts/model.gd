@@ -1763,6 +1763,7 @@ func flip_jet_fuse(index: int) -> bool:
 	if jet.started: return fail("Предохранители трогать на ходу нельзя")
 	jet.flip_fuse(index)
 	state.jet_fuses = jet.fuse_code()
+	events.append("gear")   # the click of the toggle
 	return true
 
 func pull_jet_chute(count: int = 1) -> bool:

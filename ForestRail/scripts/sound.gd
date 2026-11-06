@@ -3,10 +3,10 @@ extends Node
 # N8: layered ambience, machine sound per class, rail joints in step with the track,
 # a muffled cab. All the audio is synthesised by tools/audio_sources/make_audio.py.
 # Pause silences the machine; interface, payment and finale cues always play.
-const MECHANISM_CLIPS = ["pump", "rail_clack", "rail_clack_a", "rail_clack_b", "rail_tick_a", "rail_tick_b", "rail_tick_c", "gear", "cargo", "steam_chuff", "steam_blow", "whistle", "horn", "petrol_start", "petrol_stall", "contactor", "coupler_clank", "land_thud", "pole_plant_dense", "pole_plant_clay", "pole_plant_stones", "pole_plant_roots", "pole_lift", "sail_flap", "sail_creak", "zep_flaps", "zep_crash"]
-const CLIP_NAMES = ["pump", "rail_clack", "rail_clack_a", "rail_clack_b", "rail_tick_a", "rail_tick_b", "rail_tick_c", "gear", "cargo", "coins", "finale", "ui_click", "sting_start", "steam_chuff", "steam_blow", "whistle", "horn", "petrol_start", "petrol_stall", "contactor", "coupler_clank", "land_thud", "bird_1", "bird_2", "bird_3", "bird_4", "pole_plant_dense", "pole_plant_clay", "pole_plant_stones", "pole_plant_roots", "pole_lift", "sail_flap", "sail_creak", "zep_flaps", "zep_crash"]
-const LOOP_NAMES = ["amb_wind", "amb_rain", "amb_insects", "amb_water", "music_menu", "steam_hiss", "fire_crackle", "petrol_idle", "petrol_run", "electric_hum", "electric_whine", "brake", "zep_engine", "zep_prop", "zep_wind"]
-const MACHINE_LOOPS = ["steam_hiss", "fire_crackle", "petrol_idle", "petrol_run", "electric_hum", "electric_whine", "brake", "zep_engine", "zep_prop", "zep_wind"]
+const MECHANISM_CLIPS = ["pump", "rail_clack", "rail_clack_a", "rail_clack_b", "rail_tick_a", "rail_tick_b", "rail_tick_c", "gear", "cargo", "steam_chuff", "steam_blow", "whistle", "horn", "petrol_start", "petrol_stall", "contactor", "coupler_clank", "land_thud", "pole_plant_dense", "pole_plant_clay", "pole_plant_stones", "pole_plant_roots", "pole_lift", "sail_flap", "sail_creak", "zep_flaps", "zep_crash", "jet_beep", "jet_ignite"]
+const CLIP_NAMES = ["pump", "rail_clack", "rail_clack_a", "rail_clack_b", "rail_tick_a", "rail_tick_b", "rail_tick_c", "gear", "cargo", "coins", "finale", "ui_click", "sting_start", "steam_chuff", "steam_blow", "whistle", "horn", "petrol_start", "petrol_stall", "contactor", "coupler_clank", "land_thud", "bird_1", "bird_2", "bird_3", "bird_4", "pole_plant_dense", "pole_plant_clay", "pole_plant_stones", "pole_plant_roots", "pole_lift", "sail_flap", "sail_creak", "zep_flaps", "zep_crash", "jet_beep", "jet_ignite"]
+const LOOP_NAMES = ["amb_wind", "amb_rain", "amb_insects", "amb_water", "music_menu", "steam_hiss", "fire_crackle", "petrol_idle", "petrol_run", "electric_hum", "electric_whine", "brake", "zep_engine", "zep_prop", "zep_wind", "jet_roar"]
+const MACHINE_LOOPS = ["steam_hiss", "fire_crackle", "petrol_idle", "petrol_run", "electric_hum", "electric_whine", "brake", "zep_engine", "zep_prop", "zep_wind", "jet_roar"]
 const INTERFACE_CLIPS = ["coins", "finale", "ui_click", "sting_start"]
 const JOINT_SPACING = 12.0
 const Geometry = preload("res://scripts/world_geometry.gd")
@@ -35,6 +35,7 @@ var last_gear = 0
 var petrol_delay = 0.0
 var contactor_on = false
 var zep_flaps_were = false
+var jet_count_were = 0
 
 func _ready() -> void:
 	ensure_bus("Outside")
@@ -213,7 +214,8 @@ func update(model, paused: bool, in_menu: bool, dt: float, in_cab: bool = false)
 	for name in ["steam_hiss", "fire_crackle"]: if kind != "steam" and not (kind == "pneumatic" and name == "steam_hiss"): run_loop(name, 0.0, false)
 	for name in ["petrol_idle", "petrol_run"]: if kind != "motorcar": run_loop(name, 0.0, false)
 	for name in ["electric_hum", "electric_whine"]: if kind != "locomotive": run_loop(name, 0.0, false)
-	for name in ["zep_engine", "zep_prop", "zep_wind"]: if kind != "zeppelin": run_loop(name, 0.0, false)
+	for name in ["zep_engine", "zep_prop", "zep_wind"]: if kind != "zeppelin" and not (kind == "jet" and name == "zep_wind"): run_loop(name, 0.0, false)
+	if kind != "jet": run_loop("jet_roar", 0.0, false)
 	if kind == "steam":
 		var boiler = model.boiler()
 		var pressure = float(boiler.pressure)
@@ -268,6 +270,16 @@ func update(model, paused: bool, in_menu: bool, dt: float, in_cab: bool = false)
 		if flaps_out != zep_flaps_were: play("zep_flaps", 0.5 * loud, 1.0 if flaps_out else 0.85)
 		zep_flaps_were = flaps_out
 		if engine_on and not engine_was_on: play("petrol_start", 0.5 * loud, 0.9)
+	elif kind == "jet":
+		# B6.6: the beeps of the countdown, the roar by the thrust, the wind by the speed
+		var jet = model.jet
+		var seconds_left = int(ceil(float(jet.countdown))) if bool(jet.counting) else 0
+		if seconds_left != jet_count_were and seconds_left > 0: play("jet_beep", 0.5 * loud, 1.0 if seconds_left > 3 else 1.5)
+		jet_count_were = seconds_left
+		var share = clampf(float(jet.thrust) / 12000.0, 0.0, 1.0)
+		run_loop("jet_roar", machine * (0.15 + 0.7 * share) * loud, bool(jet.started) and share > 0.02, 0.7 + 0.8 * share)
+		var air_jet = clampf(absf(float(jet.v)) / 56.0, 0.0, 1.0)
+		run_loop("zep_wind", machine * 0.6 * pow(air_jet, 1.4) * loud, air_jet > 0.05, 0.75 + 0.5 * air_jet)
 	engine_was_on = engine_on
 	last_throttle = throttle
 	last_gear = int(model.state.gear)

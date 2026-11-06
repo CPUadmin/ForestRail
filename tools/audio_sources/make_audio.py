@@ -482,6 +482,27 @@ def make_zeppelin():
     write("zep_crash.wav", crash, peak=0.85)
 
 
+def make_jet():
+    # B6.6: the rocket train: the roar of the engine (the pitch follows the thrust), the beeps of the countdown, the whoomph of the ignition.
+    jrng = np.random.default_rng(20261106)
+    def nz(seconds):
+        return jrng.standard_normal(int(seconds * SR))
+    s = 3.0
+    t = tt(s)
+    roar = band(nz(s), 40, 900) * (0.7 + 0.3 * np.sin(2 * np.pi * 7 * t)) + 0.5 * band(nz(s), 900, 6000) * (0.6 + 0.4 * np.sin(2 * np.pi * 13 * t + 1.0))
+    roar += 0.6 * np.sin(2 * np.pi * 52 * t) + 0.3 * np.sin(2 * np.pi * 104 * t + 0.5)
+    write("jet_roar.wav", loopify(roar, 0.5), loop=True, peak=0.7)
+    s = 0.18
+    ts = tt(s)
+    beep = np.sin(2 * np.pi * 880 * ts) * np.minimum(1.0, ts / 0.01) * np.exp(-ts * 14) + 0.3 * np.sin(2 * np.pi * 1760 * ts) * np.exp(-ts * 20)
+    write("jet_beep.wav", beep, peak=0.7)
+    s = 2.2
+    ts = tt(s)
+    whoomph = band(nz(s), 30, 1400) * (1 - np.exp(-ts * 9)) * np.exp(-ts * 1.1) * 1.0 + thump(70, 28, s, 5.0) * 0.9
+    whoomph += 0.4 * band(nz(s), 1500, 7000) * np.exp(-ts * 3.0) * (ts > 0.05)
+    write("jet_ignite.wav", whoomph, peak=0.85)
+
+
 def make_rain():
     rain_rng = np.random.default_rng(20261105)
     rain = 0.18 * band(rain_rng.normal(size=8 * SR), 650, 6500)
@@ -511,6 +532,9 @@ if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "zeppelin":
         make_zeppelin()
         sys.exit(0)
+    if len(sys.argv) > 1 and sys.argv[1] == "jet":
+        make_jet()
+        sys.exit(0)
     make_ambient()
     make_music()
     make_steam()
@@ -522,6 +546,7 @@ if __name__ == "__main__":
     make_pole()
     make_sail()
     make_zeppelin()
+    make_jet()
     print("%-22s %7s %6s %6s %8s" % ("file", "sec", "peak", "rms", "seam"))
     for name, seconds, peak, rms, seam in report:
         print("%-22s %7.2f %6.2f %6.3f %8.4f" % (name, seconds, peak, rms, seam))
