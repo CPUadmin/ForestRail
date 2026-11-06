@@ -1449,6 +1449,18 @@
       "scope": "selected_vehicle_id"
     },
     {
+      "id": "pneumatic_auto_reducer",
+      "target_type": "pneumatic",
+      "name": "Автоматический редуктор",
+      "gadget": true,
+      "level_costs": [2600],
+      "levels": 1,
+      "effects_at_level": {
+        "pneumatic_auto_reducer": [1]
+      },
+      "scope": "selected_vehicle_id"
+    },
+    {
       "id": "sail_spinnaker",
       "target_type": "sail",
       "name": "Спинакер",

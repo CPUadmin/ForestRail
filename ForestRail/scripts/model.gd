@@ -1457,17 +1457,26 @@ const HEATING_AIR = 1.15
 const DRAIN_SECONDS = 60.0
 const PLUG_FROST = 2.0
 
+# Gadget: the automatic reducer holds the working pressure itself (it follows the throttle: little at idle, much at full pull), uses 10% less air,
+# but its ceiling is 5% lower. The hand wheel is gone from the cab.
+const AUTO_REDUCER_CEILING = 0.95
+const AUTO_REDUCER_AIR = 0.9
+
+func auto_reducer() -> bool:
+	return vehicle_id() == "pneumatic" and float(effects("pneumatic").get("pneumatic_auto_reducer", 0)) > 0.0
+
 func reducer_position() -> float:
+	if auto_reducer(): return clampf(0.3 + 0.7 * float(state.throttle), 0.0, 1.0)
 	return clampf(float(pneumatic_fleet().get("reducer", 1.0)), 0.0, 1.0)
 
 func set_reducer(position: float) -> bool:
-	if vehicle_id() != "pneumatic": return false
+	if vehicle_id() != "pneumatic" or auto_reducer(): return false
 	state.fleet_by_id.pneumatic.reducer = clampf(position, 0.0, 1.0)
 	return true
 
 # The setting of the reducer as a fraction of a full tank (0.10 .. 0.60)
 func reducer_setting() -> float:
-	return lerpf(REDUCER_MIN, REDUCER_MAX, reducer_position())
+	return lerpf(REDUCER_MIN, REDUCER_MAX * (AUTO_REDUCER_CEILING if auto_reducer() else 1.0), reducer_position())
 
 # The working pressure in bar: what the reducer lets through, but not more than the receiver holds
 func working_pressure() -> float:
@@ -2357,7 +2366,7 @@ func physics_step(dt: float) -> void:
 			used=shaft_work
 		elif vehicle_id()=="pneumatic":
 			# Air is spent by the work on the shaft; the pipes frost over while it runs.
-			used=shaft_work/0.85 * (HEATING_AIR if bool(fleet.get("heating", false)) else 1.0)   # the heating of the pipes costs 15% more air
+			used=shaft_work/0.85 * (HEATING_AIR if bool(fleet.get("heating", false)) else 1.0) * (AUTO_REDUCER_AIR if auto_reducer() else 1.0)   # the heating of the pipes costs 15% more air
 			fleet.fuel=maxf(0.0,before-used/air_joule_per_bar())
 			update_frost(fleet,dt)
 		else:

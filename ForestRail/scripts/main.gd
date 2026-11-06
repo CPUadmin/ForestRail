@@ -1869,6 +1869,7 @@ func control_ids() -> Array:
 	if model.vehicle_id() == "handcar": return ["pump", "brake"]
 	if model.vehicle_id() in ["pole", "sail"]: return ["brake"]
 	if model.vehicle_id() == "locomotive": return ["brake", "throttle"]
+	if model.auto_reducer(): return ["brake", "throttle", "start"]   # the automatic reducer has no wheel
 	return ["brake", "throttle", "gear", "start"]   # the pneumatic train: gear is the wheel of the reducer, start is the tap of the heating (B6.2)
 
 func steam_fire_rect(rect: Rect2) -> Rect2:
