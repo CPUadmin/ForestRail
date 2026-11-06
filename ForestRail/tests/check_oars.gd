@@ -46,6 +46,7 @@ func sail_game(along: float = 0.0):
 	m.state.s = flat_s(m)
 	m.state.v = 0.0
 	m.state.brake = 0.0
+	m.object_state("sail").levels.sail_oars = 1   # the oars are bought in the workshop (cheap)
 	m.wind.build(42, m.route.station_s)
 	m.wind = FixedWind.new(along, 0.0, m.route.station_s)
 	return m
@@ -104,6 +105,17 @@ func run() -> void:
 	for i in range(120): windy.physics_step(1.0 / 60.0)
 	check(not windy.oars_out(), "a strong wind puts the oars away by itself")
 	check(not windy.sail_engaged() and "Ветер вернулся" in windy.message, "and the car is told so")
+	# without the upgrade there are no oars; the upgrade is cheap
+	var bare = sail_game()
+	bare.object_state("sail").levels.erase("sail_oars")
+	check(not bare.oars_owned() and not bare.set_oars(true) and "мастерской" in bare.message, "the oars must be bought first (%s)" % bare.message)
+	var shop = Model.new()
+	shop.new_game(42, 2)
+	shop.state.money = 1000
+	Fixtures.equip(shop, "sail")
+	shop.state.money = 1000
+	var before_money = int(shop.state.money)
+	check(shop.upgrade("sail", "sail_oars") and before_money - int(shop.state.money) <= 150 and shop.oars_owned(), "the oars are a cheap upgrade of the workshop (%d coins)" % (before_money - int(shop.state.money)))
 	# the other machines have no oars
 	var hand = Model.new()
 	hand.new_game(42, 2)

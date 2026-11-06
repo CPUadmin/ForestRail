@@ -114,7 +114,8 @@ func run() -> void:
 		game.rebuild()
 		for i in range(6): await get_tree().process_frame
 		await RenderingServer.frame_post_draw
-		check(game.workshop_hits.size() == 4, "%s shows four improvable parts on the machine (%d)" % [kind, game.workshop_hits.size()])
+		var expected_parts = 5 if kind == "sail" else 4   # the sail car has the cheap oars as the fifth part
+		check(game.workshop_hits.size() == expected_parts, "%s shows its improvable parts on the machine (%d of %d)" % [kind, game.workshop_hits.size(), expected_parts])
 		get_tree().root.get_texture().get_image().save_png(output_dir.path_join("workshop_%s_%d.png" % [kind, get_tree().root.size.y]))
 	game.model.select_vehicle(home)
 	game.selected_object = home

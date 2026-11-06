@@ -1392,7 +1392,7 @@ func upgrade_preview(id: String, branch: Dictionary) -> String:
 	object.levels[branch.id] = lv + 1
 	var after_ef = model.effects(id)
 	object.levels[branch.id] = lv
-	var words = {"steam_superheater": "Пароперегреватель: угля на 30% меньше, пара на 10% больше, но разогревается дольше", "steam_stoker": "Механический кочегар: сам подбрасывает уголь и держит огонь ровно, но тратит на 20% больше", "sail_spinnaker": "Спинакер: тяга на попутном ветре ×1,8 (в бейдевинд хуже, рвётся раньше)", "sail_autopilot": "Парус сам держит угол, шкот фиксируется в любом положении (80% тяги)", "pole_force_multiplier": "Сила толчка", "zep_power_multiplier": "Мощность мотора", "zep_flaps_gadget": "Закрылки: взлёт на скорости ниже на 20%, сопротивление в воздухе +5%", "zep_trim": "Триммер: держит высоту, на которой включён, ручка не нужна", "zep_wing_multiplier": "Площадь крыла (взлёт при меньшей скорости)", "pole_grip_multiplier": "Хватка наконечника", "sail_area_multiplier": "Площадь паруса", "sail_hold_multiplier": "Держит порыв", "steam_power_multiplier": "Пар", "fire_burn_multiplier": "Расход угля в топке", "water_capacity_multiplier": "Запас воды", "frost_multiplier": "Рост инея"}
+	var words = {"steam_superheater": "Пароперегреватель: угля на 30% меньше, пара на 10% больше, но разогревается дольше", "steam_stoker": "Механический кочегар: сам подбрасывает уголь и держит огонь ровно, но тратит на 20% больше", "sail_spinnaker": "Спинакер: тяга на попутном ветре ×1,8 (в бейдевинд хуже, рвётся раньше)", "sail_autopilot": "Парус сам держит угол, шкот фиксируется в любом положении (80% тяги)", "pole_force_multiplier": "Сила толчка", "zep_power_multiplier": "Мощность мотора", "sail_oars": "Вёсла: на штиле можно грести (медленно, но всегда доедешь)", "zep_flaps_gadget": "Закрылки: взлёт на скорости ниже на 20%, сопротивление в воздухе +5%", "zep_trim": "Триммер: держит высоту, на которой включён, ручка не нужна", "zep_wing_multiplier": "Площадь крыла (взлёт при меньшей скорости)", "pole_grip_multiplier": "Хватка наконечника", "sail_area_multiplier": "Площадь паруса", "sail_hold_multiplier": "Держит порыв", "steam_power_multiplier": "Пар", "fire_burn_multiplier": "Расход угля в топке", "water_capacity_multiplier": "Запас воды", "frost_multiplier": "Рост инея"}
 	for key in words:
 		if not after_ef.has(key): continue
 		if after_ef[key] is bool or key in ["sail_spinnaker", "steam_superheater", "steam_stoker"]: parts.append(str(words[key]))
@@ -1522,7 +1522,10 @@ func ensure_fade_rect() -> void:
 	layer.add_child(fade_rect)
 
 func fit_train_zoom() -> float:
-	return clampf(10.5 / maxf(10.5, model.train_length()), 0.75, 1.0)
+	# a long train (the jet with four wagons) must fit the screen: the head stands at about two thirds of the width, the tail must not leave it
+	var by_length = 10.5 / maxf(10.5, model.train_length())
+	var by_width = 0.62 * get_viewport_rect().size.x / (ArtV3.PX * maxf(1.0, model.train_length()))
+	return clampf(minf(by_length, by_width), 0.45, 1.0)
 
 func build_hud(size: Vector2) -> void:
 	instruments = Instruments.new()
@@ -1683,7 +1686,7 @@ func update_hud() -> void:
 			choice_label.add_theme_stylebox_override("normal",style(INK,Color("5d7561"),6))
 			choice_label.vertical_alignment=VERTICAL_ALIGNMENT_CENTER
 		elif model.stopped():
-			if model.vehicle_id() == "sail":
+			if model.vehicle_id() == "sail" and (model.oars_owned() or model.oars_out()):
 				add_button(action_bar, "Убрать вёсла" if model.oars_out() else "Вёсла", func():
 					if model.set_oars(not model.oars_out()): last_action_key = ""
 					else: notify(model.message))
@@ -2620,7 +2623,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if paused or screen == "menu": return
 	if event is InputEventMouseButton and event.pressed:
 		if event.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN] and drag == "" and screen == "game":
-			zoom_level = clampf(zoom_level + (0.1 if event.button_index == MOUSE_BUTTON_WHEEL_UP else -0.1), 0.75, 1.5)
+			zoom_level = clampf(zoom_level + (0.1 if event.button_index == MOUSE_BUTTON_WHEEL_UP else -0.1), 0.5, 1.5)
 			return
 		if event.button_index != MOUSE_BUTTON_LEFT: return
 		var mouse = event.position

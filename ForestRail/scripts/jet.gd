@@ -10,7 +10,7 @@ const G = 9.81
 
 const DEFAULTS = {
 	"mass_kg": 1500.0, "thrust_max_n": 12000.0, "rho": 1.225, "cda_m2": 6.2, "rolling": 0.004,
-	"wagon_mass_kg": 900.0, "wagon_cda_m2": 0.6, "max_wagons": 3,
+	"wagon_mass_kg": 900.0, "wagon_cda_m2": 0.6, "max_wagons": 4,
 	"spool_up_nps": 3000.0, "spool_down_nps": 7000.0, "countdown_s": 10.0,
 	"sfc_kg_per_ns": 0.00012, "kerosene_kg_per_l": 0.8, "fuel_l": 600.0,
 	"chute_cda_m2": 6.0, "chute_deploy_s": 1.2, "chutes_per_trip": 1, "chutes_with_gadget": 2, "chute_cut_speed_mps": 0.6,

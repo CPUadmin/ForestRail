@@ -42,7 +42,7 @@ func run() -> void:
 	var base = game("pole")
 	var branches: Array = []
 	for b in base.data.upgrade_catalog:
-		if b.target_type in ["pole", "sail", "steam", "pneumatic"] and not b.get("gadget", false): branches.append(b)
+		if b.target_type in ["pole", "sail", "steam", "pneumatic"] and not b.get("gadget", false) and int(b.get("levels", 2)) == 2: branches.append(b)   # the one-level oars are checked in check_oars
 	check(branches.size() == 16, "sixteen new branches in the catalog (%d)" % branches.size())
 	for b in branches:
 		var m = game(str(b.target_type))

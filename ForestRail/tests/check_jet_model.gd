@@ -46,7 +46,7 @@ func light(m) -> void:
 func run() -> void:
 	var m = fresh(false)
 	check(m.vehicle_id() == "jet" and "jet" in m.VEHICLE_IDS and "jet" not in m.HIDDEN_VEHICLE_IDS and not bool(m.vehicle_base("jet").get("hidden", false)), "the jet is in the garage list of the game")
-	check(int(m.vehicle_base("jet").cost) == 12000 and int(m.vehicle_base("jet").max_wagons) == 3, "the data: 12000 coins, up to three wagons")
+	check(int(m.vehicle_base("jet").cost) == 12000 and int(m.vehicle_base("jet").max_wagons) == 4, "the data: 12000 coins, up to four wagons")
 	check(not m.jet_start(), "no start without the open cap")
 	check(m.set_jet_cover(true) and not m.jet_start(), "under the open cap the start is locked until all four toggles are on")
 	check("заблокирована" in m.message, "and the message says why (%s)" % m.message)
@@ -82,7 +82,7 @@ func run() -> void:
 	check(str(loaded.state.jet_fuses) == "4321" and loaded.jet.started and loaded.jet.fuse_code() == "4321", "the order of the toggles and the lit engine are as they were")
 	# the train: four wagons add weight, the machine still pulls
 	var train = fresh(true)
-	check(train.state.consist_ids.size() == 3 and train.train_mass() > 1900.0, "three wagons: the train weighs %.0f kg" % train.train_mass())
+	check(train.state.consist_ids.size() == 4 and train.train_mass() > 2200.0, "four wagons: the train weighs %.0f kg" % train.train_mass())
 	light(train)
 	train.state.throttle = 1.0
 	run_seconds(train, 60.0)

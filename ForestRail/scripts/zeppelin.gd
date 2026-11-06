@@ -18,7 +18,7 @@ const DEFAULTS = {
 	"rpm_idle": 700.0, "rpm_max": 2700.0, "rpm_stall": 450.0, "rpm_rate": 900.0,
 	"overspeed_margin_mps": 6.0, "lug_margin_mps": 8.0,
 	"rolling": 0.03, "pad_brake_n": 3000.0, "air_brake_area_m2": 4.0,
-	"engine_efficiency": 0.25, "joule_per_liter": 8500000.0, "fuel_l": 40.0,
+	"engine_efficiency": 0.12, "joule_per_liter": 8500000.0, "fuel_l": 40.0,
 	"heat": 0.04, "cooling_base": 0.03, "cooling_per_mps": 0.003, "ambient": 0.1,
 	"redline_wear": 0.20,
 	"landing_max_vz": 5.0, "landing_max_alpha": 12.0, "landing_speed_loss": 0.20, "ceiling_m": 30.0,

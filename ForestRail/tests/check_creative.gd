@@ -34,7 +34,7 @@ func run() -> void:
 	check(int(m.state.money) >= 1000000, "money is practically unlimited")
 	for id in ["handcar", "steam", "motorcar", "pneumatic", "locomotive"]:
 		check(m.state.fleet_by_id.has(id), "the garage has " + id)
-	check(m.state.wagons_by_id.has("W01") and m.state.wagons_by_id.has("W02") and m.state.wagons_by_id.has("W03"), "all three wagons are owned")
+	check(m.state.wagons_by_id.has("W01") and m.state.wagons_by_id.has("W02") and m.state.wagons_by_id.has("W03") and m.state.wagons_by_id.has("W04"), "all four wagons are owned")
 	check(m.state.selected_vehicle_id == "handcar" and not bool(m.state.tutorial), "starts on the handcar without the tutorial")
 	# any order, any machine, not in order, as many times as you like
 	# the jet, bought last, took the three wagons (as any machine bought later does); the player couples them to the locomotive again

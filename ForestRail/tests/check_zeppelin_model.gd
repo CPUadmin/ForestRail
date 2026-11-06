@@ -102,7 +102,7 @@ func run() -> void:
 	if crashed:
 		# the rescue refuels the tank afterwards, as for every machine (a few coins)
 		var left = before - maxi(300, int(round(before * 0.5)))
-		check(int(crash.state.money) <= left and int(crash.state.money) > left - 40 and "Штраф 500" in crash.message, "the penalty is half of the money (%d of %d left)" % [int(crash.state.money), before])
+		check(int(crash.state.money) <= left and int(crash.state.money) > left - 400 and "Штраф 500" in crash.message, "the penalty is half of the money (%d of %d left)" % [int(crash.state.money), before])
 		check(float(crash.state.s) == float(crash.route.station_s[0]) and float(crash.state.v) == 0.0, "the machine is back at the depot, stopped")
 		check(not crash.air_fly and is_equal_approx(crash.zeppelin_stick(), 0.0), "the flight and the joystick are reset")
 		check(crash.message.begins_with("Крушение"), "the message says what happened")

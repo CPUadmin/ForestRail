@@ -297,9 +297,9 @@
       "rank": 4,
       "max_wagons": 2,
       "brake_n": 3000,
-      "refill_price": 720,
-      "energy_per_m": 0.0004,
-      "energy_per_m_v2": 0.0004,
+      "refill_price": 1800,
+      "energy_per_m": 0.0011,
+      "energy_per_m_v2": 0.0011,
       "energy_fixed": 0.2,
       "energy_fixed_v2": 0.2,
       "line_tank_factor": 1.0,
@@ -330,7 +330,7 @@
       "drag": 0.0,
       "top_speed_kmh": 200,
       "rank": 5,
-      "max_wagons": 3,
+      "max_wagons": 4,
       "brake_n": 6000,
       "refill_price": 3000,
       "energy_per_m": 0.0085,
@@ -1374,6 +1374,17 @@
       "scope": "selected_vehicle_id"
     },
     {
+      "id": "sail_oars",
+      "target_type": "sail",
+      "name": "Вёсла",
+      "level_costs": [120],
+      "levels": 1,
+      "effects_at_level": {
+        "sail_oars": [true]
+      },
+      "scope": "selected_vehicle_id"
+    },
+    {
       "id": "sail_spinnaker",
       "target_type": "sail",
       "name": "Спинакер",
@@ -1471,14 +1482,16 @@
     "wagon_ids": [
       "W01",
       "W02",
-      "W03"
+      "W03",
+      "W04"
     ],
     "third_wagon_cost": 600
   },
   "wagon_prices": {
     "W01": 200,
     "W02": 350,
-    "W03": 600
+    "W03": 600,
+    "W04": 900
   },
   "casino": {
     "cards_only": false,

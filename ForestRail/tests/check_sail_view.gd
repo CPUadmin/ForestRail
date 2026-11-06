@@ -128,6 +128,7 @@ func run() -> void:
 	# B6.9: the oars in the hands (placeholder oars on the picture) and the button of the stopped car
 	game.model.state.v = 0.0
 	game.model.sail_held = false
+	game.model.object_state("sail").levels.sail_oars = 1
 	check(game.model.set_oars(true) and game.model.oars_out(), "the oars can be taken")
 	for i in range(30): game.model.oars_hand(0.02)
 	game.model.oars.phase = 0.8

@@ -169,17 +169,17 @@ func run() -> void:
 	check(absf(run.v * 3.6 - 200.0) < 6.0, "the top speed is about 200 km/h (%.1f)" % (run.v * 3.6))
 	# the heavy train: the strongest machine tows a lot
 	var loaded = lit_jet()
-	loaded.set_train(3, 800.0)
+	loaded.set_train(4, 800.0)
 	loaded.set_throttle(1.0)
 	var t60 = -1.0
 	for i in range(60 * 200):
 		loaded.step(1.0 / 60.0)
 		if t60 < 0.0 and loaded.v * 3.6 >= 60.0: t60 = float(i) / 60.0
-	check(t60 > 0.0 and t60 < 20.0, "with three loaded wagons it still reaches 60 km/h in good time (%.1f s)" % t60)
-	check(loaded.v * 3.6 > 150.0 and loaded.v * 3.6 < 190.0, "and runs at about 170 km/h with them (%.0f)" % (loaded.v * 3.6))
+	check(t60 > 0.0 and t60 < 20.0, "with four loaded wagons it still reaches 60 km/h in good time (%.1f s)" % t60)
+	check(loaded.v * 3.6 > 140.0 and loaded.v * 3.6 < 190.0, "and runs at about 170 km/h with them (%.0f)" % (loaded.v * 3.6))
 	check(loaded.total_mass() > 4000.0, "the train weighs four tonnes and more (%.0f kg)" % loaded.total_mass())
 	loaded.set_train(9)
-	check(loaded.wagons == 3, "no more than three wagons (all the wagons of the line)")
+	check(loaded.wagons == 4, "no more than four wagons")
 	# the fuel: the record run A to F, 6.8 km at full thrust, and the tank holds the run there and back
 	var fuel_run = lit_jet()
 	fuel_run.set_throttle(1.0)

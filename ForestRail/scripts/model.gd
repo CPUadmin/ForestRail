@@ -15,7 +15,7 @@ const Oars = preload("res://scripts/oars.gd")
 const G = 9.81
 const BUFFER_SAFE_SPEED = 1.0
 const VEHICLE_IDS = ["handcar", "pole", "sail", "steam", "motorcar", "pneumatic", "locomotive", "zeppelin", "jet"]
-const WAGON_IDS = ["W01", "W02", "W03"]
+const WAGON_IDS = ["W01", "W02", "W03", "W04"]
 # Classes that exist in the data but are not shown to the player yet (no view, no cab).
 const HIDDEN_VEHICLE_IDS = []   # machines that exist in the data but are not shown in the garage yet (none now)
 # Holds cargo migrated from an old petrol deck until it is unloaded (ECONOMY_v3_2_RU.md).
@@ -1954,8 +1954,12 @@ func zeppelin_crashed() -> void:
 func oars_out() -> bool:
 	return vehicle_id() == "sail" and bool(state.get("oars_on", false))
 
+func oars_owned() -> bool:
+	return vehicle_id() == "sail" and bool(effects("sail").get("sail_oars", false))
+
 func set_oars(on: bool) -> bool:
 	if vehicle_id() != "sail": return false
+	if on and not oars_owned(): return fail("Вёсел нет: купи их в мастерской, они дешёвые")
 	if on and absf(float(state.v)) > 3.0: return fail("На ходу вёсла не взять: сначала сбавь скорость")
 	state.oars_on = on
 	if on:
