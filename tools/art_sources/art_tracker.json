@@ -79,6 +79,16 @@
    "name": "Цеппелин: чистый кузов и подвижные части",
    "brief": "tools/art_sources/briefs/P14_zeppelin_parts/BRIEF_RU.md",
    "inbox": "tools/art_sources/inbox/P14_zeppelin_parts/"
+  },
+  "П15": {
+   "name": "Реактивный: пламя, парашют, панель пуска",
+   "brief": "tools/art_sources/briefs/P15_jet_parts/BRIEF_RU.md",
+   "inbox": "tools/art_sources/inbox/P15_jet_parts/"
+  },
+  "П16": {
+   "name": "Вёсла парусной",
+   "brief": "tools/art_sources/briefs/P16_oars/BRIEF_RU.md",
+   "inbox": "tools/art_sources/inbox/P16_oars/"
   }
  },
  "assets": [
@@ -1352,6 +1362,77 @@
     "cols": 3,
     "rows": 3
    }
+  },
+  {
+   "element": "K",
+   "background": "magenta",
+   "status": "промпт готов",
+   "notes": [],
+   "id": "P15-A1",
+   "file": "jet_exhaust.png",
+   "package": "П15",
+   "format": "1:1",
+   "note": "пламя и дым реактивного",
+   "sheet": {
+    "cols": 3,
+    "rows": 3
+   }
+  },
+  {
+   "element": "K",
+   "background": "magenta",
+   "status": "промпт готов",
+   "notes": [],
+   "id": "P15-A2",
+   "file": "jet_parachute.png",
+   "package": "П15",
+   "format": "1:1",
+   "note": "парашют реактивного",
+   "sheet": {
+    "cols": 2,
+    "rows": 2
+   }
+  },
+  {
+   "element": "K",
+   "background": "magenta",
+   "status": "промпт готов",
+   "notes": [],
+   "id": "P15-A3",
+   "file": "jet_panel_parts.png",
+   "package": "П15",
+   "format": "1:1",
+   "note": "детали панели пуска",
+   "sheet": {
+    "cols": 3,
+    "rows": 3
+   }
+  },
+  {
+   "element": "K",
+   "background": "magenta",
+   "status": "промпт готов",
+   "notes": [],
+   "id": "P16-A1",
+   "file": "oars_parts.png",
+   "package": "П16",
+   "format": "1:1",
+   "note": "вёсла и уключины",
+   "sheet": {
+    "cols": 3,
+    "rows": 3
+   }
+  },
+  {
+   "element": "K",
+   "background": "magenta",
+   "status": "промпт готов",
+   "notes": [],
+   "id": "P16-A2",
+   "file": "rower_poses.png",
+   "package": "П16",
+   "format": "3:2",
+   "note": "гребец в трёх позах"
   }
  ],
  "help": "Фон: magenta (плоский #FF00FF), black (свет), transparent, full-bleed (текстура на весь кадр). sheet: сетка листа {cols, rows}. Статусы: в списке, промпт готов, запрошено, получено, получено с проблемами, принято, отклонено, подключено."
