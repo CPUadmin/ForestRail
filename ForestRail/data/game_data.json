@@ -1436,6 +1436,19 @@
       "scope": "selected_vehicle_id"
     },
     {
+      "id": "handcar_ratchet",
+      "target_type": "handcar",
+      "name": "Храповик",
+      "gadget": true,
+      "level_costs": [2400],
+      "levels": 1,
+      "effects_at_level": {
+        "ratchet_torque": [1.25],
+        "gadget_mass_kg": [8]
+      },
+      "scope": "selected_vehicle_id"
+    },
+    {
       "id": "sail_spinnaker",
       "target_type": "sail",
       "name": "Спинакер",
