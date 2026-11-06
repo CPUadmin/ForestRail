@@ -122,7 +122,7 @@ static func hint(jet, brake: float, throttle: float) -> String:
 		return "Мощность держи рычагом. Парашют один, он обрежется после остановки."
 	if bool(jet.counting): return "Идёт отсчёт: тумблеры трогать нельзя (отсчёт собьётся)."
 	if not bool(jet.cover_open): return "Открой колпачок, под ним четыре тумблера-предохранителя. Их положения секретные коды."
-	if not jet.start_unlocked(): return "Переключи каждый тумблер хотя бы раз (горят %d из 4): тогда откроется «Пуск»." % jet.touched_count()
+	if not jet.start_unlocked(): return "Включи все четыре тумблера (горят %d): тогда откроется «Пуск». От порядка включения зависит режим." % jet.fuses_on()
 	return "Тумблеры стоят как надо? Нажми «Пуск»: десять секунд отсчёта, потом зажигание."
 
 # --- drawing
@@ -166,7 +166,7 @@ func draw_slider(canvas, index: int, id: String, title: String, color: Color, mo
 	canvas.draw_line(knob.position + Vector2(5.0 * k, knob.size.y * 0.5), knob.position + Vector2(knob.size.x - 5.0 * k, knob.size.y * 0.5), Color(1, 1, 1, 0.45), 1.5 * k)
 	text(canvas, Vector2(22.0 + 72.0 * index - 14.0, 178.0), "%d%%" % roundi(level * 100.0), 14, GOLD, 60.0)
 
-# the four fuses: toggles; up is 1; each has a lamp that lights when the toggle has been flipped
+# the four fuses: toggles; up is on; each has a lamp that lights when the toggle is on
 func draw_fuses(canvas, jet) -> void:
 	text(canvas, Vector2(180.0, 42.0), "Предохранители", 13, Color("a8b3a3"), 120.0, HORIZONTAL_ALIGNMENT_LEFT)
 	if bool(jet.cover_open):
@@ -186,7 +186,7 @@ func draw_fuses(canvas, jet) -> void:
 		var lever = Rect2(Vector2(r.position.x + r.size.x * 0.25, lever_y), Vector2(r.size.x * 0.5, 12.0 * k))
 		box(canvas, lever, GOLD if on else Color("8d9a98"), Color("1b2320"), 3, 1)
 		var lamp = origin + Vector2(180.0 + 50.0 * i + 20.0, 120.0) * k
-		canvas.draw_circle(lamp, 5.0 * k, GREEN if bool(jet.touched[i]) else Color("2a332f"))
+		canvas.draw_circle(lamp, 5.0 * k, GREEN if bool(jet.fuses[i]) else Color("2a332f"))
 		canvas.draw_arc(lamp, 5.0 * k, 0.0, TAU, 16, Color("98a39e"), 1.0 * k, true)
 
 # the cap over the toggles (closed: a plate with a hinge) and the start button (locked until every toggle has been flipped)
@@ -206,7 +206,7 @@ func draw_cover(canvas, jet) -> void:
 	else:
 		box(canvas, b, Color("1b2320"), Color("46504c"), 6, 1)
 		var why = "ЗАБЛОКИРОВАНО"
-		if bool(jet.cover_open): why = "ТУМБЛЕРЫ %d/4" % int(jet.touched_count())
+		if bool(jet.cover_open): why = "ТУМБЛЕРЫ %d/4" % int(jet.fuses_on())
 		canvas.draw_string(font, b.position + Vector2(0.0, b.size.y * 0.62), why, HORIZONTAL_ALIGNMENT_CENTER, b.size.x, int(round(15.0 * k)), Color("6b7770"))
 
 # the board of the countdown

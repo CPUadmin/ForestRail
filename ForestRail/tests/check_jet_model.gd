@@ -31,11 +31,9 @@ func fresh(wagons: bool = true):
 func run_seconds(m, seconds: float) -> void:
 	for i in range(int(seconds * 60.0)): m.physics_step(1.0 / 60.0)
 
-func touch_all(m) -> void:
+func touch_all(m) -> void:   # all four toggles on, in the natural order
 	for i in range(4):
-		if not m.jet.touched[i]:
-			m.flip_jet_fuse(i)
-			m.flip_jet_fuse(i)
+		if not m.jet.fuses[i]: m.flip_jet_fuse(i)
 
 func light(m) -> void:
 	m.state.brake = 1.0   # the brake holds the train on the grade during the countdown
@@ -50,7 +48,7 @@ func run() -> void:
 	check(m.vehicle_id() == "jet" and "jet" in m.HIDDEN_VEHICLE_IDS and "jet" not in m.VEHICLE_IDS, "the jet is a hidden machine until it is ready")
 	check(int(m.vehicle_base("jet").cost) == 12000 and int(m.vehicle_base("jet").max_wagons) == 3, "the data: 12000 coins, up to three wagons")
 	check(not m.jet_start(), "no start without the open cap")
-	check(m.set_jet_cover(true) and not m.jet_start(), "under the open cap the start is locked until every toggle is flipped")
+	check(m.set_jet_cover(true) and not m.jet_start(), "under the open cap the start is locked until all four toggles are on")
 	check("заблокирована" in m.message, "and the message says why (%s)" % m.message)
 	touch_all(m)
 	check(m.jet_start(), "then the start begins the countdown")
@@ -66,12 +64,14 @@ func run() -> void:
 	check(float(m.state.fleet_by_id.jet.fuel) < float(m.object_stats("jet").tank), "kerosene is burnt")
 	# the fuses: the code is kept, and they cannot be touched while the engine runs
 	var fuses = fresh(false)
-	check(fuses.flip_jet_fuse(0) and fuses.flip_jet_fuse(2) and str(fuses.state.jet_fuses) == "1010", "the fuses flip and the code is kept in the state (%s)" % str(fuses.state.get("jet_fuses", "")))
+	check(fuses.flip_jet_fuse(3) and fuses.flip_jet_fuse(2) and str(fuses.state.jet_fuses) == "43", "the toggles switch on and the order is kept in the state (%s)" % str(fuses.state.get("jet_fuses", "")))
+	fuses.flip_jet_fuse(1)
+	fuses.flip_jet_fuse(0)
 	fuses.state.brake = 1.0
 	fuses.set_jet_cover(true)
 	touch_all(fuses)
 	fuses.jet_start()
-	check(fuses.jet.mode.name == "Экономный", "the position 1010 is the economy mode")
+	check(fuses.jet.mode.name == "Экономный", "the order 4321 is the economy mode")
 	run_seconds(fuses, 10.6)
 	check(not fuses.flip_jet_fuse(1), "the fuses are not touched when the engine runs")
 	# the save: the fuses, the lit engine and the chutes survive a load
@@ -79,7 +79,7 @@ func run() -> void:
 	check(loaded.restore(fuses.serialize()), "a game with the jet loads")
 	loaded.state.throttle = 0.5
 	loaded.physics_step(1.0 / 60.0)
-	check(str(loaded.state.jet_fuses) == "1010" and loaded.jet.started, "the fuses and the lit engine are as they were")
+	check(str(loaded.state.jet_fuses) == "4321" and loaded.jet.started and loaded.jet.fuse_code() == "4321", "the order of the toggles and the lit engine are as they were")
 	# the train: four wagons add weight, the machine still pulls
 	var train = fresh(true)
 	check(train.state.consist_ids.size() == 3 and train.train_mass() > 1900.0, "three wagons: the train weighs %.0f kg" % train.train_mass())

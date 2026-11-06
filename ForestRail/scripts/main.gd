@@ -1996,7 +1996,8 @@ func draw_lever(base: Transform2D, pivot: Vector2, length: float, angle: float, 
 # The pult of the zeppelin in the world view stands on the side the machine is not on (the camera keeps it on the other side),
 # above the loading panel when that is open.
 func has_own_pult() -> bool:
-	return model.vehicle_id() in ["zeppelin", "jet"]
+	# the zeppelin has its own pult in the world and in the cab; the jet only in the cab (outside: the usual brake and throttle)
+	return model.vehicle_id() == "zeppelin" or (model.vehicle_id() == "jet" and cab_active())
 
 func own_pult():
 	return jpult if model.vehicle_id() == "jet" else zpult
@@ -3092,7 +3093,9 @@ func pult_screen_rect() -> Rect2:
 func cab_shake() -> Vector2:
 	var speed = absf(float(model.state.v))
 	var vibrating = bool(model.state.engine) and model.vehicle_id() != "locomotive"
-	var tremble = Vector2(sin(time * 61.0), sin(time * 53.0 + 1.3)) * ((0.5 + 0.7 * float(model.state.throttle)) if vibrating else 0.0)
+	var strength = 0.5 + 0.7 * float(model.state.throttle)
+	if model.vehicle_id() == "jet": strength = 0.3 + 3.2 * clampf(float(model.jet.thrust) / 12000.0, 0.0, 1.0)   # the rocket shakes the cab by its thrust
+	var tremble = Vector2(sin(time * 61.0), sin(time * 53.0 + 1.3)) * (strength if vibrating else 0.0)
 	var clack = Vector2(0.0, sin(time * 38.0) * cab_jolt * 3.4)
 	var sway = Vector2(sin(time * 1.3) * minf(speed * 0.18, 2.0), 0.0)
 	return (tremble + clack + sway) * (0.0 if settings.reduce_motion else float(settings.cab_shake))
@@ -3142,6 +3145,11 @@ func draw_cab_scene(size: Vector2) -> void:
 			draw_polygon(PackedVector2Array([vanishing_point, track_center, track_center + spread]), PackedColorArray([clear_beam, beam, clear_beam]))
 	draw_set_transform_matrix(Transform2D.IDENTITY)
 	draw_cab_frame(size, top)
+	if model.vehicle_id() == "jet" and bool(model.jet.counting):
+		# the countdown: a red lamp pulses at the top of the frame
+		var pulse = 0.5 + 0.5 * sin(time * 8.0)
+		draw_circle(Vector2(size.x * 0.5, 30.0), 16.0, Color(0.9, 0.15, 0.1, 0.25 + 0.55 * pulse))
+		draw_circle(Vector2(size.x * 0.5, 30.0), 8.0, Color(1.0, 0.5, 0.4, 0.5 + 0.5 * pulse))
 	if has_own_pult():
 		draw_zeppelin_pult(Rect2(layout.rect).position, float(layout.k))
 	else:
@@ -3390,6 +3398,15 @@ func draw_cab_nose(view: Rect2, look: Dictionary) -> void:
 			for puff in range(5):
 				var age = fposmod(time * 0.9 + puff / 5.0, 1.0)
 				draw_circle(Vector2(stack.x - age * vh * 0.1, stack.y - vh * 0.19 - age * vh * 0.22), 7 + age * 24, Color(0.85, 0.85, 0.82, 0.4 * (1.0 - age)))
+	elif kind == "jet":
+		# the flat deck ahead of the cab with the brass rail and the lamp (the engine and its nozzle are behind us)
+		draw_rect(Rect2(cx - vh * 0.6, bottom - vh * 0.10, vh * 1.2, vh * 0.10), steel)
+		draw_rect(Rect2(cx - vh * 0.6, bottom - vh * 0.112, vh * 1.2, 5), brass)
+		var jet_lamp = Vector2(cx, bottom - vh * 0.16)
+		draw_circle(jet_lamp, vh * 0.035, brass)
+		draw_circle(jet_lamp, vh * 0.026, Color("fff0b4") if (bool(model.jet.started) or bool(model.jet.counting)) else Color("8a8466"))
+		if bool(model.jet.started):
+			for ring in range(4): draw_circle(jet_lamp, vh * (0.05 + ring * 0.03), Color(1.0, 0.9, 0.5, 0.07 - ring * 0.015))
 	elif kind == "steam":
 		var barrel = Rect2(cx - vh * 0.42, bottom - vh * 0.30, vh * 0.84, vh * 0.30)
 		draw_rect(barrel, Color("1b2224"))
@@ -3524,7 +3541,7 @@ func draw_plain_header(size: Vector2, top: float, kind: String, brass: Color) ->
 	# nameplate
 	var plate = Rect2(size.x * 0.5 - 150, top + 12, 300, 26)
 	draw_style_box(style(Color("2a2218"), brass, 4), plate)
-	var title = {"steam": "ЛЕСНАЯ КОЛЕЯ · ПАРОВОЗ", "motorcar": "ЛЕСНАЯ КОЛЕЯ · БЕНЗИНОВАЯ", "locomotive": "ЛЕСНАЯ КОЛЕЯ · ЭЛЕКТРОВОЗ", "pneumatic": "ЛЕСНАЯ КОЛЕЯ · ПНЕВМОВОЗ", "zeppelin": "ЛЕСНАЯ КОЛЕЯ · ЦЕППЕЛИН"}.get(kind, "ЛЕСНАЯ КОЛЕЯ")
+	var title = {"steam": "ЛЕСНАЯ КОЛЕЯ · ПАРОВОЗ", "motorcar": "ЛЕСНАЯ КОЛЕЯ · БЕНЗИНОВАЯ", "locomotive": "ЛЕСНАЯ КОЛЕЯ · ЭЛЕКТРОВОЗ", "pneumatic": "ЛЕСНАЯ КОЛЕЯ · ПНЕВМОВОЗ", "zeppelin": "ЛЕСНАЯ КОЛЕЯ · ЦЕППЕЛИН", "jet": "ЛЕСНАЯ КОЛЕЯ · РЕАКТИВНЫЙ"}.get(kind, "ЛЕСНАЯ КОЛЕЯ")
 	draw_string(font, plate.position + Vector2(0, 19), title, HORIZONTAL_ALIGNMENT_CENTER, plate.size.x, 14, Color("e6cf8b"))
 	draw_circle(plate.position + Vector2(8, 13), 2.5, brass)
 	draw_circle(plate.position + Vector2(plate.size.x - 8, 13), 2.5, brass)

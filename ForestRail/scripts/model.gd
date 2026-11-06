@@ -34,6 +34,7 @@ var wind = Wind.new()
 var zep_loaded = false   # the flight of the zeppelin is taken from the save once after a load
 var oars = Oars.new()   # the oars of the sail car (B6.9): the spare means in a calm
 var jet_loaded = false   # the state of the jet (the fuses, the lit engine) is taken from the save once after a load
+var jet_hint_cd = 0.0
 var jet = Jet.new()   # the running model of the jet (rocket) train (B6.6), only used while it is the chosen machine
 var zep = Zeppelin.new()   # the running model of the rail zeppelin (B6.5), only used while it is the chosen machine
 var sail_trim = 0.6
@@ -1751,7 +1752,7 @@ func push_handcar(distance_m: float) -> bool:
 func jet_start() -> bool:
 	if vehicle_id() != "jet": return false
 	if not jet.cover_open: return fail("Сначала открой колпачок")
-	if not jet.start_unlocked(): return fail("Кнопка заблокирована: переключи каждый тумблер (сейчас %d из 4)" % jet.touched_count())
+	if not jet.start_unlocked(): return fail("Кнопка заблокирована: включи все четыре тумблера (сейчас %d). От порядка зависит режим" % jet.fuses_on())
 	if not jet.start(): return fail("Пуск не получился: уже идёт отсчёт или нет керосина")
 	return true
 
@@ -1785,8 +1786,13 @@ func jet_step(dt: float, fleet: Dictionary, old_v: float) -> float:
 	if not jet_loaded:
 		jet_loaded = true
 		if state.has("jet_fuses"):
-			var code = str(state.jet_fuses)
-			for i in range(mini(4, code.length())): jet.fuses[i] = code[i] == "1"
+			var code = str(state.jet_fuses)   # the order of the toggles as digits
+			jet.order.clear()
+			for i in range(mini(4, code.length())):
+				var index = int(code[i]) - 1
+				if index >= 0 and index < 4:
+					jet.fuses[index] = true
+					jet.order.append(index)
 			jet.cover_open = bool(state.get("jet_cover", false))
 			if bool(state.get("jet_started", false)):
 				jet.mode = jet.fuse_code_mode()
@@ -1803,6 +1809,10 @@ func jet_step(dt: float, fleet: Dictionary, old_v: float) -> float:
 	jet.v = old_v * forward
 	jet.set_throttle(float(state.throttle))
 	jet.set_pad_brake(float(state.brake))
+	jet_hint_cd = maxf(0.0, jet_hint_cd - dt)
+	if float(state.throttle) > 0.05 and not jet.started and not jet.counting and jet_hint_cd <= 0.0:
+		jet_hint_cd = 8.0
+		message = "Двигатель не запущен: войди в кабину [E], открой колпачок, переключи тумблеры и нажми «Пуск»"
 	var slope = route.slope(float(state.s)) * forward
 	var wind_along = wind_here().x * float(int(state.get("reverser", 1)))
 	jet.step(dt, slope, wind_along)

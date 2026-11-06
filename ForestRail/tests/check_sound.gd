@@ -145,7 +145,7 @@ func run() -> void:
 	# B6.6: the jet: the beeps of the countdown, the roar by the thrust, silent when the engine is off
 	m = vehicle("jet")
 	m.jet.open_cover(true)
-	for i in range(4): m.jet.flip_fuse(i)
+	for i in range(4): m.jet.flip_fuse(i)   # all four toggles on
 	m.jet.start()
 	run_frames(sound, m, 30, 0.0)
 	check(int(sound.played.get("jet_beep", 0)) >= 1 and not sound.loops["jet_roar"].playing, "the countdown beeps and the engine is silent")

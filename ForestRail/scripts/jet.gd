@@ -19,26 +19,22 @@ const DEFAULTS = {
 	"heat": 0.12, "cooling": 0.05, "cooling_per_mps": 0.004, "ambient": 0.1,
 }
 
-# The secret of the fuses: four toggles, 16 positions. Written as a string of 0 and 1 in the order of the fuses from left to right.
-# What a position does is not shown in the game; Mikhalych only hints (the table is the owner's and the players' secret).
-# thrust and fuel are multipliers, countdown in seconds, extra_afterburner adds charges, misfire: the ignition fails at the end of the countdown.
-const CODES = {
-	"0000": {"name": "Обычный", "thrust": 1.0, "fuel": 1.0, "countdown": 10.0},
-	"1010": {"name": "Экономный", "thrust": 0.85, "fuel": 0.6, "countdown": 10.0},
-	"0101": {"name": "Тяговый", "thrust": 1.2, "fuel": 1.3, "countdown": 10.0},
-	"1100": {"name": "Быстрый старт", "thrust": 1.0, "fuel": 1.1, "countdown": 5.0},
-	"1111": {"name": "Всё включено", "thrust": 1.0, "fuel": 1.0, "countdown": 15.0, "extra_afterburner": 1},
-	"1001": {"name": "Осечка", "thrust": 1.0, "fuel": 1.0, "countdown": 6.0, "misfire": true},
-}
+# The fuses (the owner, 06.11.2026, the final version): to start, all four toggles must be on; the ORDER in which they are switched on chooses
+# one of three official modes. A secret: if the first thing done is to switch a toggle on and at once off again (a blink), the engine starts with
+# only THREE toggles on, and which toggle is left off chooses one of two secret modes. Every mode is a rule in data/jet_modes.json (add, change, delete
+# there, see docs/JET_CODES_RU.md); this file only reads the rules. In the game none of it is shown (Mikhalych only hints).
+const MODES_PATH = "res://data/jet_modes.json"
 const PLAIN = {"name": "Обычный", "thrust": 1.0, "fuel": 1.0, "countdown": 10.0}
 
 var cfg: Dictionary = DEFAULTS.duplicate()
+var modes_data: Dictionary = {}   # the rules of the modes (data/jet_modes.json)
 
 # --- levers
 var throttle = 0.0          # 0..1
 var cover_open = false      # the cover of the start button
 var fuses = [false, false, false, false]   # the four safety fuses
-var touched = [false, false, false, false]   # the start unlocks only when every toggle has been flipped at least once
+var order: Array = []   # the order in which the toggles were switched on (indices 0..3); the code of the start
+var history: Array = []   # every flip since the last reset: +n a toggle on, -n off (n from 1)
 var pad_brake = 0.0         # 0..1
 var afterburner_gadget = false   # the gadget is installed (it comes from a card)
 var double_chute_gadget = false  # the gadget: a second chute
@@ -64,6 +60,7 @@ var events: Array = []      # "countdown", "abort", "ignition", "misfire", "chut
 
 func _init(config: Dictionary = {}) -> void:
 	for key in config: cfg[key] = config[key]
+	modes_data = load_modes(str(cfg.get("modes_path", MODES_PATH)))
 	reset()
 
 func c(key: String) -> float:
@@ -85,7 +82,8 @@ func reset(fuel_liters: float = -1.0) -> void:
 	throttle = 0.0
 	cover_open = false
 	fuses = [false, false, false, false]
-	touched = [false, false, false, false]
+	order.clear()
+	history.clear()
 	pad_brake = 0.0
 	mode = PLAIN
 	events.clear()
@@ -105,7 +103,8 @@ func new_trip() -> void:
 	afterburner_time = 0.0
 	counting = false
 	started = false
-	touched = [false, false, false, false]   # the ritual is done again before every start
+	fuses = [false, false, false, false]   # the ritual is done again before every start
+	order.clear()
 
 # --- the train: the wagons add weight and drag; the loaded rocket tows a lot
 func set_train(count: int, load_kg: float = 0.0) -> void:
@@ -128,7 +127,12 @@ func open_cover(on: bool) -> void: cover_open = on
 func flip_fuse(index: int) -> void:
 	if index < 0 or index >= fuses.size() or started: return
 	fuses[index] = not fuses[index]
-	touched[index] = true
+	if fuses[index]:
+		order.append(index)
+		history.append(index + 1)
+	else:
+		order.erase(index)
+		history.append(-(index + 1))
 	if counting:
 		counting = false
 		countdown = 0.0
@@ -136,25 +140,90 @@ func flip_fuse(index: int) -> void:
 
 func fuse_code() -> String:
 	var s = ""
-	for f in fuses: s += "1" if f else "0"
+	for index in order: s += str(int(index) + 1)
 	return s
 
-func fuse_code_mode() -> Dictionary:
-	return CODES.get(fuse_code(), PLAIN)
+# The rules of the modes from the data file (a missing or broken file leaves only the plain mode).
+static func load_modes(path: String) -> Dictionary:
+	if not FileAccess.file_exists(path): return {"plain": PLAIN, "modes": [], "blink_unlocks_on": 3}
+	var parsed = JSON.parse_string(FileAccess.get_file_as_string(path))
+	if not (parsed is Dictionary): return {"plain": PLAIN, "modes": [], "blink_unlocks_on": 3}
+	return parsed
 
-# every toggle flipped at least once: only then the start button opens
-func start_unlocked() -> bool:
-	for flag in touched:
-		if not flag: return false
+# Checks the rules of a data file: returns the list of problems (empty: all right). Used by the test, so that a mistake in the file is found at once.
+static func validate_modes(data: Dictionary) -> Array:
+	var problems: Array = []
+	var seen_ids: Dictionary = {}
+	var seen_when: Dictionary = {}
+	if not data.has("plain"): problems.append("no plain mode")
+	for rule in data.get("modes", []):
+		var id = str(rule.get("id", ""))
+		if id == "" or seen_ids.has(id): problems.append("a mode without an id or a repeated id: " + id)
+		seen_ids[id] = true
+		var when = rule.get("when", {})
+		if not (when is Dictionary) or when.is_empty(): problems.append("mode %s has no condition" % id)
+		if str(when) in seen_when: problems.append("mode %s has the same condition as %s" % [id, seen_when[str(when)]])
+		seen_when[str(when)] = id
+		if when.has("order"):
+			var digits = str(when.order)
+			var ok = digits.length() == 4
+			for ch in digits:
+				if ch not in ["1", "2", "3", "4"] or digits.count(ch) != 1: ok = false
+			if not ok: problems.append("mode %s: the order must be the four digits 1 to 4 once each (%s)" % [id, digits])
+		if when.has("off"):
+			for n in when.off:
+				if int(n) < 1 or int(n) > 4: problems.append("mode %s: a toggle number outside 1 to 4" % id)
+		for key in ["thrust", "fuel", "countdown"]:
+			if rule.has(key) and float(rule[key]) <= 0.0: problems.append("mode %s: %s must be above zero" % [id, key])
+		if not str(rule.get("name", "")).length() > 0: problems.append("mode %s has no name" % id)
+	return problems
+
+# the toggles that are off now, as numbers 1 to 4
+func off_toggles() -> Array:
+	var result: Array = []
+	for i in range(4):
+		if not fuses[i]: result.append(i + 1)
+	return result
+
+# does one rule fit the toggles as they stand now?
+func rule_fits(rule: Dictionary) -> bool:
+	var when = rule.get("when", {})
+	if when.has("order") and (fuses_on() != 4 or fuse_code() != str(when.order)): return false
+	if when.has("blink") and bool(when.blink) != secret_open(): return false
+	if when.has("on_count") and fuses_on() != int(when.on_count): return false
+	if when.has("off"):
+		var wanted: Array = []
+		for n in when.off: wanted.append(int(n))
+		wanted.sort()
+		if off_toggles() != wanted: return false
 	return true
 
-func touched_count() -> int:
+# the mode of the start: the first rule that fits, else the plain one (the numbers the rule does not give are those of the plain mode)
+func fuse_code_mode() -> Dictionary:
+	var plain: Dictionary = modes_data.get("plain", PLAIN)
+	for rule in modes_data.get("modes", []):
+		if rule_fits(rule):
+			var merged = plain.duplicate()
+			for key in rule: merged[key] = rule[key]
+			return merged
+	return plain
+
+# the secret: the first flip switched a toggle on and the second switched the same toggle off (a blink)
+func secret_open() -> bool:
+	return history.size() >= 2 and int(history[0]) > 0 and int(history[1]) == -int(history[0])
+
+# every toggle is on: only then the start button opens
+func start_unlocked() -> bool:
+	if fuses_on() == 4: return true
+	return secret_open() and fuses_on() == int(modes_data.get("blink_unlocks_on", 3))
+
+func fuses_on() -> int:
 	var n = 0
-	for flag in touched:
+	for flag in fuses:
 		if flag: n += 1
 	return n
 
-# the start button opens when the cap is open and every toggle has been flipped: the countdown begins in the mode of the fuses at that moment
+# the start button opens when the cap is open and every toggle is on: the countdown begins in the mode of the fuses at that moment
 func start() -> bool:
 	if started or counting or not cover_open or not start_unlocked() or fuel <= 0.0: return false
 	mode = fuse_code_mode()
@@ -172,7 +241,9 @@ func abort_countdown() -> void:
 func shut_down() -> void:
 	started = false
 	counting = false
-	touched = [false, false, false, false]
+	fuses = [false, false, false, false]
+	order.clear()
+	history.clear()
 
 # one chute (or both with the gadget) goes out; the pulled ones are used for the trip
 func pull_chute(count: int = 1) -> bool:
@@ -227,7 +298,8 @@ func step(dt: float, slope: float = 0.0, wind_along: float = 0.0) -> void:
 		if countdown <= 0.0:
 			counting = false
 			if bool(mode.get("misfire", false)):
-				touched = [false, false, false, false]
+				fuses = [false, false, false, false]
+				order.clear()
 				events.append("misfire")   # the fuses were set to a bad position: the engine coughs, the start must be done again
 			else:
 				started = true
@@ -267,4 +339,4 @@ func step(dt: float, slope: float = 0.0, wind_along: float = 0.0) -> void:
 func status() -> Dictionary:
 	return {"speed": v, "thrust": thrust, "fuel": fuel, "temp": temp, "chute": chute, "chutes_open": chutes_open, "started": started, "counting": counting,
 		"countdown": countdown, "chutes_left": chutes_left, "afterburner_left": afterburner_charges, "afterburner_on": afterburner_time > 0.0,
-		"fuses": fuse_code(), "touched": touched_count(), "wagons": wagons}
+		"fuses": fuse_code(), "fuses_on": fuses_on(), "wagons": wagons}
