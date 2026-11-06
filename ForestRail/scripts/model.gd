@@ -967,6 +967,7 @@ func depart() -> bool:
 		jet.new_trip()   # the chutes are packed, the afterburner is refilled
 	state.burst_left = 0.0
 	state.burst_cooldown = 0.0
+	state.nitro_charges = NITRO_CHARGES
 	if state.active.is_empty() or not all_loaded():
 		return fail("Погрузи хотя бы один предмет" if selectable_loading() else "Сначала размести весь груз на составе")
 	if selectable_loading():
@@ -1307,9 +1308,25 @@ const BURST_SECONDS = 5.0
 const BURST_COOLDOWN = 45.0
 const BURST_PULL = 1.5
 const BURST_BATTERY_SHARE = 0.02
+const NITRO_SECONDS = 4.0     # the nitrous oxide of the petrol car (B6.8): +60% pull for 4 s, two charges for a trip, the petrol burns twice as fast meanwhile
+const NITRO_PULL = 1.6
+const NITRO_CHARGES = 2
+const NITRO_FUEL_K = 2.0
 
 func supercap_installed() -> bool:
 	return vehicle_id() == "locomotive" and float(effects("locomotive").get("locomotive_supercap", 0)) > 0.0
+
+func nitro_installed() -> bool:
+	return vehicle_id() == "motorcar" and float(effects("motorcar").get("motorcar_nitro", 0)) > 0.0
+
+func nitro_charges() -> int:
+	return int(state.get("nitro_charges", NITRO_CHARGES))
+
+# "supercap", "nitro" or "": which gadget stands behind the button
+func burst_gadget() -> String:
+	if supercap_installed(): return "supercap"
+	if nitro_installed(): return "nitro"
+	return ""
 
 func burst_left() -> float:
 	return float(state.get("burst_left", 0.0))
@@ -1318,6 +1335,8 @@ func burst_cooldown() -> float:
 	return float(state.get("burst_cooldown", 0.0))
 
 func burst_ready() -> bool:
+	if nitro_installed():
+		return state.phase == "route" and burst_left() <= 0.0 and nitro_charges() > 0 and bool(state.engine) and float(state.fleet_by_id.motorcar.fuel) > 0.0
 	if not supercap_installed() or state.phase != "route": return false
 	if burst_left() > 0.0 or burst_cooldown() > 0.0: return false
 	var cost = float(object_stats("locomotive").tank) * BURST_BATTERY_SHARE
@@ -1325,6 +1344,12 @@ func burst_ready() -> bool:
 
 func start_burst() -> bool:
 	if not burst_ready(): return false
+	if nitro_installed():
+		state.nitro_charges = nitro_charges() - 1
+		state.burst_left = NITRO_SECONDS
+		state.burst_cooldown = 0.0
+		events.append("burst")
+		return true
 	var fleet = state.fleet_by_id.locomotive
 	fleet.fuel = maxf(0.0, float(fleet.fuel) - float(object_stats("locomotive").tank) * BURST_BATTERY_SHARE)
 	state.burst_left = BURST_SECONDS
@@ -1337,7 +1362,8 @@ func burst_step(dt: float) -> void:
 	if state.has("burst_cooldown") and float(state.burst_cooldown) > 0.0: state.burst_cooldown = maxf(0.0, float(state.burst_cooldown) - dt)
 
 func burst_factor() -> float:
-	return BURST_PULL if burst_left() > 0.0 else 1.0
+	if burst_left() <= 0.0: return 1.0
+	return NITRO_PULL if nitro_installed() else BURST_PULL
 
 func has_temperature(id: String = "") -> bool:
 	return (id if id != "" else vehicle_id()) in ["motorcar", "locomotive"]
@@ -2342,6 +2368,7 @@ func physics_step(dt: float) -> void:
 			var cfg_engine=vehicle_base().engine
 			var efficiency=clampf(0.22-0.30*pow(rpm_fraction-float(cfg_engine.best_fraction),2),0.10,0.22)
 			used=shaft_work/efficiency+(10200.0*(1.0+0.8*rpm_fraction)*dt if state.engine else 0.0)
+			if nitro_installed() and burst_left() > 0.0: used *= NITRO_FUEL_K   # the gadget: the petrol burns twice as fast
 			fleet.fuel=maxf(0,before-used/8500000.0)
 		motor_energy={"shaft_work_j":shaft_work,"brake_work_j":brake_work,"used_j":used,"recovered_j":recovered,"delta_store":float(fleet.fuel)-before}
 		if vehicle_id()!="steam" and fleet.fuel<=0: state.engine=false

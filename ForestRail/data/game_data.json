@@ -1424,6 +1424,18 @@
       "scope": "selected_vehicle_id"
     },
     {
+      "id": "motorcar_nitro",
+      "target_type": "motorcar",
+      "name": "Закись азота",
+      "gadget": true,
+      "level_costs": [3000],
+      "levels": 1,
+      "effects_at_level": {
+        "motorcar_nitro": [1]
+      },
+      "scope": "selected_vehicle_id"
+    },
+    {
       "id": "sail_spinnaker",
       "target_type": "sail",
       "name": "Спинакер",

@@ -520,7 +520,7 @@ func build_settings(box: VBoxContainer) -> void:
 		add_label(box, "Клавиши (Esc всегда пауза):", 20)
 		settings_key(box, "map", "Карта")
 		settings_key(box, "cab", "Кабина")
-		settings_key(box, "burst", "Рывок суперконденсатора")
+		settings_key(box, "burst", "Рывок (суперконденсатор, нитро)")
 		settings_key(box, "ice", "Сбить иней (пневматический)")
 		settings_key(box, "brake", "Тормоз: затянуть или отпустить")
 		settings_key(box, "sail_side", "Парусная: гик на другой борт")
@@ -1584,7 +1584,7 @@ func build_hud(size: Vector2) -> void:
 	ui.add_child(pause_row)
 	map_button = add_button(pause_row, "Карта [%s]" % key_name("map"), toggle_map)
 	burst_button = null
-	if model.supercap_installed(): burst_button = add_button(pause_row, "Рывок [%s]" % key_name("burst"), try_burst)
+	if model.burst_gadget() != "": burst_button = add_button(pause_row, burst_button_text(), try_burst)
 	if not model.human_powered(): add_button(pause_row,"Кабина [%s]" % key_name("cab"),toggle_cab_view)
 	add_button(pause_row, "Пауза", pause_game)
 	for button in pause_row.get_children():
@@ -1838,13 +1838,19 @@ func toggle_map() -> void:
 # The supercapacitor: +50% of the pull for 5 seconds, then 45 seconds to charge (Model.start_burst).
 func try_burst() -> void:
 	if not model.start_burst():
-		if model.burst_cooldown() > 0.0: notify("Суперконденсатор заряжается: ещё %d с" % int(ceil(model.burst_cooldown())))
+		if model.nitro_installed():
+			if model.nitro_charges() <= 0: notify("Закись азота кончилась: баллоны наполнят к следующему рейсу")
+			elif not model.state.engine: notify("Нитро работает только на заведённом двигателе")
+		elif model.burst_cooldown() > 0.0: notify("Суперконденсатор заряжается: ещё %d с" % int(ceil(model.burst_cooldown())))
 		return
 	sound.play("contactor", 0.9, 0.8)
 	sound.play("coins", 0.35, 1.9)
 	cab_jolt = maxf(cab_jolt, 0.5)
 
 func burst_button_text() -> String:
+	if model.nitro_installed():
+		if model.burst_left() > 0.0: return "Нитро: %.0f с" % ceil(model.burst_left())
+		return "Нитро ×%d [%s]" % [model.nitro_charges(), key_name("burst")]
 	if model.burst_left() > 0.0: return "Рывок: %.0f с" % ceil(model.burst_left())
 	if model.burst_cooldown() > 0.0: return "Заряд: %d с" % int(ceil(model.burst_cooldown()))
 	return "Рывок [%s]" % key_name("burst")
@@ -2536,7 +2542,7 @@ func _input(event: InputEvent) -> void:
 		chip_all_ice()
 		get_viewport().set_input_as_handled()
 		return
-	if event is InputEventKey and event.pressed and not event.echo and key_is(event,"burst") and screen=="game" and not paused and model.supercap_installed():
+	if event is InputEventKey and event.pressed and not event.echo and key_is(event,"burst") and screen=="game" and not paused and model.burst_gadget() != "":
 		try_burst()
 		get_viewport().set_input_as_handled()
 		return
