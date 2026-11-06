@@ -283,6 +283,13 @@ func draw_minimap() -> void:
 	put(ahead,Vector2(r.position.x+r.size.x*0.55,24*f+r.position.y),r.size.x*0.45-18,14,GOLD if not climb.is_empty() else MUTED,HORIZONTAL_ALIGNMENT_RIGHT)
 	window_range=[]
 
+# The gear on the status line: N, 1..5, R (reverse is the gear 6); with the automatic box D and the gear it has chosen
+func gear_label(m) -> String:
+	var g = int(m.state.gear)
+	if g == 6: return "R"
+	if g == 0: return "N"
+	return ("D%d" % g) if m.auto_gearbox() else str(g)
+
 func draw_status() -> void:
 	var r = Rect2(size.x-status_width()-22,hud_top(),status_width(),hud_height())
 	var f=r.size.y/100.0
@@ -321,7 +328,7 @@ func draw_status() -> void:
 			title = "ПАР  ·  %.1f бар" % m.pressure_bar()
 			value = "ведро %.0f кг · %.0f л" % [amount,float(m.state.fleet_by_id.steam.get("water",0))]
 			fraction = float(m.boiler().pressure)
-	if m.vehicle_id()=="motorcar": title+="  ·  %s  ·  %.1fк" % [{0:"N",1:"1",2:"2",3:"3",4:"4",5:"R"}[int(m.state.gear)],m.engine_rpm()/1000.0]
+	if m.vehicle_id()=="motorcar": title+="  ·  %s  ·  %.1fк" % [gear_label(m),m.engine_rpm()/1000.0]
 	if m.vehicle_id()=="locomotive" and m.regen_kw>0.01: title="РЕКУПЕРАЦИЯ +%.1f кВт" % m.regen_kw
 	var level=level_color(fraction) if not m.human_powered() else Color("8fc46a")
 	put(title,r.position+Vector2(16,22*f),r.size.x*0.5-16,12,Color("6cc4e0") if m.regen_kw>0.01 else accent)

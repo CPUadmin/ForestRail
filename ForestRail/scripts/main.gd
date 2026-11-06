@@ -2084,7 +2084,8 @@ func draw_control_zoom() -> void:
 		var point=geo.grip
 		var kind=control_kind(id)
 		if kind=="gate":
-			draw_gate(gate_rect(true),gate_pos if drag=="gear" else gate_slot_pos(int(model.state.gear)),drag==id)
+			if model.auto_gearbox(): draw_selector(gate_rect(true),gate_pos if drag=="gear" else gate_slot_pos(int(model.state.gear)),drag==id)
+			else: draw_gate(gate_rect(true),gate_pos if drag=="gear" else gate_slot_pos(int(model.state.gear)),drag==id)
 		elif kind=="wheel":
 			draw_handwheel(pivot,float(geo.radius),angle,GOLD if id=="gear" else GREEN,drag==id)
 		elif kind=="slider":
@@ -2631,8 +2632,12 @@ func _input(event: InputEvent) -> void:
 				var kind=control_kind(drag)
 				if kind=="gate":
 					var gate=gate_rect(drag_closeup)
-					gate_pos=gate_move(gate_pos,local_move/Vector2(gate.size.x*0.35,gate.size.y*0.38))
-					lever_pending_gear=gate_gear(gate_pos,lever_pending_gear)
+					if model.auto_gearbox():
+						gate_pos=Vector2(1.0,clampf(gate_pos.y+local_move.y/(gate.size.y*0.38),-1.0,1.0))
+						lever_pending_gear=selector_gear_of(gate_pos.y)
+					else:
+						gate_pos=gate_move(gate_pos,local_move/Vector2(gate.size.x*0.35,gate.size.y*0.38))
+						lever_pending_gear=gate_gear(gate_pos,lever_pending_gear)
 				elif kind=="slider":
 					var level=clampf((geo.pivot.y-lever_target_point.y)/float(geo.length),0.0,1.0)
 					if level<0.001: level=0.0
@@ -2754,7 +2759,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			drag_closeup=bool(nearest.get("closeup",false))
 			lever_travel=0
 			lever_click_origin=mouse
-			lever_pending_gear=int(model.state.gear)
+			lever_pending_gear=model.selector_gear()
 			if drag in ["brake","throttle","gear","start"]:
 				var press_geo=control_geometry(drag,drag_closeup)
 				lever_target_point=press_geo.grip
@@ -2856,7 +2861,7 @@ func finish_drag(mouse: Vector2) -> void:
 			if not model.stoke(): notify(model.message)
 		else:
 			notify("Брось уголь в топку: перетащи ведро на красную топку")
-	elif drag == "gear" and lever_pending_gear!=int(model.state.gear):
+	elif drag == "gear" and lever_pending_gear!=model.selector_gear():
 		if not model.set_gear(lever_pending_gear): notify(model.message)
 	elif drag == "start" and lever_travel<8 and mouse.distance_to(lever_click_origin)<8:
 		if model.vehicle_id()=="pneumatic":
@@ -4430,7 +4435,32 @@ func gate_local(rect: Rect2, g: Vector2) -> Vector2:
 	return rect.position + Vector2(rect.size.x * (0.15 + 0.35 * g.x), rect.size.y * (0.5 + 0.38 * g.y))
 
 func gate_slot_pos(gear: int) -> Vector2:
+	if model.auto_gearbox(): return Vector2(1, -1.0 if gear >= 1 and gear <= 5 else (1.0 if gear == 6 else 0.0))   # the selector: D up, N in the middle, R down
 	return GATE_SLOTS.get(gear, Vector2(1, 0))
+
+# The selector of the automatic gearbox: one slot, D on top, N in the middle, R at the bottom.
+func selector_gear_of(y: float) -> int:
+	if y <= -0.5: return 1
+	if y >= 0.5: return 6
+	return 0
+
+func draw_selector(rect: Rect2, knob: Vector2, active: bool) -> void:
+	draw_style_box(style(Color("1d2420"), Color("918363") if not active else PAPER, 4), rect.grow(4))
+	var width = maxf(3.0, rect.size.x * 0.07)
+	var top = gate_local(rect, Vector2(1, -1))
+	var bottom = gate_local(rect, Vector2(1, 1))
+	draw_line(top, bottom, Color("5e6b62"), width + 2, true)
+	draw_line(top, bottom, Color("070a09"), width, true)
+	var small = clampi(int(rect.size.x * 0.2), 12, 18)
+	for item in [[-1.0, "Д", GREEN], [0.0, "Н", GOLD], [1.0, "З", RED]]:
+		var at = gate_local(rect, Vector2(1, item[0]))
+		draw_string(font, at + Vector2(width * 1.6, small * 0.35), item[1], HORIZONTAL_ALIGNMENT_LEFT, 20, small, item[2])
+	var ball = gate_local(rect, Vector2(1, knob.y))
+	var radius = maxf(4.5, rect.size.x * 0.10)
+	draw_circle(ball + Vector2(1.5, 2.0), radius, Color(0, 0, 0, 0.45))
+	draw_circle(ball, radius, Color("17120f"))
+	draw_circle(ball + Vector2(-radius * 0.3, -radius * 0.35), radius * 0.3, Color(1, 1, 1, 0.35))
+	draw_arc(ball, radius, 0, TAU, 20, GOLD, 1.2, true)
 
 # The knob moves in the neutral channel freely, and in a column only up and down.
 func gate_move(pos: Vector2, delta: Vector2) -> Vector2:
@@ -4602,7 +4632,8 @@ func draw_controls(body_transform: Transform2D, show_labels: bool = true) -> voi
 		var angle = float(geo.angle)
 		var kind = control_kind(id) if id != "pump" else "pump"
 		if kind == "gate":
-			draw_gate(gate_rect(false), gate_pos if drag == "gear" else gate_slot_pos(int(model.state.gear)), drag == id)
+			if model.auto_gearbox(): draw_selector(gate_rect(false), gate_pos if drag == "gear" else gate_slot_pos(int(model.state.gear)), drag == id)
+			else: draw_gate(gate_rect(false), gate_pos if drag == "gear" else gate_slot_pos(int(model.state.gear)), drag == id)
 		elif kind == "wheel":
 			draw_handwheel(geo.pivot, float(geo.radius), angle, GOLD if id == "gear" else GREEN, drag == id)
 		elif kind == "slider":

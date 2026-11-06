@@ -1158,8 +1158,31 @@ func rescue() -> void:
 	refuel()
 	message = "Помощь доставила состав в депо. Груз и покупки сохранены"
 
+# Gadget: the automatic gearbox of the petrol car. The lever has three places (D drive, N neutral, R reverse); in D the car picks the gear by its speed
+# (a shift does not cut the pull and the engine does not stall), the petrol burns 5% less. In the data a gear 1..5 in auto means D.
+const AUTO_GEARBOX_FUEL = 0.95
+const AUTO_UPSHIFT = 0.8   # the next gear comes when the car passes this part of the top speed of the gear
+
+func auto_gearbox() -> bool:
+	return vehicle_id() == "motorcar" and float(effects("motorcar").get("motorcar_automatic", 0)) > 0.0
+
+# what the selector shows: 1 for D with any gear working, 0 for N, 6 for R
+func selector_gear() -> int:
+	var g = int(state.gear)
+	return 1 if auto_gearbox() and g >= 1 and g <= 5 else g
+
+func auto_pick_gear() -> int:
+	var speeds = object_stats("motorcar").speeds
+	var v = absf(float(state.v))
+	for g in range(1, 6):
+		if g - 1 >= speeds.size() or v < AUTO_UPSHIFT * float(speeds[g - 1]): return g
+	return 5
+
 func set_gear(value: int) -> bool:
 	if vehicle_id() in ["locomotive", "steam"]: return true
+	if auto_gearbox() and value >= 1 and value <= 5:
+		value = 1   # D: the box chooses the gear itself
+		if int(state.gear) >= 1 and int(state.gear) <= 5: return true
 	if float(state.throttle) >= 0.15:
 		return fail("Сначала убавь подачу ниже 15%")
 	var wanted = clampi(value, 0, 6 if vehicle_id() == "motorcar" else 2)
@@ -2293,6 +2316,7 @@ func physics_step(dt: float) -> void:
 		if vehicle_id() != "steam" and vehicle_id() != "zeppelin" and vehicle_id() != "jet" and state.engine and fleet.fuel > 0:
 			if fleet.fuel <= 0:
 				state.engine = false
+			if auto_gearbox() and int(state.gear) >= 1 and int(state.gear) <= 5: state.gear = auto_pick_gear()   # D: the box picks the gear
 			if int(state.gear) > 0:
 				var gear = int(state.gear) - 1
 				var reverse_gear = vehicle_id() == "motorcar" and gear == 5
@@ -2378,6 +2402,7 @@ func physics_step(dt: float) -> void:
 			var efficiency=clampf(0.22-0.30*pow(rpm_fraction-float(cfg_engine.best_fraction),2),0.10,0.22)
 			used=shaft_work/efficiency+(10200.0*(1.0+0.8*rpm_fraction)*dt if state.engine else 0.0)
 			if nitro_installed() and burst_left() > 0.0: used *= NITRO_FUEL_K   # the gadget: the petrol burns twice as fast
+			if auto_gearbox(): used *= AUTO_GEARBOX_FUEL   # the gadget: the box keeps the engine in its best range
 			fleet.fuel=maxf(0,before-used/8500000.0)
 		motor_energy={"shaft_work_j":shaft_work,"brake_work_j":brake_work,"used_j":used,"recovered_j":recovered,"delta_store":float(fleet.fuel)-before}
 		if vehicle_id()!="steam" and fleet.fuel<=0: state.engine=false

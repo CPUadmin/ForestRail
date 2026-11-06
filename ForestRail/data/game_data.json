@@ -1461,6 +1461,18 @@
       "scope": "selected_vehicle_id"
     },
     {
+      "id": "motorcar_automatic",
+      "target_type": "motorcar",
+      "name": "Автоматическая КПП",
+      "gadget": true,
+      "level_costs": [3000],
+      "levels": 1,
+      "effects_at_level": {
+        "motorcar_automatic": [1]
+      },
+      "scope": "selected_vehicle_id"
+    },
+    {
       "id": "sail_spinnaker",
       "target_type": "sail",
       "name": "Спинакер",
