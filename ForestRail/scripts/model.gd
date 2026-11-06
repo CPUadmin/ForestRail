@@ -10,12 +10,13 @@ const Live = preload("res://scripts/live.gd")
 const Wear = preload("res://scripts/wear.gd")
 const Wind = preload("res://scripts/wind.gd")
 const Zeppelin = preload("res://scripts/zeppelin.gd")
+const Jet = preload("res://scripts/jet.gd")
 const G = 9.81
 const BUFFER_SAFE_SPEED = 1.0
 const VEHICLE_IDS = ["handcar", "pole", "sail", "steam", "motorcar", "pneumatic", "locomotive", "zeppelin"]
 const WAGON_IDS = ["W01", "W02", "W03"]
 # Classes that exist in the data but are not shown to the player yet (no view, no cab).
-const HIDDEN_VEHICLE_IDS = []   # machines that exist in the data but are not shown in the garage yet (none now)
+const HIDDEN_VEHICLE_IDS = ["jet"]   # machines that exist in the data but are not shown in the garage yet (none now)
 # Holds cargo migrated from an old petrol deck until it is unloaded (ECONOMY_v3_2_RU.md).
 const TEMP_WAGON = "WT"
 var data: Dictionary
@@ -30,6 +31,8 @@ var pole = Pole.new()
 # the numbers of the last step for the hud and the picture.
 var wind = Wind.new()
 var zep_loaded = false   # the flight of the zeppelin is taken from the save once after a load
+var jet_loaded = false   # the state of the jet (the fuses, the lit engine) is taken from the save once after a load
+var jet = Jet.new()   # the running model of the jet (rocket) train (B6.6), only used while it is the chosen machine
 var zep = Zeppelin.new()   # the running model of the rail zeppelin (B6.5), only used while it is the chosen machine
 var sail_trim = 0.6
 # Holding (as with the handcar lever): the sail pulls only while the hand holds the free corner or the
@@ -108,6 +111,8 @@ func _init() -> void:
 func new_game(world_seed: int = 42, line_version: int = 1, mode: String = "career", spread: bool = false, starter: String = "handcar") -> void:
 	loading_cache.clear()
 	zep.reset()   # a new game starts with a zeppelin on the rail, not in the air
+	jet.reset()
+	jet_loaded = false
 	zep_loaded = false
 	air_fly = false
 	air_z = 0.0
@@ -927,6 +932,9 @@ func loading_preview() -> Dictionary:
 	return loading_cache
 
 func depart() -> bool:
+	if vehicle_id() == "jet":
+		jet.double_chute_gadget = bool(effects("jet").get("jet_double_chute", false))
+		jet.new_trip()   # the chutes are packed, the afterburner is refilled
 	state.burst_left = 0.0
 	state.burst_cooldown = 0.0
 	if state.active.is_empty() or not all_loaded():
@@ -1736,6 +1744,73 @@ func push_handcar(distance_m: float) -> bool:
 	hand_drive.push_used+=amount
 	return true
 
+# --- Jet (rocket) train (B6.6): the levers live in the model of the jet, their positions are mirrored into the state for the save
+func jet_start() -> bool:
+	if vehicle_id() != "jet": return false
+	if not jet.cover_open: return fail("Сначала открой крышку пуска")
+	if not jet.start(): return fail("Пуск не получился: уже идёт отсчёт или нет керосина")
+	return true
+
+func set_jet_cover(on: bool) -> bool:
+	if vehicle_id() != "jet": return false
+	jet.open_cover(on)
+	state.jet_cover = on
+	return true
+
+func flip_jet_fuse(index: int) -> bool:
+	if vehicle_id() != "jet": return false
+	if jet.started: return fail("Предохранители трогать на ходу нельзя")
+	jet.flip_fuse(index)
+	state.jet_fuses = jet.fuse_code()
+	return true
+
+func pull_jet_chute(count: int = 1) -> bool:
+	if vehicle_id() != "jet": return false
+	if not jet.pull_chute(count): return fail("В укладке нет столько парашютов")
+	return true
+
+func fire_jet_afterburner() -> bool:
+	if vehicle_id() != "jet": return false
+	return jet.fire_afterburner() or fail("Форсаж не готов")
+
+# One step of the jet on the line. Returns the new speed along the rail (the movement is integrated by the caller).
+func jet_step(dt: float, fleet: Dictionary, old_v: float) -> float:
+	var forward = float(drive_direction())
+	if forward == 0.0: forward = 1.0
+	if not jet_loaded:
+		jet_loaded = true
+		if state.has("jet_fuses"):
+			var code = str(state.jet_fuses)
+			for i in range(mini(4, code.length())): jet.fuses[i] = code[i] == "1"
+			jet.cover_open = bool(state.get("jet_cover", false))
+			if bool(state.get("jet_started", false)):
+				jet.mode = jet.fuse_code_mode()
+				jet.started = true
+			jet.chutes_left = int(state.get("jet_chutes_left", jet.chutes_left))
+	var ef = effects("jet")
+	jet.cfg.fuel_l = float(object_stats("jet").tank)
+	jet.cfg.pad_brake_n = float(object_stats("jet").brake)
+	jet.double_chute_gadget = bool(ef.get("jet_double_chute", false))
+	jet.afterburner_gadget = bool(ef.get("jet_afterburner", false))
+	jet.set_train(state.consist_ids.size(), 0.0)
+	jet.mass_override = train_mass()
+	jet.fuel = float(fleet.fuel)
+	jet.v = old_v * forward
+	jet.set_throttle(float(state.throttle))
+	jet.set_pad_brake(float(state.brake))
+	var slope = route.slope(float(state.s)) * forward
+	var wind_along = wind_here().x * float(int(state.get("reverser", 1)))
+	jet.step(dt, slope, wind_along)
+	fleet.fuel = jet.fuel
+	state.engine = jet.started
+	state.jet_started = jet.started
+	state.jet_cover = jet.cover_open
+	state.jet_fuses = jet.fuse_code()
+	state.jet_chutes_left = jet.chutes_left
+	for event in jet.events:
+		events.append("jet_" + str(event))
+	return jet.v * forward
+
 # --- Rail zeppelin (B6.5): the levers live in the state (the throttle and the brake are the usual ones), the physics in zeppelin.gd
 func zeppelin_pitch() -> float:
 	return clampf(float(state.get("zep_pitch", 0.0)), 0.0, 1.0)
@@ -2102,7 +2177,7 @@ func physics_step(dt: float) -> void:
 			pole.grip_scale = float(effects("pole").get("pole_grip_multiplier", 1.0)) * wear().factor("pole", "rig")
 			drive = pole.step(dt, float(state.s), float(state.v), int(state.direction))
 		elif fleet.fuel <= 0: state.engine = false
-		if vehicle_id() != "steam" and vehicle_id() != "zeppelin" and state.engine and fleet.fuel > 0:
+		if vehicle_id() != "steam" and vehicle_id() != "zeppelin" and vehicle_id() != "jet" and state.engine and fleet.fuel > 0:
 			if fleet.fuel <= 0:
 				state.engine = false
 			if int(state.gear) > 0:
@@ -2127,7 +2202,10 @@ func physics_step(dt: float) -> void:
 	var old_v = float(state.v)
 	var new_v = old_v
 	var movement=0.0
-	if vehicle_id()=="zeppelin":
+	if vehicle_id()=="jet":
+		new_v = jet_step(dt, state.fleet_by_id.jet, old_v)
+		movement = (old_v + new_v) * 0.5 * dt
+	elif vehicle_id()=="zeppelin":
 		new_v = zeppelin_step(dt, state.fleet_by_id.zeppelin, old_v)
 		movement = (old_v + new_v) * 0.5 * dt
 		if zep.crashed:
@@ -2146,7 +2224,7 @@ func physics_step(dt: float) -> void:
 			new_v = old_v + (external - movement_sign * resist) / total * dt
 			if signf(new_v) != movement_sign and absf(external) <= rolling + brake: new_v = 0.0
 		movement=(old_v+new_v)*0.5*dt
-	if vehicle_id()!="handcar" and vehicle_id()!="zeppelin":
+	if vehicle_id()!="handcar" and vehicle_id()!="zeppelin" and vehicle_id()!="jet":
 		# Settle energy against the distance actually integrated, including
 		# the first accelerating step and the last stopping step.
 		var shaft_work=absf(drive*movement)
@@ -2350,6 +2428,8 @@ func restore(saved: Dictionary) -> bool:
 	loading_cache.clear()
 	zep.reset()
 	zep_loaded = false
+	jet.reset()
+	jet_loaded = false
 	if not state.active.is_empty(): state.active.origin_station_id=state.active.get("origin_station_id","A")
 	route.restore(state.route, data.stations)
 	state.erase("route")

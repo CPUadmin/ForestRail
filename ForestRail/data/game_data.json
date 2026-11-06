@@ -312,8 +312,34 @@
         "takeoff_alpha": 3.5,
         "crash_penalty_share": 0.5,
         "crash_penalty_min": 300,
-        "ceiling_m": 12
+        "ceiling_m": 30
       }
+    },
+    {
+      "id": "jet",
+      "name": "Реактивный поезд",
+      "hidden": true,
+      "cost": 12000,
+      "mass_kg": 1500,
+      "deck_slots": 2,
+      "default_wagons": 0,
+      "fuel_l": 150,
+      "traction_n": [12000, 12000],
+      "gear_speed_mps": [55.6, 55.6],
+      "drag": 0.0,
+      "top_speed_kmh": 200,
+      "rank": 5,
+      "max_wagons": 3,
+      "brake_n": 6000,
+      "refill_price": 3000,
+      "energy_per_m": 0.0085,
+      "energy_per_m_v2": 0.034,
+      "energy_fixed": 1.0,
+      "energy_fixed_v2": 4.0,
+      "line_tank_factor": 1.0,
+      "energy_unit": "л",
+      "free_reward_multiplier": 2.5,
+      "free_reach": "F"
     },
     {
       "id": "pneumatic",
@@ -1255,6 +1281,30 @@
       "scope": "selected_vehicle_id"
     },
     {
+      "id": "jet_double_chute",
+      "target_type": "jet",
+      "name": "Двойной парашют",
+      "gadget": true,
+      "level_costs": [3500],
+      "levels": 1,
+      "effects_at_level": {
+        "jet_double_chute": [true]
+      },
+      "scope": "selected_vehicle_id"
+    },
+    {
+      "id": "jet_afterburner",
+      "target_type": "jet",
+      "name": "Форсаж",
+      "gadget": true,
+      "level_costs": [5000],
+      "levels": 1,
+      "effects_at_level": {
+        "jet_afterburner": [true]
+      },
+      "scope": "selected_vehicle_id"
+    },
+    {
       "id": "zeppelin_tank",
       "target_type": "zeppelin",
       "name": "Бак",
@@ -1989,6 +2039,12 @@
           "floor": 0.6,
           "per_km": 0.0025
         }
+      ],
+      "jet": [
+        {"id": "engine", "name": "Двигатель", "effect": "power", "floor": 0.5, "per_km": 0.002},
+        {"id": "nozzle", "name": "Сопло", "effect": "power", "floor": 0.7, "per_km": 0.0012},
+        {"id": "bearings", "name": "Подшипники", "effect": "roll", "floor": 0.4, "per_km": 0.002},
+        {"id": "brake", "name": "Тормоз", "effect": "brake", "floor": 0.6, "per_km": 0.0025}
       ],
       "zeppelin": [
         {

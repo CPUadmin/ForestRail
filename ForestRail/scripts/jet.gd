@@ -10,7 +10,7 @@ const G = 9.81
 
 const DEFAULTS = {
 	"mass_kg": 1500.0, "thrust_max_n": 12000.0, "rho": 1.225, "cda_m2": 6.2, "rolling": 0.004,
-	"wagon_mass_kg": 900.0, "wagon_cda_m2": 0.6, "max_wagons": 4,
+	"wagon_mass_kg": 900.0, "wagon_cda_m2": 0.6, "max_wagons": 3,
 	"spool_up_nps": 3000.0, "spool_down_nps": 7000.0, "countdown_s": 10.0,
 	"sfc_kg_per_ns": 0.00012, "kerosene_kg_per_l": 0.8, "fuel_l": 600.0,
 	"chute_cda_m2": 6.0, "chute_deploy_s": 1.2, "chutes_per_trip": 1, "chutes_with_gadget": 2, "chute_cut_speed_mps": 0.6,
@@ -58,6 +58,7 @@ var afterburner_charges = 2
 var temp = 0.1
 var wagons = 0              # coupled wagons: mass and drag
 var wagon_load_kg = 0.0     # the cargo in them
+var mass_override = -1.0    # the model sets the real mass of the whole train (the cargo included); negative: count from the wagons
 var mode: Dictionary = PLAIN   # the mode that the fuses had when the countdown began
 var events: Array = []      # "countdown", "abort", "ignition", "misfire", "chute", "chute_cut", "afterburner", "empty", "overheat"
 
@@ -110,6 +111,7 @@ func set_train(count: int, load_kg: float = 0.0) -> void:
 	wagon_load_kg = maxf(0.0, load_kg)
 
 func total_mass() -> float:
+	if mass_override >= 0.0: return mass_override
 	return c("mass_kg") + float(wagons) * c("wagon_mass_kg") + wagon_load_kg
 
 func total_cda() -> float:

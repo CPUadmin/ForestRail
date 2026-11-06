@@ -3,7 +3,7 @@ extends RefCounted
 const ROOT = "res://assets/art_v3/"
 # The steam engine body is drawn by tools/make_steam_art.py; the fire glow,
 # needle, smoke and rods are drawn live in draw_steam_overlay / draw_steam_motion.
-const BODY = {"handcar": "vehicles/handcar_body", "pole": "vehicles/pole_body", "sail": "vehicles/sail_body", "steam": "vehicles/steam_locomotive_body", "motorcar": "vehicles/petrol_motorcar_body", "locomotive": "vehicles/battery_locomotive_body", "pneumatic": "vehicles/pneumatic_body", "zeppelin": "vehicles/zeppelin_body"}
+const BODY = {"handcar": "vehicles/handcar_body", "pole": "vehicles/pole_body", "sail": "vehicles/sail_body", "steam": "vehicles/steam_locomotive_body", "motorcar": "vehicles/petrol_motorcar_body", "locomotive": "vehicles/battery_locomotive_body", "pneumatic": "vehicles/pneumatic_body", "zeppelin": "vehicles/zeppelin_body", "jet": "vehicles/jet_body"}
 const LARGE_WHEELS = ["locomotive", "steam", "pneumatic"]
 # Opaque tread diameters measured horizontally and vertically in the painted sprites.
 const PAINTED_WHEEL_TREAD = {
@@ -49,6 +49,7 @@ const STOCK_LOCO = preload("res://assets/art_electric/electric_loco_body.png")
 # P13 (GPT, 05.11.2026): the pole truck has its own platform (wheels are drawn behind it, the rims are cut from the picture)
 const STOCK_POLE = preload("res://assets/art_pole_truck/pole_truck_body.png")
 # B6.5: the rail zeppelin (the picture of the other helper, the file is not changed)
+const STOCK_JET = preload("res://assets/art_consists/rocket_train_compact_body.png")   # B6.6: the rocket train (the picture of the other helper, the file is not changed)
 const STOCK_ZEPPELIN = preload("res://assets/art_zeppelin/body_clean.png")   # the same picture without the movable parts (tools/make_zeppelin_wings.py)
 const ZEP_PARTS = {
 	"tailplane": {"texture": preload("res://assets/art_zeppelin/tailplane.png"), "rect": Rect2(219, 140, 398, 75), "pivot": Vector2(507, 195)},
@@ -61,6 +62,7 @@ const ZEP_PARTS = {
 const STOCK_BODY = {
 	"handcar": [Rect2(50, 207, 802, 168), 210.0, 330.0],
 	"zeppelin": [Rect2(0, 0, 1774, 751), 580.0, 712.0],
+	"jet": [Rect2(0, 0, 1774, 780), 616.0, 724.0],
 	"pole": [Rect2(0, 0, 1497, 304), 48.0, 250.0],   # the new platform: the plank top and the axle line in its own pixels
 	"sail": [Rect2(47, 564, 804, 166), 566.0, 686.0],
 	"wagon": [Rect2(919, 565, 817, 165), 568.0, 686.0],
@@ -136,7 +138,7 @@ func _init(skins_path: String = "") -> void:
 		var id = "vehicles/freight_wagon_body" if kind=="wagon" else BODY[kind]
 		# The pneumatic train (tools/make_pneumatic_art.py) has no manifest entry of its own;
 		# it takes the steam body's entry as a template for the fields that are overwritten below.
-		var meta = assets["vehicles/steam_locomotive_body" if kind == "pneumatic" else ("vehicles/handcar_body" if kind == "pole" or kind == "sail" or kind == "zeppelin" else id)].duplicate(true)
+		var meta = assets["vehicles/steam_locomotive_body" if kind == "pneumatic" else ("vehicles/handcar_body" if kind == "pole" or kind == "sail" or kind == "zeppelin" or kind == "jet" else id)].duplicate(true)
 		meta.file = spec.file if separate else "../art_p2/"+spec.file
 		meta.region_px = spec.region_px
 		meta.pivot_px = [float(spec.region_px[0])+float(spec.region_px[2])*0.5,float(spec.axles_px[0][1])]
@@ -378,7 +380,7 @@ func draw_stock_body(canvas: Node2D, id: String, outer: Transform2D) -> void:
 	var seam = Vector2(region.position.x, spec[1])
 	var upper = Rect2(region.position, Vector2(region.size.x, seam.y - region.position.y))
 	var lower = Rect2(seam, Vector2(region.size.x, region.end.y - seam.y))
-	var texture = STOCK_LOCO if id == "locomotive" else (STOCK_POLE if id == "pole" else (STOCK_ZEPPELIN if id == "zeppelin" else (STOCK_MOTORS if STOCK_LAMPS.has(id) else STOCK_FLATBEDS)))
+	var texture = STOCK_LOCO if id == "locomotive" else (STOCK_POLE if id == "pole" else (STOCK_JET if id == "jet" else (STOCK_ZEPPELIN if id == "zeppelin" else (STOCK_MOTORS if STOCK_LAMPS.has(id) else STOCK_FLATBEDS))))
 	canvas.draw_set_transform_matrix(outer)
 	for strip in [upper, lower]:
 		var start = stock_body_point(id, strip.position)
@@ -411,7 +413,7 @@ func draw_vehicle(canvas: Node2D, id: String, distance: float, facing: int, oute
 	if draw_open_rig and id=="pole": draw_pole_overlay(canvas, model)
 	if draw_open_rig and id=="sail": draw_sail_overlay(canvas, model)
 	if id=="motorcar": draw_petrol_overlay(canvas, model)
-	if id != "zeppelin" and not (id == "pole" and not is_skinned(id)): draw_wheels(canvas, id, distance, facing, run, p)   # the zeppelin has no visible wheels
+	if id != "zeppelin" and id != "jet" and not (id == "pole" and not is_skinned(id)): draw_wheels(canvas, id, distance, facing, run, p)   # the zeppelin has no visible wheels
 	if id == "steam" or id == "pneumatic": draw_steam_motion(canvas, distance, facing, run, id)
 	if id == "motorcar": draw_side_rod(canvas, id, distance, facing, run)
 	if id == "handcar": draw_mechanism(canvas, model, outer,p)

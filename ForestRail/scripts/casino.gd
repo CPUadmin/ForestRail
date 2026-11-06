@@ -127,6 +127,7 @@ func card_def(id: String) -> Dictionary:
 
 # A card can drop only when its gadget really exists in the game (the others come with later updates).
 func card_available(card: Dictionary) -> bool:
+	if str(card.machine) in m.HIDDEN_VEHICLE_IDS: return false   # the machine is not in the game yet
 	for branch in m.data.upgrade_catalog:
 		if str(branch.id) == str(card.upgrade): return true
 	return false
