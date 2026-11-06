@@ -1485,6 +1485,7 @@ func chip_ice(spot: int) -> bool:
 # train fills from a compressor ("air") where there is one, otherwise from the fuel service.
 func fuel_service_mult(services: Dictionary) -> float:
 	if vehicle_id() == "pneumatic" and services.has("air"): return float(services.air)
+	if vehicle_id() == "jet": return float(services.kerosene) if services.has("kerosene") else -1.0   # kerosene only where the line has it (A and F)
 	return float(services.fuel) if services.has("fuel") else -1.0
 
 # The class's stated top speed (km/h) in the base build with a light load; the speed tests

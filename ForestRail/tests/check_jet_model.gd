@@ -104,5 +104,13 @@ func run() -> void:
 	run_seconds(pair, 30.0)
 	pair.state.throttle = 0.0
 	check(pair.pull_jet_chute(2) and pair.jet.chutes_open == 2, "both can go out at once")
+	# kerosene: only at A and F, a station with petrol alone does not fuel the jet
+	var kerosene = fresh(false)
+	check(kerosene.station_services("A").has("kerosene") and kerosene.station_services("F").has("kerosene"), "kerosene is sold at A and F")
+	check(not kerosene.station_services("C").has("kerosene") and not kerosene.station_services("E").has("kerosene"), "and not at the stations in between")
+	check(kerosene.fuel_service_mult(kerosene.station_services("A")) == 1.0 and kerosene.fuel_service_mult(kerosene.station_services("C")) < 0.0, "the jet fuels where there is kerosene and nowhere else")
+	var petrol = Model.new()
+	petrol.new_game(42, 2)
+	check(petrol.fuel_service_mult({"fuel": 1.0, "kerosene": 1.0}) == 1.0, "the other machines still take the ordinary fuel service")
 	print("JET MODEL CHECKS ", checks, "; FAILURES ", failures)
 	get_tree().quit(0 if failures.is_empty() else 1)
