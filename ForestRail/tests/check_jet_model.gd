@@ -45,7 +45,7 @@ func light(m) -> void:
 
 func run() -> void:
 	var m = fresh(false)
-	check(m.vehicle_id() == "jet" and "jet" in m.HIDDEN_VEHICLE_IDS and "jet" not in m.VEHICLE_IDS, "the jet is a hidden machine until it is ready")
+	check(m.vehicle_id() == "jet" and "jet" in m.VEHICLE_IDS and "jet" not in m.HIDDEN_VEHICLE_IDS and not bool(m.vehicle_base("jet").get("hidden", false)), "the jet is in the garage list of the game")
 	check(int(m.vehicle_base("jet").cost) == 12000 and int(m.vehicle_base("jet").max_wagons) == 3, "the data: 12000 coins, up to three wagons")
 	check(not m.jet_start(), "no start without the open cap")
 	check(m.set_jet_cover(true) and not m.jet_start(), "under the open cap the start is locked until all four toggles are on")
@@ -123,5 +123,25 @@ func run() -> void:
 	var petrol = Model.new()
 	petrol.new_game(42, 2)
 	check(petrol.fuel_service_mult({"fuel": 1.0, "kerosene": 1.0}) == 1.0, "the other machines still take the ordinary fuel service")
+	# no takeoff: a hop over a crest is short, heavy and soft (it never crashes), shorter than the hop of another machine
+	var hop_jet = fresh(false)
+	var hop_loco = Model.new()
+	hop_loco.new_game(42, 2)
+	hop_loco.state.money = 200000
+	Fixtures.equip(hop_loco, "locomotive")
+	hop_loco.state.phase = "route"
+	hop_loco.state.s = 400.0
+	var times: Array = []
+	for hopper in [hop_jet, hop_loco]:
+		hopper.air_fly = true
+		hopper.air_y = hopper.route.sample(float(hopper.state.s)).y + 0.01
+		hopper.air_vy = 5.0
+		var frames = 0
+		while hopper.air_fly and frames < 600:
+			hopper.update_air(1.0 / 60.0, float(hopper.state.s))
+			frames += 1
+		times.append(frames)
+	check(int(times[0]) > 5 and int(times[0]) < int(times[1]) * 0.75, "the jet hop is short and heavy (%d frames against %d of the locomotive)" % [int(times[0]), int(times[1])])
+	check(not hop_jet.air_fly and not hop_jet.events.has("crash"), "and it lands without a crash")
 	print("JET MODEL CHECKS ", checks, "; FAILURES ", failures)
 	get_tree().quit(0 if failures.is_empty() else 1)

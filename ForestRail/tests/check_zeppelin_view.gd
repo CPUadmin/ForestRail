@@ -154,7 +154,7 @@ func run() -> void:
 	loader.state.active = {}
 	if loader.accept_mission(loader.current_mission()):
 		for i in range(mini(loader.state.cargo.size(), loader.slots().size())): loader.transfer(loader.state.cargo[i].id, loader.slots()[i].key)
-	check(loader.state.cargo.filter(func(c): return str(c.slot) != "").size() == 2, "two loads stand on the two places of the zeppelin")
+	check(loader.state.cargo.filter(func(c): return str(c.slot) != "").size() >= 2, "the loads stand in the wagons of the zeppelin (it has no places on the deck)")
 	loader.state.phase = "route"
 	game.screen = "game"
 	game.zoom_level = 1.5

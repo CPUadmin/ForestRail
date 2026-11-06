@@ -23,7 +23,7 @@ const DEFAULTS = {
 	"redline_wear": 0.20,
 	"landing_max_vz": 5.0, "landing_max_alpha": 12.0, "landing_speed_loss": 0.20, "ceiling_m": 30.0,
 	# the flight is harder than the run (05.11.2026): the propeller pulls less in the air and less still higher up, a climb costs speed
-	"lift_boost": 1.0, "air_thrust": 0.62, "air_thrust_alt": 0.5, "climb_energy": 1.0,
+	"lift_boost": 1.0, "wagon_drag_m2": 0.45, "wagon_wobble": 0.07, "air_thrust": 0.62, "air_thrust_alt": 0.5, "climb_energy": 1.0,
 	"crash_penalty_share": 0.5, "crash_penalty_min": 300,
 }
 
@@ -58,6 +58,9 @@ var tail_angle = 0.0
 var flaps = 0.0           # 0..1, the air brake opens the flaps
 var prop_phase = 0.0
 var land_vz = 0.0         # how fast the last landing was (for the cargo and the shake)
+var wagons = 0            # coupled wagons: with them the machine flies badly
+var extra_mass_kg = 0.0   # the mass of the wagons and their cargo
+var wobble_t = 0.0        # the clock of the uneven flight
 var events: Array = []    # "stall", "overheat", "takeoff", "land", "crash", "redline"
 
 func _init(config: Dictionary = {}) -> void:
@@ -68,6 +71,8 @@ func c(key: String) -> float:
 	return float(cfg[key])
 
 func reset(fuel_liters: float = -1.0) -> void:
+	wagons = 0
+	extra_mass_kg = 0.0
 	v = 0.0
 	rpm = c("rpm_idle")
 	temp = c("ambient")
@@ -110,17 +115,19 @@ func restart() -> bool:
 
 # --- the numbers of the machine at this moment
 func weight() -> float:
-	return c("mass_kg") * G
+	return (c("mass_kg") + extra_mass_kg) * G
 
 func lift_coefficient(alpha_deg: float) -> float:
 	return c("cl0") + c("cl_per_deg") * alpha_deg
 
 func lift_force(v_air: float, alpha_deg: float) -> float:
-	return 0.5 * c("rho") * c("wing_area_m2") * lift_coefficient(alpha_deg) * c("lift_boost") * v_air * absf(v_air)
+	# the wagons pull at the tail: the lift is not even, it swings (the owner: with the wagons it does not fly level)
+	var wobble = 1.0 + c("wagon_wobble") * float(wagons) * (sin(wobble_t * 2.1) + 0.6 * sin(wobble_t * 4.7 + 1.0))
+	return wobble * 0.5 * c("rho") * c("wing_area_m2") * lift_coefficient(alpha_deg) * c("lift_boost") * v_air * absf(v_air)
 
 func drag_force(v_air: float, alpha_deg: float) -> float:
 	var cl = lift_coefficient(alpha_deg)
-	var area = c("frontal_cd_area") + c("induced") * cl * cl * c("wing_area_m2")
+	var area = c("frontal_cd_area") + c("induced") * cl * cl * c("wing_area_m2") + c("wagon_drag_m2") * float(wagons)
 	if air_brake: area += c("air_brake_area_m2")
 	return 0.5 * c("rho") * v_air * v_air * area
 
@@ -179,6 +186,7 @@ func animate(dt: float) -> void:
 func step(dt: float, slope: float = 0.0, wind_along: float = 0.0) -> void:
 	events.clear()
 	animate(dt)
+	wobble_t += dt
 	if crashed or dt <= 0.0: return
 	var v_air = v - wind_along
 	# the revs follow the target

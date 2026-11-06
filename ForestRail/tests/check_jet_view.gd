@@ -121,6 +121,20 @@ func run() -> void:
 		game.model.jet.reset()
 		game.model.state.throttle = 0.0
 		game.model.state.brake = 1.0
+	# the garage and the depot with the jet chosen
+	game.model.state.phase = "depot"
+	game.model.state.v = 0.0
+	game.screen = "depot"
+	game.tab = "Гараж"
+	game.animate_in_tests = false
+	game.rebuild()
+	for i in range(8): await get_tree().process_frame
+	for scroll in game.ui.find_children("*", "ScrollContainer", true, false): scroll.scroll_vertical = 100000
+	for i in range(6): await get_tree().process_frame
+	game.queue_redraw()
+	await shot("jet_garage")
+	game.screen = "game"
+	game.model.state.phase = "route"
 	# the throttle without a lit engine says where the start is
 	var cold = game.model
 	cold.state.throttle = 0.5

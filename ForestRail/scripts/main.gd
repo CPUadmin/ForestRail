@@ -841,7 +841,7 @@ func build_depot(size: Vector2) -> void:
 			var label = str(base.name)
 			var c = picture_card(right, id, owned, GOLD if model.vehicle_id() == id else CARD_EDGE)
 			add_label(c, label, 23)
-			add_label(c, "до %d км/ч  ·  %s" % [roundi(model.top_speed_kmh(id)), VEHICLE_ROLE.get(id, "")], 18, INK)
+			add_label(c, str(VEHICLE_ROLE.get(id, "")), 18, INK)
 			add_label(c, vehicle_summary(id), 17, MUTED_INK)
 			if owned:
 				add_button(c, "Выбрана" if model.vehicle_id() == id else "Выбрать", func():
@@ -1719,6 +1719,7 @@ func energy_text() -> String:
 		return "Давление %.1f бар · топка %.1f кг · ведро %.0f / %.0f кг · вода %.0f / %.0f л" % [model.pressure_bar(), float(model.boiler().firebox), amount, cap, float(fleet.get("water", 0)), float(model.object_stats("steam").water)]
 	if model.vehicle_id() == "pneumatic":
 		return "Давление %.0f / %.0f бар · иней %d%%" % [amount, cap, roundi(model.frost() * 100.0)]
+	if model.vehicle_id() == "jet": return "Керосин %.0f / %.0f л" % [amount, cap]
 	return "Бензин %.2f / %.1f л" % [amount, cap]
 
 func vehicle_display_name() -> String:
@@ -1726,14 +1727,15 @@ func vehicle_display_name() -> String:
 
 # What each machine is for, in a few words (the court of the five vehicles and the speed table).
 const VEHICLE_ROLE = {
-	"handcar": "бесплатная, без топлива; подъём больше 3% ей не по силам",
-	"pole": "берёт подъёмы медленно и точно; грунт решает, где упереться",
-	"sail": "бесплатный ход по ветру; в штиль стоит, против ветра не идёт",
-	"steam": "тянет много, но разгоняется медленнее всех; уголь и вода",
-	"motorcar": "самая быстрая; бензин расходует быстро",
-	"pneumatic": "сильная на подъёмах; воздух кончается, трубки обмерзают",
-	"locomotive": "ровная тяга и рекуперация; батарея садится под нагрузкой",
-	"zeppelin": "135 км/ч, взлёт на 130; винт, ручка и газ вручную, грубая посадка стоит половину монет"}
+	"handcar": "Бесплатная, качай рычаг.",
+	"pole": "Идёт шестом, медленно и точно.",
+	"sail": "Ходит по ветру, в штиль стоит.",
+	"steam": "Тянет много, разгоняется медленно.",
+	"motorcar": "Быстрая, но прожорливая.",
+	"pneumatic": "Сильная на подъёмах, боится мороза.",
+	"locomotive": "Ровная тяга, бережёт заряд.",
+	"zeppelin": "Летает, если ловко управлять.",
+	"jet": "Самый мощный, ракетный запуск."}
 
 # A card with the picture of the machine or wagon on its left; returns the box for the text and buttons.
 func picture_card(parent: Node, id: String, bright: bool, edge: Color) -> VBoxContainer:
@@ -1772,10 +1774,11 @@ func consist_strip(parent: Node) -> void:
 
 func vehicle_summary(id: String) -> String:
 	var base = model.vehicle_base(id)
-	var places = "%d места на платформе" % int(base.deck_slots) if int(base.deck_slots) > 0 else "без мест на кузове"
-	var wagons = "вагонов: до %d" % int(base.get("max_wagons", 0)) if int(base.get("max_wagons", 0)) > 0 else "без вагонов"
-	var energy = {"handcar": "без топлива", "steam": "уголь и вода", "motorcar": "бензин", "pneumatic": "сжатый воздух", "pole": "мускулы и шест", "sail": "ветер", "locomotive": "аккумулятор", "zeppelin": "бензин"}.get(id, "")
-	return "%s · %s · %s" % [places, wagons, energy]
+	var on_deck = int(base.deck_slots) > 0
+	var wagons = int(base.get("max_wagons", 0)) > 0
+	var cargo = "платформа и вагоны" if on_deck and wagons else ("платформа" if on_deck else ("вагоны" if wagons else "нет"))
+	var energy = {"handcar": "без топлива", "steam": "уголь и вода", "motorcar": "бензин", "pneumatic": "сжатый воздух", "pole": "мускулы", "sail": "ветер", "locomotive": "аккумулятор", "zeppelin": "бензин", "jet": "керосин"}.get(id, "")
+	return "Груз: %s  ·  Ход: %s" % [cargo, energy]
 
 func station_number(id: String) -> int:
 	for i in range(model.data.stations.size()):

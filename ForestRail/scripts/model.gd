@@ -14,10 +14,10 @@ const Jet = preload("res://scripts/jet.gd")
 const Oars = preload("res://scripts/oars.gd")
 const G = 9.81
 const BUFFER_SAFE_SPEED = 1.0
-const VEHICLE_IDS = ["handcar", "pole", "sail", "steam", "motorcar", "pneumatic", "locomotive", "zeppelin"]
+const VEHICLE_IDS = ["handcar", "pole", "sail", "steam", "motorcar", "pneumatic", "locomotive", "zeppelin", "jet"]
 const WAGON_IDS = ["W01", "W02", "W03"]
 # Classes that exist in the data but are not shown to the player yet (no view, no cab).
-const HIDDEN_VEHICLE_IDS = ["jet"]   # machines that exist in the data but are not shown in the garage yet (none now)
+const HIDDEN_VEHICLE_IDS = []   # machines that exist in the data but are not shown in the garage yet (none now)
 # Holds cargo migrated from an old petrol deck until it is unloaded (ECONOMY_v3_2_RU.md).
 const TEMP_WAGON = "WT"
 var data: Dictionary
@@ -1890,6 +1890,8 @@ func zeppelin_step(dt: float, fleet: Dictionary, old_v: float) -> float:
 	zep.cfg.power_w = float(zcfg.get("power_w", 40000.0)) * float(ef.get("zep_power_multiplier", 1.0))
 	zep.cfg.wing_area_m2 = float(zcfg.get("wing_area_m2", 12.0)) * float(ef.get("zep_wing_multiplier", 1.0))
 	zep.cfg.pad_brake_n = float(object_stats("zeppelin").brake)
+	zep.wagons = state.consist_ids.size()   # the wagons: weight, drag and an unsteady flight
+	zep.extra_mass_kg = maxf(0.0, train_mass() - float(zep.c("mass_kg")))
 	# the gadgets: the flaps lift at a speed lower by a fifth (lift x1.5625) and cost 5% of the drag; the trim costs a little petrol
 	var flaps_gadget = bool(ef.get("zep_flaps_gadget", false))
 	zep.cfg.lift_boost = 1.5625 if flaps_gadget else 1.0
@@ -2384,7 +2386,7 @@ func update_air(dt: float, old_s: float) -> void:
 		air_fly = true
 		air_y = rail_y
 		air_vy = rail_dy
-	air_vy -= G * dt
+	air_vy -= G * (1.7 if vehicle_id() == "jet" else 1.0) * dt   # the jet is heavy: its hop is short and it comes down fast, but it never crashes
 	air_y += air_vy * dt
 	var z = air_y - rail_y
 	if z > 0.0:

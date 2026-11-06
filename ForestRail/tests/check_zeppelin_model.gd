@@ -20,6 +20,7 @@ func fresh():
 	m.state.money = 100000
 	m.state.chapter = 9
 	Fixtures.equip(m, "zeppelin")
+	m.state.consist_ids.clear()   # the zeppelin flies alone: the wagons spoil the flight (tested below)
 	m.weather_force = {"cloud": 0.0, "rain": 0.0, "fog": 0.0}
 	m.state.phase = "route"
 	m.state.brake = 0.0
@@ -110,6 +111,7 @@ func run() -> void:
 	up.new_game(42, 2)
 	up.state.money = 100000
 	Fixtures.equip(up, "zeppelin")
+	up.state.consist_ids.clear()   # the zeppelin flies alone: the wagons spoil the flight (tested below)
 	var base_takeoff = up.zep.takeoff_speed(3.5)
 	var base_brake = float(up.object_stats("zeppelin").brake)
 	check(up.upgrade("zeppelin", "zeppelin_engine") and up.upgrade("zeppelin", "zeppelin_engine"), "the engine can be upgraded twice")
@@ -127,6 +129,7 @@ func run() -> void:
 	gadgets.new_game(42, 2)
 	gadgets.state.money = 100000
 	Fixtures.equip(gadgets, "zeppelin")
+	gadgets.state.consist_ids.clear()   # the zeppelin flies alone: the wagons spoil the flight (tested below)
 	gadgets.state.phase = "route"
 	gadgets.state.engine = true
 	gadgets.state.brake = 0.0
@@ -170,6 +173,7 @@ func run() -> void:
 	saved.new_game(42, 2)
 	saved.state.money = 100000
 	Fixtures.equip(saved, "zeppelin")
+	saved.state.consist_ids.clear()   # the zeppelin flies alone: the wagons spoil the flight (tested below)
 	saved.upgrade("zeppelin", "zeppelin_tank")
 	saved.set_zeppelin_pitch(0.4)
 	saved.set_zeppelin_stick(3.5)
@@ -182,6 +186,7 @@ func run() -> void:
 	cargo.new_game(42, 2)
 	cargo.state.money = 100000
 	Fixtures.equip(cargo, "zeppelin")
+	cargo.state.consist_ids.clear()   # the zeppelin flies alone: the wagons spoil the flight (tested below)
 	cargo.state.cargo.append({"id": "T1", "type": "fragile", "slot": "zeppelin:0", "delivered": false, "health": 1.0, "destination": "B"})
 	cargo.state.phase = "route"
 	cargo.state.engine = true
@@ -201,6 +206,7 @@ func run() -> void:
 	flier.new_game(42, 2)
 	flier.state.money = 100000
 	Fixtures.equip(flier, "zeppelin")
+	flier.state.consist_ids.clear()   # the zeppelin flies alone: the wagons spoil the flight (tested below)
 	flier.state.phase = "route"
 	flier.state.engine = true
 	flier.state.brake = 0.0
@@ -218,5 +224,51 @@ func run() -> void:
 	var again = Model.new()
 	again.new_game(42, 2)
 	check(not again.zep.airborne and again.zep.z == 0.0, "a new game starts on the rail")
+	# the wagons: the zeppelin has no places on the deck, it may pull wagons, but with them it does not fly level
+	var hauler = Model.new()
+	hauler.new_game(42, 2)
+	hauler.state.money = 100000
+	Fixtures.equip(hauler, "zeppelin")
+	check(int(hauler.vehicle_base("zeppelin").deck_slots) == 0 and int(hauler.vehicle_base("zeppelin").max_wagons) > 0, "the zeppelin has no places on the deck and may pull wagons")
+	check(hauler.state.consist_ids.size() >= 1, "it comes with its wagons")
+	hauler.state.phase = "route"
+	hauler.state.engine = true
+	hauler.state.brake = 0.0
+	hauler.physics_step(1.0 / 60.0)
+	var alone = Model.new()
+	alone.new_game(42, 2)
+	alone.state.money = 100000
+	Fixtures.equip(alone, "zeppelin")
+	alone.state.consist_ids.clear()
+	alone.state.phase = "route"
+	alone.state.engine = true
+	alone.state.brake = 0.0
+	alone.physics_step(1.0 / 60.0)
+	check(hauler.zep.wagons == hauler.state.consist_ids.size() and alone.zep.wagons == 0, "the model knows how many wagons it pulls")
+	check(hauler.zep.takeoff_speed(3.5) > alone.zep.takeoff_speed(3.5) * 1.05, "wagons make it heavier: a higher takeoff speed (%.1f against %.1f m/s)" % [hauler.zep.takeoff_speed(3.5), alone.zep.takeoff_speed(3.5)])
+	check(hauler.zep.drag_force(30.0, 3.5) > alone.zep.drag_force(30.0, 3.5) * 1.1, "and drag")
+	# the flight is not level: the lift swings with the wagons and is steady without them
+	var swing_with = 0.0
+	var swing_without = 0.0
+	var base_lift = alone.zep.lift_force(36.0, 3.5)
+	for i in range(600):
+		hauler.zep.wobble_t = float(i) * 0.05
+		alone.zep.wobble_t = float(i) * 0.05
+		swing_with = maxf(swing_with, absf(hauler.zep.lift_force(36.0, 3.5) / (hauler.zep.lift_force(36.0, 3.5) + 0.0001) - 1.0))
+		swing_without = maxf(swing_without, absf(alone.zep.lift_force(36.0, 3.5) - base_lift))
+	var low = 1.0e9
+	var high = 0.0
+	for i in range(600):
+		hauler.zep.wobble_t = float(i) * 0.05
+		var lf = hauler.zep.lift_force(36.0, 3.5)
+		low = minf(low, lf)
+		high = maxf(high, lf)
+	check(swing_without < 0.01 and (high - low) / maxf(1.0, high) > 0.05, "without wagons the lift is steady, with them it swings (%.0f .. %.0f N)" % [low, high])
+	# the jet: no places on the deck either; it cannot take off, a crest throws it up in a heavy hop that does not crash
+	var jetm = Model.new()
+	jetm.new_game(42, 2)
+	jetm.state.money = 200000
+	Fixtures.equip(jetm, "jet")
+	check(int(jetm.vehicle_base("jet").deck_slots) == 0 and int(jetm.vehicle_base("jet").max_wagons) > 0, "the jet has no places on the deck, only wagons")
 	print("ZEPPELIN MODEL CHECKS ", checks, "; FAILURES ", failures)
 	get_tree().quit(0 if failures.is_empty() else 1)
