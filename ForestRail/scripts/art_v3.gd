@@ -681,6 +681,14 @@ func sail_geometry(model) -> Dictionary:
 
 func draw_sail_overlay(canvas: Node2D, model) -> void:
 	if model == null or model.state.is_empty(): return
+	if model.oars_out():
+		# B6.9: the oars (placeholder lines until the pictures of the pack come): two oars swing with the stroke
+		var swing = sin(float(model.oars.phase)) * 0.5
+		for side in [-1.0, 1.0]:
+			var lock = sail_point(0.15 + 0.5 * side, 0.55)
+			var tip = lock + Vector2(cos(0.9 + swing * side) * side, sin(0.9 + swing * side)) * 1.5 * PX
+			canvas.draw_line(lock, tip, Color("7a5530"), 0.05 * PX, true)
+			canvas.draw_circle(tip, 0.07 * PX, Color("a67c46"))
 	var g = sail_geometry(model)
 	var fwd = float(g.fwd)
 	var t = Time.get_ticks_msec() / 1000.0

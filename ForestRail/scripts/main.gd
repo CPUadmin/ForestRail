@@ -1669,6 +1669,7 @@ func update_hud() -> void:
 	update_cargo_actions(interaction)
 	var key = "%s_%d_%s_%s_%s_%d" % [state.phase, stop_index, str(model.stopped()), str(model.all_loaded()), str(returning), model.drive_direction()]
 	if state.phase=="loading": key+=str(model.loading_preview().signature)
+	key += "_" + str(model.oars_out())
 	if key != last_action_key:
 		last_action_key = key
 		clear_children(action_bar)
@@ -1682,6 +1683,10 @@ func update_hud() -> void:
 			choice_label.add_theme_stylebox_override("normal",style(INK,Color("5d7561"),6))
 			choice_label.vertical_alignment=VERTICAL_ALIGNMENT_CENTER
 		elif model.stopped():
+			if model.vehicle_id() == "sail":
+				add_button(action_bar, "Убрать вёсла" if model.oars_out() else "Вёсла", func():
+					if model.set_oars(not model.oars_out()): last_action_key = ""
+					else: notify(model.message))
 			if model.vehicle_id() not in ["handcar","pole","sail","motorcar"]:
 				add_button(action_bar, "Тяга ←", func():
 					if model.set_reverser(-int(state.direction)): save_game(); last_action_key = ""
@@ -2292,7 +2297,7 @@ func _process(dt: float) -> void:
 		# The camera keeps following while a cab lever, the sail or the pole is held; lever input is read in
 		# the machine's own frame, so the grip stays under the cursor instead of the
 		# train driving away from a frozen camera.
-		if drag in ["","pump","brake","throttle","gear","start","coal","sail","pole","zpult"]:
+		if drag in ["","pump","brake","throttle","gear","start","coal","sail","pole","zpult","oars"]:
 			camera_s = lerpf(camera_s, target_s, 1 - exp(-dt * 6))
 			if screen == "game":
 				# Limit the lag in screen space so zoom and speed cannot carry the engine out of frame.
@@ -2301,7 +2306,7 @@ func _process(dt: float) -> void:
 			camera_y = lerpf(camera_y, model.route.sample(camera_s).y + camera_climb(), 1 - exp(-dt * 4))
 		var target_x = get_viewport_rect().size.x * (0.31 if screen == "depot" else (0.65 if model.state.direction > 0 else 0.35))
 		if screen == "depot" and not model.state.consist_ids.is_empty(): target_x = get_viewport_rect().size.x * 0.46 - 136
-		if drag in ["","pump","brake","throttle","gear","start","coal","sail","pole","zpult"]: camera_x = lerpf(camera_x if camera_x > 0 else target_x, target_x, 1 - exp(-dt * 3))
+		if drag in ["","pump","brake","throttle","gear","start","coal","sail","pole","zpult","oars"]: camera_x = lerpf(camera_x if camera_x > 0 else target_x, target_x, 1 - exp(-dt * 3))
 		refresh_seconds += dt
 		if refresh_seconds >= 0.08:
 			refresh_seconds = 0
@@ -2515,6 +2520,10 @@ func _input(event: InputEvent) -> void:
 	if drag == "": return
 	if event is InputEventMouseMotion:
 		if paused: cancel_drag(); return
+		if drag == "oars":
+			model.oars_hand(-event.relative.x * float(int(model.state.direction)) * 0.004 * float(settings.sensitivity))
+			get_viewport().set_input_as_handled()
+			return
 		if drag == "zpult":
 			own_pult().motion(event.position)
 			get_viewport().set_input_as_handled()
@@ -2741,6 +2750,11 @@ func _unhandled_input(event: InputEvent) -> void:
 				drag_offset=mouse-hit.rect.position
 				drag_size=hit.rect.size
 				return
+		if model.vehicle_id() == "sail" and model.state.phase == "route" and not in_closeup and not paused and model.oars_out():
+			drag = "oars"   # the oars: the hand pulls the mouse toward the stern, stroke after stroke
+			Input.set_default_cursor_shape(Input.CURSOR_DRAG)
+			get_viewport().set_input_as_handled()
+			return
 		if model.vehicle_id() == "sail" and model.state.phase == "route" and not in_closeup and not paused and sail_rect.has_point(mouse):
 			drag = "sail"
 			Input.set_default_cursor_shape(Input.CURSOR_DRAG)

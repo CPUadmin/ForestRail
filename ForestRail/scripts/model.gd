@@ -11,6 +11,7 @@ const Wear = preload("res://scripts/wear.gd")
 const Wind = preload("res://scripts/wind.gd")
 const Zeppelin = preload("res://scripts/zeppelin.gd")
 const Jet = preload("res://scripts/jet.gd")
+const Oars = preload("res://scripts/oars.gd")
 const G = 9.81
 const BUFFER_SAFE_SPEED = 1.0
 const VEHICLE_IDS = ["handcar", "pole", "sail", "steam", "motorcar", "pneumatic", "locomotive", "zeppelin"]
@@ -31,6 +32,7 @@ var pole = Pole.new()
 # the numbers of the last step for the hud and the picture.
 var wind = Wind.new()
 var zep_loaded = false   # the flight of the zeppelin is taken from the save once after a load
+var oars = Oars.new()   # the oars of the sail car (B6.9): the spare means in a calm
 var jet_loaded = false   # the state of the jet (the fuses, the lit engine) is taken from the save once after a load
 var jet = Jet.new()   # the running model of the jet (rocket) train (B6.6), only used while it is the chosen machine
 var zep = Zeppelin.new()   # the running model of the rail zeppelin (B6.5), only used while it is the chosen machine
@@ -1935,6 +1937,25 @@ func zeppelin_crashed() -> void:
 	rescue()
 	message = "Крушение: %s. Штраф %d монет. Машину привезли в депо" % [reason, penalty]
 
+# --- Oars (B6.9): the spare means of the sail car; with the oars in the hands the sail is stowed and gives nothing
+func oars_out() -> bool:
+	return vehicle_id() == "sail" and bool(state.get("oars_on", false))
+
+func set_oars(on: bool) -> bool:
+	if vehicle_id() != "sail": return false
+	if on and absf(float(state.v)) > 3.0: return fail("На ходу вёсла не взять: сначала сбавь скорость")
+	state.oars_on = on
+	if on:
+		sail_release()
+		sail_cleated = false
+		oars.reset()
+		message = "Вёсла в руках: тяни мышь к себе, гребок за гребком. Ветер вернётся, и вёсла уберутся сами"
+	return true
+
+# the hand of the rower: metres of the hand travel (+ the pull toward the stern)
+func oars_hand(metres: float) -> void:
+	if oars_out(): oars.hand(metres)
+
 # --- Sail car (B6.4): the sail takes the force from the apparent wind, the player trims it ---
 func wind_ready() -> void:
 	if wind.station_s != route.station_s: wind.build(int(route.seed_value), route.station_s)
@@ -2044,6 +2065,16 @@ func sail_step(dt: float = 1.0 / 60.0) -> float:
 	else:
 		sail_over = maxf(0.0, sail_over - dt)
 	sail_info = {"wind": w, "apparent": apparent, "beta": beta, "quality": quality, "force": force, "pulled": pulled, "engaged": sail_engaged(), "held": sail_held, "cleated": sail_cleated, "trim": sail_trim, "lift": sail_lift, "side": sail_side, "strain": clampf(sail_over / (0.8 if sail_held else 0.4), 0.0, 1.0), "gust": wind.gust_ahead(float(state.s), float(state.stats.seconds))}
+	if oars_out():
+		# the oars: the stroke gives the way, the sail is stowed; a wind that could pull strongly takes the car back to the sail
+		oars.step(dt)
+		var rowing = oars.force(forward_speed)
+		if pulled > 120.0 and quality > 0.5:
+			state.oars_on = false
+			message = "Ветер вернулся: вёсла убраны, бери парус"
+		sail_info.force = rowing
+		sail_info.engaged = false
+		return rowing * float(int(state.direction))
 	return force * float(int(state.direction))
 
 # --- Pole truck (N12): the controls only aim, drop, lift and lean on a real pole ---

@@ -109,6 +109,11 @@ func run() -> void:
 		game.model.sail_release()
 		game.model.sail_cleated = false
 		game.model.state.v = 0.0
+		game.model.set_oars(true)
+		game.model.oars.phase = 0.8
+		game.queue_redraw()
+		await get_tree().process_frame   # the placeholder oars are drawn without an error
+		game.model.set_oars(false)
 		game.model.state.s = 3000.0
 	# B6.4: the wind of the line on the map and in the depot, the ribbons and the sounds exist
 	check(game.wind_route_line().begins_with("Ветер по линии") and game.wind_route_line().contains("Лесная"), "the depot tells the wind of the line (%s)" % game.wind_route_line().substr(0, 60))
@@ -120,5 +125,22 @@ func run() -> void:
 	var sounds = load("res://scripts/sound.gd").new()
 	check(sounds.clips.has("sail_flap") or "sail_flap" in sounds.CLIP_NAMES, "the clip of the flapping sail is known")
 	check("sail_creak" in sounds.CLIP_NAMES, "the clip of the creaking rigging is known")
+	# B6.9: the oars in the hands (placeholder oars on the picture) and the button of the stopped car
+	game.model.state.v = 0.0
+	game.model.sail_held = false
+	check(game.model.set_oars(true) and game.model.oars_out(), "the oars can be taken")
+	for i in range(30): game.model.oars_hand(0.02)
+	game.model.oars.phase = 0.8
+	game.camera_s = float(game.model.state.s)
+	game.camera_y = game.model.route.sample(game.camera_s).y
+	game.screen = "game"
+	game.queue_redraw()
+	await get_tree().process_frame
+	game.update_hud()
+	var oar_button = false
+	for button in game.find_children("*", "Button", true, false):
+		if str(button.text) == "Убрать вёсла": oar_button = true
+	check(oar_button, "the stopped car shows the button to put the oars away")
+	game.model.set_oars(false)
 	print("SAIL VIEW CHECKS ", checks, "; FAILURES ", failures)
 	get_tree().quit(0 if failures.is_empty() else 1)
