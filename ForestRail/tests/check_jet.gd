@@ -17,9 +17,14 @@ func check(ok: bool, label: String) -> void:
 func run_steps(j, seconds: float, slope: float = 0.0, wind: float = 0.0) -> void:
 	for i in range(int(seconds * 60.0)): j.step(1.0 / 60.0, slope, wind)
 
+# the toggles are set to the code, and every one has been flipped at least once (the ritual of the start)
 func set_fuses(j, code: String) -> void:
 	for i in range(code.length()):
 		if (code[i] == "1") != j.fuses[i]: j.flip_fuse(i)
+	for i in range(4):
+		if not j.touched[i]:
+			j.flip_fuse(i)
+			j.flip_fuse(i)
 
 # a lit engine (the given position of the fuses, the whole countdown)
 func lit_jet(code: String = "0000"):
@@ -35,6 +40,17 @@ func run() -> void:
 	var j = Jet.new()
 	check(not j.start() and not j.counting, "the start does nothing under the closed cover")
 	j.open_cover(true)
+	check(not j.start() and not j.start_unlocked(), "under the open cap the start is still locked until every toggle is flipped")
+	j.flip_fuse(0)
+	j.flip_fuse(1)
+	j.flip_fuse(2)
+	check(not j.start() and j.touched_count() == 3, "three toggles of four are not enough")
+	j.flip_fuse(3)
+	j.flip_fuse(0)
+	j.flip_fuse(1)
+	j.flip_fuse(2)
+	j.flip_fuse(3)
+	check(j.start_unlocked() and j.fuse_code() == "0000", "all four flipped (and put back): the start opens")
 	check(j.start() and j.counting and absf(j.countdown - 10.0) < 0.01, "under the open cover the start begins a ten second countdown")
 	j.set_throttle(1.0)
 	run_steps(j, 9.0)
@@ -50,6 +66,7 @@ func run() -> void:
 	check(is_equal_approx(j.thrust, 6000.0), "the power can be set: half a lever is half the thrust")
 	# the fuses: a flip during the countdown cancels it
 	var abort = Jet.new()
+	set_fuses(abort, "0000")
 	abort.open_cover(true)
 	abort.start()
 	run_steps(abort, 4.0)
@@ -60,12 +77,12 @@ func run() -> void:
 	var plain = lit_jet("0000")
 	var eco = lit_jet("1010")
 	var heavy = lit_jet("0101")
-	check(plain.mode.name == "Обычный" and eco.mode.name == "Экономный" and heavy.mode.name == "Тяжёлый", "the position of the fuses at the start chooses the mode")
+	check(plain.mode.name == "Обычный" and eco.mode.name == "Экономный" and heavy.mode.name == "Тяговый", "the position of the fuses at the start chooses the mode")
 	for engine in [plain, eco, heavy]: engine.set_throttle(1.0)
 	run_steps(plain, 8.0)
 	run_steps(eco, 8.0)
 	run_steps(heavy, 8.0)
-	check(eco.thrust < plain.thrust * 0.9 and heavy.thrust > plain.thrust * 1.1, "the economy mode pulls less, the heavy one more (%.0f, %.0f, %.0f N)" % [eco.thrust, plain.thrust, heavy.thrust])
+	check(eco.thrust < plain.thrust * 0.9 and heavy.thrust > plain.thrust * 1.1, "the economy mode pulls less, the tractive one more (%.0f, %.0f, %.0f N)" % [eco.thrust, plain.thrust, heavy.thrust])
 	check(eco.fuel_rate() < plain.fuel_rate() * 0.7 and heavy.fuel_rate() > plain.fuel_rate() * 1.4, "and burn less and more (%.2f, %.2f, %.2f l/s)" % [eco.fuel_rate(), plain.fuel_rate(), heavy.fuel_rate()])
 	var quick = Jet.new()
 	set_fuses(quick, "1100")
@@ -80,7 +97,13 @@ func run() -> void:
 	bad.start()
 	run_steps(bad, 7.0)
 	check(not bad.started and not bad.counting, "one code is a misfire: the engine does not light")
+	set_fuses(bad, "1001")   # the ritual is done again after a misfire
 	check(bad.start(), "after a misfire the start can be tried again")
+	var recordless = Jet.new()
+	set_fuses(recordless, "0110")
+	recordless.open_cover(true)
+	recordless.start()
+	check(recordless.mode.name == "Обычный", "the position 0110 has no secret now (the record mode is gone)")
 	var odd = Jet.new()
 	set_fuses(odd, "0011")
 	odd.open_cover(true)

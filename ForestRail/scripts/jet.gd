@@ -25,9 +25,8 @@ const DEFAULTS = {
 const CODES = {
 	"0000": {"name": "Обычный", "thrust": 1.0, "fuel": 1.0, "countdown": 10.0},
 	"1010": {"name": "Экономный", "thrust": 0.85, "fuel": 0.6, "countdown": 10.0},
-	"0101": {"name": "Тяжёлый", "thrust": 1.2, "fuel": 1.3, "countdown": 10.0},
+	"0101": {"name": "Тяговый", "thrust": 1.2, "fuel": 1.3, "countdown": 10.0},
 	"1100": {"name": "Быстрый старт", "thrust": 1.0, "fuel": 1.1, "countdown": 5.0},
-	"0110": {"name": "Рекордный", "thrust": 1.05, "fuel": 1.5, "countdown": 10.0},
 	"1111": {"name": "Всё включено", "thrust": 1.0, "fuel": 1.0, "countdown": 15.0, "extra_afterburner": 1},
 	"1001": {"name": "Осечка", "thrust": 1.0, "fuel": 1.0, "countdown": 6.0, "misfire": true},
 }
@@ -39,6 +38,7 @@ var cfg: Dictionary = DEFAULTS.duplicate()
 var throttle = 0.0          # 0..1
 var cover_open = false      # the cover of the start button
 var fuses = [false, false, false, false]   # the four safety fuses
+var touched = [false, false, false, false]   # the start unlocks only when every toggle has been flipped at least once
 var pad_brake = 0.0         # 0..1
 var afterburner_gadget = false   # the gadget is installed (it comes from a card)
 var double_chute_gadget = false  # the gadget: a second chute
@@ -85,6 +85,7 @@ func reset(fuel_liters: float = -1.0) -> void:
 	throttle = 0.0
 	cover_open = false
 	fuses = [false, false, false, false]
+	touched = [false, false, false, false]
 	pad_brake = 0.0
 	mode = PLAIN
 	events.clear()
@@ -104,6 +105,7 @@ func new_trip() -> void:
 	afterburner_time = 0.0
 	counting = false
 	started = false
+	touched = [false, false, false, false]   # the ritual is done again before every start
 
 # --- the train: the wagons add weight and drag; the loaded rocket tows a lot
 func set_train(count: int, load_kg: float = 0.0) -> void:
@@ -126,6 +128,7 @@ func open_cover(on: bool) -> void: cover_open = on
 func flip_fuse(index: int) -> void:
 	if index < 0 or index >= fuses.size() or started: return
 	fuses[index] = not fuses[index]
+	touched[index] = true
 	if counting:
 		counting = false
 		countdown = 0.0
@@ -139,9 +142,21 @@ func fuse_code() -> String:
 func fuse_code_mode() -> Dictionary:
 	return CODES.get(fuse_code(), PLAIN)
 
-# the start button under the open cover: the countdown begins in the mode of the fuses at that moment
+# every toggle flipped at least once: only then the start button opens
+func start_unlocked() -> bool:
+	for flag in touched:
+		if not flag: return false
+	return true
+
+func touched_count() -> int:
+	var n = 0
+	for flag in touched:
+		if flag: n += 1
+	return n
+
+# the start button opens when the cap is open and every toggle has been flipped: the countdown begins in the mode of the fuses at that moment
 func start() -> bool:
-	if started or counting or not cover_open or fuel <= 0.0: return false
+	if started or counting or not cover_open or not start_unlocked() or fuel <= 0.0: return false
 	mode = fuse_code_mode()
 	counting = true
 	countdown = float(mode.countdown)
@@ -157,6 +172,7 @@ func abort_countdown() -> void:
 func shut_down() -> void:
 	started = false
 	counting = false
+	touched = [false, false, false, false]
 
 # one chute (or both with the gadget) goes out; the pulled ones are used for the trip
 func pull_chute(count: int = 1) -> bool:
@@ -211,6 +227,7 @@ func step(dt: float, slope: float = 0.0, wind_along: float = 0.0) -> void:
 		if countdown <= 0.0:
 			counting = false
 			if bool(mode.get("misfire", false)):
+				touched = [false, false, false, false]
 				events.append("misfire")   # the fuses were set to a bad position: the engine coughs, the start must be done again
 			else:
 				started = true
@@ -250,4 +267,4 @@ func step(dt: float, slope: float = 0.0, wind_along: float = 0.0) -> void:
 func status() -> Dictionary:
 	return {"speed": v, "thrust": thrust, "fuel": fuel, "temp": temp, "chute": chute, "chutes_open": chutes_open, "started": started, "counting": counting,
 		"countdown": countdown, "chutes_left": chutes_left, "afterburner_left": afterburner_charges, "afterburner_on": afterburner_time > 0.0,
-		"fuses": fuse_code(), "wagons": wagons}
+		"fuses": fuse_code(), "touched": touched_count(), "wagons": wagons}

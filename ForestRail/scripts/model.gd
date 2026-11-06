@@ -1750,7 +1750,8 @@ func push_handcar(distance_m: float) -> bool:
 # --- Jet (rocket) train (B6.6): the levers live in the model of the jet, their positions are mirrored into the state for the save
 func jet_start() -> bool:
 	if vehicle_id() != "jet": return false
-	if not jet.cover_open: return fail("Сначала открой крышку пуска")
+	if not jet.cover_open: return fail("Сначала открой колпачок")
+	if not jet.start_unlocked(): return fail("Кнопка заблокирована: переключи каждый тумблер (сейчас %d из 4)" % jet.touched_count())
 	if not jet.start(): return fail("Пуск не получился: уже идёт отсчёт или нет керосина")
 	return true
 

@@ -31,9 +31,16 @@ func fresh(wagons: bool = true):
 func run_seconds(m, seconds: float) -> void:
 	for i in range(int(seconds * 60.0)): m.physics_step(1.0 / 60.0)
 
+func touch_all(m) -> void:
+	for i in range(4):
+		if not m.jet.touched[i]:
+			m.flip_jet_fuse(i)
+			m.flip_jet_fuse(i)
+
 func light(m) -> void:
 	m.state.brake = 1.0   # the brake holds the train on the grade during the countdown
 	m.set_jet_cover(true)
+	touch_all(m)
 	m.jet_start()
 	run_seconds(m, 10.6)
 	m.state.brake = 0.0
@@ -42,8 +49,11 @@ func run() -> void:
 	var m = fresh(false)
 	check(m.vehicle_id() == "jet" and "jet" in m.HIDDEN_VEHICLE_IDS and "jet" not in m.VEHICLE_IDS, "the jet is a hidden machine until it is ready")
 	check(int(m.vehicle_base("jet").cost) == 12000 and int(m.vehicle_base("jet").max_wagons) == 3, "the data: 12000 coins, up to three wagons")
-	check(not m.jet_start(), "no start without the open cover")
-	check(m.set_jet_cover(true) and m.jet_start(), "under the open cover the start begins the countdown")
+	check(not m.jet_start(), "no start without the open cap")
+	check(m.set_jet_cover(true) and not m.jet_start(), "under the open cap the start is locked until every toggle is flipped")
+	check("заблокирована" in m.message, "and the message says why (%s)" % m.message)
+	touch_all(m)
+	check(m.jet_start(), "then the start begins the countdown")
 	m.state.throttle = 1.0
 	m.state.brake = 1.0
 	run_seconds(m, 9.0)
@@ -59,6 +69,7 @@ func run() -> void:
 	check(fuses.flip_jet_fuse(0) and fuses.flip_jet_fuse(2) and str(fuses.state.jet_fuses) == "1010", "the fuses flip and the code is kept in the state (%s)" % str(fuses.state.get("jet_fuses", "")))
 	fuses.state.brake = 1.0
 	fuses.set_jet_cover(true)
+	touch_all(fuses)
 	fuses.jet_start()
 	check(fuses.jet.mode.name == "Экономный", "the position 1010 is the economy mode")
 	run_seconds(fuses, 10.6)
