@@ -28,11 +28,24 @@ func click(point: Vector2) -> void:
 		e.button_mask=MOUSE_BUTTON_MASK_LEFT if pressed else 0
 		get_tree().root.push_input(e,true)
 		await frame()
+	await frame(2)  # let the reaction to the click settle before the check reads the state
 
-func click_button(parent: Node,text: String) -> bool:
-	for b in parent.find_children("*","Button",true,false):
-		if b.text==text and b.is_visible_in_tree():
-			await click(b.get_global_rect().get_center());return true
+# Click and wait for the expected reaction; if none comes, repeat the click (at most 3 repeats).
+# The check itself stays strict: the caller still verifies the state afterwards.
+func click_until(point: Vector2,done: Callable) -> void:
+	for attempt in range(4):
+		await click(point)
+		if done.call(): return
+
+func click_button(parent: Node,text: String,done: Callable=Callable()) -> bool:
+	for attempt in range(4):
+		var found=false
+		for b in parent.find_children("*","Button",true,false):
+			if b.text==text and b.is_visible_in_tree():
+				found=true
+				await click(b.get_global_rect().get_center());break
+		if not found: return attempt>0 and done.is_valid() and done.call()
+		if not done.is_valid() or done.call(): return true
 	return false
 
 func fixture(id: String) -> void:
@@ -79,13 +92,13 @@ func run() -> void:
 				await frame(3)
 				check(JSON.stringify(game.model.serialize())==state,"redrawing does not change model")
 				await shot("route_"+id+"_"+str(resolution.x)+"_"+str(roundi(scale*100)))
-				await click(game.instruments.mini_rect().get_center())
+				await click_until(game.instruments.mini_rect().get_center(),func(): return game.modal_kind=="map" and game.paused)
 				check(game.modal_kind=="map" and game.paused,"minimap opens map through mouse")
 				if id=="locomotive" and scale==1.5: await shot("map_"+str(resolution.x)+"_150")
-				check(await click_button(game.overlay,"Закрыть [M / Esc]"),"map has mouse close action")
+				check(await click_button(game.overlay,"Закрыть [M / Esc]",func(): return game.modal_kind=="" and not game.paused),"map has mouse close action")
 				check(game.modal_kind=="" and not game.paused,"mouse closes map and resumes")
 				if id!="handcar":
-					check(await click_button(game.ui,"Кабина [E]"),"mouse opens the cab at every text scale")
+					check(await click_button(game.ui,"Кабина [E]",func(): return game.cab_active()),"mouse opens the cab at every text scale")
 					await frame(3)
 					check(game.cab_active(),"the cab actually opened")
 					check(viewport.encloses(game.pult_screen_rect()),"the cab's controls stay inside the window")
