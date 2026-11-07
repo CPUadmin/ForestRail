@@ -2348,7 +2348,9 @@ func physics_step(dt: float) -> void:
 	regen_kw = 0.0
 	var hand_result: Dictionary = {}
 	if vehicle_id() == "handcar":
-		hand_result=hand_drive.step(handcar,float(state.v),total,int(state.direction),0.21,dt,grade,rolling+float(vehicle_base().get("drag",0.0))*float(state.v)*float(state.v),brake_applied,minf(220.0,float(stats.power)),float(effects(vehicle_id()).get("work_multiplier",1.0))*float(effects(vehicle_id()).get("ratchet_torque",1.0))*wear().factor("handcar","power"),handcar_potential_at)
+		hand_drive.power_gain=float(effects(vehicle_id()).get("ratchet_power",1.0))
+		hand_drive.flywheel_gain=float(effects(vehicle_id()).get("flywheel_inertia",1.0))
+		hand_result=hand_drive.step(handcar,float(state.v),total,int(state.direction),0.21,dt,grade,rolling+float(vehicle_base().get("drag",0.0))*float(state.v)*float(state.v),brake_applied,minf(220.0,float(stats.power))*float(effects(vehicle_id()).get("ratchet_power",1.0)),float(effects(vehicle_id()).get("work_multiplier",1.0))*float(effects(vehicle_id()).get("ratchet_torque",1.0))*wear().factor("handcar","power"),handcar_potential_at)
 		pump_angle=handcar.pose().angle
 		pump_work=maxf(0,float(hand_result.hand_work))
 		output_power=pump_work/dt

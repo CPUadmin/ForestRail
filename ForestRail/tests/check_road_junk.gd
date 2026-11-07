@@ -88,7 +88,7 @@ func run() -> void:
 	b.state.active.trip.visited = ["A", "B", "D", "F"]
 	var finds = come_home(b, 1.0)
 	var rusty = count_of(finds, "rusty_bolt")
-	check(rusty >= 4 and rusty <= 5, "13.6 km give four or five rusty bolts (%d)" % rusty)
+	check(rusty >= 6 and rusty <= 8, "13.6 km give six to eight rusty bolts (%d)" % rusty)
 	var plates = count_of(finds, "tie_plate")
 	check(plates >= 2 and plates <= 3, "560 m of steep line give two or three base plates (%d)" % plates)
 	check(count_of(finds, "fishplate") == 2, "a load of 700 kg gives two fishplates (%d)" % count_of(finds, "fishplate"))
@@ -116,7 +116,7 @@ func run() -> void:
 	var h = fresh(42, "handcar")
 	leave(h)
 	h.state.stats.distance = float(h.state.active.trip.dist0) + 4000.0
-	check(count_of(come_home(h), "lever_bolt") == 2, "a hand car loses a lever bolt every 2 km")
+	check(count_of(come_home(h), "lever_bolt") == 3, "a hand car loses a lever bolt every 1.3 km (four km, three bolts)")
 	var mc = fresh(42, "motorcar")
 	leave(mc)
 	check(count_of(come_home(mc), "spark_plug") == 0, "a calm petrol car keeps its plugs")
@@ -133,7 +133,7 @@ func run() -> void:
 	var sail = fresh(42, "sail")
 	leave(sail)
 	sail.wear().damage("sail", "rigging", 0.08, "порыв сорвал шкот")
-	check(count_of(come_home(sail), "sail_block") == 2, "a gust that tears the sheet gives two blocks")
+	check(count_of(come_home(sail), "sail_block") == 3, "a gust that tears the sheet gives three blocks")
 	# --- the rare things
 	var lanterns = 0
 	for seed_value in range(1, 41):
@@ -176,7 +176,7 @@ func run() -> void:
 		for glint_entry in s.casino().glints():
 			seen += 1
 			if bool(glint_entry.golden): golds += 1
-	check(seen >= 200 and golds >= 3 and golds <= 30, "about six in a hundred glints are golden (%d of %d)" % [golds, seen])
+	check(seen >= 300 and golds >= 15 and golds <= 60, "about nine in a hundred glints are golden (%d of %d)" % [golds, seen])
 	# --- saving in the middle of a trip
 	var keep = fresh()
 	leave(keep)

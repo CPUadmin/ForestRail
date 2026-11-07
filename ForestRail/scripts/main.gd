@@ -3081,7 +3081,13 @@ func cab_active() -> bool:
 func view_scale() -> float:
 	if screen != "depot": return zoom_level
 	# the workshop shows the machine bigger, as far as the train still fits
-	return minf(1.9 if tab == "Улучшения" else 0.94, (get_viewport_rect().size.x * 0.46 - 150) / (ArtV3.PX * depot_span_m()))
+	# the tabs where the whole train does not have to be reachable (the garage, the trips, the casino) show the machine and the first wagon big, the rest of the train goes off to the left
+	var span = depot_span_m()
+	if tab not in ["Улучшения", "Состав"]:
+		span = minf(model.train_length(), Geometry.length(model.vehicle_id()) + 1.3 * Geometry.length("W01"))   # the parked wagons wait off to the left
+	# the tall rigs (the lever of the handcar, the pole, the mast) would run into the text panel at the top: they stay smaller
+	var tall_cap = {"handcar": 1.05, "pole": 0.94, "sail": 0.94}.get(model.vehicle_id(), 1.5)
+	return minf(1.9 if tab == "Улучшения" else float(tall_cap), (get_viewport_rect().size.x * 0.46 - 150) / (ArtV3.PX * span))
 
 func _draw() -> void:
 	if art == null: return
@@ -3559,7 +3565,19 @@ func draw_body(id: String, s: float, controls: bool) -> void:
 	var rail = body_transform(id, s, false)   # the running gear stands on the rail while the body sways above it
 	var air_height = float(model.air_z) if screen == "game" else 0.0
 	ellipse(Vector2(10, 7 + air_height * ArtV3.PX), Vector2(art.body_width(id)*0.48/(1.0 + air_height * 0.8), 7.0/(1.0 + air_height * 0.8)), Color(0.05, 0.08, 0.05, 0.23/(1.0 + air_height * 1.5)))
-	art.draw_vehicle(self, id, s, int(model.state.direction) if screen != "depot" else 1, outer, model, controls, {}, false, rail)
+	# the skid: the locked wheels of the machine stand still and sparks fly from under them
+	var wheel_s = s
+	var skidding = screen == "game" and model.wheel_lock and id == model.vehicle_id() and model.body_ids().find(id) == 0
+	if skidding:
+		if not skid_active:
+			skid_active = true
+			skid_s = s
+		wheel_s = skid_s
+	else:
+		skid_active = false
+	art.draw_vehicle(self, id, wheel_s, int(model.state.direction) if screen != "depot" else 1, outer, model, controls, {}, false, rail)
+	if skidding:
+		art.draw_skid_sparks(self, id, rail, outer, time)
 	if not id.begins_with("W"): art.draw_added_headlamp(self, id)
 	if id == "locomotive" and screen == "game":
 		draw_charge_strip(outer)
@@ -3659,6 +3677,8 @@ func gate_local(rect: Rect2, g: Vector2) -> Vector2:
 	return ControlArt.gate_local(rect, g)
 
 var control_art_cache = null
+var skid_active = false   # the wheels are locked: the angle they stopped at
+var skid_s = 0.0
 func control_art():
 	if control_art_cache == null: control_art_cache = ControlArt.new(self)
 	return control_art_cache

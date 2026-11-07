@@ -53,7 +53,10 @@ func sampled_target(at_time: float) -> float:
 	return float(samples[-1].angle)
 
 func inertia(mass: float, radius: float, ratio: float) -> float:
-	return mass*pow(radius*ratio,2)+float(config.flywheel_inertia_kg_m2)+float(config.crank_inertia_kg_m2)+float(config.wheel_count)*float(config.wheel_inertia_kg_m2)*ratio*ratio
+	return mass*pow(radius*ratio,2)+float(config.flywheel_inertia_kg_m2)*flywheel_gain+float(config.crank_inertia_kg_m2)+float(config.wheel_count)*float(config.wheel_inertia_kg_m2)*ratio*ratio
+
+var flywheel_gain=1.0   # the flywheel gadget: a heavy rim, the stored energy of the strokes (set by the model each step)
+var power_gain=1.0   # the ratchet: the hand gives its power through both strokes, the ceiling of the power goes up (set by the model each step)
 
 func step(mechanism, velocity: float, mass: float, facing: int, radius: float, dt: float, grade_force: float, rolling_force: float, brake_force: float, power_limit: float, torque_multiplier: float, potential: Callable) -> Dictionary:
 	var ratio=float(mechanism.config.gear_ratio)
@@ -99,7 +102,7 @@ func step(mechanism, velocity: float, mass: float, facing: int, radius: float, d
 				var damping=float(config.damping_nms_per_rad)*minf(1,capture_age/0.12)
 				torque=clampf(float(config.spring_nm_per_rad)*error-damping*delta_alpha/h,-float(config.max_hand_torque_nm)*torque_multiplier,float(config.max_hand_torque_nm)*torque_multiplier)
 				var positive=torque*delta_alpha
-				var cap=minf(float(config.max_hand_power_w),power_limit)*h
+				var cap=minf(float(config.max_hand_power_w)*power_gain,power_limit)*h
 				if positive>cap and absf(delta_alpha)>1e-12: torque*=cap/positive
 			delta_u=float(potential.call(offset+k*d))-old_u
 			var gravity=-delta_u/d if absf(d)>1e-8 else grade_force*k
@@ -120,7 +123,7 @@ func step(mechanism, velocity: float, mass: float, facing: int, radius: float, d
 		var mean=d/h
 		var viscous=float(config.viscous_loss_nms)*mean*mean*h
 		var hand=torque*delta_alpha
-		var cap=minf(float(config.max_hand_power_w),power_limit)*h
+		var cap=minf(float(config.max_hand_power_w)*power_gain,power_limit)*h
 		if hand>cap: torque*=cap/hand;hand=cap
 		var gravity=-delta_u/d if absf(d)>1e-8 else grade_force*k
 		var jac=delta_alpha/d if absf(d)>1e-8 else float(pose.dangle_dphase)

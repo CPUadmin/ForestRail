@@ -582,6 +582,31 @@ func headlamp_point(id: String) -> Vector2:
 		return steam_point(lamp.x, lamp.y)
 	return Vector2(body_width(id) * 0.43, deck_y(id) - (0.45 if id == "locomotive" else 0.13) * PX)
 
+# The skid: sparks fly back from the contact of every wheel with the rail (the wheels stand still while the train slides).
+func draw_skid_sparks(canvas: Node2D, id: String, rail: Transform2D, outer: Transform2D, t: float) -> void:
+	canvas.draw_set_transform_matrix(rail)
+	for position in wheel_positions(id):
+		var contact = Vector2(position.x, -0.02 * PX)
+		canvas.draw_circle(contact, 0.16 * PX, Color(1.0, 0.7, 0.3, 0.14))
+		canvas.draw_circle(contact, 0.08 * PX, Color(1.0, 0.85, 0.5, 0.3))
+		for i in range(14):
+			var seed_a = fposmod(sin(float(i) * 12.9898 + position.x * 0.013) * 43758.5453, 1.0)
+			var seed_b = fposmod(sin(float(i) * 78.233 + 4.1) * 24634.6345, 1.0)
+			var life = 0.30 + 0.25 * seed_a
+			var phase = fposmod(t / life + seed_b, 1.0)
+			var age = phase * life
+			var velocity = Vector2(-(1.2 + 2.6 * seed_a) * PX, -(0.5 + 1.6 * seed_b) * PX)
+			var gravity = Vector2(0, 5.0 * PX)
+			var head = contact + velocity * age + gravity * (0.5 * age * age)
+			var back_age = maxf(0.0, age - 0.05)
+			var tail = contact + velocity * back_age + gravity * (0.5 * back_age * back_age)
+			var fade = 1.0 - phase
+			var hot = Color(1.0, 0.97, 0.75, fade)
+			var warm = Color(1.0, 0.5 + 0.3 * seed_b, 0.12, fade)
+			canvas.draw_line(tail, head, warm, maxf(2.0, 0.05 * PX * fade), true)
+			canvas.draw_line(tail.lerp(head, 0.4), head, hot, maxf(1.5, 0.025 * PX), true)
+	canvas.draw_set_transform_matrix(outer)
+
 func draw_added_headlamp(canvas: Node2D, id: String) -> void:
 	if id in ["motorcar", "steam", "pneumatic"]: return
 	if id in ["locomotive", "zeppelin", "jet"] and not is_skinned(id): return   # their pictures have their own lamp

@@ -54,13 +54,13 @@ func run() -> void:
 	var m1 = fresh(true)
 	var stats1 = m1.object_stats("handcar")
 	check(is_equal_approx(float(stats1.mass), float(stats0.mass) + 8.0), "the ratchet weighs 8 kg")
-	check(is_equal_approx(float(m1.effects("handcar").get("ratchet_torque", 1.0)), 1.25), "the effect is the torque x1.25")
+	check(is_equal_approx(float(m1.effects("handcar").get("ratchet_torque", 1.0)), 2.0) and is_equal_approx(float(m1.effects("handcar").get("ratchet_power", 1.0)), 1.6), "the effect is the torque x2 and the power ceiling x1.6")
 	# it does not overwrite the lever upgrade
 	m1.object_state("handcar").levels["handcar_lever"] = 2
 	check(float(m1.effects("handcar").get("work_multiplier", 1.0)) > 1.0 and float(m1.effects("handcar").get("ratchet_torque", 1.0)) > 1.0, "with the lever upgrade both effects stay")
 	var plain_way = pump(fresh(false), 8.0)
 	var ratchet_way = pump(fresh(true), 8.0)
 	print("RATCHET WAY ", plain_way, " ", ratchet_way)
-	check(ratchet_way > plain_way * 1.03, "pumping for 8 s the ratchet car goes further (%.1f m against %.1f m)" % [ratchet_way, plain_way])
+	check(ratchet_way > plain_way * 1.25, "pumping for 8 s the ratchet car goes further (%.1f m against %.1f m)" % [ratchet_way, plain_way])
 	print("RATCHET CHECKS ", checks, "; FAILURES ", failures)
 	get_tree().quit(0 if failures.is_empty() else 1)

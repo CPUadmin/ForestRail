@@ -1392,7 +1392,8 @@
       "level_costs": [2400],
       "levels": 1,
       "effects_at_level": {
-        "flywheel_rolling": [0.8],
+        "flywheel_rolling": [0.3],
+        "flywheel_inertia": [8.0],
         "gadget_mass_kg": [25]
       },
       "scope": "selected_vehicle_id"
@@ -1443,7 +1444,8 @@
       "level_costs": [2400],
       "levels": 1,
       "effects_at_level": {
-        "ratchet_torque": [1.25],
+        "ratchet_torque": [2.0],
+        "ratchet_power": [1.6],
         "gadget_mass_kg": [8]
       },
       "scope": "selected_vehicle_id"
@@ -1608,9 +1610,9 @@
     "coin_min": 100,
     "coin_max": 200,
     "sources": {
-      "rusty_per_km": 0.35,
+      "rusty_per_km": 0.525,
       "steep_grade": 0.04,
-      "tie_plate_per_m": 0.004,
+      "tie_plate_per_m": 0.006,
       "tie_plate_cap": 4,
       "heavy_kg": 300,
       "fishplate_cap": 3,
@@ -1619,14 +1621,14 @@
       "clip_cap": 2,
       "exact_low": 0.95,
       "exact_high": 1.05,
-      "lantern_chance": 0.35,
+      "lantern_chance": 0.525,
       "watch_streak": 3,
-      "per_km": {"handcar": 0.5, "pole": 0.65},
-      "per_damage": 25.0,
+      "per_km": {"handcar": 0.75, "pole": 0.975},
+      "per_damage": 37.5,
       "machine_cap": 4,
-      "glint_min": 1,
-      "glint_extra_chance": 0.4,
-      "glint_golden_chance": 0.06,
+      "glint_min": 2,
+      "glint_extra_chance": 0.1,
+      "glint_golden_chance": 0.09,
       "glint_margin_m": 300.0,
       "glint_reach_m": 22.0,
       "glint_max_speed": 8.0,
