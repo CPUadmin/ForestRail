@@ -197,6 +197,11 @@ func bar(rect: Rect2, fraction: float, color: Color) -> void:
 		draw_style_box(game.style(color,Color.TRANSPARENT,4),Rect2(rect.position,Vector2(rect.size.x*clampf(fraction,0,1),rect.size.y)))
 
 func _draw() -> void:
+	var started = Time.get_ticks_usec() if game != null and game.perf_on else 0
+	_draw_hud()
+	if game != null and game.perf_on: game.perf_add("hud", started)
+
+func _draw_hud() -> void:
 	if game == null or game.model.state.is_empty(): return
 	if full_map: draw_full_map(); return
 	draw_speedometer()

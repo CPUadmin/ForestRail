@@ -2467,7 +2467,9 @@ func _process(dt: float) -> void:
 		else: sound.play(event_name, 0.6)
 	if not land_dust.is_empty(): land_dust.t = float(land_dust.t) + dt
 	sound.update(model, paused, screen == "menu", dt, cab_active())
+	var view_started = Time.get_ticks_usec() if perf_on else 0
 	if art_world != null: art_world.update_view()
+	if perf_on: perf_add("update_view", view_started)
 	queue_redraw()
 	if smoke_frames >= 0:
 		smoke_frames -= 1
@@ -2479,7 +2481,9 @@ func _process(dt: float) -> void:
 func _physics_process(dt: float) -> void:
 	if screen != "game" or paused: model.last_movement = 0.0
 	if screen == "game" and not paused:
+		var physics_started = Time.get_ticks_usec() if perf_on else 0
 		model.physics_step(dt)
+		if perf_on: perf_add("physics", physics_started)
 		autosave += dt
 		if float(settings.autosave) > 0.0 and autosave >= float(settings.autosave) and drag == "":
 			autosave = 0
@@ -3078,6 +3082,11 @@ func view_scale() -> float:
 	return minf(1.9 if tab == "Улучшения" else float(tall_cap), (get_viewport_rect().size.x * 0.46 - 150) / (ArtV3.PX * span))
 
 func _draw() -> void:
+	var draw_started = Time.get_ticks_usec() if perf_on else 0
+	_draw_scene()
+	if perf_on: perf_add("draw", draw_started)
+
+func _draw_scene() -> void:
 	if art == null: return
 	var size = get_viewport_rect().size
 	if art_world == null: draw_background(size)
@@ -3576,6 +3585,14 @@ func gate_local(rect: Rect2, g: Vector2) -> Vector2:
 	return ControlArt.gate_local(rect, g)
 
 var control_art_cache = null
+# The frame counters of the performance check (check_perf_budget): off in the game, the test turns it on; the samples are microseconds.
+var perf_on = false
+var perf_samples = {}
+
+func perf_add(counter: String, started_usec: int) -> void:
+	if not perf_samples.has(counter): perf_samples[counter] = []
+	perf_samples[counter].append(Time.get_ticks_usec() - started_usec)
+
 var skid_active = false   # the wheels are locked: the angle they stopped at
 var skid_s = 0.0
 func control_art():
