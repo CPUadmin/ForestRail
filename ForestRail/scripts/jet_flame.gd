@@ -66,7 +66,13 @@ static func draw(canvas: Node2D, mouth: Vector2, length: float, radius: float, f
 		var tone: Color = layers[i].color
 		tone.a *= strength if i < 3 else 1.0
 		var shape = tongue(mouth, length, radius, i, t, seed)
-		canvas.draw_colored_polygon(shape, tone)
+		# the root fades in: the flame grows out of the dark of the nozzle instead of starting with a hard edge
+		var colors = PackedColorArray()
+		for k in range(shape.size()):
+			var j = k if k <= SAMPLES else 2 * SAMPLES + 1 - k
+			var fade = smoothstep(0.0, 0.14, float(j) / float(SAMPLES))
+			colors.append(Color(tone, tone.a * fade))
+		canvas.draw_polygon(shape, colors)
 	# the shock diamonds of the hot core
 	if frac > 0.45 or afterburner:
 		var diamonds = 5 if afterburner else 3

@@ -428,11 +428,11 @@ func draw_stock_body(canvas: Node2D, id: String, outer: Transform2D) -> void:
 func draw_vehicle(canvas: Node2D, id: String, distance: float, facing: int, outer: Transform2D, model, active: bool, pose_override: Dictionary = {}, draw_open_rig: bool = true, rail_outer = null) -> void:
 	var run: Transform2D = outer if rail_outer == null else rail_outer
 	if id == "pole" and not is_skinned(id): draw_wheels(canvas, id, distance, facing, run, {})   # behind the platform
-	if id == "jet" and model != null: draw_jet_exhaust(canvas, outer, model.jet)   # behind the nozzle: the lip of the nozzle overlaps the flame
 	if is_skinned(id):
 		draw_part(canvas, body_key(id), Vector2(0, axis_height(id)), 0, scale_for(body_key(id)), outer)
 	else:
 		draw_stock_body(canvas, id, outer)
+		if id == "jet" and model != null: draw_jet_exhaust(canvas, outer, model.jet)   # in front of the body: the flame comes out of the mouth of the nozzle
 		if id == "zeppelin" and model != null: draw_zeppelin_parts(canvas, outer, model.zep)
 	if id=="locomotive" and is_skinned(id):
 		for x in [0.70,1.35]:
