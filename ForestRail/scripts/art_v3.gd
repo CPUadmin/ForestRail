@@ -64,6 +64,8 @@ const JET_FX = {
 	"flame_full": preload("res://assets/art_jet/flame_full.png"), "flame_after": preload("res://assets/art_jet/flame_after.png"),
 	"smoke_light": preload("res://assets/art_jet/smoke_light.png"), "smoke_dark": preload("res://assets/art_jet/smoke_dark.png"),
 	"chute_open": preload("res://assets/art_jet/chute_open.png"), "chute_slack": preload("res://assets/art_jet/chute_slack.png")}
+const ZEP_LAMP = Vector2(1535, 485)   # the glass of the brass headlamp on the nose of the zeppelin picture (1774 px wide): the light comes from it, no second lamp is drawn
+const JET_LAMP = Vector2(1604, 513)   # the glass of the brass lantern on the nose of the jet picture (1774 px wide)
 const JET_MOUTH = Vector2(215, 395)   # the mouth of the nozzle in the picture of the jet body (1774 px wide)
 # The gadgets on the machines (P12, painted by GPT): an installed gadget shows its part on the deck. x is metres from the middle of the machine (forward is positive),
 # lift metres over the deck, h the height of the picture in metres. The cloth of the spinnaker and the hook of the grapnel are drawn by their own code.
@@ -568,6 +570,8 @@ func draw_wheels(canvas: Node2D, id: String, distance: float, facing: int, run: 
 			draw_part(canvas, wheel_id, position, wheel_angle, scale_for(wheel_id), run)
 
 func headlamp_point(id: String) -> Vector2:
+	if id == "zeppelin" and not is_skinned(id): return stock_body_point(id, ZEP_LAMP)
+	if id == "jet" and not is_skinned(id): return stock_body_point(id, JET_LAMP)
 	if STOCK_LAMPS.has(id) and not is_skinned(id): return stock_body_point(id, STOCK_LAMPS[id])
 	if id == "motorcar":
 		var lamp = skin_point(id, "lamp_m", Vector2(1.58, 1.40))
@@ -580,7 +584,7 @@ func headlamp_point(id: String) -> Vector2:
 
 func draw_added_headlamp(canvas: Node2D, id: String) -> void:
 	if id in ["motorcar", "steam", "pneumatic"]: return
-	if id == "locomotive" and not is_skinned(id): return
+	if id in ["locomotive", "zeppelin", "jet"] and not is_skinned(id): return   # their pictures have their own lamp
 	var at = headlamp_point(id)
 	canvas.draw_line(at + Vector2(0, 4), at + Vector2(0, 0.15 * PX), Color("443e30"), 4.0, true)
 	canvas.draw_circle(at, 0.078 * PX, Color("383a32"))
