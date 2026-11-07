@@ -75,6 +75,28 @@ func run() -> void:
 	m.physics_step(1.0 / 60.0)
 	m.grapnel.anchors = [{"s": 593.0, "type": "bush"}, {"s": 611.0, "type": "post"}, {"s": 618.0, "type": "tree"}, {"s": 624.0, "type": "rock"}, {"s": 630.0, "type": "stump"}]
 	await shot("grapnel_stowed")
+	# the mouse: the dotted arc follows the cursor, the right button throws at it, the right button again lets go
+	var outer = game.body_transform("pole", m.body_s_render(0))
+	var at: Vector2 = outer * (Vector2(11.0, 0.21 - 1.6) * game.art.PX)
+	Input.warp_mouse(at)
+	for i in range(3): await frame()
+	await shot("grapnel_aim")
+	var aim = game.grapnel_aim_local(at)
+	check(absf(aim.x - 11.0) < 1.5 and absf(aim.y - 1.6) < 0.3, "the cursor is turned into metres ahead and above the rail (%s)" % str(aim))
+	var press = InputEventMouseButton.new()
+	press.button_index = MOUSE_BUTTON_RIGHT
+	press.pressed = true
+	press.position = at
+	game._unhandled_input(press)
+	check(m.grapnel.mode == "flying" and m.grapnel.throws == 1, "the right button throws at the cursor")
+	for i in range(60 * 2): m.physics_step(1.0 / 60.0)
+	check(m.grapnel.mode == "hooked", "aimed at the post, the hook is on it (%s)" % m.grapnel.mode)
+	game._unhandled_input(press)
+	check(m.grapnel.mode == "dropped", "the right button again lets go")
+	for i in range(80): m.physics_step(1.0 / 60.0)
+	m.state.s = 600.0
+	m.state.v = 0.0
+	m.grapnel.reset()
 	for attempt in range(20):   # a throw is a throw: some miss, the test takes one that catches
 		m.grapnel.throws = attempt * 7
 		game.try_grapnel()

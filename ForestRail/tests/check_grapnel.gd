@@ -65,7 +65,7 @@ func run() -> void:
 	var r = play(g, 100.0, 1, 600.0, 14.0)
 	check("hook" in r.events and "reached" in r.events and not ("tear" in r.events), "the hook catches the post and the truck is pulled to it (%s)" % str(r.events))
 	check(r.s > 108.0 and r.s < 113.0, "the truck came under the post (%.1f)" % r.s)
-	check(r.max_force > 100.0 and r.max_force <= 0.25 * 600.0 * 9.81 + 1.0, "the pull is up to a quarter of the weight (%.0f N of %.0f)" % [r.max_force, 0.25 * 600.0 * 9.81])
+	check(r.max_force > 100.0 and r.max_force <= 0.9 * 600.0 * 9.81 + 1.0, "the pull is up to nine tenths of the weight (%.0f N of %.0f)" % [r.max_force, 0.9 * 600.0 * 9.81])
 	check(g.mode == "dropped" or g.mode == "stowed", "after the stop the hook is let go (%s)" % g.mode)
 	# the hook comes back to its clip
 	play(g, 110.0, 1, 600.0, 2.0)
@@ -114,7 +114,7 @@ func run() -> void:
 		distant.throw(100.0, 1, 1.2, flat)
 		if distant.catch_t >= 0.0: far_hits += 1
 	check(close_hits == 40, "a throw of 4 m always catches (%d of 40)" % close_hits)
-	check(far_hits >= 8 and far_hits <= 38, "a throw of 14.5 m sometimes misses (%d of 40)" % far_hits)
+	check(far_hits >= 30, "a throw of 14.5 m mostly catches (%d of 40)" % far_hits)
 	var mid_hits = 0
 	for k in range(40):
 		var mid = with_anchor(100.0 + 11.0, "post")
@@ -123,5 +123,21 @@ func run() -> void:
 		if mid.catch_t >= 0.0: mid_hits += 1
 	print("GRAPNEL mid hits ", mid_hits)
 	check(mid_hits >= 22, "a throw of 11 m catches a post most of the time (%d of 40)" % mid_hits)
+	# --- the aimed throw (the mouse): at a point on the post, on empty ground, at the edge of the range
+	var aimed = with_anchor(110.0, "post")
+	check(aimed.throw_at(100.0, 1, 1.2, flat, 10.0, 1.0) and aimed.target == 0 and aimed.catch_t > 0.0, "a throw aimed at the post catches it")
+	var nothing = with_anchor(110.0, "post")
+	check(nothing.throw_at(100.0, 1, 1.2, flat, 5.0, -1.2) and nothing.catch_t < 0.0 and nothing.land_x > 3.0, "a throw aimed at the ground in front of the post falls on the ground")
+	var over = with_anchor(110.0, "post")
+	check(over.throw_at(100.0, 1, 1.2, flat, 10.0, 6.0) and over.catch_t < 0.0, "a throw high over the post flies past it")
+	var edge = with_anchor(100.0 + 21.0, "tree")
+	check(edge.throw_at(100.0, 1, 1.2, flat, 21.0, 2.0) and edge.catch_t > 0.0, "the tree at 21 m is in reach of an aimed throw")
+	var too_far = with_anchor(100.0 + 21.0, "tree")
+	too_far.throw_at(100.0, 1, 1.2, flat, 60.0, 2.0)
+	check(too_far.land_x <= 40.0 and too_far.v0 > 0.0, "an aim beyond the range is cut down to the range")
+	var pass_by = with_anchor(108.0, "post")
+	check(pass_by.throw_at(100.0, 1, 1.2, flat, 10.0, -0.5) and pass_by.target == 0, "a hook thrown past a near post catches it on the way")
+	var prev = with_anchor(110.0, "post").aim_preview(100.0, 1, 1.2, flat, 10.0, 1.0)
+	check(int(prev.catch) == 0 and prev.points.size() > 4, "the aim preview tells that this arc catches the post")
 	print("GRAPNEL CHECKS ", checks, "; FAILURES ", failures)
 	get_tree().quit(0 if failures.is_empty() else 1)

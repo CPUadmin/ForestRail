@@ -447,7 +447,7 @@ func draw_vehicle(canvas: Node2D, id: String, distance: float, facing: int, oute
 	var p = mechanism_pose(model) if id=="handcar" and pose_override.is_empty() else pose_override
 	if id=="steam": draw_steam_overlay(canvas, model)
 	if id=="pneumatic": draw_pneumatic_overlay(canvas, model)
-	if draw_open_rig and id=="pole": draw_pole_overlay(canvas, model)
+	if draw_open_rig and id=="pole": draw_pole_overlay(canvas, model, outer)
 	if draw_open_rig and id=="sail": draw_sail_overlay(canvas, model)
 	if id=="motorcar": draw_petrol_overlay(canvas, model)
 	if id != "zeppelin" and not (id == "pole" and not is_skinned(id)): draw_wheels(canvas, id, distance, facing, run, p)   # the zeppelin has no visible wheels (the rocket train has them)
@@ -983,7 +983,7 @@ func draw_grapnel_anchor(canvas: Node2D, x: float, type: String) -> void:
 			canvas.draw_circle(pole_point(x, 0.5), 0.5 * PX, Color(0.28, 0.46, 0.2))
 			canvas.draw_circle(pole_point(x + 0.3, 0.35), 0.35 * PX, Color(0.22, 0.4, 0.18))
 
-func draw_grapnel_overlay(canvas: Node2D, model) -> void:
+func draw_grapnel_overlay(canvas: Node2D, model, outer: Transform2D = Transform2D.IDENTITY) -> void:
 	var dir = int(model.state.direction)
 	var s = float(model.state.s)
 	var g = model.grapnel
@@ -1006,8 +1006,21 @@ func draw_grapnel_overlay(canvas: Node2D, model) -> void:
 	canvas.draw_polyline(pts, GRAPNEL_ROPE, maxf(2.0, 0.025 * PX), true)
 	canvas.draw_circle(hook, 0.07 * PX, Color(0.62, 0.64, 0.66))
 	canvas.draw_arc(hook, 0.13 * PX, deg_to_rad(20), deg_to_rad(200), 10, Color(0.62, 0.64, 0.66), 3.0, true)
+	# the aim: while the hook is in the clip a dotted arc runs from the hand to the cursor (green: the arc catches a post, a tree or a rock)
+	if g.mode == "stowed" and str(canvas.screen) == "game" and not bool(canvas.paused) and not canvas.cab_active() and model.state.phase == "route":
+		var m: Vector2 = outer.affine_inverse() * canvas.get_local_mouse_position() / PX
+		var aim = Vector2(m.x, 0.21 - m.y)
+		if aim.x > 1.0 and aim.x < g.RANGE + 6.0:
+			var preview = model.grapnel_preview(aim.x, aim.y - g.HAND_H)
+			var catches = int(preview.catch) >= 0
+			var tone = Color(0.62, 0.95, 0.5, 0.9) if catches else Color(0.95, 0.9, 0.6, 0.6)
+			var pts_a: Array = preview.points
+			for k in range(0, pts_a.size() - 1, 2):
+				canvas.draw_line(pole_point(pts_a[k].x, pts_a[k].y), pole_point(pts_a[k + 1].x, pts_a[k + 1].y), tone, maxf(2.0, 0.03 * PX), true)
+			var end: Vector2 = pts_a[pts_a.size() - 1]
+			canvas.draw_circle(pole_point(end.x, end.y), 0.1 * PX, Color(tone, 0.5))
 
-func draw_pole_overlay(canvas: Node2D, model) -> void:
+func draw_pole_overlay(canvas: Node2D, model, outer: Transform2D = Transform2D.IDENTITY) -> void:
 	if model == null or model.state.is_empty() or not model.state.fleet_by_id.has("pole"): return
 	var dir = float(int(model.state.direction))
 	var s = float(model.state.s)
@@ -1022,7 +1035,7 @@ func draw_pole_overlay(canvas: Node2D, model) -> void:
 				if ground.type == "stones": canvas.draw_circle(pole_point(x, 0.06), 0.05 * PX, Color(0.72, 0.72, 0.74))
 				if ground.type == "roots": canvas.draw_line(pole_point(x - 0.2, 0.0), pole_point(x + 0.2, 0.1), Color(0.35, 0.24, 0.14), 0.04 * PX, true)
 			x += 0.5
-	if model.grapnel_installed(): draw_grapnel_overlay(canvas, model)
+	if model.grapnel_installed(): draw_grapnel_overlay(canvas, model, outer)
 	var pole = model.pole
 	var tip_x = float(pole.tip) * dir
 	var hands = pole_point(0.0, 1.45)

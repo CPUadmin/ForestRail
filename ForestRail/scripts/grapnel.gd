@@ -8,21 +8,23 @@ extends RefCounted
 
 const G = 9.81
 const HAND_H = 1.2          # откуда летит крюк: высота лебёдки над землёй у дрезины
-const RANGE = 15.0          # дальше не добросить
-const MIN_RANGE = 3.0       # ближе опоры бросать смысла нет
+const RANGE = 22.0          # дальше не добросить
+const MIN_RANGE = 3.0       # ближе этого разброс нулевой, и опору рядом автоприцел не берёт
+const MIN_THROW = 1.5       # мышью можно бросить и почти под ноги
+const SPREAD = 0.04         # разброс скорости броска на предельной дальности (±4%)
 const ANGLE = 0.8           # рад, угол броска (≈ 46°)
-const WINCH_SHARE = 0.25    # тяга лебёдки как доля веса дрезины
-const WINCH_SPEED = 0.9     # м/с: так быстро барабан выбирает трос
-const ROPE_K = 4000.0       # Н/м: жёсткость натянутого троса
-const HOLD_N = 2200.0       # Н: держит эталонная опора (столб)
+const WINCH_SHARE = 0.9      # тяга лебёдки как доля веса дрезины (очень сильная лебёдка)
+const WINCH_SPEED = 2.0     # м/с: так быстро барабан выбирает трос
+const ROPE_K = 12000.0      # Н/м: жёсткость натянутого троса
+const HOLD_N = 30000.0      # Н: держит эталонная опора (столб): столб, дерево и скала держат любой состав, пень средний, куст рвётся
 const REACHED_M = 1.2       # подъехали под опору ближе этого: крюк снимается сам
 const LAND_RETURN_S = 1.2   # сколько лежит промахнувшийся крюк, пока его не смотали
 const ANCHORS = {
 	"post": {"hold": 1.0, "h": 2.6, "name": "столб", "weight": 4},
 	"tree": {"hold": 0.85, "h": 6.0, "name": "дерево", "weight": 4},
 	"rock": {"hold": 1.3, "h": 1.1, "name": "скала", "weight": 2},
-	"stump": {"hold": 0.45, "h": 0.6, "name": "пень", "weight": 3},
-	"bush": {"hold": 0.12, "h": 1.3, "name": "куст", "weight": 3}}
+	"stump": {"hold": 0.15, "h": 0.6, "name": "пень", "weight": 3},
+	"bush": {"hold": 0.02, "h": 1.3, "name": "куст", "weight": 3}}
 
 var anchors: Array = []      # [{s, type}] по возрастанию s
 var built_for = ""
@@ -39,6 +41,7 @@ var land_t = 0.0             # когда упадёт
 var land_x = 0.0             # где упадёт (м впереди точки броска)
 var rope = 0.0               # длина троса от лебёдки до крюка
 var tension = 0.0            # Н
+var prev_dist = -1.0          # расстояние до опоры на прошлом шаге (для демпфера троса)
 var reeling = false
 var force = 0.0              # последняя сила на дрезину вдоль пути (знак s)
 var events: Array = []       # "throw", "hook", "miss", "tear", "reached", "release"
@@ -102,44 +105,86 @@ func hold_n(i: int) -> float:
 func busy() -> bool:
 	return mode != "stowed"
 
-# Бросок на ближайшую опору впереди: скорость подобрана так, чтобы дуга прошла у её верха, и разброс от дальности и номера броска.
-# Если опоры в пределах броска нет, крюк летит на 10 м и падает.
-func throw(s: float, direction: int, hand_world_y: float, ground_y: Callable) -> bool:
+# Скорость броска под углом ANGLE так, чтобы дуга прошла через точку на d метров вперёд и dy метров выше руки.
+func speed_for(d: float, dy: float) -> float:
+	var c = cos(ANGLE)
+	var denominator = 2.0 * c * c * (d * tan(ANGLE) - dy)
+	return sqrt(G * d * d / maxf(denominator, 0.5))
+
+# Высота дуги над рукой на расстоянии x вперёд при скорости v.
+func arc_y(v: float, x: float) -> float:
+	var c = cos(ANGLE)
+	return x * tan(ANGLE) - G * x * x / (2.0 * v * v * c * c)
+
+# Куда упадёт крюк (метров вперёд) при скорости v: дуга возвращается на землю у лебёдки (плоско): y(x) = -HAND_H
+func landing_x(v: float) -> float:
+	var c = cos(ANGLE)
+	var a = G / (2.0 * v * v * c * c)
+	var disc = sqrt(tan(ANGLE) * tan(ANGLE) + 4.0 * a * HAND_H)
+	return (tan(ANGLE) + disc) / (2.0 * a)
+
+# Какую опору зацепит дуга со скоростью v (первую по ходу, у которой она проходит между серединой ствола и ладонью над верхом): [номер, расстояние] или [-1, 0].
+func catch_on_arc(s: float, direction: int, hand_world_y: float, ground_y: Callable, v: float) -> Array:
+	var reach = landing_x(v)
+	var best = -1
+	var best_d = INF
+	for i in range(anchors.size()):
+		var da = (float(anchors[i].s) - s) * float(direction)
+		if da < 0.5 or da > reach or da >= best_d: continue
+		var top_rel = anchor_top(i, ground_y) - hand_world_y
+		var h = float(ANCHORS[anchors[i].type].h)
+		var y_at = arc_y(v, da)
+		if y_at >= top_rel - h * 0.8 - 0.1 and y_at <= top_rel + 0.5:
+			best = i
+			best_d = da
+	return [best, best_d if best >= 0 else 0.0]
+
+# Бросок по точке: d метров вперёд, dy метров выше руки (мышью целятся прямо в опору). Скорость подбирается так, чтобы дуга прошла через точку, потом небольшой разброс от дальности и номера броска.
+# Зацепится первая опора, у верха которой пролетит дуга, хоть бы это была не та, в которую целились; иначе крюк упадёт на землю.
+func throw_at(s: float, direction: int, hand_world_y: float, ground_y: Callable, d: float, dy: float) -> bool:
 	if mode != "stowed": return false
 	throws += 1
 	throw_dir = direction
 	origin_s = s
 	origin_h = hand_world_y
 	clock = 0.0
+	d = clampf(d, MIN_THROW, RANGE)
+	v0 = speed_for(d, dy)
+	var spread = (hash01(float(throws) * 1.7 + s * 0.013) * 2.0 - 1.0) * SPREAD * clampf((d - MIN_RANGE) / (RANGE - MIN_RANGE), 0.0, 1.0)
+	v0 *= 1.0 + spread
+	land_x = landing_x(v0)
+	land_t = land_x / (v0 * cos(ANGLE))
+	var hit = catch_on_arc(s, direction, hand_world_y, ground_y, v0)
+	target = int(hit[0])
+	catch_t = float(hit[1]) / (v0 * cos(ANGLE)) if target >= 0 else -1.0
+	mode = "flying"
+	events.append("throw")
+	return true
+
+# Бросок на ближайшую опору впереди (кнопка и клавиша без мыши): метим чуть ниже верха, крюк цепляется за ствол.
+# Если опоры в пределах броска нет, крюк летит на 10 м и падает.
+func throw(s: float, direction: int, hand_world_y: float, ground_y: Callable) -> bool:
+	if mode != "stowed": return false
 	var i = anchor_ahead(s, direction)
 	var d = 10.0
 	var dy = -HAND_H   # куда метим по высоте относительно руки (в землю)
 	if i >= 0:
 		d = (float(anchors[i].s) - s) * float(direction)
-		dy = anchor_top(i, ground_y) - hand_world_y - 0.15 * float(ANCHORS[anchors[i].type].h)   # метим чуть ниже верха: крюк цепляется за ствол
-	target = i
-	var c = cos(ANGLE)
-	var denominator = 2.0 * c * c * (d * tan(ANGLE) - dy)
-	v0 = sqrt(G * d * d / maxf(denominator, 0.5))
-	# разброс: растёт с дальностью (0 на 3 м, до ±8% скорости на 15 м)
-	var spread = (hash01(float(throws) * 1.7 + s * 0.013) * 2.0 - 1.0) * 0.08 * clampf((d - MIN_RANGE) / (RANGE - MIN_RANGE), 0.0, 1.0)
-	v0 *= 1.0 + spread
-	# упадёт, когда дуга вернётся на землю у лебёдки + на уровень земли (плоско): y(x) = x tan - g x² / (2 v² c²) = -HAND_H
-	var a = G / (2.0 * v0 * v0 * c * c)
-	var disc = sqrt(tan(ANGLE) * tan(ANGLE) + 4.0 * a * HAND_H)
-	land_x = (tan(ANGLE) + disc) / (2.0 * a)
-	land_t = land_x / (v0 * c)
-	catch_t = -1.0
-	if i >= 0:
-		var t_a = d / (v0 * c)
-		var y_at = d * tan(ANGLE) - G * d * d / (2.0 * v0 * v0 * c * c)   # высота дуги над рукой у опоры
-		var top_rel = anchor_top(i, ground_y) - hand_world_y
-		var h = float(ANCHORS[anchors[i].type].h)
-		# цепляется, если дуга у опоры проходит между серединой ствола и ладонью над верхом
-		if y_at >= top_rel - h * 0.8 - 0.1 and y_at <= top_rel + 0.5: catch_t = t_a
-	mode = "flying"
-	events.append("throw")
-	return true
+		dy = anchor_top(i, ground_y) - hand_world_y - 0.15 * float(ANCHORS[anchors[i].type].h)
+	return throw_at(s, direction, hand_world_y, ground_y, d, dy)
+
+# Дуга для прицела: точки (x вперёд, y над рельсом у дрезины) от руки до точки прицела и опора, которую она зацепит (-1: ни одной). Без разброса.
+func aim_preview(s: float, direction: int, hand_world_y: float, ground_y: Callable, d: float, dy: float) -> Dictionary:
+	d = clampf(d, MIN_THROW, RANGE)
+	var v = speed_for(d, dy)
+	var points: Array = []
+	var steps = 16
+	var end_x = minf(landing_x(v), d * 1.25 + 1.0)
+	for k in range(steps + 1):
+		var x = end_x * float(k) / float(steps)
+		points.append(Vector2(x, HAND_H + arc_y(v, x)))
+	var hit = catch_on_arc(s, direction, hand_world_y, ground_y, v)
+	return {"points": points, "catch": int(hit[0])}
 
 func release() -> void:
 	if mode == "hooked":
@@ -179,6 +224,7 @@ func step(dt: float, s: float, direction: int, hand_world_y: float, mass_kg: flo
 			var dx = (float(anchors[i].s) - s) * float(direction)
 			var dy = anchor_top(i, ground_y) - 0.15 * float(ANCHORS[anchors[i].type].h) - hand_world_y
 			rope = sqrt(dx * dx + dy * dy)
+			prev_dist = -1.0
 			events.append("hook")
 		elif clock >= land_t:
 			mode = "dropped"
@@ -201,9 +247,13 @@ func step(dt: float, s: float, direction: int, hand_world_y: float, mass_kg: flo
 		tension = 0.0
 		events.append("reached")
 		return 0.0
-	if reeling: rope = maxf(0.5, rope - WINCH_SPEED * dt)
+	var reel = WINCH_SPEED * clampf((ax - REACHED_M) / 8.0, 0.2, 1.0) if reeling else 0.0   # near the support the drum slows down: the truck comes up gently
+	if reeling: rope = maxf(0.5, rope - reel * dt)
 	var winch_max = WINCH_SHARE * mass_kg * G
-	tension = clampf(ROPE_K * (dist - rope), 0.0, winch_max)
+	# the rope is a spring with a damper: the truck follows the drum without swinging past it
+	var stretch_rate = ((dist - prev_dist) / dt + reel) if prev_dist >= 0.0 else 0.0
+	prev_dist = dist
+	tension = clampf(ROPE_K * (dist - rope) + 1.2 * sqrt(ROPE_K * maxf(mass_kg, 1.0)) * stretch_rate, 0.0, winch_max)
 	if tension > hold_n(i2):
 		# лебёдка вырвала слабую опору: крюк срывается и падает под опору
 		mode = "torn"

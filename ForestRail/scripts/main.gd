@@ -1859,7 +1859,23 @@ func try_burst() -> void:
 	sound.play("coins", 0.35, 1.9)
 	cab_jolt = maxf(cab_jolt, 0.5)
 
-# The grapnel of the pole truck: throw at the nearest post, tree or rock ahead; the winch pulls the truck up to it; the same button lets it go.
+# The grapnel of the pole truck: the right mouse button throws at the cursor (the dotted arc shows where the hook goes), the winch pulls the truck up to the support;
+# the same button (or the key G) lets it go. The key G and the button without the mouse throw at the nearest post, tree or rock ahead.
+func grapnel_aim_local(mouse: Vector2) -> Vector2:
+	var outer = body_transform(model.vehicle_id(), model.body_s_render(0))
+	var local = outer.affine_inverse() * mouse / ArtV3.PX
+	return Vector2(local.x, 0.21 - local.y)   # metres ahead of the truck, metres above the rail
+
+func aim_grapnel(mouse: Vector2) -> void:
+	if model.grapnel.mode == "hooked":
+		model.release_grapnel()
+		return
+	var aim = grapnel_aim_local(mouse)
+	if aim.x < 0.5:
+		notify("Кошка бросается вперёд по ходу: целься правее")
+		return
+	if not model.throw_grapnel_at(aim.x, aim.y - float(model.grapnel.HAND_H)): notify(model.message)
+
 func try_grapnel() -> void:
 	if model.grapnel.mode == "hooked":
 		model.release_grapnel()
@@ -1871,7 +1887,7 @@ func grapnel_button_text() -> String:
 		"flying": return "Кошка летит"
 		"hooked": return "Снять [%s]" % key_name("grapnel")
 		"dropped", "torn": return "Кошка…"
-	return "Кошка [%s]" % key_name("grapnel")
+	return "Кошка [%s / ПКМ]" % key_name("grapnel")
 
 func burst_button_text() -> String:
 	if model.nitro_installed():
@@ -2695,6 +2711,10 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed:
 		if event.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN] and drag == "" and screen == "game":
 			zoom_level = clampf(zoom_level + (0.1 if event.button_index == MOUSE_BUTTON_WHEEL_UP else -0.1), 0.5, 1.5)
+			return
+		if event.button_index == MOUSE_BUTTON_RIGHT and screen == "game" and not cab_active() and model.grapnel_installed() and model.state.phase == "route":
+			aim_grapnel(event.position)   # the grapnel: the right button throws at the cursor, and lets go when the hook is on
+			get_viewport().set_input_as_handled()
 			return
 		if event.button_index != MOUSE_BUTTON_LEFT: return
 		var mouse = event.position
@@ -3573,7 +3593,7 @@ func draw_body(id: String, s: float, controls: bool) -> void:
 			draw_line(strap - Vector2(0, box.size.y * 0.82), anchor, Color("4a3c29"), 2.5, true)
 			draw_line(strap - Vector2(0, box.size.y * 0.82), anchor, Color("a48a57"), 1.0, true)
 			draw_circle(anchor, 2.3, Color("6e593d"))
-	if id == "pole": art.draw_pole_overlay(self, model)
+	if id == "pole": art.draw_pole_overlay(self, model, outer)
 	if id == "sail": art.draw_sail_overlay(self, model)
 	if id.begins_with("W"): art.draw_wagon_front(self, id, outer)
 	if id.begins_with("W") and screen == "depot":

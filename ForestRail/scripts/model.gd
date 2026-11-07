@@ -2217,6 +2217,18 @@ func throw_grapnel() -> bool:
 	grapnel.build(int(route.seed_value), float(route.length_m), route.station_s)
 	return grapnel.throw(float(state.s), int(state.direction), grapnel_hand_y(), Callable(self, "route_y"))
 
+# Бросок мышью: d метров вперёд по ходу и dy метров выше руки (точка клика в системе дрезины).
+func throw_grapnel_at(d: float, dy: float) -> bool:
+	if not grapnel_installed(): return fail("Кошки на шестовой нет: она ставится с карточки Повешенного")
+	if state.phase != "route": return fail("Кошка работает на линии")
+	if grapnel.busy(): return fail("Кошка ещё не в скобе")
+	grapnel.build(int(route.seed_value), float(route.length_m), route.station_s)
+	return grapnel.throw_at(float(state.s), int(state.direction), grapnel_hand_y(), Callable(self, "route_y"), d, dy)
+
+func grapnel_preview(d: float, dy: float) -> Dictionary:
+	grapnel.build(int(route.seed_value), float(route.length_m), route.station_s)
+	return grapnel.aim_preview(float(state.s), int(state.direction), grapnel_hand_y(), Callable(self, "route_y"), d, dy)
+
 func release_grapnel() -> void:
 	if grapnel_installed(): grapnel.release()
 
