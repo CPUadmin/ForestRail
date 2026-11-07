@@ -59,9 +59,8 @@ const STOCK_POLE = preload("res://assets/art_pole_truck/pole_truck_body.png")
 const STOCK_JET = preload("res://assets/art_consists/rocket_train_compact_body.png")   # B6.6: the rocket train (the picture of the other helper, the file is not changed)
 const STOCK_ZEPPELIN = preload("res://assets/art_zeppelin/body_clean.png")   # the same picture without the movable parts (tools/make_zeppelin_wings.py)
 # The exhaust and the parachute of the rocket railcar (P15, painted by GPT): flames of three strengths and the afterburner, two smokes, the open parachute.
+const JetFlame = preload("res://scripts/jet_flame.gd")   # the flame of the rocket is drawn by code
 const JET_FX = {
-	"flame_idle": preload("res://assets/art_jet/flame_idle.png"), "flame_mid": preload("res://assets/art_jet/flame_mid.png"),
-	"flame_full": preload("res://assets/art_jet/flame_full.png"), "flame_after": preload("res://assets/art_jet/flame_after.png"),
 	"smoke_light": preload("res://assets/art_jet/smoke_light.png"), "smoke_dark": preload("res://assets/art_jet/smoke_dark.png"),
 	"chute_open": preload("res://assets/art_jet/chute_open.png"), "chute_slack": preload("res://assets/art_jet/chute_slack.png")}
 const ZEP_LAMP = Vector2(1535, 485)   # the glass of the brass headlamp on the nose of the zeppelin picture (1774 px wide): the light comes from it, no second lamp is drawn
@@ -86,7 +85,8 @@ const GADGET_ART = {
 	"zeppelin_trim": {"vehicle": "zeppelin", "x": -0.2, "lift": 0.0, "h": 0.4, "tex": preload("res://assets/art_gadgets/zeppelin_trim.png")},
 	"zeppelin_flaps": {"vehicle": "zeppelin", "x": 1.0, "lift": 0.0, "h": 0.3, "tex": preload("res://assets/art_gadgets/zeppelin_flaps.png")},
 	"jet_double_chute": {"vehicle": "jet", "x": 1.0, "lift": 0.93, "h": 0.28, "tex": preload("res://assets/art_gadgets/jet_double_chute.png")},
-	"jet_afterburner": {"vehicle": "jet", "x": -1.1, "lift": 0.0, "h": 0.4, "tex": preload("res://assets/art_gadgets/jet_afterburner.png")}}
+	"jet_afterburner": {"vehicle": "jet", "x": -1.1, "lift": 0.0, "h": 0.4, "tex": preload("res://assets/art_gadgets/jet_afterburner.png"),
+		"crop": Rect2(0, 0, 205, 255), "flip": true, "mouth": Vector2(178, 118)}}   # the picture has a flame painted forward: only the nozzle is taken, turned to look backward, the flame is drawn by code
 const ZEP_PARTS = {
 	"tailplane": {"texture": preload("res://assets/art_zeppelin/tailplane.png"), "rect": Rect2(219, 140, 398, 75), "pivot": Vector2(507, 195)},
 	"wing": {"texture": preload("res://assets/art_zeppelin/wing.png"), "rect": Rect2(411, 424, 362, 80), "pivot": Vector2(540, 467)},
@@ -487,21 +487,9 @@ func draw_jet_exhaust(canvas: Node2D, outer: Transform2D, jet) -> void:
 		var sh = sw * float(smoke.get_height()) / float(smoke.get_width()) * 1.1
 		var flame_len = (1500.0 if afterburner else (900.0 if frac > 0.55 else 500.0)) * s
 		canvas.draw_texture_rect(smoke, Rect2(mouth + Vector2(-flame_len * 0.55 - sw, -sh * 0.5), Vector2(sw, sh)), false, Color(1, 1, 1, clampf(0.35 + frac * 0.5, 0.0, 0.85)))
-	var name = "flame_idle"
-	var length = 260.0
-	if afterburner:
-		name = "flame_after"
-		length = 1500.0
-	elif frac > 0.55:
-		name = "flame_full"
-		length = 900.0
-	elif frac > 0.2:
-		name = "flame_mid"
-		length = 500.0
-	var tex: Texture2D = JET_FX[name]
-	var w = length * s * flicker
-	var h = w * float(tex.get_height()) / float(tex.get_width()) * 1.25
-	canvas.draw_texture_rect(tex, Rect2(mouth + Vector2(-w, -h * 0.5), Vector2(w, h)), false)
+	var length = JetFlame.length_for(frac, afterburner) * s
+	var radius = length * (0.21 if afterburner else lerpf(0.30, 0.21, frac))
+	JetFlame.draw(canvas, mouth, length, radius, frac, afterburner, float(Time.get_ticks_msec()) / 1000.0)
 
 # The braking parachute behind the whole train: the ring on the rear coupler, the canopy streams to the left; it opens with jet.chute (0..1).
 func draw_jet_chutes(canvas: Node2D, outer: Transform2D, model) -> void:
@@ -530,8 +518,20 @@ func draw_gadget_parts(canvas: Node2D, outer: Transform2D, id: String, model) ->
 		if str(spec.vehicle) != id or int(levels.get(gadget, 0)) <= 0: continue
 		var tex: Texture2D = spec.tex
 		var h = float(spec.h) * PX
-		var w = h * float(tex.get_width()) / float(tex.get_height())
-		canvas.draw_texture_rect(tex, Rect2(Vector2(float(spec.x) * PX - w * 0.5, deck_y(id) - float(spec.lift) * PX - h), Vector2(w, h)), false)
+		var src = Rect2(Vector2.ZERO, Vector2(tex.get_width(), tex.get_height()))
+		if spec.has("crop"): src = spec.crop
+		var w = h * src.size.x / src.size.y
+		var dest = Rect2(Vector2(float(spec.x) * PX - w * 0.5, deck_y(id) - float(spec.lift) * PX - h), Vector2(w, h))
+		var flip = bool(spec.get("flip", false))
+		if flip: canvas.draw_set_transform_matrix(outer * Transform2D(Vector2(-1, 0), Vector2(0, 1), Vector2(2.0 * dest.get_center().x, 0)))
+		canvas.draw_texture_rect_region(tex, dest, src)
+		if flip: canvas.draw_set_transform_matrix(outer)
+		if gadget == "jet_afterburner" and model.jet.afterburner_time > 0.0:
+			# the small nozzle fires backward from its own mouth
+			var local: Vector2 = spec.mouth - src.position
+			var mouth = dest.position + Vector2((src.size.x - local.x) if flip else local.x, local.y) * (h / src.size.y)
+			var length = 1.7 * PX
+			JetFlame.draw(canvas, mouth, length, 0.15 * PX, 0.9, true, float(Time.get_ticks_msec()) / 1000.0, 2.0)
 
 func draw_zeppelin_parts(canvas: Node2D, outer: Transform2D, zep) -> void:
 	var shake = sin(zep.prop_phase * 7.0) * deg_to_rad(clampf(absf(zep.v) / 37.0, 0.0, 1.0) * 0.8)   # the surfaces flutter at speed

@@ -66,6 +66,10 @@ func run() -> void:
 	m.jet.afterburner_time = 2.0
 	m.jet.thrust = 48000.0
 	await shot("jet_afterburner")
+	# the afterburner gadget: its own small nozzle on the deck looks backward and fires with the rest
+	m.object_state("jet").levels["jet_afterburner"] = 1
+	await shot("jet_afterburner_gadget")
+	m.object_state("jet").levels.erase("jet_afterburner")
 	m.jet.afterburner_time = 0.0
 	m.jet.thrust = 3000.0
 	m.jet.chutes_open = 1
@@ -75,7 +79,7 @@ func run() -> void:
 	await shot("jet_chute_open")
 	m.jet.chutes_open = 2
 	await shot("jet_chute_two")
-	check(game.art.JET_FX.size() == 8, "the flame and chute pictures are loaded")
+	check(game.art.JET_FX.size() == 4, "the smoke and chute pictures are loaded (the flame is drawn by code)")
 	# the start panel in the cab: the painted cap, toggles, lamps and button
 	m.jet.chutes_open = 0
 	m.jet.chute = 0.0
