@@ -482,9 +482,11 @@ func _claim_consist() -> void:
 		for wagon in state.consist_ids: stored.erase(wagon)
 		state.fleet_by_id[id].consist = stored
 
-# The casino (bolts, tokens, the wheel, the cards of the gadgets): a short-lived helper over the state.
+# The casino (bolts, tokens, the wheel, the cards of the gadgets): one helper over the state (it keeps nothing itself: all lives in state.casino).
+var _casino = null
 func casino() -> Object:
-	return Casino.new(self)
+	if _casino == null: _casino = Casino.new(self)
+	return _casino
 
 # Wear and damage of the nodes (wear.gd); one helper for the whole model.
 func wear() -> Object:
