@@ -498,11 +498,4 @@ func draw_foreground(canvas: Node2D) -> void:
 	if game.screen=="menu":
 		for i in range(-1,ceili(size.x/width)+2): canvas.draw_texture_rect(tex,Rect2(i*width,rail_y+height*0.05,width,height),false,Color("a3b392"))
 		return
-	var tile_m=width/(art.PX*game.view_scale())
-	for i in range(floori((game.camera_s-35)/tile_m),ceili((game.camera_s+35)/tile_m)):
-		var p=game.world_point(i*tile_m)
-		# P1: the grass lip of the painted ground replaces this band of ferns (it stays only in the menu)
-		if false: canvas.draw_texture_rect(tex,Rect2(p+Vector2(0,height*0.05),Vector2(width+1,height)),false,Color("a3b392"))
-	for i in range(floori((game.camera_s-35)/6),ceili((game.camera_s+35)/6)):
-		if false: grounded(canvas,"rocks",i*6.0+sin(i)*1.1,0.35,Vector2(0,0.65),Color("87946e"))
 	draw_trackside(canvas)
