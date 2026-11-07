@@ -1651,8 +1651,7 @@ func brake_hint_text(target_s: float) -> String:
 	if Model.wear_rules and model.wear().warning():
 		var weak = model.wear().train_worst()
 		text += " · АВАРИЯ: %s %d%%" % [str(weak.name).to_lower(), roundi(float(weak.cond) * 100.0)]
-	if model.wheel_lock: text += " · ЮЗ: колёса заблокированы"
-	elif model.wheel_slip and float(model.state.throttle) > 0.05: text += " · колёса буксуют"
+	if model.wheel_slip and not model.wheel_lock and float(model.state.throttle) > 0.05: text += " · колёса буксуют"
 	return text
 
 func update_hud() -> void:
@@ -2471,7 +2470,7 @@ func _process(dt: float) -> void:
 			sound.play("petrol_stall", 0.7)
 			cab_jolt = 1.0
 		elif event_name == "skid":
-			notify("Юз: колёса заблокированы. Отпусти тормоз и затяни слабее")
+			notify("Тормоз перетянут. Колёса проскальзывают")
 			sound.play("brake", 0.5, 1.3)
 		elif event_name == "cargo_hit":
 			sound.play("cargo", clampf(0.3 + float(model.last_cargo_hit) * 0.4, 0.3, 0.9), randf_range(0.85, 1.0))

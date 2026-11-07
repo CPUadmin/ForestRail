@@ -56,6 +56,7 @@ func inertia(mass: float, radius: float, ratio: float) -> float:
 	return mass*pow(radius*ratio,2)+float(config.flywheel_inertia_kg_m2)*flywheel_gain+float(config.crank_inertia_kg_m2)+float(config.wheel_count)*float(config.wheel_inertia_kg_m2)*ratio*ratio
 
 var flywheel_gain=1.0   # the flywheel gadget: a heavy rim, the stored energy of the strokes (set by the model each step)
+var viscous_gain=1.0   # the flywheel gadget: smooth running, less loss in the drive (set by the model each step)
 var power_gain=1.0   # the ratchet: the hand gives its power through both strokes, the ceiling of the power goes up (set by the model each step)
 
 func step(mechanism, velocity: float, mass: float, facing: int, radius: float, dt: float, grade_force: float, rolling_force: float, brake_force: float, power_limit: float, torque_multiplier: float, potential: Callable) -> Dictionary:
@@ -110,7 +111,7 @@ func step(mechanism, velocity: float, mass: float, facing: int, radius: float, d
 			var air=float(config.air_drag_n_per_mps2)*pow(k*mean_omega,2)
 			dry=(rolling_force+brake_force+air)*absf(k)
 			var sign_value=signf(mean_omega) if absf(mean_omega)>1e-9 else signf(active)
-			var visc=float(config.viscous_loss_nms)
+			var visc=float(config.viscous_loss_nms)*viscous_gain
 			omega=((moment-h*visc*0.5)*old_omega+h*(active-sign_value*dry))/(moment+h*visc*0.5)
 			if (absf(old_omega)<1e-8 and absf(active)<=dry) or (signf(omega)!=signf(old_omega) and absf(active)<=dry): omega=0.0
 			var next_d=(old_omega+omega)*0.5*h
@@ -121,7 +122,7 @@ func step(mechanism, velocity: float, mass: float, facing: int, radius: float, d
 		delta_alpha=float(next_pose.angle)-alpha
 		delta_u=float(potential.call(offset+k*d))-old_u
 		var mean=d/h
-		var viscous=float(config.viscous_loss_nms)*mean*mean*h
+		var viscous=float(config.viscous_loss_nms)*viscous_gain*mean*mean*h
 		var hand=torque*delta_alpha
 		var cap=minf(float(config.max_hand_power_w)*power_gain,power_limit)*h
 		if hand>cap: torque*=cap/hand;hand=cap
@@ -130,7 +131,7 @@ func step(mechanism, velocity: float, mass: float, facing: int, radius: float, d
 		dry=(rolling_force+brake_force+float(config.air_drag_n_per_mps2)*pow(k*mean,2))*absf(k)
 		var used_dry=signf(d)*dry
 		if omega==0.0:
-			used_dry=clampf(torque*jac+gravity-float(config.viscous_loss_nms)*mean-moment*(omega-old_omega)/h,-dry,dry)
+			used_dry=clampf(torque*jac+gravity-float(config.viscous_loss_nms)*viscous_gain*mean-moment*(omega-old_omega)/h,-dry,dry)
 		var dry_loss=maxf(0,used_dry*d)
 		work+=hand
 		dissipated+=viscous+dry_loss

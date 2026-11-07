@@ -38,7 +38,7 @@ func run() -> void:
 	var fly = fresh("handcar")
 	fly.object_state("handcar").levels["handcar_flywheel"] = 1
 	var stats1 = fly.object_stats("handcar")
-	check(is_equal_approx(float(stats1.rolling), float(stats0.rolling) * 0.3) and is_equal_approx(float(stats1.mass), float(stats0.mass) + 25.0), "the flywheel: rolling x0.3 (%.5f), +25 kg (%.0f)" % [float(stats1.rolling), float(stats1.mass)])
+	check(is_equal_approx(float(stats1.rolling), float(stats0.rolling) * 0.1) and is_equal_approx(float(stats1.mass), float(stats0.mass) + 25.0), "the flywheel: rolling x0.1 (%.5f), +25 kg (%.0f)" % [float(stats1.rolling), float(stats1.mass)])
 	fly.object_state("handcar").levels["handcar_bearings"] = 2
 	var both = fly.object_stats("handcar")
 	var bearings_only = fresh("handcar")
@@ -47,7 +47,7 @@ func run() -> void:
 	# it rolls further after a push
 	var coast_plain = coast(plain)
 	var coast_fly = coast(fly_only())
-	check(coast_fly > coast_plain * 1.1, "after a push the flywheel car rolls further (%.1f m against %.1f m)" % [coast_fly, coast_plain])
+	check(coast_fly > coast_plain * 1.17 and coast_fly < coast_plain * 1.3, "after a push the flywheel car rolls further (%.1f m against %.1f m)" % [coast_fly, coast_plain])
 
 	# the spare cylinder
 	var air = fresh("pneumatic")

@@ -1392,8 +1392,9 @@
       "level_costs": [2400],
       "levels": 1,
       "effects_at_level": {
-        "flywheel_rolling": [0.3],
+        "flywheel_rolling": [0.1],
         "flywheel_inertia": [8.0],
+        "flywheel_viscous": [0.1],
         "gadget_mass_kg": [25]
       },
       "scope": "selected_vehicle_id"
