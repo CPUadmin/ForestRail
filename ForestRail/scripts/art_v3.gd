@@ -39,6 +39,13 @@ const SAILOR_PIVOT_F = Vector2(0.2464, 0.9971)      # the middle of the crate's 
 const SAILOR_SHOULDER_F = Vector2(0.2674, 0.2988)   # the shoulder seam: the arm grows from here
 const SAILOR_KNEE_F = Vector2(0.7780, 0.5918)       # the knee: the free hand rests here
 const SAILOR_HEIGHT_M = 1.126                       # the figure with the crate, in metres
+# The rower and the oars (P16, painted by GPT): three poses of the same man on the same crate (the picture is 380x563 px, the middle of the crate's foot at the pivot), one oar, the oarlock.
+const ROWER = {
+	"catch": preload("res://assets/art_oars/rower_catch.png"), "drive": preload("res://assets/art_oars/rower_drive.png"), "recovery": preload("res://assets/art_oars/rower_recovery.png")}
+const ROWER_PIVOT = Vector2(160, 557)
+const ROWER_M_PER_PX = 1.126 / 550.0
+const OAR = preload("res://assets/art_oars/oar.png")
+const OARLOCK = preload("res://assets/art_oars/oarlock.png")
 const SAIL_CLOTH = preload("res://assets/art_pole_sail/sail_cloth.png")
 const SAIL_CLEAT = preload("res://assets/art_pole_sail/sail_cleat.png")
 const SAIL_PENNANT = preload("res://assets/art_pole_sail/sail_pennant.png")
@@ -612,6 +619,20 @@ func draw_sailor_seated(canvas: Node2D, base: Vector2, hand: Vector2, relaxed: b
 	var knee = base + size * (SAILOR_KNEE_F - SAILOR_PIVOT_F) * sc
 	draw_worker_arm(canvas, base, 1.65 * PX, hand, relaxed, shoulder, knee)
 
+# The rower on his crate at the stern: the pose follows the stroke (reaching forward, pulling, coming back); fwd mirrors him with the direction of travel.
+func draw_rower(canvas: Node2D, base: Vector2, swing: float, fwd: float) -> void:
+	var pose = "catch" if swing > 0.35 else ("drive" if swing < -0.35 else "recovery")
+	var sc = ROWER_M_PER_PX * PX
+	draw_sprite_at(canvas, ROWER[pose], ROWER_PIVOT, base, 0.0, Vector2(sc * fwd, sc), false)
+
+# One oar on the near side: the oarlock on the edge of the platform, the oar swings about it with the stroke (the blade goes forward and down on the catch).
+func draw_oar(canvas: Node2D, lock: Vector2, swing: float, fwd: float) -> void:
+	var lock_sc = 0.30 * PX / float(OARLOCK.get_height())
+	draw_sprite_at(canvas, OARLOCK, Vector2(OARLOCK.get_width() * 0.5, OARLOCK.get_height()), lock + Vector2(0, 0.04 * PX), 0.0, Vector2(lock_sc, lock_sc), false)
+	var sc = 2.1 * PX / float(OAR.get_width())
+	var angle = (0.10 + swing * 0.42) * fwd
+	draw_sprite_at(canvas, OAR, Vector2(OAR.get_width() * 0.36, OAR.get_height() * 0.5), lock + Vector2(0, -0.20 * PX), angle, Vector2(sc * fwd, sc), false)
+
 func draw_worker(canvas: Node2D, feet: Vector2, height: float, hand: Vector2, relaxed: bool = false) -> void:
 	draw_worker_body(canvas, feet, height)
 	draw_worker_arm(canvas, feet, height, hand, relaxed)
@@ -740,14 +761,6 @@ func sail_geometry(model) -> Dictionary:
 
 func draw_sail_overlay(canvas: Node2D, model) -> void:
 	if model == null or model.state.is_empty(): return
-	if model.oars_out():
-		# B6.9: the oars (placeholder lines until the pictures of the pack come): two oars swing with the stroke
-		var swing = sin(float(model.oars.phase)) * 0.5
-		for side in [-1.0, 1.0]:
-			var lock = sail_point(0.15 + 0.5 * side, 0.55)
-			var tip = lock + Vector2(cos(0.9 + swing * side) * side, sin(0.9 + swing * side)) * 1.5 * PX
-			canvas.draw_line(lock, tip, Color("7a5530"), 0.05 * PX, true)
-			canvas.draw_circle(tip, 0.07 * PX, Color("a67c46"))
 	var g = sail_geometry(model)
 	var fwd = float(g.fwd)
 	var t = Time.get_ticks_msec() / 1000.0
@@ -889,7 +902,12 @@ func draw_sail_overlay(canvas: Node2D, model) -> void:
 		var u = float(k) / 12.0
 		sheet.append(boom_end * pow(1.0 - u, 2.0) + sag * 2.0 * u * (1.0 - u) + sailor_hand * u * u)
 	canvas.draw_polyline(sheet, Color(0.45, 0.34, 0.2), 0.012 * PX, true)
-	draw_sailor_seated(canvas, Vector2(-0.80 * fwd * PX, deck_y("sail")), sailor_hand, model.sail_cleated)
+	if model.oars_out():
+		var swing = sin(float(model.oars.phase))
+		draw_rower(canvas, Vector2(-0.80 * fwd * PX, deck_y("sail")), swing, fwd)
+		draw_oar(canvas, Vector2(-0.30 * fwd * PX, deck_y("sail")), swing, fwd)
+	else:
+		draw_sailor_seated(canvas, Vector2(-0.80 * fwd * PX, deck_y("sail")), sailor_hand, model.sail_cleated)
 	# the pennant at the masthead points the way the wind blows, and flutters
 	if not info.is_empty():
 		var wv: Vector2 = info.wind

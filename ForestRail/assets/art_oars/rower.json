@@ -1,0 +1,32 @@
+{
+ "catch": {
+  "top": 39,
+  "bottom": 558,
+  "crate_cx": 163,
+  "crate_w": 319,
+  "pivot": [
+   160,
+   558
+  ]
+ },
+ "drive": {
+  "top": 8,
+  "bottom": 557,
+  "crate_cx": 693,
+  "crate_w": 329,
+  "pivot": [
+   160,
+   557
+  ]
+ },
+ "recovery": {
+  "top": 4,
+  "bottom": 557,
+  "crate_cx": 1165,
+  "crate_w": 320,
+  "pivot": [
+   160,
+   557
+  ]
+ }
+}
