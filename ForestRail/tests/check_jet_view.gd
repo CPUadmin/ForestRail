@@ -59,7 +59,7 @@ func run() -> void:
 	check(game.art.textures.has("vehicles/jet_body"), "the jet has its own body picture")
 	# outside the cab: the usual levers, no own pult
 	check(not game.has_own_pult() and game.world_control_ids() == ["brake", "throttle"], "outside the cab the jet has the usual brake and throttle")
-	check(not game.zpult_world_visible(), "and no pult in the world")
+	check(not game.has_own_pult(), "and no pult in the world")
 	check(game.model.state.consist_ids.size() == 4, "the jet pulls four wagons")
 	game.zoom_level = game.fit_train_zoom()
 	var vp = game.get_viewport_rect().size

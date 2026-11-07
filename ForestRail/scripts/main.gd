@@ -2059,23 +2059,13 @@ func world_control_ids() -> Array:
 func draw_lever(base: Transform2D, pivot: Vector2, length: float, angle: float, knob: Color, active: bool) -> void:
 	control_art().draw_lever(base, pivot, length, angle, knob, active)
 
-# The pult of the zeppelin in the world view stands on the side the machine is not on (the camera keeps it on the other side),
-# above the loading panel when that is open.
+# The zeppelin and the jet have their own pult only in the cab (the decision of the owner, 08.11.2026: no separate pults in the game);
+# outside, in the side view, there are only the two usual levers on the machine: the brake and the throttle.
 func has_own_pult() -> bool:
-	# the zeppelin has its own pult in the world and in the cab; the jet only in the cab (outside: the usual brake and throttle)
-	return model.vehicle_id() == "zeppelin" or (model.vehicle_id() == "jet" and cab_active())
+	return cab_active() and model.vehicle_id() in ["zeppelin", "jet"]
 
 func own_pult():
 	return jpult if model.vehicle_id() == "jet" else zpult
-
-func zpult_world_visible() -> bool:
-	return screen == "game" and not paused and has_own_pult() and model.state.phase in ["route", "loading"]
-
-func zpult_world_origin(size: Vector2) -> Vector2:
-	var height = own_pult().H * 0.8
-	var bottom = (dock_rect().position.y - 6.0) if dock_visible() else ((instruments.hud_top() if instruments != null and is_instance_valid(instruments) else size.y - 174.0) - 10.0)
-	var x = 22.0 if model.state.direction > 0 else size.x - 22.0 - own_pult().W * 0.8
-	return Vector2(x, bottom - height)
 
 func draw_zeppelin_pult(origin: Vector2, scale: float) -> void:
 	var pult = own_pult()
@@ -2730,10 +2720,9 @@ func _unhandled_input(event: InputEvent) -> void:
 			for hit in body_hits:
 				if hit.rect.has_point(mouse): selected_object = hit.id; tab = "Улучшения"; rebuild(); return
 			return
-		if cab_active() and has_own_pult() or zpult_world_visible():
+		if cab_active() and has_own_pult():
 			var pult = own_pult()
 			pult.model = model
-			if not cab_active(): pult.place(zpult_world_origin(get_viewport_rect().size), 0.8)
 			if pult.press(mouse):
 				drag = "zpult"
 				get_viewport().set_input_as_handled()
@@ -3142,7 +3131,6 @@ func _draw() -> void:
 				draw_arc(sail_cleat_point, 34.0 + 4.0 * pulse, 0, TAU, 28, GOLD, 2.4, true)
 				draw_string(font, sail_cleat_point + Vector2(-34, 52), "утка: отпусти тут", HORIZONTAL_ALIGNMENT_LEFT, 120, 14, GOLD)
 			draw_cargo_feedback()
-			if zpult_world_visible(): draw_zeppelin_pult(zpult_world_origin(size), 0.8)
 			draw_tooltip()
 	if toast_seconds > 0 and modal_kind != "confirm":
 		var width = minf(1100, size.x - 100)

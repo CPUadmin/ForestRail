@@ -57,7 +57,7 @@ func run() -> void:
 	game.camera_x = 1040
 	game.rebuild()
 	check(game.art.textures.has("vehicles/zeppelin_body"), "the zeppelin has its own body picture")
-	check(game.world_control_ids().is_empty(), "no ordinary levers on the zeppelin")
+	check(game.world_control_ids() == ["brake", "throttle"] and not game.has_own_pult(), "outside the cab the zeppelin has only the brake and the throttle on the machine")
 	for size in [Vector2i(1600, 900), Vector2i(1280, 720)]:
 		get_tree().root.size = size
 		await get_tree().create_timer(0.2).timeout
@@ -68,6 +68,12 @@ func run() -> void:
 		game.model.zep.rpm = 2100.0
 		game.queue_redraw()
 		await shot("zeppelin_world_%d" % size.y)
+		# the pult is only in the cab: the levers and buttons are tried there
+		game.cab_view = true
+		game.update_pult_transform()
+		for i in range(8): await get_tree().process_frame
+		game.queue_redraw()
+		await get_tree().process_frame
 		var z = game.zpult
 		check(game.get_viewport_rect().encloses(z.bounds()), "the pult fits the window %d" % size.y)
 		# the levers hold: grab the throttle in the middle, let go: it stays
@@ -89,11 +95,6 @@ func run() -> void:
 		click(z.air_button().get_center(), true)
 		click(Vector2.ZERO, false)
 		check(not bool(game.model.state.get("zep_air_brake", false)), "and off again")
-		game.queue_redraw()
-		await shot("zeppelin_world_set_%d" % size.y)
-		game.cab_view = true
-		game.update_pult_transform()
-		for i in range(8): await get_tree().process_frame
 		game.queue_redraw()
 		await shot("zeppelin_cab_%d" % size.y)
 		check(game.get_viewport_rect().encloses(z.bounds()), "the pult fits the window in the cab %d" % size.y)
@@ -167,6 +168,9 @@ func run() -> void:
 	game.model.zep.z = 6.0
 	game.screen = "game"
 	game.model.state.phase = "route"
+	game.cab_view = true
+	game.update_pult_transform()
+	for i in range(8): await get_tree().process_frame
 	game.queue_redraw()
 	await shot("zeppelin_trim_button")
 	var trim_click = game.zpult.trim_button().get_center()
@@ -178,6 +182,7 @@ func run() -> void:
 	click(trim_click, true)
 	click(Vector2.ZERO, false)
 	check(not bool(game.model.state.get("zep_trim", false)), "and off again")
+	game.cab_view = false
 	game.model.zep.airborne = false
 	game.model.zep.z = 0.0
 	game.model.object_state("zeppelin").levels.erase("zeppelin_trim")

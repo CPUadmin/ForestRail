@@ -1986,6 +1986,10 @@ func zeppelin_step(dt: float, fleet: Dictionary, old_v: float) -> float:
 			zep.z = float(state.get("zep_z", 0.0))
 			zep.vz = float(state.get("zep_vz", 0.0))
 			zep.temp = float(state.get("zep_temp", zep.temp))
+	jet_hint_cd = maxf(0.0, jet_hint_cd - dt)
+	if float(state.throttle) > 0.05 and not bool(state.engine) and jet_hint_cd <= 0.0:
+		jet_hint_cd = 8.0
+		message = "Двигатель не запущен: войди в кабину [E] и нажми «Пуск»"
 	var slope = route.slope(float(state.s)) * forward
 	# the wind along the nose: the wind of the line is along the direction of the consist, the reverser turns the nose
 	var wind_along = wind_here().x * float(int(state.get("reverser", 1)))
