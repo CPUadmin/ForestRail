@@ -3147,6 +3147,9 @@ func _draw() -> void:
 	if toast_seconds > 0 and modal_kind != "confirm":
 		var width = minf(1100, size.x - 100)
 		var rect = Rect2((size.x - width) / 2, 184 if screen=="game" else size.y - 65, width, 44)
+		if screen == "depot":
+			# above the hint line and the service buttons, inside the left column (the right panel covers the rest)
+			rect = Rect2(size.x * 0.02, size.y - 215, size.x * 0.44, 44)
 		draw_style_box(style(INK, GOLD, 8), rect)
 		draw_string(font, rect.position + Vector2(18, 29), toast, HORIZONTAL_ALIGNMENT_LEFT, rect.size.x - 30, 19, PAPER)
 
