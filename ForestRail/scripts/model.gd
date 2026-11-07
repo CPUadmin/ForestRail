@@ -1216,6 +1216,7 @@ func drive_direction() -> int:
 
 func start_engine(value: bool) -> bool:
 	if vehicle_id() == "locomotive": return true
+	if vehicle_id() == "jet": return jet_stop() if not value else jet_start()
 	if vehicle_id() == "steam": return light_fire() if value else douse_fire()
 	if value:
 		if vehicle_id() == "motorcar" and engine_temp() > TEMP_RESTART:
@@ -1863,6 +1864,21 @@ func pull_jet_chute(count: int = 1) -> bool:
 	if not jet.pull_chute(count): return fail("В укладке нет столько парашютов")
 	return true
 
+# The engine of the rocket train can be put out: the button "Стоп" in the pult, or the engine switch of the game. The countdown is cancelled the same way.
+# The toggles go back off (the next start needs the order again).
+func jet_stop() -> bool:
+	if vehicle_id() != "jet": return false
+	if jet.counting:
+		jet.abort_countdown()
+		return true
+	if not jet.started: return fail("Двигатель и так не горит")
+	jet.shut_down()
+	state.jet_started = false
+	state.jet_fuses = jet.fuse_code()
+	state.engine = false
+	events.append("gear")
+	return true
+
 func fire_jet_afterburner() -> bool:
 	if vehicle_id() != "jet": return false
 	return jet.fire_afterburner() or fail("Форсаж не готов")
@@ -1903,6 +1919,7 @@ func jet_step(dt: float, fleet: Dictionary, old_v: float) -> float:
 		message = "Двигатель не запущен: войди в кабину [E], открой колпачок, переключи тумблеры и нажми «Пуск»"
 	var slope = route.slope(float(state.s)) * forward
 	var wind_along = wind_here().x * float(int(state.get("reverser", 1)))
+	if creative() and jet.chutes_open == 0: jet.chutes_left = jet.chutes_total()   # the creative mode: the chutes are packed again by themselves
 	jet.step(dt, slope, wind_along)
 	fleet.fuel = jet.fuel
 	state.engine = jet.started

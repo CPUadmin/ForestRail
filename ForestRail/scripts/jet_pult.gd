@@ -97,7 +97,8 @@ func press(pos: Vector2) -> bool:
 				model.flip_jet_fuse(i)
 				return true
 	if start_rect().has_point(pos):
-		model.jet_start()
+		if model.jet.started or model.jet.counting: model.jet_stop()   # the lit button puts the engine out, the counting one cancels the start
+		else: model.jet_start()
 		return true
 	if chute_button(false).has_point(pos):
 		model.pull_jet_chute(1)
@@ -208,7 +209,7 @@ func draw_cover(canvas, jet) -> void:
 	var label_at = b.position + Vector2(side + 10.0 * k, 0.0)
 	var label_w = b.size.x - side - 10.0 * k
 	if lit or counting or unlocked:
-		canvas.draw_string(font, label_at + Vector2(0.0, b.size.y * 0.66), "ГОРИТ" if lit else ("ОТСЧЁТ" if counting else "ПУСК"), HORIZONTAL_ALIGNMENT_CENTER, label_w, int(round(18.0 * k)), PAPER)
+		canvas.draw_string(font, label_at + Vector2(0.0, b.size.y * 0.66), "СТОП" if lit else ("ОТМЕНА" if counting else "ПУСК"), HORIZONTAL_ALIGNMENT_CENTER, label_w, int(round(18.0 * k)), PAPER)
 	else:
 		var why = "ЗАБЛОКИРОВАНО"
 		if bool(jet.cover_open): why = "ТУМБЛЕРЫ %d/4" % int(jet.fuses_on())

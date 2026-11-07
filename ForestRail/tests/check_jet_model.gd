@@ -143,5 +143,33 @@ func run() -> void:
 		times.append(frames)
 	check(int(times[0]) > 5 and int(times[0]) < int(times[1]) * 0.75, "the jet hop is short and heavy (%d frames against %d of the locomotive)" % [int(times[0]), int(times[1])])
 	check(not hop_jet.air_fly and not hop_jet.events.has("crash"), "and it lands without a crash")
+	# the engine can be put out; a cancelled countdown does not light it
+	var stop = fresh(false)
+	check(not stop.jet_stop() and stop.message != "", "nothing to put out before the start")
+	stop.state.brake = 1.0
+	stop.set_jet_cover(true)
+	touch_all(stop)
+	stop.jet_start()
+	run_seconds(stop, 3.0)
+	check(stop.jet.counting and stop.jet_stop() and not stop.jet.counting, "the countdown can be cancelled")
+	run_seconds(stop, 9.0)
+	check(not stop.jet.started and not bool(stop.state.engine), "and the engine did not light")
+	light(stop)
+	check(stop.jet.started and bool(stop.state.engine), "the engine is lit")
+	check(stop.start_engine(false) and not stop.jet.started and not bool(stop.state.engine), "the engine switch of the game puts it out")
+	run_seconds(stop, 2.0)
+	check(not stop.jet.started and not bool(stop.state.engine), "and it stays out")
+	# the creative mode: the used chutes come back by themselves
+	var free = Model.new()
+	free.new_game(42, 2, "creative")
+	free.state.money = 200000
+	Fixtures.equip(free, "jet")
+	free.state.phase = "route"
+	free.state.s = 400.0
+	free.state.brake = 0.0
+	run_seconds(free, 0.1)
+	free.jet.chutes_left = 0
+	run_seconds(free, 0.1)
+	check(free.jet.chutes_left == free.jet.chutes_total(), "creative: the empty pack of chutes is full again")
 	print("JET MODEL CHECKS ", checks, "; FAILURES ", failures)
 	get_tree().quit(0 if failures.is_empty() else 1)

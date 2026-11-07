@@ -450,7 +450,7 @@ func draw_vehicle(canvas: Node2D, id: String, distance: float, facing: int, oute
 	if draw_open_rig and id=="pole": draw_pole_overlay(canvas, model)
 	if draw_open_rig and id=="sail": draw_sail_overlay(canvas, model)
 	if id=="motorcar": draw_petrol_overlay(canvas, model)
-	if id != "zeppelin" and id != "jet" and not (id == "pole" and not is_skinned(id)): draw_wheels(canvas, id, distance, facing, run, p)   # the zeppelin has no visible wheels
+	if id != "zeppelin" and not (id == "pole" and not is_skinned(id)): draw_wheels(canvas, id, distance, facing, run, p)   # the zeppelin has no visible wheels (the rocket train has them)
 	if id == "steam" or id == "pneumatic": draw_steam_motion(canvas, distance, facing, run, id)
 	if id == "motorcar": draw_side_rod(canvas, id, distance, facing, run)
 	if id == "handcar": draw_mechanism(canvas, model, outer,p)
