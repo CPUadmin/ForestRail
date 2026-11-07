@@ -85,8 +85,8 @@ const GADGET_ART = {
 	"zeppelin_trim": {"vehicle": "zeppelin", "x": -0.2, "lift": 0.0, "h": 0.4, "tex": preload("res://assets/art_gadgets/zeppelin_trim.png")},
 	"zeppelin_flaps": {"vehicle": "zeppelin", "x": 1.0, "lift": 0.0, "h": 0.3, "tex": preload("res://assets/art_gadgets/zeppelin_flaps.png")},
 	"jet_double_chute": {"vehicle": "jet", "x": 1.0, "lift": 0.93, "h": 0.28, "tex": preload("res://assets/art_gadgets/jet_double_chute.png")},
-	"jet_afterburner": {"vehicle": "jet", "x": -1.1, "lift": 0.0, "h": 0.4, "tex": preload("res://assets/art_gadgets/jet_afterburner.png"),
-		"crop": Rect2(0, 0, 205, 255), "flip": true, "mouth": Vector2(178, 118)}}   # the picture has a flame painted forward: only the nozzle is taken, turned to look backward, the flame is drawn by code
+	"jet_afterburner": {"vehicle": "jet", "x": -1.1, "lift": 0.0, "h": 0.4, "tex": preload("res://assets/art_gadgets/jet_afterburner_nozzle.png"),
+		"flip": true, "mouth": Vector2(186, 112)}}   # the nozzle without the painted flame (tools: make_nozzle), turned to look backward; the flame is drawn by code
 const ZEP_PARTS = {
 	"tailplane": {"texture": preload("res://assets/art_zeppelin/tailplane.png"), "rect": Rect2(219, 140, 398, 75), "pivot": Vector2(507, 195)},
 	"wing": {"texture": preload("res://assets/art_zeppelin/wing.png"), "rect": Rect2(411, 424, 362, 80), "pivot": Vector2(540, 467)},
