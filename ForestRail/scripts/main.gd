@@ -2292,6 +2292,7 @@ func cancel_drag() -> void:
 	Input.set_default_cursor_shape(Input.CURSOR_ARROW)
 
 func _process(dt: float) -> void:
+	wp_valid = false
 	time += dt
 	whistle_pull = move_toward(whistle_pull, 0.0, dt * 3.0)
 	if wiper_on or wiper_phase > 0.0:
@@ -2936,13 +2937,35 @@ func camera_climb() -> float:
 	if screen != "game" or model.vehicle_id() != "zeppelin" or not model.air_fly: return 0.0
 	return maxf(0.0, float(model.air_z) - 4.0)
 
+# The part of world_point that does not depend on the point (the camera spot, the head x, the scale, the rail line) is the same for the ~350 calls
+# of a frame: it is counted once per frame and again as soon as one of its inputs changes. The cache is dropped at the start of every frame.
+var wp_valid = false
+var wp_route = null
+var wp_key = Vector4.ZERO      # camera_s, camera_x, camera_y, zoom_level
+var wp_size = Vector2.ZERO
+var wp_screen = ""
+var wp_tab = ""
+var wp_cam = Vector2.ZERO
+var wp_head = 0.0
+var wp_scale = 1.0
+var wp_base = 0.0
+
 func world_point(s: float) -> Vector2:
 	var size = get_viewport_rect().size
+	var key = Vector4(camera_s, camera_x, camera_y, zoom_level)
+	if not wp_valid or wp_route != model.route or wp_key != key or wp_size != size or wp_screen != screen or wp_tab != tab:
+		wp_valid = true
+		wp_route = model.route
+		wp_key = key
+		wp_size = size
+		wp_screen = screen
+		wp_tab = tab
+		wp_cam = model.route.sample(camera_s)
+		wp_head = camera_x if camera_x > 0 else size.x * (0.31 if screen == "depot" else 0.65)
+		wp_scale = ArtV3.PX * view_scale()
+		wp_base = rail_baseline()
 	var p = model.route.sample(s)
-	var cam = model.route.sample(camera_s)
-	var head_x = camera_x if camera_x > 0 else size.x * (0.31 if screen == "depot" else 0.65)
-	var scale_value = ArtV3.PX * view_scale()
-	return Vector2(head_x + (p.x - cam.x) * scale_value, rail_baseline() - (p.y - camera_y) * scale_value)
+	return Vector2(wp_head + (p.x - wp_cam.x) * wp_scale, wp_base - (p.y - camera_y) * wp_scale)
 
 func dock_visible() -> bool:
 	return screen=="game" and not cab_active() and (station_state().visible or drag=="cargo")
@@ -3087,6 +3110,7 @@ func _draw() -> void:
 	if perf_on: perf_add("draw", draw_started)
 
 func _draw_scene() -> void:
+	wp_valid = false
 	if art == null: return
 	var size = get_viewport_rect().size
 	if art_world == null: draw_background(size)
