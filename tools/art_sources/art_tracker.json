@@ -1347,7 +1347,7 @@
    "file": "zeppelin_body_clean.png",
    "format": "2:1",
    "note": "чистый кузов цеппелина",
-   "received": "2026-11-07 02:45",
+   "received": "2026-11-07 03:57",
    "outputs": [
     "accepted/P14_zeppelin_parts/zeppelin_body_clean.png"
    ]
@@ -1368,7 +1368,7 @@
     "cols": 3,
     "rows": 3
    },
-   "received": "2026-11-07 02:45",
+   "received": "2026-11-07 03:57",
    "outputs": [
     "accepted/P14_zeppelin_parts/zeppelin_parts_sheet.png",
     "accepted/P14_zeppelin_parts/zeppelin_parts/cell_1_1.png",
