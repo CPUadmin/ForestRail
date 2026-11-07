@@ -1313,7 +1313,7 @@ func build_wear_card(right: VBoxContainer) -> void:
 			notify("Ремнабор: +%d%%" % roundi(got * 100.0))
 			save_game()
 			rebuild())
-	add_label(c, "Узлы изнашиваются от езды и ломаются от ошибок: юз колёс, перегрев, приземления, удары. 1% стоит 3 монеты; болты: свои +5%, общие +2%, редкие +4%. На линии чинит только мастерская станции (до 50%)." , 15, MUTED_INK)
+	add_label(c, "Узлы изнашиваются от езды и ошибок. 1% стоит 3 монеты; болты: свои +5%, общие +2%, редкие +4%. На линии чинит только мастерская станции (до 50%)." , 15, MUTED_INK)
 
 func upgrade_branch_name(id: String, branch: Dictionary) -> String:
 	if id == "locomotive":
