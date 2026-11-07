@@ -51,6 +51,13 @@ const STOCK_POLE = preload("res://assets/art_pole_truck/pole_truck_body.png")
 # B6.5: the rail zeppelin (the picture of the other helper, the file is not changed)
 const STOCK_JET = preload("res://assets/art_consists/rocket_train_compact_body.png")   # B6.6: the rocket train (the picture of the other helper, the file is not changed)
 const STOCK_ZEPPELIN = preload("res://assets/art_zeppelin/body_clean.png")   # the same picture without the movable parts (tools/make_zeppelin_wings.py)
+# The exhaust and the parachute of the rocket railcar (P15, painted by GPT): flames of three strengths and the afterburner, two smokes, the open parachute.
+const JET_FX = {
+	"flame_idle": preload("res://assets/art_jet/flame_idle.png"), "flame_mid": preload("res://assets/art_jet/flame_mid.png"),
+	"flame_full": preload("res://assets/art_jet/flame_full.png"), "flame_after": preload("res://assets/art_jet/flame_after.png"),
+	"smoke_light": preload("res://assets/art_jet/smoke_light.png"), "smoke_dark": preload("res://assets/art_jet/smoke_dark.png"),
+	"chute_open": preload("res://assets/art_jet/chute_open.png"), "chute_slack": preload("res://assets/art_jet/chute_slack.png")}
+const JET_MOUTH = Vector2(215, 395)   # the mouth of the nozzle in the picture of the jet body (1774 px wide)
 const ZEP_PARTS = {
 	"tailplane": {"texture": preload("res://assets/art_zeppelin/tailplane.png"), "rect": Rect2(219, 140, 398, 75), "pivot": Vector2(507, 195)},
 	"wing": {"texture": preload("res://assets/art_zeppelin/wing.png"), "rect": Rect2(411, 424, 362, 80), "pivot": Vector2(540, 467)},
@@ -392,6 +399,7 @@ func draw_stock_body(canvas: Node2D, id: String, outer: Transform2D) -> void:
 func draw_vehicle(canvas: Node2D, id: String, distance: float, facing: int, outer: Transform2D, model, active: bool, pose_override: Dictionary = {}, draw_open_rig: bool = true, rail_outer = null) -> void:
 	var run: Transform2D = outer if rail_outer == null else rail_outer
 	if id == "pole" and not is_skinned(id): draw_wheels(canvas, id, distance, facing, run, {})   # behind the platform
+	if id == "jet" and model != null: draw_jet_exhaust(canvas, outer, model.jet)   # behind the nozzle: the lip of the nozzle overlaps the flame
 	if is_skinned(id):
 		draw_part(canvas, body_key(id), Vector2(0, axis_height(id)), 0, scale_for(body_key(id)), outer)
 	else:
@@ -417,6 +425,7 @@ func draw_vehicle(canvas: Node2D, id: String, distance: float, facing: int, oute
 	if id == "steam" or id == "pneumatic": draw_steam_motion(canvas, distance, facing, run, id)
 	if id == "motorcar": draw_side_rod(canvas, id, distance, facing, run)
 	if id == "handcar": draw_mechanism(canvas, model, outer,p)
+	if id == "jet" and model != null: draw_jet_chutes(canvas, outer, model)
 
 # The movable parts of the zeppelin (B6.5): the tail plane and the wing turn about their pivots, the propeller blades are drawn
 # as they foreshorten with the turn, and above some revs a soft disc replaces them.
@@ -429,6 +438,56 @@ func zeppelin_part_draw(canvas: Node2D, outer: Transform2D, name: String, angle:
 	canvas.draw_set_transform_matrix(outer * Transform2D(angle, origin) * Transform2D(Vector2(1.0, 0.0), Vector2(0.0, scale_y), Vector2.ZERO))
 	canvas.draw_texture_rect(part.texture, Rect2((rect.position - pivot) * s, rect.size * s), false, Color(1, 1, 1, alpha))
 	canvas.draw_set_transform_matrix(outer)
+
+# The flame and the smoke of the rocket: from the mouth of the nozzle to the left (the train runs to the right). The strength of the flame follows the thrust,
+# the afterburner has its own long blue-white flame; the length flickers a little.
+func draw_jet_exhaust(canvas: Node2D, outer: Transform2D, jet) -> void:
+	var afterburner = jet.afterburner_time > 0.0
+	if not jet.started and not afterburner and jet.thrust < 50.0: return
+	var s = body_width("jet") / 1774.0
+	var mouth = stock_body_point("jet", JET_MOUTH)
+	var frac = clampf(jet.thrust / maxf(1.0, float(jet.c("thrust_max_n"))), 0.0, 1.0)
+	var flicker = 1.0 + 0.06 * sin(float(Time.get_ticks_msec()) * 0.05) + 0.03 * sin(float(Time.get_ticks_msec()) * 0.13)
+	canvas.draw_set_transform_matrix(outer)
+	if frac > 0.22 or afterburner:
+		# the smoke trails behind the flame
+		var dark = frac > 0.65 or afterburner
+		var smoke: Texture2D = JET_FX["smoke_dark" if dark else "smoke_light"]
+		var sw = (900.0 if dark else 600.0) * s * flicker
+		var sh = sw * float(smoke.get_height()) / float(smoke.get_width()) * 1.1
+		var flame_len = (1500.0 if afterburner else (900.0 if frac > 0.55 else 500.0)) * s
+		canvas.draw_texture_rect(smoke, Rect2(mouth + Vector2(-flame_len * 0.55 - sw, -sh * 0.5), Vector2(sw, sh)), false, Color(1, 1, 1, clampf(0.35 + frac * 0.5, 0.0, 0.85)))
+	var name = "flame_idle"
+	var length = 260.0
+	if afterburner:
+		name = "flame_after"
+		length = 1500.0
+	elif frac > 0.55:
+		name = "flame_full"
+		length = 900.0
+	elif frac > 0.2:
+		name = "flame_mid"
+		length = 500.0
+	var tex: Texture2D = JET_FX[name]
+	var w = length * s * flicker
+	var h = w * float(tex.get_height()) / float(tex.get_width()) * 1.25
+	canvas.draw_texture_rect(tex, Rect2(mouth + Vector2(-w, -h * 0.5), Vector2(w, h)), false)
+
+# The braking parachute behind the whole train: the ring on the rear coupler, the canopy streams to the left; it opens with jet.chute (0..1).
+func draw_jet_chutes(canvas: Node2D, outer: Transform2D, model) -> void:
+	var jet = model.jet
+	if jet.chute < 0.02 or jet.chutes_open <= 0: return
+	var ids = model.body_ids()
+	if ids.is_empty(): return
+	var rear = Geometry.offset(ids, ids.size() - 1) + Geometry.length(ids[ids.size() - 1]) * 0.5 + float(Geometry.data().coupler.end_extension_m)
+	var ring = Vector2(-rear * PX, -float(Geometry.data().coupler.height_m) * PX)
+	canvas.draw_set_transform_matrix(outer)
+	for k in range(int(jet.chutes_open)):
+		var tex: Texture2D = JET_FX["chute_open" if jet.chute > 0.8 else "chute_slack"]
+		var total = 6.5 * PX * clampf(jet.chute, 0.0, 1.0) * (1.0 - 0.12 * float(k))
+		var h = total * float(tex.get_height()) / float(tex.get_width())
+		var shift = Vector2(-0.9 * PX * float(k), 0.55 * PX * float(k))
+		canvas.draw_texture_rect(tex, Rect2(ring + shift + Vector2(-total, -h * 0.56), Vector2(total, h)), false, Color(1, 1, 1, clampf(jet.chute * 1.5, 0.0, 1.0)))
 
 func draw_zeppelin_parts(canvas: Node2D, outer: Transform2D, zep) -> void:
 	var shake = sin(zep.prop_phase * 7.0) * deg_to_rad(clampf(absf(zep.v) / 37.0, 0.0, 1.0) * 0.8)   # the surfaces flutter at speed
