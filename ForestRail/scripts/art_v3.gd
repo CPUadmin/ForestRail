@@ -65,6 +65,22 @@ const JET_FX = {
 	"smoke_light": preload("res://assets/art_jet/smoke_light.png"), "smoke_dark": preload("res://assets/art_jet/smoke_dark.png"),
 	"chute_open": preload("res://assets/art_jet/chute_open.png"), "chute_slack": preload("res://assets/art_jet/chute_slack.png")}
 const JET_MOUTH = Vector2(215, 395)   # the mouth of the nozzle in the picture of the jet body (1774 px wide)
+# The gadgets on the machines (P12, painted by GPT): an installed gadget shows its part on the deck. x is metres from the middle of the machine (forward is positive),
+# lift metres over the deck, h the height of the picture in metres. The cloth of the spinnaker and the hook of the grapnel are drawn by their own code.
+const GADGET_ART = {
+	"handcar_ratchet": {"vehicle": "handcar", "x": -0.95, "lift": 0.0, "h": 0.45, "tex": preload("res://assets/art_gadgets/handcar_ratchet.png")},
+	"handcar_flywheel": {"vehicle": "handcar", "x": 0.95, "lift": 0.0, "h": 0.5, "tex": preload("res://assets/art_gadgets/handcar_flywheel.png")},
+	"pole_pogo": {"vehicle": "pole", "x": -0.85, "lift": 0.0, "h": 0.55, "tex": preload("res://assets/art_gadgets/pole_pogo.png")},
+	"pole_grapnel": {"vehicle": "pole", "x": 0.8, "lift": 0.0, "h": 0.5, "tex": preload("res://assets/art_gadgets/pole_grapnel.png")},
+	"sail_autopilot": {"vehicle": "sail", "x": 0.95, "lift": 0.0, "h": 0.5, "tex": preload("res://assets/art_gadgets/sail_autopilot.png")},
+	"steam_stoker": {"vehicle": "steam", "x": -1.1, "lift": 0.0, "h": 0.55, "tex": preload("res://assets/art_gadgets/steam_stoker.png")},
+	"steam_superheater": {"vehicle": "steam", "x": 0.2, "lift": 0.9, "h": 0.5, "tex": preload("res://assets/art_gadgets/steam_superheater.png")},
+	"motorcar_automatic": {"vehicle": "motorcar", "x": -1.2, "lift": 0.0, "h": 0.5, "tex": preload("res://assets/art_gadgets/motorcar_automatic.png")},
+	"motorcar_nitro": {"vehicle": "motorcar", "x": 1.2, "lift": 0.0, "h": 0.4, "tex": preload("res://assets/art_gadgets/motorcar_nitro.png")},
+	"locomotive_supercap": {"vehicle": "locomotive", "x": 0.0, "lift": 0.0, "h": 0.55, "tex": preload("res://assets/art_gadgets/locomotive_supercap.png")},
+	"locomotive_cooling": {"vehicle": "locomotive", "x": 1.3, "lift": 0.0, "h": 0.5, "tex": preload("res://assets/art_gadgets/locomotive_cooling.png")},
+	"pneumatic_spare_tank": {"vehicle": "pneumatic", "x": -1.1, "lift": 0.0, "h": 0.5, "tex": preload("res://assets/art_gadgets/pneumatic_spare_tank.png")},
+	"pneumatic_auto_reducer": {"vehicle": "pneumatic", "x": 1.0, "lift": 0.0, "h": 0.5, "tex": preload("res://assets/art_gadgets/pneumatic_auto_reducer.png")}}
 const ZEP_PARTS = {
 	"tailplane": {"texture": preload("res://assets/art_zeppelin/tailplane.png"), "rect": Rect2(219, 140, 398, 75), "pivot": Vector2(507, 195)},
 	"wing": {"texture": preload("res://assets/art_zeppelin/wing.png"), "rect": Rect2(411, 424, 362, 80), "pivot": Vector2(540, 467)},
@@ -433,6 +449,7 @@ func draw_vehicle(canvas: Node2D, id: String, distance: float, facing: int, oute
 	if id == "motorcar": draw_side_rod(canvas, id, distance, facing, run)
 	if id == "handcar": draw_mechanism(canvas, model, outer,p)
 	if id == "jet" and model != null: draw_jet_chutes(canvas, outer, model)
+	if model != null: draw_gadget_parts(canvas, outer, id, model)
 
 # The movable parts of the zeppelin (B6.5): the tail plane and the wing turn about their pivots, the propeller blades are drawn
 # as they foreshorten with the turn, and above some revs a soft disc replaces them.
@@ -495,6 +512,20 @@ func draw_jet_chutes(canvas: Node2D, outer: Transform2D, model) -> void:
 		var h = total * float(tex.get_height()) / float(tex.get_width())
 		var shift = Vector2(-0.9 * PX * float(k), 0.55 * PX * float(k))
 		canvas.draw_texture_rect(tex, Rect2(ring + shift + Vector2(-total, -h * 0.56), Vector2(total, h)), false, Color(1, 1, 1, clampf(jet.chute * 1.5, 0.0, 1.0)))
+
+# The parts of the installed gadgets on the deck of the machine.
+func draw_gadget_parts(canvas: Node2D, outer: Transform2D, id: String, model) -> void:
+	if model.state.is_empty() or id.begins_with("W"): return
+	var levels = model.object_state(id).get("levels", {})
+	if levels.is_empty(): return
+	canvas.draw_set_transform_matrix(outer)
+	for gadget in GADGET_ART:
+		var spec = GADGET_ART[gadget]
+		if str(spec.vehicle) != id or int(levels.get(gadget, 0)) <= 0: continue
+		var tex: Texture2D = spec.tex
+		var h = float(spec.h) * PX
+		var w = h * float(tex.get_width()) / float(tex.get_height())
+		canvas.draw_texture_rect(tex, Rect2(Vector2(float(spec.x) * PX - w * 0.5, deck_y(id) - float(spec.lift) * PX - h), Vector2(w, h)), false)
 
 func draw_zeppelin_parts(canvas: Node2D, outer: Transform2D, zep) -> void:
 	var shake = sin(zep.prop_phase * 7.0) * deg_to_rad(clampf(absf(zep.v) / 37.0, 0.0, 1.0) * 0.8)   # the surfaces flutter at speed
@@ -952,15 +983,11 @@ func draw_grapnel_overlay(canvas: Node2D, model) -> void:
 	for a in g.anchors:
 		var x = (float(a.s) - s) * float(dir)
 		if x > -12.0 and x < 22.0: draw_grapnel_anchor(canvas, x, str(a.type))
-	# the drum of the winch on the front of the frame
-	var drum = pole_point(0.8, 0.8)
-	canvas.draw_rect(Rect2(drum, Vector2(0.28, 0.2) * PX), GRAPNEL_WOOD)
-	canvas.draw_arc(drum + Vector2(0.14, 0.1) * PX, 0.1 * PX, 0, TAU, 12, GRAPNEL_ROPE, 2.0, true)
 	var ground_y = Callable(model, "route_y")
 	var hand_y = model.grapnel_hand_y()
 	var off = g.hook_offset(s, dir, hand_y, ground_y)
 	var hook = pole_point(off.x, off.y)
-	var winch = pole_point(0.94, 0.9)
+	var winch = pole_point(0.74, 0.62)   # the rope leaves the painted winch (the gadget picture on the deck)
 	var taut = g.mode == "hooked" and g.tension > 1.0
 	var pts: PackedVector2Array = PackedVector2Array()
 	var count = 10
