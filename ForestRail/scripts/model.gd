@@ -1259,10 +1259,11 @@ func twilight() -> float:
 # save; it starts clear, so that a new player meets the forest in good weather first.
 const WEATHER_SEGMENT_DAYS = 0.3
 
+var weather_rng := RandomNumberGenerator.new()   # one shared generator: the seed is set before every use
+
 func weather_knot(channel: int, index: int) -> float:
-	var rng = RandomNumberGenerator.new()
-	rng.seed = int(route.seed_value) * 7919 + channel * 104729 + index * 15485863
-	return rng.randf()
+	weather_rng.seed = int(route.seed_value) * 7919 + channel * 104729 + index * 15485863
+	return weather_rng.randf()
 
 func weather_noise(channel: int, days: float) -> float:
 	var x = days / WEATHER_SEGMENT_DAYS
