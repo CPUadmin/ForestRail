@@ -80,7 +80,11 @@ const GADGET_ART = {
 	"locomotive_supercap": {"vehicle": "locomotive", "x": 0.0, "lift": 0.0, "h": 0.55, "tex": preload("res://assets/art_gadgets/locomotive_supercap.png")},
 	"locomotive_cooling": {"vehicle": "locomotive", "x": 1.3, "lift": 0.0, "h": 0.5, "tex": preload("res://assets/art_gadgets/locomotive_cooling.png")},
 	"pneumatic_spare_tank": {"vehicle": "pneumatic", "x": -1.1, "lift": 0.0, "h": 0.5, "tex": preload("res://assets/art_gadgets/pneumatic_spare_tank.png")},
-	"pneumatic_auto_reducer": {"vehicle": "pneumatic", "x": 1.0, "lift": 0.0, "h": 0.5, "tex": preload("res://assets/art_gadgets/pneumatic_auto_reducer.png")}}
+	"pneumatic_auto_reducer": {"vehicle": "pneumatic", "x": 1.0, "lift": 0.0, "h": 0.5, "tex": preload("res://assets/art_gadgets/pneumatic_auto_reducer.png")},
+	"zeppelin_trim": {"vehicle": "zeppelin", "x": -0.2, "lift": 0.0, "h": 0.4, "tex": preload("res://assets/art_gadgets/zeppelin_trim.png")},
+	"zeppelin_flaps": {"vehicle": "zeppelin", "x": 1.0, "lift": 0.0, "h": 0.3, "tex": preload("res://assets/art_gadgets/zeppelin_flaps.png")},
+	"jet_double_chute": {"vehicle": "jet", "x": 1.0, "lift": 0.93, "h": 0.28, "tex": preload("res://assets/art_gadgets/jet_double_chute.png")},
+	"jet_afterburner": {"vehicle": "jet", "x": -1.1, "lift": 0.0, "h": 0.4, "tex": preload("res://assets/art_gadgets/jet_afterburner.png")}}
 const ZEP_PARTS = {
 	"tailplane": {"texture": preload("res://assets/art_zeppelin/tailplane.png"), "rect": Rect2(219, 140, 398, 75), "pivot": Vector2(507, 195)},
 	"wing": {"texture": preload("res://assets/art_zeppelin/wing.png"), "rect": Rect2(411, 424, 362, 80), "pivot": Vector2(540, 467)},

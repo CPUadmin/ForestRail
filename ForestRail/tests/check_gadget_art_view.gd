@@ -63,6 +63,6 @@ func run() -> void:
 		game.camera_x = game.get_viewport_rect().size.x * 0.5
 		for i in range(4): await frame()
 		await shot("gadgets_" + kind)
-	check(gadgets.size() == 7, "seven machines show gadget parts")
+	check(gadgets.size() == 9, "nine machines show gadget parts")
 	print("GADGET ART VIEW CHECKS %d; FAILURES %s" % [checks, str(failures)])
 	get_tree().quit(1 if not failures.is_empty() else 0)
