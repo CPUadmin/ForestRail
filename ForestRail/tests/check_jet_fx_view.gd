@@ -76,5 +76,22 @@ func run() -> void:
 	m.jet.chutes_open = 2
 	await shot("jet_chute_two")
 	check(game.art.JET_FX.size() == 8, "the flame and chute pictures are loaded")
+	# the start panel in the cab: the painted cap, toggles, lamps and button
+	m.jet.chutes_open = 0
+	m.jet.chute = 0.0
+	m.jet.started = false
+	m.jet.thrust = 0.0
+	game.toggle_cab_view()
+	for i in range(8): await frame()
+	check(game.cab_active(), "the cab is open")
+	await shot("pult_cap_closed")
+	m.jet.cover_open = true
+	await shot("pult_cap_open")
+	m.jet.fuses = [true, true, false, true]
+	await shot("pult_toggles")
+	m.jet.fuses = [true, true, true, true]
+	await shot("pult_armed")
+	m.jet.started = true
+	await shot("pult_burning")
 	print("JET FX VIEW CHECKS %d; FAILURES %s" % [checks, str(failures)])
 	get_tree().quit(1 if not failures.is_empty() else 0)

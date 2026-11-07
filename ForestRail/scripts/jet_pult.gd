@@ -13,6 +13,11 @@ const GREEN = Color("5fae6a")
 const PANEL = Color(0.07, 0.10, 0.12, 0.93)
 const EDGE = Color("6f7f78")
 const SPEED_MAX_KMH = 220.0
+# The parts of the start panel painted by GPT (P15): the cap, the toggles, the lamps, the button in three states.
+const PARTS = {
+	"cap": preload("res://assets/art_jet/panel_cap_closed.png"), "up": preload("res://assets/art_jet/toggle_up.png"), "down": preload("res://assets/art_jet/toggle_down.png"),
+	"lamp_off": preload("res://assets/art_jet/lamp_off.png"), "lamp_on": preload("res://assets/art_jet/lamp_on.png"),
+	"locked": preload("res://assets/art_jet/button_locked.png"), "armed": preload("res://assets/art_jet/button_armed.png"), "burning": preload("res://assets/art_jet/button_burning.png")}
 
 var origin = Vector2.ZERO
 var k = 1.0
@@ -179,35 +184,35 @@ func draw_fuses(canvas, jet) -> void:
 		var r = fuse_rect(i)
 		var on = bool(jet.fuses[i])
 		var locked = bool(jet.started)
-		box(canvas, r, Color("1e2826") if not locked else Color("16201e"), EDGE, 5, 1)
-		var slot = Rect2(r.position + Vector2(r.size.x * 0.4, 6.0 * k), Vector2(r.size.x * 0.2, r.size.y - 12.0 * k))
-		box(canvas, slot, Color("0d1412"), Color("56635f"), 3)
-		var lever_y = slot.position.y + (4.0 * k if on else slot.size.y - 16.0 * k)
-		var lever = Rect2(Vector2(r.position.x + r.size.x * 0.25, lever_y), Vector2(r.size.x * 0.5, 12.0 * k))
-		box(canvas, lever, GOLD if on else Color("8d9a98"), Color("1b2320"), 3, 1)
+		var tex: Texture2D = PARTS["up" if on else "down"]
+		var spot_size = Vector2(r.size.y * float(tex.get_width()) / float(tex.get_height()), r.size.y)
+		var spot = Rect2(r.get_center() - spot_size * 0.5, spot_size)
+		canvas.draw_texture_rect(tex, spot, false, Color(0.7, 0.7, 0.7) if locked else Color.WHITE)
 		var lamp = origin + Vector2(180.0 + 50.0 * i + 20.0, 120.0) * k
-		canvas.draw_circle(lamp, 5.0 * k, GREEN if bool(jet.fuses[i]) else Color("2a332f"))
-		canvas.draw_arc(lamp, 5.0 * k, 0.0, TAU, 16, Color("98a39e"), 1.0 * k, true)
+		var lamp_tex: Texture2D = PARTS["lamp_on" if bool(jet.fuses[i]) else "lamp_off"]
+		canvas.draw_texture_rect(lamp_tex, Rect2(lamp - Vector2(7.5, 7.5) * k, Vector2(15.0, 15.0) * k), false)
 
 # the cap over the toggles (closed: a plate with a hinge) and the start button (locked until every toggle has been flipped)
 func draw_cover(canvas, jet) -> void:
 	var r = cover_rect()
 	if not bool(jet.cover_open):
-		box(canvas, r, Color("46504c"), Color("98a39e"), 8, 2)
-		canvas.draw_rect(Rect2(r.position + Vector2(r.size.x * 0.1, 4.0 * k), Vector2(r.size.x * 0.8, 6.0 * k)), Color("8d9a98"))
-		canvas.draw_string(font, r.position + Vector2(0.0, r.size.y * 0.62), "КОЛПАЧОК", HORIZONTAL_ALIGNMENT_CENTER, r.size.x, int(round(17.0 * k)), PAPER)
+		canvas.draw_texture_rect(PARTS["cap"], r, false)   # the painted cap with its latch covers the toggles
 	var b = start_rect()
 	var lit = bool(jet.started)
 	var counting = bool(jet.counting)
 	var unlocked = jet.start_unlocked() and bool(jet.cover_open)
+	var state = "burning" if lit else ("armed" if (counting or unlocked) else "locked")
+	var tex: Texture2D = PARTS[state]
+	var side = b.size.y * float(tex.get_width()) / float(tex.get_height())
+	canvas.draw_texture_rect(tex, Rect2(b.position + Vector2(4.0 * k, 0.0), Vector2(side, b.size.y)), false)
+	var label_at = b.position + Vector2(side + 10.0 * k, 0.0)
+	var label_w = b.size.x - side - 10.0 * k
 	if lit or counting or unlocked:
-		box(canvas, b, Color("2f7d44") if lit else (Color("b8862c") if counting else Color("8a2f26")), PAPER, 6, 2)
-		canvas.draw_string(font, b.position + Vector2(0.0, b.size.y * 0.66), "ГОРИТ" if lit else ("ОТСЧЁТ" if counting else "ПУСК"), HORIZONTAL_ALIGNMENT_CENTER, b.size.x, int(round(18.0 * k)), PAPER)
+		canvas.draw_string(font, label_at + Vector2(0.0, b.size.y * 0.66), "ГОРИТ" if lit else ("ОТСЧЁТ" if counting else "ПУСК"), HORIZONTAL_ALIGNMENT_CENTER, label_w, int(round(18.0 * k)), PAPER)
 	else:
-		box(canvas, b, Color("1b2320"), Color("46504c"), 6, 1)
 		var why = "ЗАБЛОКИРОВАНО"
 		if bool(jet.cover_open): why = "ТУМБЛЕРЫ %d/4" % int(jet.fuses_on())
-		canvas.draw_string(font, b.position + Vector2(0.0, b.size.y * 0.62), why, HORIZONTAL_ALIGNMENT_CENTER, b.size.x, int(round(15.0 * k)), Color("6b7770"))
+		canvas.draw_string(font, label_at + Vector2(0.0, b.size.y * 0.62), why, HORIZONTAL_ALIGNMENT_CENTER, label_w, int(round(13.0 * k)), Color("a4b0a9"))
 
 # the board of the countdown
 func draw_display(canvas, jet) -> void:
