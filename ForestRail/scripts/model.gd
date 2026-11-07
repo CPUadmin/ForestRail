@@ -966,6 +966,7 @@ func loading_preview() -> Dictionary:
 	return loading_cache
 
 func depart() -> bool:
+	wear().journal.clear()   # a new trip: a new journal of what went wrong
 	if vehicle_id() == "jet":
 		jet.double_chute_gadget = bool(effects("jet").get("jet_double_chute", false))
 		jet.new_trip()   # the chutes are packed, the afterburner is refilled

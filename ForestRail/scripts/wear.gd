@@ -14,6 +14,8 @@ const EFFECT_HINT = {"brake": "тормозной путь длиннее", "rol
 
 var m   # the model
 var last_damage = ""            # последняя причина повреждения (для подсказки)
+var journal: Array = []         # журнал рейса: последние причины урона [{why, node, name, amount}], новые в конце (не сохраняется)
+const JOURNAL_MAX = 5
 
 func _init(model) -> void:
 	m = model
@@ -97,9 +99,32 @@ func damage(id: String, node: String, amount: float, why: String = "") -> float:
 	if node_def(id, node).is_empty() or amount <= 0.0: return 1.0
 	var value = condition(id, node) - amount
 	set_condition(id, node, value)
-	if why != "": last_damage = why
+	if why != "":
+		last_damage = why
+		note_journal(id, node, amount, why)
 	if m.junk_rules: m.casino().trip_damage(id, amount)
 	return clampf(value, 0.0, 1.0)
+
+# The journal of the trip: the same cause on the same node adds up, the last five are kept.
+func note_journal(id: String, node: String, amount: float, why: String) -> void:
+	var name = str(node_def(id, node).get("name", node))
+	if not journal.is_empty():
+		var last = journal[journal.size() - 1]
+		if str(last.why) == why and str(last.id) == id and str(last.node) == node:
+			last.amount = float(last.amount) + amount
+			return
+	journal.append({"why": why, "id": id, "node": node, "name": name, "amount": amount})
+	while journal.size() > JOURNAL_MAX: journal.pop_front()
+
+# The lines for the pause window: "Юз: тормоз −7%", the newest first.
+func journal_lines() -> Array:
+	var lines: Array = []
+	for i in range(journal.size() - 1, -1, -1):
+		var e = journal[i]
+		var who = "" if str(e.id) == m.vehicle_id() else " (%s)" % str(e.id)
+		var why = str(e.why)
+		lines.append("%s: %s%s −%d%%" % [why.substr(0, 1).to_upper() + why.substr(1), str(e.name).to_lower(), who, maxi(1, roundi(float(e.amount) * 100.0))])
+	return lines
 
 # The first node of a machine with the given effect (the damage goes to the real part: brake, bearings...).
 func node_of(id: String, effect: String, preferred: String = "") -> String:

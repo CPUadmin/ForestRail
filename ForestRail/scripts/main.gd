@@ -2206,6 +2206,9 @@ func build_modal(size: Vector2) -> void:
 	elif modal_kind == "pause":
 		add_label(box, "Пауза", 34)
 		if resume_prompt: add_label(box, "Готов продолжить поездку?", 23)
+		if Model.wear_rules and not model.wear().journal.is_empty():
+			add_label(box, "Что случилось в рейсе", 22)
+			for line in model.wear().journal_lines(): add_label(box, str(line), 19)
 		add_button(box, "Продолжить", close_modal, false, false, &"PrimaryAction")
 		add_button(box, "Сохранить", func(): save_game(); notify("Сохранено"))
 		add_button(box, "Настройки", func(): show_modal("settings"))

@@ -195,6 +195,17 @@ func run() -> void:
 	for id in old.fleet_by_id: old.fleet_by_id[id].erase("wear")
 	var back = Model.new()
 	check(back.restore(old) and back.wear().condition("motorcar", "engine") == 1.0, "an old save has every node at 100%")
+	# the journal of the trip: the cause, the node and the percent; the same cause adds up; five at most; a new trip clears it
+	Model.wear_rules = true
+	var jm = Model.new()
+	jm.new_game(42, 2)
+	jm.wear().damage("handcar", "brake", 0.03, "юз")
+	jm.wear().damage("handcar", "brake", 0.04, "юз")
+	check(jm.wear().journal.size() == 1 and jm.wear().journal_lines()[0].begins_with("Юз: ") and jm.wear().journal_lines()[0].ends_with("−7%"), "the journal adds up the same cause (%s)" % str(jm.wear().journal_lines()))
+	for k in range(8): jm.wear().damage("handcar", "bearings", 0.01, "причина %d" % k)
+	check(jm.wear().journal.size() == 5 and jm.wear().journal_lines()[0].begins_with("Причина 7"), "five lines at most, the newest first")
+	jm.wear().journal.clear()
+	check(jm.wear().journal_lines().is_empty(), "the journal can be cleared")
 	Model.wear_rules = false
 	print("WEAR CHECKS ", checks, "; FAILURES ", failures)
 	get_tree().quit(0 if failures.is_empty() else 1)
