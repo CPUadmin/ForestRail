@@ -75,10 +75,11 @@ const DEFAULT_SETTINGS = {"master": 0.65, "mechanisms": 0.7, "forest": 0.6, "mus
 	"vsync": true, "fps_cap": 0, "msaa": 0, "instrument_hz": 30, "reduce_motion": false, "cab_shake": 1.0,
 	"autosave": 60, "night_light": 0.0, "light_flicker": true, "weather": 0, "weather_frequency": 1.0, "keys": {"map": KEY_M, "cab": KEY_E, "ice": KEY_I, "brake": KEY_SPACE, "sail_side": KEY_F, "burst": KEY_B, "grapnel": KEY_G}}
 const WINDOW_SIZES = [Vector2i(1280, 720), Vector2i(1600, 900), Vector2i(1920, 1080)]
-const SETTINGS_TABS = ["Звук", "Графика", "Управление", "Игра", "Доступность", "Служебное"]
+const SETTINGS_TABS = ["Звук", "Экран", "Игра"]   # three groups; the technical things are folded under "Ещё"
 var settings = DEFAULT_SETTINGS.duplicate(true)
 var settings_backup: Dictionary = {}
 var settings_tab = "Звук"
+var settings_fold: Dictionary = {}   # which folded groups of the settings are open
 var pause_stuck_open = false   # the pause menu: the group "Застрял?" (the help of the depot and the repair at the station) is unfolded
 var awaiting_key = ""
 var camera_s = 0.0
@@ -510,47 +511,54 @@ func build_settings(box: VBoxContainer) -> void:
 		add_button(row, "Эмбиент", func(): sound.play("bird_%d" % randi_range(1, 4), 0.8))
 		add_button(row, "Машины", func(): sound.play("rail_clack_a", 0.6))
 		add_button(row, "Интерфейс", func(): sound.play("coins", 0.6))
-	elif settings_tab == "Графика":
+	elif settings_tab == "Экран":
+		# the main things are in sight; the technical ones are folded under "Ещё"
 		settings_toggle(box, "fullscreen", "Полный экран")
-		settings_toggle(box, "borderless", "Окно без рамки")
 		settings_choice(box, "window_size", "Размер окна (если не на весь экран)", [[0, "1280×720"], [1, "1600×900"], [2, "1920×1080"]], apply_window_size)
-		settings_toggle(box, "vsync", "Вертикальная синхронизация")
-		settings_choice(box, "fps_cap", "Ограничение кадров", [[0, "Без ограничения"], [30, "30"], [60, "60"], [120, "120"], [144, "144"]])
-		settings_choice(box, "msaa", "Сглаживание краёв", [[0, "Выкл."], [2, "2×"], [4, "4×"]])
-		settings_choice(box, "instrument_hz", "Частота обновления приборов", [[30, "30 Гц"], [60, "60 Гц"]])
+		settings_choice(box, "text_scale", "Размер текста", [[1.0, "100%"], [1.25, "125%"], [1.5, "150%"]])
 		settings_slider(box, "night_light", "Яркость ночи (0 тёмная, 1 светлее)", 0.0, 1.0, 0.1)
-		settings_toggle(box, "light_flicker", "Мерцание ламп и искры")
 		settings_choice(box, "weather", "Погода", [[0, "Обычная"], [1, "Реже и слабее"], [2, "Без осадков и тумана"]])
-		settings_choice(box, "weather_frequency", "Частота смены погоды", [[0.5, "Медленнее"], [1.0, "Обычно"], [2.0, "Быстрее"]])
-	elif settings_tab == "Управление":
+		settings_toggle(box, "light_flicker", "Мерцание ламп и искры")
+		settings_toggle(box, "reduce_motion", "Без тряски и мерцания")
+		settings_slider(box, "cab_shake", "Тряска кабины", 0, 1, 0.05)
+		if settings_fold_button(box, "screen_more", "Ещё"):
+			settings_toggle(box, "borderless", "Окно без рамки")
+			settings_toggle(box, "vsync", "Вертикальная синхронизация")
+			settings_choice(box, "fps_cap", "Ограничение кадров", [[0, "Без ограничения"], [30, "30"], [60, "60"], [120, "120"], [144, "144"]])
+			settings_choice(box, "msaa", "Сглаживание краёв", [[0, "Выкл."], [2, "2×"], [4, "4×"]])
+			settings_choice(box, "instrument_hz", "Частота обновления приборов", [[30, "30 Гц"], [60, "60 Гц"]])
+			settings_choice(box, "weather_frequency", "Частота смены погоды", [[0.5, "Медленнее"], [1.0, "Обычно"], [2.0, "Быстрее"]])
+	else:
 		settings_slider(box, "sensitivity", "Чувствительность ручной дрезины", 0.5, 2, 0.05)
-		add_label(box, "Клавиши (Esc всегда пауза):", 20)
-		settings_key(box, "map", "Карта")
-		settings_key(box, "cab", "Кабина")
-		settings_key(box, "burst", "Рывок (суперконденсатор, нитро)")
-		settings_key(box, "grapnel", "Кошка шестовой: бросить или отпустить")
-		settings_key(box, "ice", "Сбить иней (пневматический)")
-		settings_key(box, "brake", "Тормоз: затянуть или отпустить")
-		settings_key(box, "sail_side", "Парусная: гик на другой борт")
-	elif settings_tab == "Игра":
 		settings_choice(box, "autosave", "Автосохранение раз в", [[0, "Выкл."], [30, "30 с"], [60, "60 с"], [120, "2 мин"], [300, "5 мин"]])
 		if screen != "menu" and not model.state.is_empty():
 			add_button(box, "Подсказки: " + ("вкл." if model.state.tutorial else "выкл."), func():
 				model.state.tutorial = not model.state.tutorial
 				save_game()
 				rebuild())
-		else:
-			add_label(box, "Подсказки включаются в паузе во время игры.", 18, MUTED_INK)
-	elif settings_tab == "Доступность":
-		settings_choice(box, "text_scale", "Размер текста", [[1.0, "100%"], [1.25, "125%"], [1.5, "150%"]])
-		settings_toggle(box, "reduce_motion", "Без тряски и мерцания")
-		settings_slider(box, "cab_shake", "Тряска кабины", 0, 1, 0.05)
-	else:
+		if settings_fold_button(box, "keys_more", "Клавиши"):
+			add_label(box, "Клавиши (Esc всегда пауза, F1 справка):", 20)
+			settings_key(box, "map", "Карта")
+			settings_key(box, "cab", "Кабина")
+			settings_key(box, "burst", "Рывок (суперконденсатор, нитро)")
+			settings_key(box, "grapnel", "Кошка шестовой: бросить или отпустить")
+			settings_key(box, "ice", "Сбить иней (пневматический)")
+			settings_key(box, "brake", "Тормоз: затянуть или отпустить")
+			settings_key(box, "sail_side", "Парусная: гик на другой борт")
 		add_button(box, "Как играть", func(): show_modal("help"))
 		add_button(box, "Об игре", func(): show_modal("credits"))
 		add_label(box, "Версия игры %s" % ProjectSettings.get_setting("application/config/version"), 20)
 		add_label(box, "Сохранения и настройки: %s" % ProjectSettings.globalize_path(saves.directory), 17, MUTED_INK)
 		add_button(box, "Открыть папку сохранений", func(): OS.shell_open(ProjectSettings.globalize_path(saves.directory)))
+
+# A folded group: the button "Ещё ▾" / "Ещё ▴" opens and closes it; returns true when the group is open.
+func settings_fold_button(box: VBoxContainer, id: String, title: String) -> bool:
+	var open = bool(settings_fold.get(id, false))
+	add_button(box, "%s %s" % [title, "▴" if open else "▾"], func():
+		settings_fold[id] = not bool(settings_fold.get(id, false))
+		awaiting_key = ""
+		rebuild(), false, false, &"QuietAction")
+	return open
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_CLOSE_REQUEST:

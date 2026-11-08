@@ -79,7 +79,7 @@ func run() -> void:
 	check(absf(coin_level - linear_to_db(float(game.settings.master) * 0.5)) < 0.1, "interface volume scales the coin sound (%.1f dB)" % coin_level)
 	check(await press("Интерфейс"), "a sound test button plays")
 	# graphics: each choice changes what it says it changes
-	game.settings_tab = "Графика"; game.rebuild(); await frame(2)
+	game.settings_tab = "Экран"; game.settings_fold["screen_more"] = true; game.rebuild(); await frame(2)
 	check(await press("Мерцание ламп и искры") and not game.light_flicker_enabled(), "graphics can disable light flicker separately")
 	check(await press("Мерцание ламп и искры") and game.light_flicker_enabled(), "graphics can restore light flicker")
 	var weather_reference = game.model.weather_at(1800.0)
@@ -111,7 +111,7 @@ func run() -> void:
 	await press("1600")
 	check(DisplayServer.window_get_size() == Vector2i(1600, 900), "and back to 1600x900")
 	# controls: sensitivity and key rebinding with real key events
-	game.settings_tab = "Управление"; game.rebuild(); await frame(2)
+	game.settings_tab = "Игра"; game.settings_fold["keys_more"] = true; game.rebuild(); await frame(2)
 	check(await press("Кабина"), "the cab key can be chosen for rebinding")
 	check(game.awaiting_key == "cab", "the menu waits for a key")
 	get_tree().root.push_input(key_event(KEY_T), true)
@@ -129,7 +129,7 @@ func run() -> void:
 	game.settings_tab = "Игра"; game.rebuild(); await frame(2)
 	await press("5 мин")
 	check(int(game.settings.autosave) == 300, "the autosave interval is stored")
-	game.settings_tab = "Доступность"; game.rebuild(); await frame(2)
+	game.settings_tab = "Экран"; game.rebuild(); await frame(2)
 	await press("Без тряски и мерцания")
 	check(bool(game.settings.reduce_motion), "reduced motion on")
 	# cancel puts everything back
@@ -234,6 +234,7 @@ func run() -> void:
 	# text at 150% still fits the box
 	game.settings.text_scale = 1.5
 	game.screen = "menu"; game.rebuild()
+	game.settings_fold = {"screen_more": true, "keys_more": true}   # the worst case: everything unfolded
 	for tab in game.SETTINGS_TABS:
 		game.settings_tab = tab
 		game.show_modal("settings")
@@ -242,7 +243,7 @@ func run() -> void:
 		for b in game.overlay.find_children("*", "Button", true, false):
 			if b.is_visible_in_tree() and b.get_global_rect().end.x > 1600.0 + 1.0: fits = false
 		check(fits, tab + " at 150% text keeps its buttons inside the window")
-		if tab == "Графика" or tab == "Управление": await shot("settings150_" + tab)
+		if tab == "Экран" or tab == "Игра": await shot("settings150_" + tab)
 		game.close_modal()
 	game.copy_settings(game.settings, game.DEFAULT_SETTINGS)
 	game.apply_settings()
