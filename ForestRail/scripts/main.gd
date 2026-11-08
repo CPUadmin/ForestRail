@@ -916,14 +916,14 @@ func build_depot(size: Vector2) -> void:
 	var room = model.tank_missing() > 0.0001
 	var refill_text = ({"locomotive": "Зарядить", "pneumatic": "Накачать"}.get(model.vehicle_id(), "Заправить")) + (" · %d монет" % refill if refill > 0 else (" · бесплатно" if room else " · полон"))
 	# a person and the wind need no fuel: no refill button for them
-	if not model.human_powered():
+	if not model.human_powered() and room:
 		var refill_button = add_button(service, refill_text, func():
 			if model.refuel(): save_game(); rebuild(); notify(model.message if model.message != "" else "Запас пополнен"); model.message = ""
 			else: notify(model.message), not room)
 		if model.vehicle_id() == "locomotive":
 			refill_button.icon = CHARGING_PLUG
 			refill_button.add_theme_constant_override("icon_max_width", 22)
-	add_button(service, "Улучшить", func(): selected_object = model.vehicle_id(); tab = "Улучшения"; rebuild())
+	# no separate "Улучшить" button: the workshop is the tab "Мастерская" and a click on the machine itself
 	add_button(service, "Болты (%d)" % model.casino().bolt_total(), func(): show_modal("receiving"))
 	if model.state.active.is_empty(): add_button(service, "Просто поехать →", take_free_ride, false, false, &"PrimaryAction")
 	positioned_label("Нажми на машину или вагон, чтобы выбрать его улучшения.", Rect2(46, size.y - 83, left_width - 30, 60), 17)
