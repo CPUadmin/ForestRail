@@ -2259,6 +2259,8 @@ func build_modal(size: Vector2) -> void:
 				total += int(entry.count)
 				parts.append("%s%s" % [str(entry.name).to_lower(), (" ×%d" % int(entry.count)) if int(entry.count) > 1 else ""])
 			add_label(box, "Принесли с дороги: %d шт.\n%s" % [total, ", ".join(parts)], 20)
+		if Model.wear_rules and not model.wear().journal.is_empty():
+			add_label(box, "Что случилось в рейсе:\n%s" % "\n".join(model.wear().journal_lines()), 20)
 		add_button(box, "Продолжить перевозки", close_modal, false, false, &"PrimaryAction")
 		add_button(box, "В главное меню", func(): screen = "menu"; close_modal(), false, false, &"QuietAction")
 	else:
