@@ -814,7 +814,7 @@ func build_depot(size: Vector2) -> void:
 	var money_y = maxf(87, 30 + line_height(32) + 6)
 	depot_header_bottom = maxf(127, money_y + line_height(20) + 8)
 	positioned_label("ДЕПО  /  ЛЕСНАЯ", Rect2(44, 30, 1000, 50), 32)
-	positioned_label("Творческий режим  ·  деньги и топливо без ограничений" if model.creative() else "%d монет  ·  %d / 10 основных рейсов" % [model.state.money, model.state.chapter], Rect2(46, money_y, 1000, 45), 20)
+	positioned_label("Творческий режим  ·  деньги и топливо без ограничений" if model.creative() else "%d монет%s  ·  %d / 10 основных рейсов" % [model.state.money, ("  ·  долг %d" % int(model.state.get("debt", 0))) if int(model.state.get("debt", 0)) > 0 else "", model.state.chapter], Rect2(46, money_y, 1000, 45), 20)
 	var menu_row = HBoxContainer.new()
 	menu_row.position = Vector2(size.x - 285, 28)
 	menu_row.size = Vector2(245, 50)
@@ -2219,7 +2219,7 @@ func build_modal(size: Vector2) -> void:
 				notify("Мастерская станции: +%d%% износа, %d монет" % [roundi(float(done.gained) * 100.0), int(done.price)])
 				save_game()
 				close_modal())
-		add_button(box, "Помощь депо", func(): confirm("Вернуть состав домой? Груз, отметки доставки и покупки сохранятся. Запас энергии пополнится.", func():
+		add_button(box, "Помощь депо", func(): confirm("Вернуть состав домой%s? Груз, отметки доставки и покупки сохранятся. Запас энергии пополнится.%s" % [(" за %d монет" % model.rescue_fee()) if model.rescue_fee() > 0 else "", (" Не хватает монет: остаток уйдёт в долг и вычтется из следующей награды. Узлы тяги депо починит сразу.") if model.rescue_fee() > int(model.state.money) else (" Узлы тяги депо починит сразу." if model.rescue_fee() > 0 else "")], func():
 			model.rescue()
 			screen = "depot"
 			camera_s = 0

@@ -206,6 +206,33 @@ func run() -> void:
 	check(jm.wear().journal.size() == 5 and jm.wear().journal_lines()[0].begins_with("Причина 7"), "five lines at most, the newest first")
 	jm.wear().journal.clear()
 	check(jm.wear().journal_lines().is_empty(), "the journal can be cleared")
+	# the help of the depot: a quarter of the reward (50..600), the rest goes into a debt that the next reward pays, the pull nodes become new
+	Model.wear_rules = true
+	var rm = Model.new()
+	rm.new_game(42, 2)
+	rm.state.money = 1000
+	rm.state.active = {"reward": 100}
+	check(rm.rescue_fee() == 50, "a small order: the fee is the minimum 50 (%d)" % rm.rescue_fee())
+	rm.state.active = {"reward": 800}
+	check(rm.rescue_fee() == 200, "a quarter of 800 is 200 (%d)" % rm.rescue_fee())
+	rm.state.active = {"reward": 9000}
+	check(rm.rescue_fee() == 600, "and never more than 600 (%d)" % rm.rescue_fee())
+	rm.state.active = {}
+	check(rm.rescue_fee() == 50, "no order: the minimum")
+	rm.wear().set_condition("handcar", "lever", 0.1)
+	rm.wear().set_condition("handcar", "bearings", 0.1)
+	rm.state.money = 30
+	rm.rescue()
+	check(int(rm.state.money) == 0 and int(rm.state.get("debt", 0)) == 20, "30 coins in the purse pay part of the fee, 20 become a debt (money %d, debt %d)" % [int(rm.state.money), int(rm.state.get("debt", 0))])
+	check(rm.wear().condition("handcar", "lever") == 1.0, "the pull node is as new after the help")
+	check(rm.wear().condition("handcar", "bearings") < 0.5, "the bearings only get the small touch-up")
+	var crm = Model.new()
+	crm.new_game(42, 2, "creative")
+	check(crm.rescue_fee() == 0, "in the creative mode the help is free")
+	Model.wear_rules = false
+	var no_rules = Model.new()
+	no_rules.new_game(42, 2)
+	check(no_rules.rescue_fee() == 0, "the old tests (wear rules off) keep the free tow")
 	Model.wear_rules = false
 	print("WEAR CHECKS ", checks, "; FAILURES ", failures)
 	get_tree().quit(0 if failures.is_empty() else 1)

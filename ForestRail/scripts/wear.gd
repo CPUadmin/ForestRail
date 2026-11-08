@@ -274,6 +274,13 @@ func free_touch_up() -> void:
 			if condition(id, str(def.id)) < FREE_TOUCH_UP: set_condition(id, str(def.id), FREE_TOUCH_UP)
 		clear_broken(id)
 
+# After the help of the depot the nodes of the pull (the engine, the motor, the rig) of every body are as new.
+func rescue_repair() -> void:
+	for id in m.body_ids():
+		for def in nodes_of(id):
+			if str(def.effect) in ["power", "rig"]: set_condition(id, str(def.id), 1.0)
+		clear_broken(id)
+
 # The price of a full repair of one machine in coins (for the "Состояние" window).
 func full_repair_price(id: String) -> int:
 	var sum = 0

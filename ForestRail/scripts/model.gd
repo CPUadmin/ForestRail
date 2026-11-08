@@ -1113,6 +1113,12 @@ func settle() -> bool:
 			var fine = mini(int(state.money), roundi(DEADLINE_FINE * float(state.active.reward)))
 			reward = -fine
 			notes.append("опоздал: штраф %d, заказ сгорел" % fine)
+	var owed = int(state.get("debt", 0))
+	if reward > 0 and owed > 0:
+		var back = mini(reward, owed)
+		state.debt = owed - back
+		reward -= back
+		notes.append("долг за помощь депо: −%d" % back)
 	state.money += reward
 	state.stats.earned += maxi(0, reward)
 	if not creative() and not (late and story): state.paid_ids.append(id)
@@ -1145,7 +1151,22 @@ func settle() -> bool:
 	message = ("Рейс окончен. Заработано %d монет" % reward if reward >= 0 else "Рейс окончен с штрафом: %d монет" % -reward) + (" · " + ", ".join(notes) if not notes.is_empty() else "")
 	return true
 
+# The help of the depot costs (the decision of the owner, 08.11.2026): a quarter of the reward of the active order, not less than 50 and not more than 600 coins.
+# What the purse cannot pay becomes a debt that is taken from the next reward. Only with the wear rules on, never in the creative mode.
+const RESCUE_SHARE = 0.25
+const RESCUE_MIN = 50
+const RESCUE_MAX = 600
+
+func rescue_fee() -> int:
+	if not wear_rules or creative(): return 0
+	var reward = float(state.active.get("reward", 0.0)) if not state.active.is_empty() else 0.0
+	return clampi(roundi(RESCUE_SHARE * reward), RESCUE_MIN, RESCUE_MAX)
+
 func rescue() -> void:
+	var fee = rescue_fee()
+	var paid = mini(int(state.money), fee)
+	state.money -= paid
+	if fee > paid: state.debt = mini(RESCUE_MAX, int(state.get("debt", 0)) + fee - paid)
 	state.s = route.station_s[0]
 	state.v = 0.0
 	state.brake = 1.0
@@ -1160,9 +1181,11 @@ func rescue() -> void:
 	reset_input()
 	if not settle():
 		state.phase = "depot"
-	if wear_rules: wear().free_touch_up()
+	if wear_rules:
+		wear().free_touch_up()
+		wear().rescue_repair()   # the depot puts the traction nodes in order at once
 	refuel()
-	message = "Помощь доставила состав в депо. Груз и покупки сохранены"
+	message = "Помощь доставила состав в депо за %d монет%s. Груз и покупки сохранены" % [fee, (", долг %d" % (fee - paid)) if fee > paid else ""] if fee > 0 else "Помощь доставила состав в депо. Груз и покупки сохранены"
 
 # Gadget: the automatic gearbox of the petrol car. The lever has three places (D drive, N neutral, R reverse); in D the car picks the gear by its speed
 # (a shift does not cut the pull and the engine does not stall), the petrol burns 5% less. In the data a gear 1..5 in auto means D.
@@ -2722,6 +2745,7 @@ func validate_save(saved: Dictionary) -> bool:
 		return false
 	for key in ["money", "chapter", "s", "v", "direction", "brake", "throttle", "gear", "offer_serial"]:
 		if not numeric(saved[key]): return false
+	if saved.has("debt") and (not numeric(saved.debt) or saved.debt < 0 or saved.debt > RESCUE_MAX): return false
 	if saved.money < 0 or saved.chapter < 0 or saved.chapter > 10 or saved.brake < 0 or saved.brake > 1 or saved.throttle < 0 or saved.throttle > 1 or saved.gear < 0 or saved.gear > 6:
 		return false
 	if not saved.route.has_all(["points", "seed", "generator_version"]) or not saved.route.points is Array or saved.route.points.size() < 1700:
