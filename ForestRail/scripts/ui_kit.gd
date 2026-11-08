@@ -143,6 +143,52 @@ static func box(kind: String, state: String) -> StyleBoxFlat:
 	cache[key] = b
 	return b
 
+# --- panels: the board (windows), the plaque (rows and cards inside the board)
+static func board() -> StyleBoxFlat:
+	if cache.has("board"): return cache["board"]
+	var b = StyleBoxFlat.new()
+	b.bg_color = WOOD
+	b.border_color = BRASS
+	b.set_border_width_all(2)
+	b.set_corner_radius_all(10)
+	b.anti_aliasing = true
+	b.shadow_color = Color(0, 0, 0, 0.5)
+	b.shadow_size = 14
+	b.shadow_offset = Vector2(0, 6)
+	b.content_margin_left = 18
+	b.content_margin_right = 18
+	b.content_margin_top = 14
+	b.content_margin_bottom = 14
+	cache["board"] = b
+	return b
+
+# accent: the colour of the edge that tells the state of the card (the current choice, a maxed upgrade, a warning); the plain card has a quiet edge
+static func plaque(accent: Color = Color(0, 0, 0, 0)) -> StyleBoxFlat:
+	var key = "plaque|" + accent.to_html()
+	if cache.has(key): return cache[key]
+	var b = StyleBoxFlat.new()
+	b.bg_color = Color("33241a")
+	b.border_color = Color("5a4328") if accent.a == 0.0 else accent
+	b.set_border_width_all(1)
+	if accent.a > 0.0: b.border_width_left = 5
+	b.set_corner_radius_all(8)
+	b.anti_aliasing = true
+	b.shadow_color = Color(0, 0, 0, 0.35)
+	b.shadow_size = 6
+	b.shadow_offset = Vector2(0, 3)
+	b.set_content_margin_all(14)
+	cache[key] = b
+	return b
+
+# the text colours were chosen for the cream paper; on the dark board they are exchanged for their light twins
+static func on_dark(c: Color, ink: Color, muted_ink: Color, gold: Color, red: Color, green: Color) -> Color:
+	if c == ink: return T1
+	if c == muted_ink: return T2
+	if c == Color("755921") or c == gold.darkened(0.25): return LAMP
+	if c == red: return DANGER_TEXT
+	if c == green: return OK
+	return c
+
 # the colours of the text of a kind of button in a state
 static func text_color(kind: String, state: String) -> Color:
 	match kind:

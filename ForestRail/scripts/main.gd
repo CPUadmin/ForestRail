@@ -587,7 +587,7 @@ func style(bg: Color, border: Color = GOLD, radius: int = 12) -> StyleBoxFlat:
 func setup_theme() -> void:
 	var theme = Theme.new()
 	theme.default_font_size = int(20 * float(settings.text_scale))
-	theme.set_color("font_color", "Label", INK)
+	theme.set_color("font_color", "Label", UiKit.T1)
 	# the buttons: brass on dark wood (ui_kit.gd); the green flat boxes are gone
 	UiKit.apply_to_theme(theme, "Button", "secondary")
 	theme.set_type_variation("PrimaryAction", "Button")
@@ -596,7 +596,7 @@ func setup_theme() -> void:
 	UiKit.apply_to_theme(theme, "QuietAction", "quiet")
 	theme.set_type_variation("DangerAction", "Button")
 	UiKit.apply_to_theme(theme, "DangerAction", "danger")
-	theme.set_stylebox("panel", "PanelContainer", style(PAPER))
+	theme.set_stylebox("panel", "PanelContainer", UiKit.board())
 	ui.theme = theme
 	overlay.theme = theme
 
@@ -604,7 +604,7 @@ func add_label(parent: Node, text: String, size: int = 20, color: Color = INK) -
 	var label = Label.new()
 	label.text = text
 	label.add_theme_font_size_override("font_size", int(size * float(settings.text_scale)))
-	label.add_theme_color_override("font_color", color)
+	label.add_theme_color_override("font_color", UiKit.on_dark(color, INK, MUTED_INK, GOLD, RED, GREEN))
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	parent.add_child(label)
@@ -632,9 +632,7 @@ func add_button(parent: Node, text: String, action: Callable, disabled: bool = f
 # A bordered block inside a paper panel; the accent edge marks the current choice.
 func card(parent: Node, edge: Color = CARD_EDGE) -> VBoxContainer:
 	var panel = PanelContainer.new()
-	var box = style(Color("fbf6ea"), edge, 10).duplicate()
-	box.set_content_margin_all(14)
-	if edge != CARD_EDGE: box.border_width_left = 5
+	var box = UiKit.plaque(Color(0, 0, 0, 0) if edge == CARD_EDGE else (UiKit.LAMP if edge == GOLD else edge))
 	panel.add_theme_stylebox_override("panel", box)
 	parent.add_child(panel)
 	var content = VBoxContainer.new()
@@ -988,8 +986,8 @@ func depot_tile(parent: Node, tab_name: String, caption: String, icon: String) -
 	button.tooltip_text = caption
 	button.disabled = selected
 	for state in ["normal", "hover", "pressed", "focus", "disabled"]:
-		var edge = GOLD if (selected or state == "hover") else CARD_EDGE
-		button.add_theme_stylebox_override(state, style(INK if selected else Color("33463f"), edge, 8))
+		var kit_state = "selected" if selected and state != "focus" else ("normal" if state == "disabled" else state)
+		button.add_theme_stylebox_override(state, UiKit.box("tab", kit_state))
 	button.pressed.connect(func():
 		sound.play("ui_click", 0.5)
 		tab = tab_name
