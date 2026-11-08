@@ -822,6 +822,14 @@ func build_depot(size: Vector2) -> void:
 	depot_header_bottom = maxf(127, money_y + line_height(20) + 8)
 	positioned_label("ДЕПО  /  ЛЕСНАЯ", Rect2(44, 30, 1000, 50), 32)
 	positioned_label("Творческий режим  ·  деньги и топливо без ограничений" if model.creative() else "%d монет%s  ·  %d / 10 основных рейсов" % [model.state.money, ("  ·  долг %d" % int(model.state.get("debt", 0))) if int(model.state.get("debt", 0)) > 0 else "", model.state.chapter], Rect2(46, money_y, 1000, 45), 20)
+	# the bolts are money too: the chip "Болты (N)" stands right after the coins and opens the bolt desk
+	var money_text = "Творческий режим  ·  деньги и топливо без ограничений" if model.creative() else "%d монет%s  ·  %d / 10 основных рейсов" % [model.state.money, ("  ·  долг %d" % int(model.state.get("debt", 0))) if int(model.state.get("debt", 0)) > 0 else "", model.state.chapter]
+	var money_width = font.get_string_size(money_text, HORIZONTAL_ALIGNMENT_LEFT, -1, int(20 * float(settings.text_scale))).x
+	var bolts_chip = add_button(ui, "Болты (%d)" % model.casino().bolt_total(), func(): show_modal("receiving"), false, false, &"QuietAction")
+	bolts_chip.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	bolts_chip.custom_minimum_size = Vector2(0, 34 * float(settings.text_scale))
+	bolts_chip.position = Vector2(46 + money_width + 22, money_y - 7)
+	bolts_chip.tooltip_text = "Приёмка болтов: сдать шлак за монеты или жетоны"
 	var menu_row = HBoxContainer.new()
 	menu_row.position = Vector2(size.x - 285, 28)
 	menu_row.size = Vector2(245, 50)
@@ -936,7 +944,7 @@ func build_depot(size: Vector2) -> void:
 			refill_button.icon = CHARGING_PLUG
 			refill_button.add_theme_constant_override("icon_max_width", 22)
 	# no separate "Улучшить" button: the workshop is the tab "Мастерская" and a click on the machine itself
-	add_button(service, "Болты (%d)" % model.casino().bolt_total(), func(): show_modal("receiving"))
+	# the bolts stand next to the coins in the header (see build_depot)
 	if model.state.active.is_empty(): add_button(service, "Просто поехать →", take_free_ride)   # the one main action of the depot is the order card: this one is quiet
 	positioned_label("Нажми на машину или вагон, чтобы выбрать его улучшения.", Rect2(46, size.y - 83, left_width - 30, 60), 17)
 
