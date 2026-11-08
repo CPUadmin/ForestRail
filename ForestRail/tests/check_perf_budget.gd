@@ -31,6 +31,21 @@ func percentile(values: Array, p: float) -> float:
 	sorted.sort()
 	return float(sorted[mini(sorted.size() - 1, int(floor(float(sorted.size()) * p)))])
 
+# A fixed small piece of work: how fast this machine is at this moment (after a long run the processor is hotter and slower; the budgets of the
+# scenes are scaled by the ratio to the base, so that a slow moment is not taken for a slow code).
+func bench_ms() -> float:
+	var best = 1.0e9
+	for round in range(5):
+		var start = Time.get_ticks_usec()
+		var sum = 0.0
+		var items: Array = []
+		for i in range(60000):
+			sum += sin(float(i) * 0.013) * cos(float(i) * 0.007)
+			if i % 40 == 0: items.append(Vector2(sum, float(i)))
+		var spent = float(Time.get_ticks_usec() - start) / 1000.0
+		best = minf(best, spent)
+	return best
+
 func prepare(kind: String, wagons: bool = true) -> void:
 	var m = Model.new()
 	m.new_game(42, 2)
@@ -118,6 +133,8 @@ func run() -> void:
 	await measure("depot", false)
 	# the base of this machine
 	var machine = OS.get_processor_name()
+	var speed_now = bench_ms()
+	results["bench"] = {"ms": {"median": speed_now, "p95": speed_now}}
 	var base_all = {}
 	if FileAccess.file_exists(baseline_path):
 		var parsed = JSON.parse_string(FileAccess.get_file_as_string(baseline_path))
@@ -132,13 +149,24 @@ func run() -> void:
 		check(true, "the base of this machine is written")
 	else:
 		var base = base_all[machine]
+		var slow = 1.0
+		if base.has("bench"):
+			slow = maxf(1.0, speed_now / maxf(0.001, float(base.bench.ms.median)))
+		else:
+			# the base of the older run has no speed mark: it is added now (this run is taken as the calm one)
+			base["bench"] = results["bench"]
+			base_all[machine] = base
+			var upgraded = FileAccess.open(baseline_path, FileAccess.WRITE)
+			upgraded.store_string(JSON.stringify(base_all, "  "))
+			upgraded.close()
+		print("PERF speed of the machine now against the base: x%.2f" % slow)
 		for scene in results:
-			if not base.has(scene): continue
+			if scene == "bench" or not base.has(scene): continue
 			for counter in results[scene]:
 				if not base[scene].has(counter): continue
 				var now = results[scene][counter]
 				var was = base[scene][counter]
-				check(float(now.median) <= float(was.median) * MEDIAN_K + SLACK_MS, "%s %s: median %.2f ms against the base %.2f" % [scene, counter, float(now.median), float(was.median)])
-				check(float(now.p95) <= float(was.p95) * P95_K + SLACK_MS * 2.0, "%s %s: p95 %.2f ms against the base %.2f" % [scene, counter, float(now.p95), float(was.p95)])
+				check(float(now.median) <= float(was.median) * MEDIAN_K * slow + SLACK_MS, "%s %s: median %.2f ms against the base %.2f" % [scene, counter, float(now.median), float(was.median)])
+				check(float(now.p95) <= float(was.p95) * P95_K * slow + SLACK_MS * 2.0, "%s %s: p95 %.2f ms against the base %.2f" % [scene, counter, float(now.p95), float(was.p95)])
 	print("PERF BUDGET CHECKS ", checks, "; FAILURES ", failures)
 	get_tree().quit(0 if failures.is_empty() else 1)
