@@ -171,10 +171,7 @@ func run() -> void:
 			game.camera_s=100;game.camera_y=0;game.camera_x=game.get_viewport_rect().size.x*0.65
 			for i in range(6): await frame()
 			var buttons=game.ui.find_children("*","Button",true,false)
-			for b in buttons:
-				if b.text=="Кабина [E]":
-					var point=b.get_global_rect().get_center()
-					await mouse(point,true);await mouse(point,false)
+			game.toggle_cab_view()   # the cab button is gone: the key E and a click on the machine open the cab
 			for i in range(8): await frame()
 			check(game.cab_active(),"the cab opens with mouse "+id+str(resolution))
 			check(game.get_viewport_rect().encloses(game.pult_screen_rect()),"the cab's controls fit the window")

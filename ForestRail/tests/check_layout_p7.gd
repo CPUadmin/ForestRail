@@ -37,6 +37,19 @@ func click_until(point: Vector2,done: Callable) -> void:
 		await click(point)
 		if done.call(): return
 
+# the cab is entered by a click on an empty place of the machine: the middle of its body away from the levers
+func click_machine_for_cab() -> bool:
+	for attempt in range(4):
+		var rect = Rect2()
+		for hit in game.body_hits:
+			if hit.id == game.model.vehicle_id(): rect = hit.rect
+		if rect.size.x <= 0: return false
+		var spot = Vector2(rect.position.x + rect.size.x * 0.5, rect.position.y + rect.size.y * 0.85)
+		await click(spot)
+		await frame(3)
+		if game.cab_active(): return true
+	return false
+
 func click_button(parent: Node,text: String,done: Callable=Callable()) -> bool:
 	for attempt in range(4):
 		var found=false
@@ -84,10 +97,10 @@ func run() -> void:
 				check(ratio<=0.22+0.0001,"permanent panels <=22% "+str(resolution))
 				check(not game.hint_label.visible and not game.order_label.visible and not game.action_bar.visible,"moving view hides station context")
 				check(game.instruments.mini_rect().end.x<=viewport.size.x-game.instruments.status_width()-22,"map and status do not overlap")
-				check(game.hud.get_global_rect().end.x<=game.map_button.get_global_rect().position.x,"route heading and buttons do not overlap")
+				check(game.hud.get_global_rect().end.x<=game.menu_hud_button.get_parent().get_global_rect().position.x,"route heading and buttons do not overlap")
 				for b in game.ui.find_children("*","Button",true,false):
 					if b.is_visible_in_tree(): check(viewport.encloses(b.get_global_rect()),"visible HUD button remains inside window")
-					if b.text in ["Карта [M]","Кабина [E]","Пауза"]: check(b.size.y<=46,"actual header buttons fit declared panel height")
+					if b == game.menu_hud_button: check(b.size.y<=46,"actual header buttons fit declared panel height")
 				var state=JSON.stringify(game.model.serialize())
 				await frame(3)
 				check(JSON.stringify(game.model.serialize())==state,"redrawing does not change model")
@@ -98,7 +111,7 @@ func run() -> void:
 				check(await click_button(game.overlay,"Закрыть [M / Esc]",func(): return game.modal_kind=="" and not game.paused),"map has mouse close action")
 				check(game.modal_kind=="" and not game.paused,"mouse closes map and resumes")
 				if id!="handcar":
-					check(await click_button(game.ui,"Кабина [E]",func(): return game.cab_active()),"mouse opens the cab at every text scale")
+					check(await click_machine_for_cab(),"a mouse click on the machine opens the cab at every text scale")
 					await frame(3)
 					check(game.cab_active(),"the cab actually opened")
 					check(viewport.encloses(game.pult_screen_rect()),"the cab's controls stay inside the window")

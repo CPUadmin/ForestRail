@@ -38,7 +38,8 @@ var textures: Dictionary = {}
 var art
 var art_world
 var instruments
-var map_button: Button
+var map_button: Button    # the minimap strip (a click opens the map): the header has no map button any more
+var menu_hud_button: Button   # the only global button of the header: the menu (pause)
 var visual_layout: Dictionary = {}
 var font: Font
 var ui: Control
@@ -1577,7 +1578,7 @@ func build_hud(size: Vector2) -> void:
 	for state in ["normal","hover","pressed","focus"]: mini_button.add_theme_stylebox_override(state,StyleBoxEmpty.new())
 	mini_button.pressed.connect(toggle_map)
 	ui.add_child(mini_button)
-	var buttons_width = ((480 if model.grapnel_installed() else 270) if model.human_powered() else (760 if model.burst_gadget() != "" else 560))*float(settings.text_scale)   # a gadget button widens the row
+	var buttons_width = ((210 if model.grapnel_installed() else 70) if model.human_powered() else (210 if model.burst_gadget() != "" else 70))*float(settings.text_scale)   # the row holds the menu button and the gadget buttons
 	hud = positioned_label("", Rect2(34, 12, size.x - buttons_width - 90, 42), 20)
 	hud.autowrap_mode=TextServer.AUTOWRAP_OFF
 	hud.text_overrun_behavior=TextServer.OVERRUN_TRIM_ELLIPSIS
@@ -1586,13 +1587,15 @@ func build_hud(size: Vector2) -> void:
 	pause_row.size = Vector2(buttons_width, 46)
 	pause_row.add_theme_constant_override("separation",10)
 	ui.add_child(pause_row)
-	map_button = add_button(pause_row, "Карта [%s]" % key_name("map"), toggle_map)
+	map_button = mini_button
 	burst_button = null
 	if model.burst_gadget() != "": burst_button = add_button(pause_row, burst_button_text(), try_burst)
 	grapnel_button = null
 	if model.grapnel_installed(): grapnel_button = add_button(pause_row, grapnel_button_text(), try_grapnel)
-	if not model.human_powered(): add_button(pause_row,"Кабина [%s]" % key_name("cab"),toggle_cab_view)
-	add_button(pause_row, "Пауза", pause_game)
+	# the cab is entered by the key E or by a click on the machine, the map by the key M or by a click on the strip of the route, the pause by Esc
+	menu_hud_button = add_button(pause_row, "☰", pause_game, false, false, &"QuietAction")
+	menu_hud_button.tooltip_text = "Меню и пауза [Esc]"
+	menu_hud_button.custom_minimum_size.x = 52
 	for button in pause_row.get_children():
 		for state_name in ["normal","hover","pressed","disabled","focus"]:
 			var padding=button.get_theme_stylebox(state_name).duplicate()
@@ -1660,7 +1663,7 @@ func update_hud() -> void:
 	var returning = not state.active.is_empty() and state.active.phase == "return"
 	var stop_index = model.station_index()
 	var at_station = model.station_name(model.data.stations[stop_index].id) if stop_index >= 0 else ""
-	hud.text = "%s · %d м · %s · %s" % [model.journey_heading(),absf(target_s-float(state.s)),model.clock_text(),model.weather_name() if int(settings.weather) != 2 else "ясно"] + deadline_text() + brake_hint_text(target_s)
+	hud.text = "%s · %d м · %s · %s" % [model.journey_heading(),absf(target_s-float(state.s)),model.clock_text(),model.weather_name() if int(settings.weather) != 2 else "ясно"] + deadline_text() + brake_hint_text(target_s) + keys_hint_text()
 	if burst_button != null and is_instance_valid(burst_button):
 		burst_button.text = burst_button_text()
 		burst_button.disabled = not model.burst_ready()
@@ -1747,6 +1750,12 @@ func update_hud() -> void:
 		for child in action_bar.get_children():
 			if child is Button: child.size_flags_horizontal=Control.SIZE_SHRINK_BEGIN
 	action_bar.visible=not cab_active() and action_bar.get_child_count()>0 and (state.phase=="loading" or model.stopped())
+
+# The first three deliveries the header reminds where the removed buttons went.
+func keys_hint_text() -> String:
+	if int(model.state.stats.get("deliveries", 99)) >= 3 or cab_active(): return ""
+	var cab_part = "" if model.human_powered() else " · %s кабина" % key_name("cab")
+	return "   [%s карта%s · Esc меню]" % [key_name("map"), cab_part]
 
 func energy_text() -> String:
 	if model.vehicle_id() == "handcar": return "Ручной привод · %d Вт" % roundi(model.output_power)
@@ -2869,6 +2878,14 @@ func _unhandled_input(event: InputEvent) -> void:
 				pole_press_rel = pole_mouse_rel(mouse)
 				Input.set_default_cursor_shape(Input.CURSOR_DRAG)
 				get_viewport().set_input_as_handled()
+				return
+		# a click on an empty place of the machine (no lever, no cargo, no pole under the mouse) enters the cab
+		if screen == "game" and not cab_active() and not paused and not model.human_powered() and model.state.phase in ["route", "loading"]:
+			for hit in body_hits:
+				if hit.id == model.vehicle_id() and hit.rect.has_point(mouse):
+					toggle_cab_view()
+					get_viewport().set_input_as_handled()
+					return
 
 # The mouse place along the track in the pole truck's own frame: metres forward of the
 # platform centre in the direction of travel.

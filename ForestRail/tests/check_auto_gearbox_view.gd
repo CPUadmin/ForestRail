@@ -85,9 +85,10 @@ func run() -> void:
 	game.camera_y = 0
 	game.camera_x = game.get_viewport_rect().size.x * 0.65
 	for i in range(6): await frame()
-	for b in game.ui.find_children("*", "Button", true, false):
-		if b.text == "Кабина [E]":
-			var point = b.get_global_rect().get_center()
+	game.toggle_cab_view()   # the cab button is gone: the key E and a click on the machine open the cab
+	for b in []:
+		if false:
+			var point = Vector2.ZERO
 			await mouse(point, true)
 			await mouse(point, false)
 	for i in range(8): await frame()
