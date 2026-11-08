@@ -825,11 +825,33 @@ func build_depot(size: Vector2) -> void:
 	# the bolts are money too: the chip "Болты (N)" stands right after the coins and opens the bolt desk
 	var money_text = "Творческий режим  ·  деньги и топливо без ограничений" if model.creative() else "%d монет%s  ·  %d / 10 основных рейсов" % [model.state.money, ("  ·  долг %d" % int(model.state.get("debt", 0))) if int(model.state.get("debt", 0)) > 0 else "", model.state.chapter]
 	var money_width = font.get_string_size(money_text, HORIZONTAL_ALIGNMENT_LEFT, -1, int(20 * float(settings.text_scale))).x
-	var bolts_chip = add_button(ui, "Болты (%d)" % model.casino().bolt_total(), func(): show_modal("receiving"), false, false, &"QuietAction")
-	bolts_chip.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	bolts_chip.custom_minimum_size = Vector2(0, 34 * float(settings.text_scale))
-	bolts_chip.position = Vector2(46 + money_width + 22, money_y - 7)
+	# it reads as a part of the same line: no box, the same size, a dot between; the brass colour and the underline on hover tell that it is pressable
+	positioned_label("·", Rect2(46 + money_width + 9, money_y, 20, 45), 20)
+	var bolts_chip = Button.new()
+	bolts_chip.text = "Болты (%d)" % model.casino().bolt_total()
+	bolts_chip.flat = true
+	bolts_chip.focus_mode = Control.FOCUS_ALL
+	for state_name in ["normal", "hover", "pressed", "disabled"]:
+		var plain = StyleBoxEmpty.new()
+		plain.content_margin_left = 4
+		plain.content_margin_right = 4
+		plain.content_margin_top = 0
+		plain.content_margin_bottom = 0
+		bolts_chip.add_theme_stylebox_override(state_name, plain)
+	bolts_chip.add_theme_stylebox_override("focus", UiKit.box("quiet", "focus"))
+	bolts_chip.add_theme_font_size_override("font_size", int(20 * float(settings.text_scale)))
+	bolts_chip.add_theme_color_override("font_color", UiKit.BRASS_LIGHT)
+	bolts_chip.add_theme_color_override("font_hover_color", UiKit.LAMP)
+	bolts_chip.add_theme_color_override("font_pressed_color", UiKit.LAMP)
+	bolts_chip.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	bolts_chip.position = Vector2(46 + money_width + 30, money_y + 1)
+	bolts_chip.size = Vector2(150 * float(settings.text_scale), 34 * float(settings.text_scale))
+	bolts_chip.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	bolts_chip.tooltip_text = "Приёмка болтов: сдать шлак за монеты или жетоны"
+	bolts_chip.pressed.connect(func():
+		sound.play("ui_click", 0.5)
+		show_modal("receiving"))
+	ui.add_child(bolts_chip)
 	var menu_row = HBoxContainer.new()
 	menu_row.position = Vector2(size.x - 285, 28)
 	menu_row.size = Vector2(245, 50)
