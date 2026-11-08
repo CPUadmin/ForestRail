@@ -831,7 +831,7 @@ func build_depot(size: Vector2) -> void:
 	var right = panel_at(ui, panel_rect, true)
 	# B1.2b: the four places of the depot are pictures to choose from, not a row of words
 	var tiles = HBoxContainer.new()
-	tiles.add_theme_constant_override("separation", 8)
+	tiles.add_theme_constant_override("separation", 6)
 	right.add_child(tiles)
 	var places = [["Гараж", "Гараж", "garage"], ["Состав", "Состав", "wagons"], ["Улучшения", "Мастерская", "bench"], ["Рейсы", "Доска заказов", "board"], ["Казик", "Казик", "casino"]]
 	if model.records_open(): places.append(["Рекорды", "Рекорды", "records"])
@@ -936,7 +936,7 @@ func build_depot(size: Vector2) -> void:
 			refill_button.add_theme_constant_override("icon_max_width", 22)
 	# no separate "Улучшить" button: the workshop is the tab "Мастерская" and a click on the machine itself
 	add_button(service, "Болты (%d)" % model.casino().bolt_total(), func(): show_modal("receiving"))
-	if model.state.active.is_empty(): add_button(service, "Просто поехать →", take_free_ride, false, false, &"PrimaryAction")
+	if model.state.active.is_empty(): add_button(service, "Просто поехать →", take_free_ride)   # the one main action of the depot is the order card: this one is quiet
 	positioned_label("Нажми на машину или вагон, чтобы выбрать его улучшения.", Rect2(46, size.y - 83, left_width - 30, 60), 17)
 
 # A big picture button for one place of the depot: the picture and its name are drawn on top of an
@@ -991,7 +991,11 @@ func build_records_tab(right: Node) -> void:
 func depot_tile(parent: Node, tab_name: String, caption: String, icon: String) -> Button:
 	var selected = tab == tab_name
 	var button = Button.new()
-	button.custom_minimum_size = Vector2(0, 96.0 * float(settings.text_scale))
+	# a strip of words instead of 96-px picture tiles (the pictures return when the icons of the interface kit are connected): it gives the height back to the list
+	button.custom_minimum_size = Vector2(0, 40.0 * float(settings.text_scale))
+	button.text = caption
+	button.add_theme_font_size_override("font_size", int(18 * float(settings.text_scale)))
+	button.add_theme_color_override("font_disabled_color", UiKit.LAMP)   # the chosen tab is inert but lit
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	button.tooltip_text = caption
@@ -1003,13 +1007,6 @@ func depot_tile(parent: Node, tab_name: String, caption: String, icon: String) -
 		sound.play("ui_click", 0.5)
 		tab = tab_name
 		rebuild())
-	var picture = Control.new()
-	picture.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	picture.set_anchors_preset(Control.PRESET_FULL_RECT)
-	picture.draw.connect(func(): draw_depot_icon(picture, icon, caption, selected, button.is_hovered()))
-	button.mouse_entered.connect(picture.queue_redraw)
-	button.mouse_exited.connect(picture.queue_redraw)
-	button.add_child(picture)
 	parent.add_child(button)
 	return button
 
