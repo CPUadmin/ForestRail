@@ -1709,7 +1709,7 @@ func update_hud() -> void:
 	update_cargo_actions(interaction)
 	var key = "%s_%d_%s_%s_%s_%d" % [state.phase, stop_index, str(model.stopped()), str(model.all_loaded()), str(returning), model.drive_direction()]
 	if state.phase=="loading": key+=str(model.loading_preview().signature)
-	key += "_" + str(model.oars_out())
+	key += "_" + str(model.oars_out()) + "_" + str(model.can_turn() == "")
 	if key != last_action_key:
 		last_action_key = key
 		clear_children(action_bar)
@@ -1727,21 +1727,21 @@ func update_hud() -> void:
 				add_button(action_bar, "Убрать вёсла" if model.oars_out() else "Вёсла", func():
 					if model.set_oars(not model.oars_out()): last_action_key = ""
 					else: notify(model.message))
+			# one switch for the direction of the pull instead of two buttons: it shows where the machine pulls now and flips it
 			if model.vehicle_id() not in ["handcar","pole","sail","motorcar"]:
-				add_button(action_bar, "Тяга ←", func():
-					if model.set_reverser(-int(state.direction)): save_game(); last_action_key = ""
-					else: notify(model.message), false, model.drive_direction() < 0)
-				add_button(action_bar, "Тяга →", func():
-					if model.set_reverser(int(state.direction)): save_game(); last_action_key = ""
-					else: notify(model.message), false, model.drive_direction() > 0)
-			if stop_index >= 0:
+				var forward = model.drive_direction() > 0
+				add_button(action_bar, "Тяга →" if forward else "Тяга ←", func():
+					var wanted = -int(state.direction) if forward else int(state.direction)
+					if model.set_reverser(wanted): save_game(); last_action_key = ""
+					else: notify(model.message))
+			# what cannot be done now is not shown (no grey button without a reason): the turn is offered only when it is possible
+			if stop_index >= 0 and model.can_turn() == "":
 				add_button(action_bar, "Развернуть", func():
 					if model.turn(): save_game(); notify("Состав развёрнут"); last_action_key = ""
-					else: notify(model.message), model.can_turn() != "")
+					else: notify(model.message))
 			if stop_index == 0:
 				add_button(action_bar, "Заехать в депо →", start_depot_entry)
-			if model.vehicle_id() == "pneumatic": add_button(action_bar, "Сбить весь иней [%s]" % key_name("ice"), chip_all_ice)
-			add_button(action_bar, "Сохранить", func(): save_game(); notify("Сохранено"))
+			# the frost of the pneumatic train is knocked off by the key I or by a click on the white spots; the manual save is in the pause menu only
 		for child in action_bar.get_children():
 			if child is Button: child.size_flags_horizontal=Control.SIZE_SHRINK_BEGIN
 	action_bar.visible=not cab_active() and action_bar.get_child_count()>0 and (state.phase=="loading" or model.stopped())
