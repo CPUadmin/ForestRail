@@ -211,6 +211,8 @@ func run() -> void:
 	var file = FileAccess.open(OUT.path_join("results.json"),FileAccess.WRITE)
 	file.store_string(JSON.stringify(result,"\t"))
 	file.close()
+	var InstrumentsClass = preload("res://scripts/instruments.gd")
+	check(InstrumentsClass.lamp_state(0.9) == "off" and InstrumentsClass.lamp_state(0.39) == "warn" and InstrumentsClass.lamp_state(0.19) == "alarm" and InstrumentsClass.lamp_state(0.0) == "alarm", "the wear lamp: dark above 40%, amber below 40%, red below 20%")
 	print("INSTRUMENT CHECKS ",checks,"; FAILURES ",failures)
 	game.queue_free()
 	await get_tree().process_frame

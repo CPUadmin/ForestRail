@@ -208,9 +208,34 @@ func _draw_hud() -> void:
 	draw_minimap()
 	draw_status()
 
+# The lamp "АВАРИЯ" instead of the line of text: dark while all is well, steady amber when a node of the train is below 40%, red and blinking (2 Hz) below 20%.
+static func lamp_state(cond: float) -> String:
+	if cond < 0.2: return "alarm"
+	if cond < 0.4: return "warn"
+	return "off"
+
+func draw_wear_lamp(r: Rect2) -> void:
+	if not game.Model.wear_rules: return
+	var state = lamp_state(float(game.model.wear().train_worst().cond))
+	var at = Vector2(r.end.x - 21.0, r.position.y + 19.0)
+	draw_circle(at + Vector2(1.0, 1.5), 11.0, Color(0, 0, 0, 0.35))
+	draw_circle(at, 11.0, Color("a98a4a"))
+	draw_circle(at, 9.0, Color("2a2218"))
+	var blinking = state == "alarm" and not bool(game.settings.reduce_motion)
+	var on = state != "off" and (not blinking or fmod(game.time * 4.0, 2.0) < 1.0)
+	if on:
+		var tone = Color("e0564a") if state == "alarm" else Color("e6b34a")
+		draw_circle(at, 16.0, Color(tone, 0.18))
+		draw_circle(at, 9.0, tone)
+		draw_circle(at + Vector2(-2.5, -3.0), 3.0, Color(1, 1, 1, 0.55))
+	else:
+		draw_circle(at, 7.5, Color("3a2d16") if state == "off" else Color("5a2a20"))
+		draw_circle(at + Vector2(-2.5, -3.0), 2.0, Color(1, 1, 1, 0.12))
+
 func draw_speedometer() -> void:
 	var r=Rect2(22,hud_top(),210,hud_height())
 	panel(r,Color("1a2a2e"),Color("d9b45a"))
+	draw_wear_lamp(r)
 	var f=r.size.y/100.0
 	var center=r.position+Vector2(66,56*f)
 	var radius=34.0*f

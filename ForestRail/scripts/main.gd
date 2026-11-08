@@ -1648,9 +1648,7 @@ func brake_hint_text(target_s: float) -> String:
 		text = " · торм. путь %d м" % roundi(minf(stop_m, 999.0))
 		var ahead = (target_s - float(model.state.s)) * int(model.state.direction)
 		if ahead > 0.0 and float(model.state.v) * int(model.state.direction) > 0.0 and stop_m * 1.1 >= ahead: text += " — ТОРМОЗИ"
-	if Model.wear_rules and model.wear().warning():
-		var weak = model.wear().train_worst()
-		text += " · АВАРИЯ: %s %d%%" % [str(weak.name).to_lower(), roundi(float(weak.cond) * 100.0)]
+	# the wear warning is the lamp in the speed panel now (instruments.gd), the weak node is named in the pause window
 	if model.wheel_slip and not model.wheel_lock and float(model.state.throttle) > 0.05: text += " · колёса буксуют"
 	return text
 
@@ -2206,6 +2204,9 @@ func build_modal(size: Vector2) -> void:
 	elif modal_kind == "pause":
 		add_label(box, "Пауза", 34)
 		if resume_prompt: add_label(box, "Готов продолжить поездку?", 23)
+		if Model.wear_rules and model.wear().warning():
+			var weak_node = model.wear().train_worst()
+			add_label(box, "Слабое место: %s %d%%" % [str(weak_node.name).to_lower(), roundi(float(weak_node.cond) * 100.0)], 22)
 		if Model.wear_rules and not model.wear().journal.is_empty():
 			add_label(box, "Что случилось в рейсе", 22)
 			for line in model.wear().journal_lines(): add_label(box, str(line), 19)
