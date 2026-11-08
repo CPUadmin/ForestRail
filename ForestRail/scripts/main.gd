@@ -79,6 +79,7 @@ const SETTINGS_TABS = ["Звук", "Экран", "Игра"]   # three groups; t
 var settings = DEFAULT_SETTINGS.duplicate(true)
 var settings_backup: Dictionary = {}
 var settings_tab = "Звук"
+var free_trips_open = false   # the depot: the list of free trips is unfolded under the main order
 var settings_fold: Dictionary = {}   # which folded groups of the settings are open
 var pause_stuck_open = false   # the pause menu: the group "Застрял?" (the help of the depot and the repair at the station) is unfolded
 var awaiting_key = ""
@@ -1452,13 +1453,20 @@ func build_missions(right: VBoxContainer) -> void:
 			mission_notice(right, offer, "СВОБОДНЫЙ РЕЙС", "Взять")
 		return
 	var mission = model.current_mission()
+	var offers: Array = model.free_offers()
 	if not mission.is_empty():
 		mission_notice(right, mission, "ОСНОВНОЙ РЕЙС  ·  %s" % mission.id, "К погрузке →", true)
 	else:
 		add_label(right, "Линия работает. Выбирай следующую перевозку.", 23)
-	add_label(right, "Свободные рейсы", 22)
-	for offer in model.free_offers():
-		mission_notice(right, offer, "СВОБОДНЫЙ РЕЙС", "Взять · %d монет" % offer.reward)
+	# one main order in sight; the free trips are under a fold (when there is no main order they are the choice itself and stay open)
+	var open = free_trips_open or mission.is_empty()
+	if not mission.is_empty():
+		add_button(right, "Свободные рейсы (%d) %s" % [offers.size(), "▴" if free_trips_open else "▾"], func(): free_trips_open = not free_trips_open; rebuild(), false, false, &"QuietAction")
+	else:
+		add_label(right, "Свободные рейсы", 22)
+	if open:
+		for offer in offers:
+			mission_notice(right, offer, "СВОБОДНЫЙ РЕЙС", "Взять · %d монет" % offer.reward)
 
 # B1.2d: an order is a notice pinned to the board: where it goes, what it carries, what it pays, how
 # hard the road is, and the button that takes it.

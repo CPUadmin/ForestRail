@@ -135,6 +135,7 @@ func run() -> void:
 		if str(label.text).begins_with("Срок "): term_labels += 1
 	check(term_labels >= 1, "the job board shows the deadline of an order (%d notices)" % term_labels)
 	Rules.order_rules = false
+	game.free_trips_open = true   # the free trips are folded under the main order by default
 	game.rebuild()
 	var rewards = 0
 	var roads = 0

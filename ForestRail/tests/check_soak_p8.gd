@@ -111,6 +111,7 @@ func run() -> void:
 			completed+=1
 			check(await click_button("Продолжить перевозки"),"result can continue by mouse")
 		elif game.screen=="depot":
+			if int(game.model.state.chapter)!=0 and not game.free_trips_open: game.free_trips_open=true; game.rebuild(); await frame(2)
 			check(await click_button("К погрузке →" if int(game.model.state.chapter)==0 else "Взять ·",int(game.model.state.chapter)>0),"soak chooses contract through UI")
 		elif game.model.state.phase=="loading":
 			var id=str(game.model.state.cargo[0].id)
