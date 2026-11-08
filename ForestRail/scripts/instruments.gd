@@ -237,8 +237,8 @@ func draw_speedometer() -> void:
 	panel(r,Color("1a2a2e"),Color("d9b45a"))
 	draw_wear_lamp(r)
 	var f=r.size.y/100.0
-	var center=r.position+Vector2(66,56*f)
-	var radius=34.0*f
+	var center=r.position+Vector2(66,50*f)   # the dial sits in the middle of the panel: the bezel (radius+9) leaves the same gap above and below
+	var radius=31.0*f
 	var maximum=dial_maximum()
 	var current=absf(float(game.model.state.v))*3.6
 	var nominal=nominal_speed()/maximum
@@ -264,8 +264,9 @@ func draw_speedometer() -> void:
 	draw_line(center+direction*(radius-12),center+direction*(radius-3),Color("e0564a"),3,true)
 	draw_circle(center,5,Color("c9af73"))
 	draw_circle(center,2,Color("1a1612"))
-	put("0",center+Vector2(-radius-4,radius*0.75+8),20,11,MUTED,HORIZONTAL_ALIGNMENT_CENTER)
-	put(str(roundi(maximum)),center+Vector2(radius-16,radius*0.75+8),30,11,MUTED,HORIZONTAL_ALIGNMENT_CENTER)
+	# The end values stand inside the dial, in the open gap under the arc, each under its own end of the scale and centred on it.
+	put("0",center+Vector2(-radius*0.58-14,radius*0.62),28,12,MUTED,HORIZONTAL_ALIGNMENT_CENTER)
+	put(str(roundi(maximum)),center+Vector2(radius*0.58-14,radius*0.62),28,12,MUTED,HORIZONTAL_ALIGNMENT_CENTER)
 	# Digital readout beside the dial; its colour follows the zone the needle is in.
 	var digits=Color("5cc17f")
 	if current>nominal_speed()+0.5: digits=Color("e0564a")
