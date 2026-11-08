@@ -6,6 +6,7 @@ const Sound = preload("res://scripts/sound.gd")
 const ArtV3 = preload("res://scripts/art_v3.gd")
 const Records = preload("res://scripts/records.gd")
 const ControlArt = preload("res://scripts/control_art.gd")
+const UiKit = preload("res://scripts/ui_kit.gd")
 const CabArt = preload("res://scripts/cab_art.gd")
 const ArtWorld = preload("res://scripts/art_world.gd")
 const Geometry = preload("res://scripts/world_geometry.gd")
@@ -587,18 +588,14 @@ func setup_theme() -> void:
 	var theme = Theme.new()
 	theme.default_font_size = int(20 * float(settings.text_scale))
 	theme.set_color("font_color", "Label", INK)
-	theme.set_color("font_color", "Button", PAPER)
-	theme.set_color("font_hover_color", "Button", Color.WHITE)
-	theme.set_color("font_disabled_color", "Button", Color("a9b5a8"))
-	theme.set_stylebox("normal", "Button", style(GREEN, GREEN, 8))
-	theme.set_stylebox("hover", "Button", style(Color("5b8060"), GOLD, 8))
-	theme.set_stylebox("pressed", "Button", style(INK, GOLD, 8))
-	theme.set_stylebox("disabled", "Button", style(Color(0.16, 0.24, 0.2, 0.55), Color(0.62, 0.68, 0.58, 0.25), 8))
-	theme.set_stylebox("focus", "Button", style(Color(0, 0, 0, 0), GOLD, 8))
+	# the buttons: brass on dark wood (ui_kit.gd); the green flat boxes are gone
+	UiKit.apply_to_theme(theme, "Button", "secondary")
 	theme.set_type_variation("PrimaryAction", "Button")
-	theme.set_stylebox("normal", "PrimaryAction", style(Color("426e4e"), GOLD, 8))
+	UiKit.apply_to_theme(theme, "PrimaryAction", "primary")
 	theme.set_type_variation("QuietAction", "Button")
-	theme.set_stylebox("normal", "QuietAction", style(Color("34473d"), Color("536759"), 8))
+	UiKit.apply_to_theme(theme, "QuietAction", "quiet")
+	theme.set_type_variation("DangerAction", "Button")
+	UiKit.apply_to_theme(theme, "DangerAction", "danger")
 	theme.set_stylebox("panel", "PanelContainer", style(PAPER))
 	ui.theme = theme
 	overlay.theme = theme
@@ -621,8 +618,8 @@ func add_button(parent: Node, text: String, action: Callable, disabled: bool = f
 	button.text = text
 	button.disabled = disabled or selected
 	if selected:
-		button.add_theme_stylebox_override("disabled", style(INK, GOLD, 8))
-		button.add_theme_color_override("font_disabled_color", Color("e2c27a"))
+		button.add_theme_stylebox_override("disabled", UiKit.box("secondary", "selected"))
+		button.add_theme_color_override("font_disabled_color", UiKit.LAMP)
 	button.custom_minimum_size.y = 44
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
@@ -930,7 +927,7 @@ func build_depot(size: Vector2) -> void:
 			refill_button.add_theme_constant_override("icon_max_width", 22)
 	add_button(service, "Улучшить", func(): selected_object = model.vehicle_id(); tab = "Улучшения"; rebuild())
 	add_button(service, "Болты (%d)" % model.casino().bolt_total(), func(): show_modal("receiving"))
-	if model.state.active.is_empty(): add_button(service, "Просто поехать →", take_free_ride)
+	if model.state.active.is_empty(): add_button(service, "Просто поехать →", take_free_ride, false, false, &"PrimaryAction")
 	positioned_label("Нажми на машину или вагон, чтобы выбрать его улучшения.", Rect2(46, size.y - 83, left_width - 30, 60), 17)
 
 # A big picture button for one place of the depot: the picture and its name are drawn on top of an
@@ -1493,7 +1490,7 @@ func mission_notice(parent: Node, mission: Dictionary, kind: String, take_text: 
 	var road = add_label(bottom, road_text, 17, RED if hard else (GREEN if grade <= 0.02 else MUTED_INK))
 	road.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	if problem != "": add_label(notice, problem, 16, RED)
-	add_button(notice, take_text, func(): take_mission(mission), problem != "")
+	add_button(notice, take_text, func(): take_mission(mission), problem != "", false, &"PrimaryAction" if highlighted else &"Button")
 
 # The steepest climb of the road from the depot to distance s (as a grade, 0.03 is 3%), measured
 # over 30 m so that a short springboard knoll is not mistaken for a hill.
@@ -1721,7 +1718,7 @@ func update_hud() -> void:
 		if state.phase == "loading":
 			add_button(action_bar, "Отправиться →", func():
 				if model.depart(): save_game(); rebuild()
-				else: notify(model.message), not model.all_loaded())
+				else: notify(model.message), not model.all_loaded(), false, &"PrimaryAction")
 			add_button(action_bar, "Заехать в депо →", start_depot_entry)
 			var plan=model.loading_preview()
 			var choice_label=add_label(action_bar,"Везём %d / %d · %d кг · %d монет" % [plan.loaded,plan.capacity,plan.mass_kg,plan.reward],19,PAPER)
