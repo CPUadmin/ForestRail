@@ -78,6 +78,7 @@ const SETTINGS_TABS = ["Звук", "Графика", "Управление", "И
 var settings = DEFAULT_SETTINGS.duplicate(true)
 var settings_backup: Dictionary = {}
 var settings_tab = "Звук"
+var pause_stuck_open = false   # the pause menu: the group "Застрял?" (the help of the depot and the repair at the station) is unfolded
 var awaiting_key = ""
 var camera_s = 0.0
 var camera_y = 0.0
@@ -544,6 +545,8 @@ func build_settings(box: VBoxContainer) -> void:
 		settings_toggle(box, "reduce_motion", "Без тряски и мерцания")
 		settings_slider(box, "cab_shake", "Тряска кабины", 0, 1, 0.05)
 	else:
+		add_button(box, "Как играть", func(): show_modal("help"))
+		add_button(box, "Об игре", func(): show_modal("credits"))
 		add_label(box, "Версия игры %s" % ProjectSettings.get_setting("application/config/version"), 20)
 		add_label(box, "Сохранения и настройки: %s" % ProjectSettings.globalize_path(saves.directory), 17, MUTED_INK)
 		add_button(box, "Открыть папку сохранений", func(): OS.shell_open(ProjectSettings.globalize_path(saves.directory)))
@@ -727,8 +730,7 @@ func build_menu(size: Vector2) -> void:
 		else:
 			begin_new(-1, true))
 	menu_button(box, "Настройки", func(): show_modal("settings"))
-	menu_button(box, "Как играть", func(): show_modal("help"))
-	menu_button(box, "Об игре", func(): show_modal("credits"))
+	# "Как играть" and "Об игре" live in the settings (the tab "Служебное") and in F1: the menu keeps only what is needed to start
 	menu_button(box, "Выход", func(): get_tree().quit())
 	# The footer needs the room the column leaves at small windows with large text.
 	if size.y / float(settings.text_scale) > 640:
@@ -2208,14 +2210,15 @@ func build_modal(size: Vector2) -> void:
 		add_button(box, "Продолжить", close_modal, false, false, &"PrimaryAction")
 		add_button(box, "Сохранить", func(): save_game(); notify("Сохранено"))
 		add_button(box, "Настройки", func(): show_modal("settings"))
-		add_button(box, "Как играть", func(): show_modal("help"))
-		if Model.wear_rules and model.wear().emergency_possible() and float(model.wear().train_worst().cond) < 0.5:
+		# the rare actions are folded under one line: the pause menu shows three things at first sight
+		add_button(box, "Застрял? ▴" if pause_stuck_open else "Застрял? ▾", func(): pause_stuck_open = not pause_stuck_open; show_modal("pause"), false, false, &"QuietAction")
+		if pause_stuck_open and Model.wear_rules and model.wear().emergency_possible() and float(model.wear().train_worst().cond) < 0.5:
 			add_button(box, "Аварийный ремонт (до 50%)", func():
 				var done = model.wear().emergency_all()
 				notify("Мастерская станции: +%d%% износа, %d монет" % [roundi(float(done.gained) * 100.0), int(done.price)])
 				save_game()
 				close_modal())
-		add_button(box, "Помощь депо", func(): confirm("Вернуть состав домой%s? Груз, отметки доставки и покупки сохранятся. Запас энергии пополнится.%s" % [(" за %d монет" % model.rescue_fee()) if model.rescue_fee() > 0 else "", (" Не хватает монет: остаток уйдёт в долг и вычтется из следующей награды. Узлы тяги депо починит сразу.") if model.rescue_fee() > int(model.state.money) else (" Узлы тяги депо починит сразу." if model.rescue_fee() > 0 else "")], func():
+		if pause_stuck_open: add_button(box, "Помощь депо", func(): confirm("Вернуть состав домой%s? Груз, отметки доставки и покупки сохранятся. Запас энергии пополнится.%s" % [(" за %d монет" % model.rescue_fee()) if model.rescue_fee() > 0 else "", (" Не хватает монет: остаток уйдёт в долг и вычтется из следующей награды. Узлы тяги депо починит сразу.") if model.rescue_fee() > int(model.state.money) else (" Узлы тяги депо починит сразу." if model.rescue_fee() > 0 else "")], func():
 			model.rescue()
 			screen = "depot"
 			camera_s = 0
@@ -2588,6 +2591,10 @@ func _input(event: InputEvent) -> void:
 		return
 	if event is InputEventKey and event.pressed and not event.echo and key_is(event,"map") and screen=="game":
 		toggle_map()
+		get_viewport().set_input_as_handled()
+		return
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_F1 and modal_kind == "" and not test_mode:
+		show_modal("help")   # the help is also at hand without the menu
 		get_viewport().set_input_as_handled()
 		return
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
