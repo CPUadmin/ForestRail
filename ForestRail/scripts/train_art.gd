@@ -19,6 +19,7 @@ func draw_train() -> void:
 		var a = body_transform(ids[i],rear_s)*canvas.Geometry.coupling(ids[i],1)
 		var b = body_transform(ids[i-1],front_s)*canvas.Geometry.coupling(ids[i-1],-1)
 		draw_coupler(a,b)
+	var bounds_by_id = {}
 	for i in range(ids.size() - 1, -1, -1):
 		if canvas.screen == "depot" and not canvas.coupling_anim.is_empty() and canvas.coupling_anim.attach and ids[i] == canvas.coupling_anim.id: continue
 		var s = canvas.model.body_s_render(i) if canvas.screen != "depot" else -canvas.model.body_offset(i)
@@ -31,6 +32,7 @@ func draw_train() -> void:
 		var world_bounds = Rect2(transform*local_bounds.position,Vector2.ZERO)
 		for corner in [local_bounds.end,Vector2(local_bounds.end.x,local_bounds.position.y),Vector2(local_bounds.position.x,local_bounds.end.y)]: world_bounds=world_bounds.expand(transform*corner)
 		canvas.body_hits.append({"id":ids[i],"rect":world_bounds.grow(6)})
+		bounds_by_id[ids[i]] = world_bounds
 		if canvas.screen == "depot" and canvas.tab == "Улучшения" and canvas.selected_object == ids[i] and canvas.model.state.active.is_empty(): canvas.draw_workshop_spots(ids[i], transform)
 		if canvas.screen == "depot" and canvas.selected_object == ids[i]:
 			canvas.draw_line(p + Vector2(-canvas.art.body_width(ids[i])*0.46,14)*scale_value,p+Vector2(canvas.art.body_width(ids[i])*0.46,14)*scale_value,canvas.GOLD,3,true)
@@ -39,12 +41,65 @@ func draw_train() -> void:
 	if canvas.screen == "game":
 		canvas.draw_land_dust()
 		canvas.draw_glints()
+		draw_wear_badges(ids, bounds_by_id)
 	for pair in [[0,1],[ids.size()-1,-1]]:
 		var id = ids[pair[0]]
 		var s = canvas.model.body_s_render(pair[0]) if canvas.screen!="depot" else -canvas.model.body_offset(pair[0])
 		var outer = body_transform(id,s)
 		var mount = canvas.Geometry.coupling(id,pair[1])
 		draw_coupler(outer*mount,outer*(mount+Vector2(pair[1]*float(canvas.Geometry.data().coupler.end_extension_m)*canvas.ArtV3.PX,0)))
+
+# 1.4.1: up to three badges over the worst worn parts of the train (the pictures of the parts are pack P19 of GPT).
+# Amber ring below 40% (the lamp «АВАРИЯ» is on), red and blinking below 20% (the part may stop on the way).
+const WEAR_BADGES_MAX = 3
+var wear_icon_cache = {}
+
+func wear_icon(node: String) -> Texture2D:
+	if not wear_icon_cache.has(node):
+		var path = "res://assets/art_wear/node_%s.png" % node
+		wear_icon_cache[node] = load(path) if ResourceLoader.exists(path) else null
+	return wear_icon_cache[node]
+
+func worn_parts(ids: Array) -> Array:
+	var wear = canvas.model.wear()
+	var found: Array = []
+	for id in ids:
+		for def in wear.nodes_of(id):
+			var value = wear.condition(id, str(def.id))
+			if value < wear.WARN_BELOW: found.append([value, id, str(def.id)])
+	found.sort_custom(func(a, b): return a[0] < b[0])
+	return found.slice(0, WEAR_BADGES_MAX)
+
+func draw_wear_badges(ids: Array, bounds_by_id: Dictionary) -> void:
+	var parts = worn_parts(ids)
+	if parts.is_empty(): return
+	var by_id = {}
+	for part in parts:
+		if not by_id.has(part[1]): by_id[part[1]] = []
+		by_id[part[1]].append(part)
+	var radius = clampf(0.3 * canvas.ArtV3.PX * canvas.view_scale(), 16.0, 26.0)
+	var blink = 1.0 if canvas.settings.reduce_motion else 0.75 + 0.25 * sin(canvas.time * TAU * 2.0)
+	var top_limit = 66.0 + radius   # under the top bar of the road screen
+	for id in by_id:
+		if not bounds_by_id.has(id): continue
+		var box: Rect2 = bounds_by_id[id]
+		var row: Array = by_id[id]
+		var step = radius * 2.4
+		var left = box.get_center().x - step * (row.size() - 1) * 0.5
+		for k in range(row.size()):
+			var value = float(row[k][0])
+			var red = value < canvas.model.wear().BREAKDOWN_BELOW
+			var ring = Color("d63b26") if red else canvas.UiKit.WARN
+			var center = Vector2(left + step * k, maxf(top_limit, box.position.y - radius - 8.0))
+			# the dark metal pictures read on the cream of the paper; the ring tells how bad it is
+			canvas.draw_circle(center, radius + 4.0, Color(ring, blink if red else 1.0))
+			canvas.draw_circle(center, radius, Color(canvas.UiKit.PAPER, 0.96))
+			var icon = wear_icon(str(row[k][2]))
+			if icon != null:
+				var side = radius * 1.55
+				var aspect = float(icon.get_width()) / float(icon.get_height())
+				var size = Vector2(side * minf(1.0, aspect), side / maxf(1.0, aspect))
+				canvas.draw_texture_rect(icon, Rect2(center - size * 0.5, size), false)
 
 # Wagons the player owns but has not coupled stand behind the train.
 func parked_wagons() -> Array:

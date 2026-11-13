@@ -62,6 +62,18 @@ func run() -> void:
 	check(got > 0.0 and wear.condition("motorcar", "bearings") > before, "the bolts of the bag mend the bearings (+%.0f%%)" % (got * 100.0))
 	check(game.model.casino().junk_count("rusty_bolt") == 0, "the common bolts go first (cheapest in tokens per percent)")
 	check(game.model.casino().junk_count("spark_plug") < 3, "and the plugs of the own machine finish the job")
+	# 1.4.1: the badges over the train show the three worst parts below 40%, the worst first
+	for node in ["engine", "gearbox", "bearings", "brake"]: wear.set_condition("motorcar", node, 1.0)
+	wear.set_condition("motorcar", "engine", 0.35)
+	wear.set_condition("motorcar", "gearbox", 0.1)
+	wear.set_condition("motorcar", "bearings", 0.3)
+	wear.set_condition("motorcar", "brake", 0.2)
+	var parts = game.train_art().worn_parts(["motorcar"])
+	check(parts.size() == 3, "no more than three badges over the train (%d)" % parts.size())
+	check(parts.size() == 3 and parts[0][2] == "gearbox" and parts[1][2] == "brake" and parts[2][2] == "bearings", "the worst parts come first: %s" % str(parts))
+	for part in parts: check(game.train_art().wear_icon(str(part[2])) != null, "the badge of %s has its picture" % part[2])
+	wear.set_condition("motorcar", "gearbox", 0.9); wear.set_condition("motorcar", "brake", 0.9); wear.set_condition("motorcar", "bearings", 0.9); wear.set_condition("motorcar", "engine", 0.9)
+	check(game.train_art().worn_parts(["motorcar"]).is_empty(), "a sound machine has no badges")
 	Model.wear_rules = false
 	print("WEAR VIEW CHECKS ", checks, "; FAILURES ", failures)
 	get_tree().quit(0 if failures.is_empty() else 1)
