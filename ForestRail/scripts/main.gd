@@ -1419,6 +1419,12 @@ func build_modal(size: Vector2) -> void:
 			add_label(box, "Что случилось в рейсе", 22)
 			for line in model.wear().journal_lines(): add_label(box, str(line), 19)
 		add_button(box, "Продолжить", close_modal, false, false, &"PrimaryAction")
+		if Model.wear_rules and model.creative() and model.wear().needs_repair():
+			add_button(box, "Починить всё", func():
+				var mended = model.wear().repair_all()
+				notify("Починено узлов: %d" % mended)
+				save_game()
+				show_modal("pause"))
 		add_button(box, "Сохранить", func(): save_game(); notify("Сохранено"))
 		add_button(box, "Настройки", func(): show_modal("settings"))
 		# the rare actions are folded under one line: the pause menu shows three things at first sight

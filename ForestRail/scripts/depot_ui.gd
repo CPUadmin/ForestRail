@@ -496,6 +496,14 @@ func build_wear_card(right: VBoxContainer) -> void:
 	var worst = wear.worst(id)
 	var c = canvas.card(right, wear_color(float(worst.cond)) if float(worst.cond) < 0.7 else canvas.CARD_EDGE)
 	canvas.add_label(c, "Состояние  ·  " + ("всё в порядке" if float(worst.cond) >= 0.7 else "слабое место: " + str(worst.name).to_lower()), 22)
+	# 1.4.6: in the creative mode the whole fleet is mended in one click
+	var fleet = [canvas.model.vehicle_id()] + canvas.model.state.wagons_by_id.keys()
+	if canvas.model.creative() and wear.needs_repair(fleet):
+		canvas.add_button(c, "Починить всё", func():
+			var mended = canvas.model.wear().repair_all([canvas.model.vehicle_id()] + canvas.model.state.wagons_by_id.keys())
+			canvas.notify("Починено узлов: %d" % mended)
+			canvas.save_game()
+			canvas.rebuild())
 	for def in nodes:
 		var node = str(def.id)
 		var value = wear.condition(id, node)
@@ -514,7 +522,7 @@ func build_wear_card(right: VBoxContainer) -> void:
 		bar.add_theme_stylebox_override("fill", canvas.style(wear_color(value), wear_color(value), 3))
 		bar.add_theme_stylebox_override("background", canvas.style(Color(0.13, 0.17, 0.15), canvas.CARD_EDGE, 3))
 		line.add_child(bar)
-		if value < 0.999:
+		if value < 0.999 and not canvas.model.creative():   # the creative mode mends everything with the one button above
 			var gain = wear.bolts_gain(id, node)
 			canvas.add_button(line, "Болтами +%d%%" % roundi(gain * 100.0) if gain > 0.0 else "Болтов нет", func():
 				var got = canvas.model.wear().repair_bolts_auto(id, node)
@@ -527,6 +535,9 @@ func build_wear_card(right: VBoxContainer) -> void:
 				canvas.notify("Починено за монеты: +%d%%" % roundi(got * 100.0) if got > 0.0 else "Не хватает монет")
 				canvas.save_game()
 				canvas.rebuild(), int(canvas.model.state.money) < 3 and not canvas.model.creative())
+	if canvas.model.creative():
+		canvas.add_label(c, "Творческий режим: узлы изнашиваются, «Починить всё» чинит бесплатно, в рейсе тоже (пауза).", 15, canvas.MUTED_INK)
+		return
 	var kits = int(canvas.model.casino().st().repair_kits)
 	var footer = HBoxContainer.new()
 	footer.add_theme_constant_override("separation", 8)

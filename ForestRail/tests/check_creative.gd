@@ -76,5 +76,17 @@ func run() -> void:
 	var old = Model.new()
 	old.new_game(42)
 	check(Model.new().restore(old.serialize()), "an old career save still loads")
+	# 1.4.6: the creative mode has wear, and «Починить всё» mends the whole train in one click
+	var keep_rules = Model.wear_rules
+	Model.wear_rules = true
+	var fix = Model.new()
+	fix.new_game(42, 2, "creative")
+	var vid = fix.vehicle_id()
+	var first_node = str(fix.wear().nodes_of(vid)[0].id)
+	fix.wear().set_condition(vid, first_node, 0.12)
+	check(fix.wear().needs_repair(), "a worn creative machine needs a repair")
+	var mended = fix.wear().repair_all()
+	check(mended >= 1 and fix.wear().condition(vid, first_node) >= 0.999 and not fix.wear().needs_repair(), "one click mends everything (%d parts)" % mended)
+	Model.wear_rules = keep_rules
 	print("CREATIVE CHECKS ", checks, "; FAILURES ", failures)
 	get_tree().quit(0 if failures.is_empty() else 1)

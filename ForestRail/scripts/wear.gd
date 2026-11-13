@@ -267,6 +267,25 @@ func clear_broken(id: String) -> void:
 	if object.is_empty() or not object.has("broken"): return
 	if condition(id, str(object.broken)) >= BREAKDOWN_BELOW: object.erase("broken")
 
+# 1.4.6: the creative mode has wear too, but one click mends everything (owner's decision 08.11).
+# ids: the bodies to mend (the train by default); returns how many parts were mended.
+func needs_repair(ids: Array = []) -> bool:
+	for id in (ids if not ids.is_empty() else m.body_ids()):
+		for def in nodes_of(id):
+			if condition(id, str(def.id)) < 0.999: return true
+		if broken(id) != "": return true
+	return false
+
+func repair_all(ids: Array = []) -> int:
+	var mended = 0
+	for id in (ids if not ids.is_empty() else m.body_ids()):
+		for def in nodes_of(id):
+			if condition(id, str(def.id)) < 0.999:
+				set_condition(id, str(def.id), 1.0)
+				mended += 1
+		clear_broken(id)
+	return mended
+
 # The depot patches up any node that is below the line for free, so a beginner is never stuck.
 func free_touch_up() -> void:
 	for id in m.body_ids():

@@ -495,15 +495,15 @@ func wear() -> Object:
 
 # A hit to the node of a machine that makes the given action; only when the wear rules are on.
 func wear_hit(id: String, effect: String, amount: float, why: String = "", preferred: String = "") -> void:
-	if wear_rules and not creative(): wear().damage_effect(id, effect, amount, why, preferred)
+	if wear_rules: wear().damage_effect(id, effect, amount, why, preferred)   # 1.4.6: the creative mode wears too (one click mends it)
 
 func wear_skid(speed: float) -> void:
-	if not wear_rules or creative(): return
+	if not wear_rules: return
 	wear().damage(vehicle_id(), "brake", 0.03 + 0.05 * clampf(speed / 25.0, 0.0, 1.0), "колёса заблокированы")
 	wear().damage_effect(vehicle_id(), "roll", 0.02, "колёса заблокированы")
 
 func wear_landing(impact: float) -> void:
-	if not wear_rules or creative(): return
+	if not wear_rules: return
 	var a = minf(0.12, 0.03 + 0.02 * (impact - 1.0))
 	for id in body_ids():
 		if id.begins_with("W"):
@@ -513,7 +513,7 @@ func wear_landing(impact: float) -> void:
 			wear().damage_effect(id, "roll", a * 0.5, "приземление")
 
 func wear_buffer(speed: float) -> void:
-	if not wear_rules or creative(): return
+	if not wear_rules: return
 	var a = minf(0.15, 0.05 + 0.03 * (speed - BUFFER_SAFE_SPEED))
 	for id in body_ids():
 		if id.begins_with("W"):
@@ -1659,7 +1659,7 @@ func petrol_stall_check(gear: int, stats: Dictionary, dt: float) -> void:
 		stall_clock = 0.0
 		state.engine = false
 		events.append("gear")
-		if wear_rules and not creative():
+		if wear_rules:
 			wear().damage("motorcar", "engine", 0.02, "двигатель глох на передаче")
 			wear().damage("motorcar", "gearbox", 0.02, "двигатель глох на передаче")
 		message = "Двигатель заглох: передача слишком высокая для этого хода. Нейтраль, пуск, потом пониже"
@@ -2211,7 +2211,7 @@ func sail_step(dt: float = 1.0 / 60.0) -> float:
 			sail_cleated = false
 			sail_over = 0.0
 			events.append("land")
-			if wear_rules and not creative():
+			if wear_rules:
 				var over = clampf((absf(pulled) - limit) / maxf(1.0, limit), 0.0, 1.0)
 				wear().damage("sail", "rigging", 0.05 + 0.1 * over, "порыв сорвал шкот")
 				wear().damage("sail", "sail", 0.03 + 0.06 * over, "порыв сорвал шкот")
@@ -2423,7 +2423,7 @@ func physics_step(dt: float) -> void:
 				var adhesion = 0.35 * float(stats.mass) * G * cos(route.slope(float(state.s))) * grip_factor()
 				wheel_slip = float(state.throttle) * traction > adhesion * 1.02 and absf(float(state.v)) < 12.0
 				drive = float(drive_direction()) * (-1.0 if reverse_gear else 1.0) * float(state.throttle) * minf(traction, adhesion)
-	if wear_rules and not creative() and wear().cannot_drive(vehicle_id()): drive = 0.0   # a dead node or a stop on the road: the machine does not pull
+	if wear_rules and wear().cannot_drive(vehicle_id()): drive = 0.0   # a dead node or a stop on the road: the machine does not pull
 	var drag = drag_coefficient()
 	var brake = brake_applied + engine_brake_force()
 	if air_fly and not human_powered():
@@ -2509,7 +2509,7 @@ func physics_step(dt: float) -> void:
 	track_records()
 	update_auto_hold()
 	state.stats.distance += absf(movement)
-	if wear_rules and not creative():
+	if wear_rules:
 		wear().wear_road(absf(movement))
 		wear().breakdown_step(dt)
 	var travelled = state.fleet_by_id[vehicle_id()]
@@ -2547,7 +2547,7 @@ func live_step(dt: float) -> void:
 	if live.clank > 0.3:
 		last_clank = live.clank
 		events.append("clank")
-		if live.clank > 1.0 and wear_rules and not creative():
+		if live.clank > 1.0 and wear_rules:
 			for k in range(1, body_ids().size()): wear().damage(body_ids()[k], "coupler", 0.004 * live.clank, "рывок сцепки")
 	for hit in live.hits:
 		if str(hit.kind) != "cargo" or float(hit.speed) < 0.35: continue
