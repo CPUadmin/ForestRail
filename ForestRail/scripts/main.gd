@@ -1567,15 +1567,6 @@ func route_climb_to(distance: float) -> float:
 		s += 10.0
 	return worst
 
-func mission_description(mission: Dictionary) -> String:
-	var stops: Array = []
-	for stop in mission.dropoffs:
-		var goods: Array = []
-		for pair in stop.cargo:
-			goods.append("%s × %d" % [model.cargo_base(pair[0]).name, pair[1]])
-		stops.append(model.station_name(stop.station) + ": " + ", ".join(goods))
-	return "\n".join(stops) + "\nВозьми весь груз или часть. До %d монет за полный набор, оплата после возвращения." % mission.reward
-
 func take_mission(mission: Dictionary) -> void:
 	if model.accept_mission(mission):
 		start_depot_exit(func(): enter_game_from_depot("loading"))
@@ -2145,9 +2136,6 @@ func draw_zeppelin_pult(origin: Vector2, scale: float) -> void:
 func control_zoom_rect() -> Rect2:
 	if has_own_pult(): return Rect2(36, 90, own_pult().W, own_pult().H)
 	return Rect2(36,90,430,456 if model.vehicle_id()=="steam" else 320)
-
-func control_zoom_transform() -> Transform2D:
-	return Transform2D(0,Vector2.ONE*2.2,0,control_zoom_rect().position+Vector2(330,392))
 
 func draw_control_zoom() -> void:
 	var rect = control_zoom_rect()
@@ -3881,21 +3869,6 @@ func add_world_hits(id: String, index: int, transform: Transform2D) -> void:
 		slot_hits.append({"key": key, "rect": rect})
 		var item = find_slot_cargo(key)
 		if not item.is_empty(): cargo_hits.append({"id": item.id, "rect": cargo_visuals.get(item.id, rect)})
-
-func draw_map(size: Vector2) -> void:
-	var left = 80.0
-	var right = size.x - 80
-	var y = 132.0
-	draw_line(Vector2(left, y), Vector2(right, y), Color(0.95, 0.92, 0.82, 0.4), 3)
-	var train_x = lerpf(left, right, clampf(float(model.state.s) / float(model.route.station_s[-1]), 0, 1))
-	draw_line(Vector2(left, y), Vector2(train_x, y), GOLD, 3)
-	for i in range(model.data.stations.size()):
-		var station = model.data.stations[i]
-		var x = lerpf(left, right, float(model.route.station_s[i]) / float(model.route.station_s[-1]))
-		draw_circle(Vector2(x, y), 7, GOLD if station.id == model.next_destination() else PAPER)
-		draw_string(font, Vector2(x - 96, y + 29), station.name, HORIZONTAL_ALIGNMENT_CENTER, 192, 17, PAPER)
-	draw_circle(Vector2(train_x, y), 11, GREEN)
-	draw_circle(Vector2(train_x, y), 5, PAPER)
 
 func draw_loading_dock(size: Vector2) -> void:
 	var interaction=station_state()
