@@ -37,3 +37,6 @@ __pycache__/
 *.tmp
 ForestRail/.godot/
 .claude/
+
+# the path to Godot on this computer (tools/local_settings.example.json shows the form)
+tools/local_settings.json
