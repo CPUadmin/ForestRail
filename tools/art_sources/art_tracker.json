@@ -89,6 +89,21 @@
    "name": "Вёсла парусной",
    "brief": "tools/art_sources/briefs/P16_oars/BRIEF_RU.md",
    "inbox": "tools/art_sources/inbox/P16_oars/"
+  },
+  "П19": {
+   "name": "Износ и шлак",
+   "brief": "tools/art_sources/briefs/P19_wear_junk/TASK_FOR_GPT.md",
+   "inbox": "tools/art_sources/inbox/P19_wear_junk/"
+  },
+  "П20": {
+   "name": "Банк и долги",
+   "brief": "tools/art_sources/briefs/P20_bank/TASK_FOR_GPT.md",
+   "inbox": "tools/art_sources/inbox/P20_bank/"
+  },
+  "П21": {
+   "name": "Запуск машин: ключ, подсос, контактор, кулиса",
+   "brief": "tools/art_sources/briefs/P21_start_parts/TASK_FOR_GPT.md",
+   "inbox": "tools/art_sources/inbox/P21_start_parts/"
   }
  },
  "assets": [
@@ -1504,6 +1519,407 @@
    "received": "2026-11-07 02:45",
    "outputs": [
     "accepted/P16_oars/rower_poses.png"
+   ]
+  },
+  {
+   "package": "П19",
+   "element": "K",
+   "background": "magenta",
+   "status": "получено",
+   "notes": [],
+   "id": "P19-A1",
+   "file": "junk_sheet3.png",
+   "format": "1:1",
+   "sheet": {
+    "cols": 3,
+    "rows": 3
+   },
+   "received": "2026-11-14 02:18",
+   "outputs": [
+    "accepted/P19_wear_junk/junk_sheet3_sheet.png",
+    "accepted/P19_wear_junk/junk_sheet3/cell_1_1.png",
+    "accepted/P19_wear_junk/junk_sheet3/cell_1_2.png",
+    "accepted/P19_wear_junk/junk_sheet3/cell_1_3.png",
+    "accepted/P19_wear_junk/junk_sheet3/cell_2_1.png",
+    "accepted/P19_wear_junk/junk_sheet3/cell_2_2.png",
+    "accepted/P19_wear_junk/junk_sheet3/cell_2_3.png",
+    "accepted/P19_wear_junk/junk_sheet3/cell_3_1.png",
+    "accepted/P19_wear_junk/junk_sheet3/cell_3_2.png",
+    "accepted/P19_wear_junk/junk_sheet3/cell_3_3.png"
+   ]
+  },
+  {
+   "package": "П19",
+   "element": "K",
+   "background": "magenta",
+   "status": "получено",
+   "notes": [],
+   "id": "P19-A2",
+   "file": "wear_icons.png",
+   "format": "3:2",
+   "sheet": {
+    "cols": 4,
+    "rows": 3
+   },
+   "received": "2026-11-14 02:18",
+   "outputs": [
+    "accepted/P19_wear_junk/wear_icons_sheet.png",
+    "accepted/P19_wear_junk/wear_icons/cell_1_1.png",
+    "accepted/P19_wear_junk/wear_icons/cell_1_2.png",
+    "accepted/P19_wear_junk/wear_icons/cell_1_3.png",
+    "accepted/P19_wear_junk/wear_icons/cell_1_4.png",
+    "accepted/P19_wear_junk/wear_icons/cell_2_1.png",
+    "accepted/P19_wear_junk/wear_icons/cell_2_2.png",
+    "accepted/P19_wear_junk/wear_icons/cell_2_3.png",
+    "accepted/P19_wear_junk/wear_icons/cell_2_4.png",
+    "accepted/P19_wear_junk/wear_icons/cell_3_1.png",
+    "accepted/P19_wear_junk/wear_icons/cell_3_2.png",
+    "accepted/P19_wear_junk/wear_icons/cell_3_3.png",
+    "accepted/P19_wear_junk/wear_icons/cell_3_4.png"
+   ]
+  },
+  {
+   "package": "П19",
+   "element": "K",
+   "background": "magenta",
+   "status": "получено",
+   "notes": [],
+   "id": "P19-A3",
+   "file": "wear_icons2.png",
+   "format": "3:2",
+   "sheet": {
+    "cols": 4,
+    "rows": 3
+   },
+   "received": "2026-11-14 02:18",
+   "outputs": [
+    "accepted/P19_wear_junk/wear_icons2_sheet.png",
+    "accepted/P19_wear_junk/wear_icons2/cell_1_1.png",
+    "accepted/P19_wear_junk/wear_icons2/cell_1_2.png",
+    "accepted/P19_wear_junk/wear_icons2/cell_1_3.png",
+    "accepted/P19_wear_junk/wear_icons2/cell_1_4.png",
+    "accepted/P19_wear_junk/wear_icons2/cell_2_1.png",
+    "accepted/P19_wear_junk/wear_icons2/cell_2_2.png",
+    "accepted/P19_wear_junk/wear_icons2/cell_2_3.png",
+    "accepted/P19_wear_junk/wear_icons2/cell_2_4.png",
+    "accepted/P19_wear_junk/wear_icons2/cell_3_1.png",
+    "accepted/P19_wear_junk/wear_icons2/cell_3_2.png",
+    "accepted/P19_wear_junk/wear_icons2/cell_3_3.png",
+    "accepted/P19_wear_junk/wear_icons2/cell_3_4.png"
+   ]
+  },
+  {
+   "package": "П19",
+   "element": "K",
+   "background": "black",
+   "status": "получено с проблемами",
+   "notes": [
+    "ПРОБЛЕМА: фон «magenta», ожидали «black»"
+   ],
+   "id": "P19-A4",
+   "file": "wear_overlays.png",
+   "format": "3:2",
+   "sheet": {
+    "cols": 3,
+    "rows": 3
+   },
+   "received": "2026-11-14 02:18",
+   "outputs": [
+    "accepted/P19_wear_junk/wear_overlays_sheet.png",
+    "accepted/P19_wear_junk/wear_overlays/cell_1_1.png",
+    "accepted/P19_wear_junk/wear_overlays/cell_1_2.png",
+    "accepted/P19_wear_junk/wear_overlays/cell_1_3.png",
+    "accepted/P19_wear_junk/wear_overlays/cell_2_1.png",
+    "accepted/P19_wear_junk/wear_overlays/cell_2_2.png",
+    "accepted/P19_wear_junk/wear_overlays/cell_2_3.png",
+    "accepted/P19_wear_junk/wear_overlays/cell_3_1.png",
+    "accepted/P19_wear_junk/wear_overlays/cell_3_2.png",
+    "accepted/P19_wear_junk/wear_overlays/cell_3_3.png"
+   ]
+  },
+  {
+   "package": "П20",
+   "element": "K",
+   "background": "magenta",
+   "status": "получено",
+   "notes": [],
+   "id": "P20-A1",
+   "file": "bank_facade.png",
+   "format": "3:2",
+   "received": "2026-11-14 02:19",
+   "outputs": [
+    "accepted/P20_bank/bank_facade.png"
+   ]
+  },
+  {
+   "package": "П20",
+   "element": "K",
+   "background": "magenta",
+   "status": "получено",
+   "notes": [],
+   "id": "P20-A2",
+   "file": "bank_interior.png",
+   "format": "3:2",
+   "received": "2026-11-14 02:19",
+   "outputs": [
+    "accepted/P20_bank/bank_interior.png"
+   ]
+  },
+  {
+   "package": "П20",
+   "element": "K",
+   "background": "magenta",
+   "status": "получено",
+   "notes": [],
+   "id": "P20-A3",
+   "file": "vladik_polite.png",
+   "format": "2:3",
+   "received": "2026-11-14 02:19",
+   "outputs": [
+    "accepted/P20_bank/vladik_polite.png"
+   ]
+  },
+  {
+   "package": "П20",
+   "element": "K",
+   "background": "magenta",
+   "status": "получено",
+   "notes": [],
+   "id": "P20-A4",
+   "file": "vladik_bored.png",
+   "format": "2:3",
+   "received": "2026-11-14 02:19",
+   "outputs": [
+    "accepted/P20_bank/vladik_bored.png"
+   ]
+  },
+  {
+   "package": "П20",
+   "element": "K",
+   "background": "magenta",
+   "status": "получено",
+   "notes": [],
+   "id": "P20-A5",
+   "file": "vladik_pleased.png",
+   "format": "2:3",
+   "received": "2026-11-14 02:19",
+   "outputs": [
+    "accepted/P20_bank/vladik_pleased.png"
+   ]
+  },
+  {
+   "package": "П20",
+   "element": "K",
+   "background": "magenta",
+   "status": "получено",
+   "notes": [],
+   "id": "P20-A6",
+   "file": "vladik_cold.png",
+   "format": "2:3",
+   "received": "2026-11-14 02:19",
+   "outputs": [
+    "accepted/P20_bank/vladik_cold.png"
+   ]
+  },
+  {
+   "package": "П20",
+   "element": "K",
+   "background": "magenta",
+   "status": "получено",
+   "notes": [],
+   "id": "P20-A7",
+   "file": "goons_card.png",
+   "format": "3:2",
+   "received": "2026-11-14 02:19",
+   "outputs": [
+    "accepted/P20_bank/goons_card.png"
+   ]
+  },
+  {
+   "package": "П20",
+   "element": "K",
+   "background": "magenta",
+   "status": "получено",
+   "notes": [],
+   "id": "P20-A8",
+   "file": "contract.png",
+   "format": "3:2",
+   "received": "2026-11-14 02:19",
+   "outputs": [
+    "accepted/P20_bank/contract.png"
+   ]
+  },
+  {
+   "package": "П20",
+   "element": "K",
+   "background": "magenta",
+   "status": "получено",
+   "notes": [],
+   "id": "P20-A9",
+   "file": "no_entry_sign.png",
+   "format": "1:1",
+   "received": "2026-11-14 02:19",
+   "outputs": [
+    "accepted/P20_bank/no_entry_sign.png"
+   ]
+  },
+  {
+   "package": "П20",
+   "element": "K",
+   "background": "magenta",
+   "status": "получено",
+   "notes": [],
+   "id": "P20-A10",
+   "file": "seized_cargo.png",
+   "format": "3:2",
+   "received": "2026-11-14 02:19",
+   "outputs": [
+    "accepted/P20_bank/seized_cargo.png"
+   ]
+  },
+  {
+   "package": "П21",
+   "element": "K",
+   "background": "magenta",
+   "status": "получено",
+   "notes": [],
+   "id": "P21-A1",
+   "file": "ignition_lock.png",
+   "format": "1:1",
+   "received": "2026-11-14 02:18",
+   "outputs": [
+    "accepted/P21_start_parts/ignition_lock.png"
+   ]
+  },
+  {
+   "package": "П21",
+   "element": "K",
+   "background": "magenta",
+   "status": "получено",
+   "notes": [],
+   "id": "P21-A2",
+   "file": "ignition_key.png",
+   "format": "1:1",
+   "received": "2026-11-14 02:18",
+   "outputs": [
+    "accepted/P21_start_parts/ignition_key.png"
+   ]
+  },
+  {
+   "package": "П21",
+   "element": "K",
+   "background": "magenta",
+   "status": "получено",
+   "notes": [],
+   "id": "P21-A3",
+   "file": "key_fob.png",
+   "format": "1:1",
+   "received": "2026-11-14 02:18",
+   "outputs": [
+    "accepted/P21_start_parts/key_fob.png"
+   ]
+  },
+  {
+   "package": "П21",
+   "element": "K",
+   "background": "magenta",
+   "status": "получено",
+   "notes": [],
+   "id": "P21-A4",
+   "file": "choke_knob.png",
+   "format": "3:2",
+   "sheet": {
+    "cols": 2,
+    "rows": 1
+   },
+   "received": "2026-11-14 02:18",
+   "outputs": [
+    "accepted/P21_start_parts/choke_knob_sheet.png",
+    "accepted/P21_start_parts/choke_knob/cell_1_1.png",
+    "accepted/P21_start_parts/choke_knob/cell_1_2.png"
+   ]
+  },
+  {
+   "package": "П21",
+   "element": "K",
+   "background": "magenta",
+   "status": "получено",
+   "notes": [],
+   "id": "P21-A5",
+   "file": "contactor_box_open.png",
+   "format": "3:2",
+   "received": "2026-11-14 02:18",
+   "outputs": [
+    "accepted/P21_start_parts/contactor_box_open.png"
+   ]
+  },
+  {
+   "package": "П21",
+   "element": "K",
+   "background": "magenta",
+   "status": "получено",
+   "notes": [],
+   "id": "P21-A6",
+   "file": "contactor_lid.png",
+   "format": "3:2",
+   "sheet": {
+    "cols": 2,
+    "rows": 1
+   },
+   "received": "2026-11-14 02:18",
+   "outputs": [
+    "accepted/P21_start_parts/contactor_lid_sheet.png",
+    "accepted/P21_start_parts/contactor_lid/cell_1_1.png",
+    "accepted/P21_start_parts/contactor_lid/cell_1_2.png"
+   ]
+  },
+  {
+   "package": "П21",
+   "element": "K",
+   "background": "magenta",
+   "status": "получено",
+   "notes": [
+    "ПРЕДУПРЕЖДЕНИЕ: предмет упирается в край ячейки: 2,1; 2,2"
+   ],
+   "id": "P21-A7",
+   "file": "contactor_parts.png",
+   "format": "1:1",
+   "sheet": {
+    "cols": 3,
+    "rows": 3
+   },
+   "received": "2026-11-14 02:18",
+   "outputs": [
+    "accepted/P21_start_parts/contactor_parts_sheet.png",
+    "accepted/P21_start_parts/contactor_parts/cell_1_1.png",
+    "accepted/P21_start_parts/contactor_parts/cell_1_2.png",
+    "accepted/P21_start_parts/contactor_parts/cell_1_3.png",
+    "accepted/P21_start_parts/contactor_parts/cell_2_1.png",
+    "accepted/P21_start_parts/contactor_parts/cell_2_2.png",
+    "accepted/P21_start_parts/contactor_parts/cell_2_3.png",
+    "accepted/P21_start_parts/contactor_parts/cell_3_1.png",
+    "accepted/P21_start_parts/contactor_parts/cell_3_2.png",
+    "accepted/P21_start_parts/contactor_parts/cell_3_3.png"
+   ]
+  },
+  {
+   "package": "П21",
+   "element": "K",
+   "background": "magenta",
+   "status": "получено",
+   "notes": [],
+   "id": "P21-A8",
+   "file": "gear_gate.png",
+   "format": "3:2",
+   "sheet": {
+    "cols": 2,
+    "rows": 1
+   },
+   "received": "2026-11-14 02:18",
+   "outputs": [
+    "accepted/P21_start_parts/gear_gate_sheet.png",
+    "accepted/P21_start_parts/gear_gate/cell_1_1.png",
+    "accepted/P21_start_parts/gear_gate/cell_1_2.png"
    ]
   }
  ],
