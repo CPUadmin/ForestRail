@@ -2783,8 +2783,10 @@ func draw_controls(body_transform: Transform2D, show_labels: bool = true) -> voi
 			draw_handwheel(geo.pivot, float(geo.radius), angle, GOLD if id == "gear" else GREEN, drag == id)
 		elif kind == "slider":
 			draw_slider(body_transform, geo.pivot, float(geo.length), float(model.state.get(id, 0)), Color("c23b2e") if id == "brake" else Color("4f9a5f"), drag == id)
+			if id == "brake": draw_brake_safe_mark(geo, true)
 		elif id in ["brake","throttle"]:
 			draw_arc(geo.pivot,geo.pivot.distance_to(geo.grip),-PI/2-0.55,-PI/2+0.55,24,Color("918363"),1.0,true)
+			if id == "brake": draw_brake_safe_mark(geo, false)
 			draw_lever(body_transform,geo.pivot,geo.pivot.distance_to(geo.grip),angle,Color("c23b2e") if id=="brake" else Color("4f9a5f"),drag==id)
 		else:
 			if id not in ["pump","start"]:
@@ -2806,6 +2808,25 @@ func draw_controls(body_transform: Transform2D, show_labels: bool = true) -> voi
 				draw_string(font,mark+Vector2(-8,-12),["0","100"][endpoint],HORIZONTAL_ALIGNMENT_LEFT,30,12,PAPER)
 		var label = {"pump": "КАЧАЙ ↕", "brake": "%d%%" % (float(model.state.brake) * 100), "throttle": "%d%%" % (float(model.state.throttle) * 100), "gear": ("%d%%" % (float(model.boiler().feed) * 100)) if model.vehicle_id() == "steam" else GEAR_LABELS[int(model.state.gear)], "start": "ВКЛ" if model.state.engine else "ПУСК"}[id]
 		draw_string(font, geo.grip + Vector2(-25, -25), label, HORIZONTAL_ALIGNMENT_CENTER, 80, 16, PAPER)
+
+# 1.4.1: the green mark on the brake: the strongest braking that does not lock the wheels (Model.brake_safe, it moves by
+# itself with the load, the rain and the wear); past it the way of the lever is red. Without a skid risk there is no mark.
+func draw_brake_safe_mark(geo: Dictionary, slider: bool) -> void:
+	var safe = model.brake_safe()
+	if safe >= 0.999: return
+	var safe_green = Color("5cc17f")
+	var danger = Color(0.86, 0.25, 0.18, 0.75)
+	if slider:
+		var length = float(geo.length)
+		var at = geo.pivot + Vector2(0, -length * safe)
+		draw_line(at, geo.pivot + Vector2(0, -length), danger, 3.0, true)
+		draw_line(at + Vector2(-9, 0), at + Vector2(9, 0), safe_green, 3.0, true)
+		return
+	var radius = geo.pivot.distance_to(geo.grip)
+	var angle = lerpf(-0.55, 0.55, safe)
+	draw_arc(geo.pivot, radius, -PI / 2 + angle, -PI / 2 + 0.55, 16, danger, 2.5, true)
+	var dir = Vector2(0, -1).rotated(angle)
+	draw_line(geo.pivot + dir * (radius - 7.0), geo.pivot + dir * (radius + 7.0), safe_green, 3.0, true)
 
 func add_world_hits(id: String, index: int, transform: Transform2D) -> void:
 	if index == 0:
