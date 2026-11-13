@@ -286,9 +286,6 @@ func fuel_rate() -> float:
 	return base
 
 # the g-load for the instrument: the acceleration along the rail over g
-func g_load(acceleration: float) -> float:
-	return acceleration / G
-
 # --- one step; slope in radians (+ uphill), wind along the rail in m/s (+ tail wind)
 func step(dt: float, slope: float = 0.0, wind_along: float = 0.0) -> void:
 	events.clear()
