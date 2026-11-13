@@ -89,6 +89,7 @@ var awaiting_key = ""
 var camera_s = 0.0
 var camera_y = 0.0
 var camera_x = 0.0
+var camera_target_last = INF   # where the camera aimed in the previous frame: gives it the speed of the train
 var zoom_level = 1.0
 # B1.2a: driving into the depot is a short scene, not a button that swaps the screen
 const DEPOT_MOVE_S = 1.6
@@ -1570,12 +1571,23 @@ func _process(dt: float) -> void:
 		# The camera keeps following while a cab lever, the sail or the pole is held; lever input is read in
 		# the machine's own frame, so the grip stays under the cursor instead of the
 		# train driving away from a frozen camera.
+		# 1.3.9: the camera moves with the train (it knows the speed), so the machine no longer slides to the edge of
+		# the screen while it speeds up and back when it brakes; at speed it looks a little ahead to show more road.
+		var follow_v = 0.0
+		if screen == "game" and camera_target_last != INF and absf(target_s - camera_target_last) < 5.0 and dt > 0.0:
+			follow_v = clampf((target_s - camera_target_last) / dt, -60.0, 60.0)
+		camera_target_last = target_s if screen == "game" else INF
 		if drag in ["","pump","brake","throttle","gear","start","coal","sail","pole","zpult","oars"]:
-			camera_s = lerpf(camera_s, target_s, 1 - exp(-dt * 6))
 			if screen == "game":
-				# Limit the lag in screen space so zoom and speed cannot carry the engine out of frame.
 				var max_lag = get_viewport_rect().size.x * 0.17 / (ArtV3.PX * view_scale())
-				camera_s = clampf(camera_s, target_s - max_lag, target_s + max_lag)
+				var lead = signf(follow_v) * minf(absf(follow_v) * 0.12, max_lag * 0.6)
+				camera_s += follow_v * dt
+				camera_s = lerpf(camera_s, target_s + lead, 1 - exp(-dt * 3))
+				# a soft limit instead of a hard wall, so that zoom and speed cannot carry the engine out of frame
+				var off = camera_s - target_s
+				if absf(off) > max_lag: camera_s = target_s + signf(off) * (max_lag + (absf(off) - max_lag) * exp(-dt * 20))
+			else:
+				camera_s = lerpf(camera_s, target_s, 1 - exp(-dt * 6))
 			camera_y = lerpf(camera_y, model.route.sample(camera_s).y + camera_climb(), 1 - exp(-dt * 4))
 		var ahead_x = 0.3 if model.grapnel_installed() else 0.65   # with the grapnel the truck stands far back so that the posts ahead are in the frame
 		var target_x = get_viewport_rect().size.x * (0.31 if screen == "depot" else (ahead_x if model.state.direction > 0 else 1.0 - ahead_x))
