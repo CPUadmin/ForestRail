@@ -160,11 +160,6 @@ func favourite_machine() -> String:
 # ---- the wheel
 
 # Where the sector of a given kind is, by weights (per mille).
-func sector_weights() -> Array:
-	var result: Array = []
-	for sector in cfg().sectors: result.append([str(sector.id), int(sector.weight)])
-	return result
-
 func card_chance() -> float:
 	var base = 0.0
 	for sector in cfg().sectors:
