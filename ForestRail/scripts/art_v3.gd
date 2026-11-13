@@ -394,10 +394,6 @@ func forward_pose(phase: float) -> Dictionary:
 func mechanism_pose(model) -> Dictionary:
 	return model.handcar.pose()
 
-func hand_grip(model) -> Vector2:
-	var p = mechanism_pose(model)
-	return p.grip_right*PX
-
 func stock_body_point(id: String, point: Vector2) -> Vector2:
 	var kind = "wagon" if id.begins_with("W") else id
 	var spec = STOCK_BODY[kind]
@@ -697,10 +693,6 @@ func draw_oar(canvas: Node2D, lock: Vector2, swing: float, fwd: float) -> void:
 	var sc = 2.1 * PX / float(OAR.get_width())
 	var angle = (0.10 + swing * 0.42) * fwd
 	draw_sprite_at(canvas, OAR, Vector2(OAR.get_width() * 0.36, OAR.get_height() * 0.5), lock + Vector2(0, -0.20 * PX), angle, Vector2(sc * fwd, sc), false)
-
-func draw_worker(canvas: Node2D, feet: Vector2, height: float, hand: Vector2, relaxed: bool = false) -> void:
-	draw_worker_body(canvas, feet, height)
-	draw_worker_arm(canvas, feet, height, hand, relaxed)
 
 # Petrol locomotive live parts: headlamp glow and exhaust smoke (positions in
 # metres above the rail, axle at 0.21 m), plus a side rod between the wheels.
