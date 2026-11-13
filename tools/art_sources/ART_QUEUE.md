@@ -15,6 +15,10 @@ Claude (the developer) updates it; the generator reads it.
    - if you can write to the repository: put the files into a new branch `art-inbox`, into the folder given in the `inbox` column, one commit per pack, and say so;
    - otherwise give the owner all files in one download (a zip with the exact file names).
 6. After delivery, say which images you consider weak (cropped, text on them, wrong style) so that they can be redone.
+7. BEFORE taking a new pack, open `tools/art_sources/FEEDBACK_FOR_GPT.md`: entries with status `open` are redo requests from Claude; do them first (new files with the suffix `_v2`, never overwrite).
+8. Next to the delivered files write `NOTES_FROM_GPT.md` (what you drew, what is weak, what was unclear), and set the status of the pack here to `DELIVERED <date>, Claude checks`.
+
+Statuses: `waiting for GPT` → `DELIVERED …, Claude checks` → `DONE` (accepted) or a redo request in FEEDBACK_FOR_GPT.md. The prompt of the scheduled GPT task: `tools/art_sources/GPT_TASK_PROMPT_RU.md`.
 
 Never draw letters, numbers or readable text on the images. Never draw the card frame in the card illustrations.
 
