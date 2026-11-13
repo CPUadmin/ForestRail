@@ -1,0 +1,24 @@
+# Т13: one rule for the line ends (the warnings "LF will be replaced by CRLF" at every commit). Text is kept with LF in the repository.
+* text=auto
+*.gd text eol=lf
+*.gdshader text eol=lf
+*.tscn text eol=lf
+*.tres text eol=lf
+*.import text eol=lf
+*.cfg text eol=lf
+*.godot text eol=lf
+*.json text eol=lf
+*.md text
+*.py text
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.ogg binary
+*.wav binary
+*.mp3 binary
+*.ttf binary
+*.otf binary
+*.zip binary
+*.exe binary
+*.pck binary
