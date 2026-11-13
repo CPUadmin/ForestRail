@@ -8,6 +8,7 @@ const Records = preload("res://scripts/records.gd")
 const ControlArt = preload("res://scripts/control_art.gd")
 const UiKit = preload("res://scripts/ui_kit.gd")
 const CabArt = preload("res://scripts/cab_art.gd")
+const TrainArt = preload("res://scripts/train_art.gd")
 const MenuUi = preload("res://scripts/menu_ui.gd")
 const DepotUi = preload("res://scripts/depot_ui.gd")
 const ArtWorld = preload("res://scripts/art_world.gd")
@@ -2521,114 +2522,6 @@ func draw_land_dust() -> void:
 		var radius = (16.0 + 34.0 * age) * sc * power * (0.7 + 0.3 * absf(sin(float(k) * 2.1)))
 		ellipse(p + Vector2(0, -age * 26.0 * sc * (0.5 + 0.5 * absf(side))), Vector2(radius * (1.0 + spread * 0.2), radius * 0.6), Color(0.66, 0.58, 0.45, 0.5 * (1.0 - age / 0.8)))
 
-func draw_train() -> void:
-	var ids = model.body_ids()
-	var scale_value = view_scale()
-	if screen == "depot": draw_parked_wagons()
-	# Draw every connector from the same transformed mount used by its body.
-	for i in range(1,ids.size()):
-		if screen == "depot" and not coupling_anim.is_empty() and coupling_anim.attach and ids[i] == coupling_anim.id: continue
-		var front_s = model.body_s_render(i-1) if screen!="depot" else -model.body_offset(i-1)
-		var rear_s = model.body_s_render(i) if screen!="depot" else -model.body_offset(i)
-		var a = body_transform(ids[i],rear_s)*Geometry.coupling(ids[i],1)
-		var b = body_transform(ids[i-1],front_s)*Geometry.coupling(ids[i-1],-1)
-		draw_coupler(a,b)
-	for i in range(ids.size() - 1, -1, -1):
-		if screen == "depot" and not coupling_anim.is_empty() and coupling_anim.attach and ids[i] == coupling_anim.id: continue
-		var s = model.body_s_render(i) if screen != "depot" else -model.body_offset(i)
-		var p = world_point(s)
-		var transform = body_transform(ids[i],s)
-		draw_set_transform_matrix(transform)
-		draw_body(ids[i], s, screen == "game")
-		draw_set_transform_matrix(Transform2D.IDENTITY)
-		var local_bounds = art.body_bounds(ids[i])
-		var world_bounds = Rect2(transform*local_bounds.position,Vector2.ZERO)
-		for corner in [local_bounds.end,Vector2(local_bounds.end.x,local_bounds.position.y),Vector2(local_bounds.position.x,local_bounds.end.y)]: world_bounds=world_bounds.expand(transform*corner)
-		body_hits.append({"id":ids[i],"rect":world_bounds.grow(6)})
-		if screen == "depot" and tab == "Улучшения" and selected_object == ids[i] and model.state.active.is_empty(): draw_workshop_spots(ids[i], transform)
-		if screen == "depot" and selected_object == ids[i]:
-			draw_line(p + Vector2(-art.body_width(ids[i])*0.46,14)*scale_value,p+Vector2(art.body_width(ids[i])*0.46,14)*scale_value,GOLD,3,true)
-		if screen == "game":
-			add_world_hits(ids[i], i, transform)
-	if screen == "game":
-		draw_land_dust()
-		draw_glints()
-	for pair in [[0,1],[ids.size()-1,-1]]:
-		var id = ids[pair[0]]
-		var s = model.body_s_render(pair[0]) if screen!="depot" else -model.body_offset(pair[0])
-		var outer = body_transform(id,s)
-		var mount = Geometry.coupling(id,pair[1])
-		draw_coupler(outer*mount,outer*(mount+Vector2(pair[1]*float(Geometry.data().coupler.end_extension_m)*ArtV3.PX,0)))
-
-# Wagons the player owns but has not coupled stand behind the train.
-func parked_wagons() -> Array:
-	var result: Array = []
-	for id in parked_order + Model.WAGON_IDS:
-		if model.state.wagons_by_id.has(id) and id not in model.state.consist_ids and id not in result: result.append(id)
-	if not coupling_anim.is_empty() and coupling_anim.attach and coupling_anim.id not in result: result.push_front(coupling_anim.id)
-	return result
-
-func train_tail_s() -> float:
-	var ids = model.body_ids()
-	var last = ids.size()-1
-	if not coupling_anim.is_empty() and coupling_anim.attach: last -= 1
-	return -model.body_offset(last) - Geometry.length(ids[last])*0.5
-
-func parked_s(index: int) -> float:
-	var length = Geometry.length("W01")
-	return train_tail_s() - PARK_GAP_M - length*0.5 - index*(length + PARK_GAP_M)
-
-func depot_span_m() -> float:
-	var parked = 0
-	for id in Model.WAGON_IDS:
-		if model.state.wagons_by_id.has(id) and id not in model.state.consist_ids: parked += 1
-	return model.train_length() + parked*(Geometry.length("W01") + PARK_GAP_M)
-
-func draw_parked_wagons() -> void:
-	coupler_hits.clear()
-	var parked = parked_wagons()
-	for k in range(parked.size()):
-		var id = parked[k]
-		var s = parked_s(k)
-		if not coupling_anim.is_empty() and coupling_anim.id == id:
-			s = lerpf(coupling_anim.from, coupling_anim.to, ease(clampf(coupling_anim.t, 0, 1), -2.0))
-		var transform = body_transform(id, s)
-		draw_set_transform_matrix(transform)
-		draw_body(id, s, false)
-		draw_set_transform_matrix(Transform2D.IDENTITY)
-	if not coupling_anim.is_empty() or not model.depot_editable(): return
-	var ids = model.body_ids()
-	# Only the tail wagon can go and only the nearest parked one can come,
-	# as on a real siding.
-	if ids.size() > 1:
-		var tail = ids[-1]
-		var tail_transform = body_transform(tail, -model.body_offset(ids.size()-1))
-		var ahead_transform = body_transform(ids[-2], -model.body_offset(ids.size()-2))
-		var joint = (tail_transform*Geometry.coupling(tail,1) + ahead_transform*Geometry.coupling(ids[-2],-1))*0.5
-		coupler_hits.append({"id": tail, "attach": false, "position": joint})
-	if not parked.is_empty() and model.state.consist_ids.size() < model.max_wagons(model.vehicle_id()):
-		var tail_point = body_transform(ids[-1], -model.body_offset(ids.size()-1))*Geometry.coupling(ids[-1],-1)
-		var first_point = body_transform(parked[0], parked_s(0))*Geometry.coupling(parked[0],1)
-		coupler_hits.append({"id": parked[0], "attach": true, "position": (tail_point+first_point)*0.5})
-	var mouse = get_global_mouse_position()
-	for hit in coupler_hits:
-		var hover = hit.position.distance_to(mouse) < 22
-		draw_circle(hit.position, 15, Color(INK, 0.9))
-		draw_arc(hit.position, 15, 0, TAU, 28, Color("e2c27a") if hover else GOLD, 2.5, true)
-		# Two links: closed when coupled (offer to open), apart when not.
-		var gap = 3.0 if hit.attach else 0.0
-		draw_arc(hit.position + Vector2(-4 - gap, 0), 5, 0, TAU, 16, PAPER, 2, true)
-		draw_arc(hit.position + Vector2(4 + gap, 0), 5, 0, TAU, 16, PAPER, 2, true)
-		if hover:
-			var text = ("Прицепить " if hit.attach else "Отцепить ") + str(hit.id)
-			var width = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 15).x + 22
-			var box = Rect2(hit.position + Vector2(-width*0.5, -50), Vector2(width, 26))
-			draw_style_box(style(Color(INK, 0.92), GOLD, 10), box)
-			draw_string(font, box.position + Vector2(0, 18), text, HORIZONTAL_ALIGNMENT_CENTER, width, 15, PAPER)
-	if not latch_flash.is_empty():
-		var age = float(latch_flash.t)
-		draw_arc(latch_flash.position, 10 + age*30, 0, TAU, 24, Color(1, 0.9, 0.6, 1.0 - age), 3, true)
-
 func start_shunting(id: String, attach: bool) -> void:
 	if not coupling_anim.is_empty(): return
 	if not model.depot_editable():
@@ -2663,141 +2556,41 @@ func advance_shunting(dt: float) -> void:
 	save_game()
 	rebuild()
 
+var train_art_cache = null
+func train_art():
+	if train_art_cache == null: train_art_cache = TrainArt.new(self)
+	return train_art_cache
+
+func draw_train() -> void:
+	train_art().draw_train()
+
+func parked_wagons() -> Array:
+	return train_art().parked_wagons()
+
+func parked_s(index: int) -> float:
+	return train_art().parked_s(index)
+
+func depot_span_m() -> float:
+	return train_art().depot_span_m()
+
 func body_transform(id: String, s: float, swaying: bool = true) -> Transform2D:
-	var direction = int(model.state.direction) if screen!="depot" else 1
-	var wheels = art.wheel_positions(id)
-	var a = world_point(s+direction*wheels[0].x/ArtV3.PX)
-	var b = world_point(s+direction*wheels[1].x/ArtV3.PX)
-	var x = (b-a).normalized()
-	var y = -x.orthogonal()*direction
-	var mean_x = (wheels[0].x+wheels[1].x)*0.5
-	var sc = view_scale()
-	var lift = Vector2(0, float(model.air_z) * ArtV3.PX * sc) if screen != "depot" else Vector2.ZERO
-	var result = Transform2D(x*sc,y*sc,(a+b)*0.5-x*mean_x*sc-lift)
-	if screen == "game" and Model.live_effects and swaying:
-		# B5.1: the body rides on its springs: it bobs on the joints and the crests and rocks when the train
-		# speeds up or brakes (the nose comes up and dips). It turns about the middle of the wheelbase.
-		var index = model.body_ids().find(id)
-		var bob = model.live.lift_m(index)
-		var pitch_air = clampf(float(model.air_vy) * 0.035, -0.2, 0.2) if model.air_fly else 0.0   # B5.5: the nose follows the flight
-		var turn = -(model.live.rock_rad(index) + pitch_air) * float(direction)
-		if absf(bob) > 0.0001 or absf(turn) > 0.00005:
-			var centre = (a+b)*0.5
-			var origin = (result.origin - centre).rotated(turn) + centre - Vector2(0, bob * ArtV3.PX * sc)
-			result = Transform2D(result.x.rotated(turn), result.y.rotated(turn), origin)
-	return result
-
-func draw_coupler(a: Vector2, b: Vector2) -> void:
-	var tex = art.textures["vehicles/coupler"]
-	var span = a.distance_to(b)
-	var height = maxf(5.0 * view_scale(), span * float(tex.get_height()) / float(tex.get_width()))
-	draw_set_transform((a+b)*0.5,(b-a).angle())
-	draw_line(Vector2(-span * 0.5, 0), Vector2(span * 0.5, 0), Color("3d3427"), height * 0.72, true)
-	draw_texture_rect(tex,Rect2(-span*0.5,-height*0.5,span,height),false)
-	for end in [-1, 1]:
-		var mount = Vector2(end * (span * 0.5 - minf(2.0, span * 0.25)), 0)
-		draw_circle(mount, height * 0.44, Color("5a503c"))
-		draw_circle(mount, height * 0.23, Color("ba9e67"))
-	draw_set_transform_matrix(Transform2D.IDENTITY)
-
-func draw_body(id: String, s: float, controls: bool) -> void:
-	var outer = body_transform(id, s)
-	var rail = body_transform(id, s, false)   # the running gear stands on the rail while the body sways above it
-	var air_height = float(model.air_z) if screen == "game" else 0.0
-	ellipse(Vector2(10, 7 + air_height * ArtV3.PX), Vector2(art.body_width(id)*0.48/(1.0 + air_height * 0.8), 7.0/(1.0 + air_height * 0.8)), Color(0.05, 0.08, 0.05, 0.23/(1.0 + air_height * 1.5)))
-	# the skid: the locked wheels of the machine stand still and sparks fly from under them
-	var wheel_s = s
-	var skidding = screen == "game" and model.wheel_lock and id == model.vehicle_id() and model.body_ids().find(id) == 0
-	if skidding:
-		if not skid_active:
-			skid_active = true
-			skid_s = s
-		wheel_s = skid_s
-	else:
-		skid_active = false
-	art.draw_vehicle(self, id, wheel_s, int(model.state.direction) if screen != "depot" else 1, outer, model, controls, {}, false, rail)
-	if skidding:
-		art.draw_skid_sparks(self, id, rail, outer, time)
-	if not id.begins_with("W"): art.draw_added_headlamp(self, id)
-	if id == "locomotive" and screen == "game":
-		draw_charge_strip(outer)
-		if electric_start_flash > 0.0 and light_flicker_enabled():
-			var axle: Vector2 = art.wheel_positions(id)[1]
-			var contact = Vector2(axle.x, 0)
-			var strength = electric_start_flash / ELECTRIC_START_FLASH
-			draw_circle(contact, 7.0, Color(0.44, 0.76, 1.0, strength * 0.26))
-			for ray in range(5):
-				var tip = contact + Vector2(-10.0 + ray * 5.0, -5.0 - (ray % 3) * 3.5)
-				draw_line(contact, tip, Color(0.80, 0.94, 1.0, strength), 1.6, true)
-	var boxes = cargo_layout(id)
-	for index in range(boxes.size()):
-		var box: Rect2 = boxes[index]
-		var key = id + ":" + str(index)
-		var item = find_slot_cargo(key)
-		var on_screen = outer * box
-		if item.is_empty():
-			var hover = on_screen.grow(8).has_point(get_global_mouse_position())
-			if controls and (screen == "depot" or model.state.phase == "loading" or drag == "cargo" or hover):
-				draw_style_box(style(Color(0.9, 0.87, 0.65, 0.35), Color("d1bd71"), 5), box.grow(3))
-			continue
-		cargo_visuals[item.id] = on_screen.grow(4)
-		if item.id == drag_item: continue
-		var foot = Vector2(box.get_center().x, box.end.y)
-		ellipse(foot, Vector2(box.size.x * 0.47, 3), Color(0.07, 0.05, 0.03, 0.38))
-		grounded_sprite(str(model.cargo_base(item.type).sprite), foot, box.size.y)
-		for side in [-1, 1]:
-			var strap = foot + Vector2(box.size.x * 0.28 * side, 0)
-			var anchor = strap + Vector2(side * 2, 4)
-			draw_line(strap - Vector2(0, box.size.y * 0.82), anchor, Color("4a3c29"), 2.5, true)
-			draw_line(strap - Vector2(0, box.size.y * 0.82), anchor, Color("a48a57"), 1.0, true)
-			draw_circle(anchor, 2.3, Color("6e593d"))
-	if id == "pole": art.draw_pole_overlay(self, model, outer)
-	if id == "sail": art.draw_sail_overlay(self, model)
-	if id.begins_with("W"): art.draw_wagon_front(self, id, outer)
-	if id.begins_with("W") and screen == "depot":
-		draw_string(font, Vector2(-25, art.deck_y(id) + 34), id, HORIZONTAL_ALIGNMENT_CENTER, 50, 15, PAPER)
-	if id == model.vehicle_id() and controls: draw_controls(outer)
+	return train_art().body_transform(id, s, swaying)
 
 func wheel_rotation(distance: float, facing: int) -> float:
-	# Positive rotation is clockwise in Godot. Mirrored bodies invert the local angle.
-	return distance * 64.0 / 28.0 * facing
+	return train_art().wheel_rotation(distance, facing)
 
 func find_slot_cargo(key: String) -> Dictionary:
-	for item in model.state.cargo:
-		if item.slot == key and not item.delivered: return item
-	return {}
+	return train_art().find_slot_cargo(key)
 
-# Pack occupied and empty slots in one row so every load has a deck contact.
-# When an upgraded deck is crowded, fit the whole row without changing slot IDs.
 func cargo_layout(id: String) -> Array[Rect2]:
-	var count = int(model.object_stats(id).slots)
-	var sizes: Array[Vector2] = []
-	var total_width = 0.0
-	for index in range(count):
-		var item = find_slot_cargo(id + ":" + str(index))
-		var sprite_id = "sack" if item.is_empty() else str(model.cargo_base(item.type).sprite)
-		var bounds = visual_layout[sprite_id]
-		var ratio = float(bounds[2] - bounds[0]) / maxf(1.0, float(bounds[3] - bounds[1]))
-		var size = art.cargo_size(sprite_id, ratio)
-		if item.is_empty(): size.x = maxf(size.x, 0.38 * ArtV3.PX)
-		sizes.append(size)
-		total_width += size.x
-	var boxes: Array[Rect2] = []
-	if count == 0: return boxes
-	var gap = 0.10 * ArtV3.PX
-	var space = art.body_width(id) - 0.16 * ArtV3.PX - gap * (count - 1)
-	var fit = minf(1.0, space / total_width)
-	var x = -(total_width * fit + gap * (count - 1)) * 0.5
-	var deck = art.deck_y(id)
-	for index in range(count):
-		var size = sizes[index] * fit
-		var item = find_slot_cargo(id + ":" + str(index))
-		var slide = 0.0
-		if not item.is_empty() and screen == "game" and Model.live_effects:
-			slide = clampf(model.live.cargo_p(item.id) * ArtV3.PX * float(model.state.direction), -gap * 0.4, gap * 0.4)
-		boxes.append(Rect2(Vector2(x + slide, deck - size.y), size))
-		x += size.x + gap
-	return boxes
+	return train_art().cargo_layout(id)
+
+func draw_loading_dock(size: Vector2) -> void:
+	train_art().draw_loading_dock(size)
+
+func draw_cargo_feedback() -> void:
+	train_art().draw_cargo_feedback()
+
 
 # What kind of mouse control a pult element is: an arc lever, a rotary hand
 # wheel (steam regulator and water tap), an H-gate (petrol gearbox) or a toggle.
@@ -3000,62 +2793,6 @@ func add_world_hits(id: String, index: int, transform: Transform2D) -> void:
 		slot_hits.append({"key": key, "rect": rect})
 		var item = find_slot_cargo(key)
 		if not item.is_empty(): cargo_hits.append({"id": item.id, "rect": cargo_visuals.get(item.id, rect)})
-
-func draw_loading_dock(size: Vector2) -> void:
-	var interaction=station_state()
-	var station_index = int(interaction.station_index)
-	var rect = dock_rect()
-	var accepting=drag=="cargo" and interaction.can_transfer and (drag_item in interaction.eligible or station_index==0)
-	draw_style_box(style(Color(0.14, 0.21, 0.17, 0.95), GOLD if accepting else Color("82916c"), 12), rect)
-	var title = ("ПОГРУЗКА · " if model.state.phase=="loading" else "РАЗГРУЗКА · ")+interaction.station_name
-	if model.state.phase=="loading" and model.selectable_loading():
-		var plan=model.loading_preview()
-		title+=" · На складе %d · Везём %d из %d" % [model.state.cargo.size()-int(plan.loaded),plan.loaded,plan.offered]
-	draw_string(font, rect.position + Vector2(20, 28), title, HORIZONTAL_ALIGNMENT_LEFT, 600, 18, PAPER)
-	if accepting:
-		draw_string(font, rect.position + Vector2(590, 28), "✓ ОТПУСТИ ЗДЕСЬ · "+interaction.station_name, HORIZONTAL_ALIGNMENT_RIGHT, rect.size.x - 615, 18, GOLD)
-	var index = 0
-	for item in model.state.cargo:
-		if item.delivered or item.slot != "": continue
-		if station_index != 0: continue
-		var p = rect.position + Vector2(42 + index * 128, 58)
-		if item.id != drag_item:
-			sprite(model.cargo_base(item.type).sprite, Rect2(p, Vector2(60, 65)))
-		cargo_hits.append({"id": item.id, "rect": Rect2(p - Vector2(8, 4), Vector2(96, 82))})
-		draw_string(font, p + Vector2(65, 44), item.destination, HORIZONTAL_ALIGNMENT_LEFT, 45, 19, GOLD)
-		index += 1
-	if index == 0:
-		var text=interaction.reason
-		if model.state.phase=="loading" and model.all_loaded(): text="Груз закреплён. Можно ехать: просто дай ход."
-		if selected_cargo!="" and selected_cargo not in interaction.eligible and station_index!=0:
-			for cargo in model.state.cargo:
-				if cargo.id==selected_cargo and not cargo.delivered: text="Этот груз ждут в «%s»" % model.station_name(cargo.destination)
-		draw_string(font, rect.position + Vector2(25, 67), text, HORIZONTAL_ALIGNMENT_LEFT, rect.size.x - 50, 19, PAPER)
-		if selected_cargo=="": draw_string(font,rect.position+Vector2(25,115),"Перетащи предмет или выбери его кликом для выгрузки кнопкой",HORIZONTAL_ALIGNMENT_LEFT,rect.size.x-50,17,Color("b9c7b2"))
-
-func draw_cargo_feedback() -> void:
-	var interaction=station_state()
-	if interaction.visible:
-		var marker=world_point(interaction.stop_s)
-		var sc=view_scale()
-		draw_colored_polygon(PackedVector2Array([marker+Vector2(-8,17)*sc,marker+Vector2(8,17)*sc,marker+Vector2(0,5)*sc]),GOLD)
-		for hit in cargo_hits:
-			if hit.id==drag_item: continue
-			var selected=hit.id==selected_cargo
-			if hit.id in interaction.eligible or selected:
-				draw_rect(hit.rect,GOLD if selected else Color("8db78a"),false,3 if selected else 1.5)
-	if drag=="cargo":
-		if interaction.can_transfer and (drag_item in interaction.eligible or interaction.station_id=="A"):
-			draw_rect(world_platform_rect(),Color("e9ce83"),false,3)
-		var r=Rect2(drag_cursor-drag_offset,drag_size)
-		for cargo in model.state.cargo:
-			if cargo.id==drag_item:
-				grounded_sprite(model.cargo_base(cargo.type).sprite,r.position+Vector2(r.size.x*0.5,r.size.y),r.size.y)
-				draw_rect(r,GOLD,false,2)
-	if not delivery_ghost.is_empty():
-		var alpha=1-clampf(float(delivery_ghost.time)/0.45,0,1)
-		var point=Vector2(delivery_ghost.from).lerp(delivery_ghost.to,smoothstep(0,0.3,float(delivery_ghost.time)))
-		grounded_sprite(delivery_ghost.sprite,point,44,Color(1,1,1,alpha))
 
 # Short battery strip on the locomotive body (TZ 3.1, N6): readable at any
 # zoom, colour only, exact numbers on hover.
