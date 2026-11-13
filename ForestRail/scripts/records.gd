@@ -8,7 +8,6 @@ extends RefCounted
 
 const STILL_MPS = 0.3
 const MIN_RUN_SECONDS = 5.0   # a teleport (help of the depot) is not a run
-const KEYS = ["a_f", "f_a"]
 
 var from_station = -1
 var clock0 = 0.0

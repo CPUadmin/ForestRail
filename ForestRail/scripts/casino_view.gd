@@ -24,7 +24,6 @@ var tex = {}
 var drop: Control              # the found card on the screen (nothing while no card is shown)
 var mood = "calm"              # calm, happy, sad, surprised, pouring: which picture of Mikhalych is shown
 
-const SECTOR_TEXT = {"empty": "пусто", "tokens1": "+5", "tokens2": "+10", "junk": "шлак", "coins": "монеты", "repair": "ремнабор", "golden": "золото", "bonus": "бонуска", "card": "КАРТА"}
 const SECTOR_COLOR = {"empty": Color("5a4a38"), "tokens1": Color("b08a3c"), "tokens2": Color("d1a846"), "junk": Color("6b4a2e"), "coins": Color("c8b04a"), "repair": Color("3e7d78"), "golden": Color("f0c640"), "bonus": Color("7a4d8c"), "card": Color("d03a2e")}
 # какая картинка листа шлака ближе всего к виду хлама (для строки в мешке)
 const JUNK_PICTURE = {"rusty_bolt": 1, "bearing_cover": 2, "tie_plate": 4, "brake_shoe": 6, "rail_clip": 7, "cracked_lantern": 8, "stationmaster_watch": 9, "track_spike": 1, "fishplate": 5}

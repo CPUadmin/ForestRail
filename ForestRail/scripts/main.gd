@@ -187,7 +187,6 @@ var last_action_key = ""
 var last_phase = ""
 var last_paid_count = 0
 var pending_action: Callable
-var tooltip = ""
 var time = 0.0
 var test_mode = false
 var land_dust: Dictionary = {}   # B5.5: the puff of dust where the train came down {t, s, power}

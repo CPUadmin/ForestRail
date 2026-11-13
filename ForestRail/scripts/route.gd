@@ -3,7 +3,6 @@ extends RefCounted
 # Generator versions: 1 is the original 1.7 km line (station positions from the data's
 # s_m); 2 is the long line of about 6.8 km (s_m_v2 and height_v2), chosen for new games
 # only. A saved route keeps its own version and its station positions.
-const VERSION = 2
 const LENGTH_V1 = 1700.0
 # Largest grade per stretch A-B ... E-F on the long line (docs/SIDE_VIEW_MAP_v3_1_RU.md).
 # V2.1 (2026-11-01): steeper map. The first two legs stay within the handcar (3%), the rest is harder.
