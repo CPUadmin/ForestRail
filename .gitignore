@@ -43,3 +43,10 @@ tools/local_settings.json
 # the reports of tools/run_all_checks.py and tools/visual_audit.py, the trial builds of tools/build_trial.py
 qa/last_run/
 qa/visual_audit_latest/
+
+# judge's decisions 14.11.2026: old QA pictures stay on the disk only; the zip repeats the P18 folder
+qa/visual_audit_1104/
+qa/autonomous_run_1105/
+qa/night_report_2026-11-05/
+tools/art_sources/inbox/P18_ui_kit.zip
+tools/art_sources/archive/**/*.import

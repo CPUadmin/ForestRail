@@ -1,0 +1,108 @@
+{
+  "AMD Ryzen 7 8745H w/ Radeon 780M Graphics": {
+    "bench": {
+      "ms": {
+        "median": 8.471,
+        "p95": 8.471
+      }
+    },
+    "cab_motorcar": {
+      "draw": {
+        "median": 9.35,
+        "p95": 11.767
+      },
+      "frame": {
+        "median": 22.585,
+        "p95": 26.554
+      },
+      "physics": {
+        "median": 0.997,
+        "p95": 1.341
+      },
+      "update_view": {
+        "median": 2.18,
+        "p95": 3.157
+      }
+    },
+    "depot": {
+      "draw": {
+        "median": 2.605,
+        "p95": 3.747
+      },
+      "frame": {
+        "median": 16.545,
+        "p95": 19.703
+      },
+      "update_view": {
+        "median": 5.012,
+        "p95": 7.129
+      }
+    },
+    "night_zeppelin": {
+      "draw": {
+        "median": 1.979,
+        "p95": 2.819
+      },
+      "frame": {
+        "median": 16.808,
+        "p95": 21.05
+      },
+      "hud": {
+        "median": 2.645,
+        "p95": 3.659
+      },
+      "physics": {
+        "median": 1.113,
+        "p95": 1.516
+      },
+      "update_view": {
+        "median": 2.192,
+        "p95": 3.219
+      }
+    },
+    "road_motorcar": {
+      "draw": {
+        "median": 2.128,
+        "p95": 2.905
+      },
+      "frame": {
+        "median": 16.673,
+        "p95": 18.035
+      },
+      "hud": {
+        "median": 2.691,
+        "p95": 3.614
+      },
+      "physics": {
+        "median": 0.944,
+        "p95": 1.237
+      },
+      "update_view": {
+        "median": 2.186,
+        "p95": 3.154
+      }
+    },
+    "road_steam": {
+      "draw": {
+        "median": 1.967,
+        "p95": 2.65
+      },
+      "frame": {
+        "median": 16.654,
+        "p95": 18.16
+      },
+      "hud": {
+        "median": 2.581,
+        "p95": 3.676
+      },
+      "physics": {
+        "median": 0.971,
+        "p95": 1.35
+      },
+      "update_view": {
+        "median": 2.166,
+        "p95": 3.022
+      }
+    }
+  }
+}
