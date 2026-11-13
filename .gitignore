@@ -40,3 +40,6 @@ ForestRail/.godot/
 
 # the path to Godot on this computer (tools/local_settings.example.json shows the form)
 tools/local_settings.json
+# the reports of tools/run_all_checks.py and tools/visual_audit.py, the trial builds of tools/build_trial.py
+qa/last_run/
+qa/visual_audit_latest/
