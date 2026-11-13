@@ -37,4 +37,4 @@
 
 Результаты и кадры настоящего Windows-рендера: `qa/handcar_mechanism_p3.json`, `docs/screenshots/p3_*.png`. Локальная запись стенда: `qa/v3_p3/mechanism_bench.avi`. Это автоматическая проверка, пользовательская приёмка управления ещё не проведена.
 
-Уточнение следующего этапа: [направление через рычаг и передачи на ходу](HANDCAR_CONTROL_NOTES_RU.md). Учёт всех исходных ассетов: [SUPPLIED_ASSETS_RU.md](SUPPLIED_ASSETS_RU.md).
+Уточнение следующего этапа: [направление через рычаг и передачи на ходу](HANDCAR_CONTROL_NOTES_RU.md). Учёт всех исходных ассетов: [SUPPLIED_ASSETS_RU.md](archive/SUPPLIED_ASSETS_RU.md).

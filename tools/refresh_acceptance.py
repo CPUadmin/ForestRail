@@ -19,7 +19,7 @@ physics = json.loads((root/'qa'/'physics_results.json').read_text(encoding='utf-
 campaign = json.loads((root/'qa'/'drive_campaign.json').read_text(encoding='utf-8'))
 minutes = sum(m['seconds'] for m in campaign['missions'][:10])/60
 p30, p60 = physics['fps30'], physics['fps60']
-path = root/'docs'/'ACCEPTANCE_RU.md'
+path = root/'docs'/'archive'/'ACCEPTANCE_RU.md'
 text = path.read_text(encoding='utf-8').replace('Версия игры 1.0.0', 'Версия игры 1.0.1')
 text = text.replace('62,950 / 63,003 м и тормозной путь 0,9873 / 0,9891 м. Отклонения около 0,08% и 0,18%',
                     f"{p30['distance']:.3f} / {p60['distance']:.3f} м и тормозной путь {p30['braking']:.4f} / {p60['braking']:.4f} м. Отклонения около 0,27% и 0,35%")

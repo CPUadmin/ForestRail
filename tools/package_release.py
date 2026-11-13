@@ -25,7 +25,7 @@ shutil.copyfile(ROOT/'README_RU.md', release/'ИНСТРУКЦИЯ.md')
     'Моторная дрезина: бензин. Электролокомотив: аккумулятор с рекуперацией.\n'
     'Заправка и зарядка бесплатны дома.\n\n'
     'Сохранения: %APPDATA%\\ForestRail\\\n'
-    'Подробная инструкция: ИНСТРУКЦИЯ.md. Сверка с ТЗ: docs\\ACCEPTANCE_RU.md.\n', encoding='utf-8-sig')
+    'Подробная инструкция: ИНСТРУКЦИЯ.md. Сверка с ТЗ: docs\\archive\\ACCEPTANCE_RU.md.\n', encoding='utf-8-sig')
 results = release/'qa'
 results.mkdir(exist_ok=True)
 for name in ['export_checks.json', 'model_results.json', 'physics_results.json',

@@ -4,7 +4,7 @@ extends RefCounted
 # s_m); 2 is the long line of about 6.8 km (s_m_v2 and height_v2), chosen for new games
 # only. A saved route keeps its own version and its station positions.
 const LENGTH_V1 = 1700.0
-# Largest grade per stretch A-B ... E-F on the long line (docs/SIDE_VIEW_MAP_v3_1_RU.md).
+# Largest grade per stretch A-B ... E-F on the long line (docs/archive/SIDE_VIEW_MAP_v3_1_RU.md).
 # V2.1 (2026-11-01): steeper map. The first two legs stay within the handcar (3%), the rest is harder.
 const GRADE_LIMITS_V2 = [0.02, 0.025, 0.04, 0.06, 0.045]
 var points: Array = []
