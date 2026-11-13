@@ -2339,9 +2339,7 @@ func _draw_scene() -> void:
 		update_pult_transform()
 		draw_cab_scene(size)
 		if toast_seconds > 0 and modal_kind != "confirm":
-			var banner = Rect2(size.x * 0.5 - 420, 66, 840, 44)
-			draw_style_box(style(INK, GOLD, 8), banner)
-			draw_string(font, banner.position + Vector2(18, 29), toast, HORIZONTAL_ALIGNMENT_LEFT, banner.size.x - 30, 19, PAPER)
+			draw_toast_box(Rect2(size.x * 0.5 - 420, 66, 840, 44), false)
 		return
 	if screen == "menu":
 		var scrim = Color(0.03, 0.08, 0.06, 0.9)
@@ -2379,8 +2377,18 @@ func _draw_scene() -> void:
 		if screen == "depot":
 			# above the hint line and the service buttons, inside the left column (the right panel covers the rest)
 			rect = Rect2(size.x * 0.02, size.y - 215, size.x * 0.44, 44)
-		draw_style_box(style(INK, GOLD, 8), rect)
-		draw_string(font, rect.position + Vector2(18, 29), toast, HORIZONTAL_ALIGNMENT_LEFT, rect.size.x - 30, 19, PAPER)
+		draw_toast_box(rect, screen != "game")
+
+# The notice: a long text wraps to up to three lines instead of being cut at the edge of the box (it was cut in the narrow depot column).
+# A box that stands low on the screen grows upward, so that it does not cover the buttons under it.
+func draw_toast_box(rect: Rect2, grow_up: bool) -> void:
+	var width = rect.size.x - 30
+	var text_h = font.get_multiline_string_size(toast, HORIZONTAL_ALIGNMENT_LEFT, width, 19, 3).y
+	var extra = maxf(0.0, text_h + 20.0 - rect.size.y)
+	rect.size.y += extra
+	if grow_up: rect.position.y -= extra
+	draw_style_box(style(INK, GOLD, 8), rect)
+	draw_multiline_string(font, rect.position + Vector2(18, 29), toast, HORIZONTAL_ALIGNMENT_LEFT, width, 19, 3, PAPER)
 
 # ===== Cab scene (E): looking ahead through the glass, the dashboard below ==========
 # Everything is drawn here in code. The pult (levers, gate, wheels, coal, door) is the
