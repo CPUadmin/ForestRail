@@ -34,6 +34,12 @@ var lake_layer: Sprite2D
 var haze
 var ground_shade
 var light
+# 1.3.4: what the cached pieces were built for; a piece is rebuilt or repainted only when its key changes
+var strip_keys: Dictionary = {}
+var road_meshes: Dictionary = {}
+var road_indices := PackedInt32Array()
+var road_colors := PackedColorArray()
+var still_key = null
 
 func _ready() -> void:
 	z_index = -10
@@ -243,12 +249,21 @@ func update_view() -> void:
 		var tint=Color.WHITE if name=="mid_forest" else Color(0.78,0.87,0.86)
 		tint=tint.lerp(Color(1,0.88,0.72),warm*0.45)
 		if name=="mid_forest": tint.a=1-maxf(water*0.82,high*0.65)
-		strips[name].mesh = mesh_strip([Vector2(0,baseline-height),Vector2(0,baseline),Vector2(size.x,baseline-height),Vector2(size.x,baseline)], [Vector2(u,0),Vector2(u,1),Vector2(u+xspan,0),Vector2(u+xspan,1)], tint)
+		# the slide goes to the shader (only its fraction: the picture repeats); the mesh is rebuilt only when its place, size or tint changes
+		strips[name].material.set_shader_parameter("u_shift", fposmod(u, 1.0))
+		var key = [size, baseline, height, tint]
+		if strip_keys.get(name) != key:
+			strip_keys[name] = key
+			strips[name].mesh = mesh_strip([Vector2(0,baseline-height),Vector2(0,baseline),Vector2(size.x,baseline-height),Vector2(size.x,baseline)], [Vector2(0,0),Vector2(0,1),Vector2(xspan,0),Vector2(xspan,1)], tint)
 	var road_scale = 1.0 if in_menu else game.view_scale()
 	var track_depth = ROAD_TRACK_M * art.PX * road_scale * float(ROAD_TRACK.get_height()) / float(ROAD_TRACK.get_width())
+	if road_indices.is_empty():
+		for i in range(0, 97 * 2 - 2, 2): road_indices.append_array(PackedInt32Array([i, i+1, i+2, i+1, i+3, i+2]))
+		road_colors.resize(97 * 2)
+		road_colors.fill(Color.WHITE)
 	for name in ["track", "ground"]:
-		var points: Array = []
-		var uv: Array = []
+		var points := PackedVector3Array()
+		var uv := PackedVector2Array()
 		var tile_m = ROAD_TRACK_M if name == "track" else ROAD_GROUND_M
 		var tex: Texture2D = ROAD_TRACK if name == "track" else (DEPOT_FLOOR if game.screen == "depot" else ROAD_GROUND)
 		if name == "ground": strips[name].texture = tex
@@ -257,17 +272,36 @@ func update_view() -> void:
 		for i in range(97):
 			var s = game.camera_s - 32 + i * (64.0 / 96)
 			var p = Vector2((s-game.camera_s)*art.PX+size.x*0.74,rail_y) if in_menu else game.world_point(s)
-			points.append(p + Vector2(0, top))
-			points.append(p + Vector2(0, top + depth))
+			points.append(Vector3(p.x, p.y + top, 0))
+			points.append(Vector3(p.x, p.y + top + depth, 0))
 			uv.append(Vector2(s / tile_m, 0))
 			uv.append(Vector2(s / tile_m, 1))
-		strips[name].mesh = mesh_strip(points, uv, Color.WHITE)
+		# one mesh per strip, refilled in place: no new resource every frame, the indices are built once
+		var mesh: ArrayMesh = road_meshes.get(name)
+		if mesh == null:
+			mesh = ArrayMesh.new()
+			road_meshes[name] = mesh
+		mesh.clear_surfaces()
+		var arrays: Array = []
+		arrays.resize(Mesh.ARRAY_MAX)
+		arrays[Mesh.ARRAY_VERTEX] = points
+		arrays[Mesh.ARRAY_TEX_UV] = uv
+		arrays[Mesh.ARRAY_COLOR] = road_colors
+		arrays[Mesh.ARRAY_INDEX] = road_indices
+		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+		if strips[name].mesh != mesh: strips[name].mesh = mesh
 	stations.visible = not in_menu
 	scenery.visible=not in_menu
 	scenery.queue_redraw()
 	foreground.visible = true
-	for layer in [stations, foreground, haze, ground_shade, light]:
+	for layer in [stations, foreground, light]:
 		layer.queue_redraw()
+	# the haze and the shade under the embankment hang on the size of the window and on the height of the rail only
+	var still = [size, rail_y]
+	if still != still_key:
+		still_key = still
+		haze.queue_redraw()
+		ground_shade.queue_redraw()
 	queue_redraw()
 
 func _draw() -> void:

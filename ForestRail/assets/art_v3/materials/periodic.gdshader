@@ -3,6 +3,7 @@ render_mode unshaded;
 uniform sampler2D source_tex : source_color, filter_linear, repeat_enable;
 uniform vec4 source_region = vec4(0.0, 0.0, 1.0, 1.0);
 uniform bool repeat_y = true;
+uniform float u_shift = 0.0;   // 1.3.4: the parallax slides the picture here instead of rebuilding its mesh every frame
 varying vec4 vertex_tint;
 void vertex() { vertex_tint = COLOR; }
 vec4 sample_region(vec2 q) {
@@ -15,7 +16,7 @@ vec4 sample_region(vec2 q) {
 	return vec4(c.rgb * c.a, c.a);
 }
 void fragment() {
-	vec2 p = vec2(fract(UV.x), repeat_y ? fract(UV.y) : clamp(UV.y, 0.0, 1.0));
+	vec2 p = vec2(fract(UV.x + u_shift),repeat_y ? fract(UV.y) : clamp(UV.y, 0.0, 1.0));
 	vec2 w = sin(p * PI); w *= w;
 	if (!repeat_y) w.y = 1.0;
 	vec4 a = sample_region(p);
