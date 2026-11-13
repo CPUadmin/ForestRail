@@ -24,6 +24,10 @@ root = Path(__file__).resolve().parents[1]
 reports = args.report_dir.resolve() if args.report_dir else root/'qa'
 reports.mkdir(parents=True, exist_ok=True)
 results = []
+# a name with no test file used to run the bare game and look like a failed check
+missing = [s for s in args.suite.split(',') if not (root/'ForestRail'/'tests'/f'{s}.gd').is_file()]
+if missing:
+    parser.error('no such suite in ForestRail/tests: ' + ', '.join(missing))
 for suite in args.suite.split(','):
     if (root/'qa/autonomous_run/stop.json').exists() and not args.manual_run:
         raise SystemExit('Autonomous guard requested a saved stop; no further QA started')
