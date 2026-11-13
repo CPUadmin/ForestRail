@@ -690,13 +690,31 @@ func stat_change(before, after) -> String:
 
 # The steepest climb of the road from the depot to distance s (as a grade, 0.03 is 3%), measured
 # over 30 m so that a short springboard knoll is not mistaken for a hill.
+# The steepest climb from the depot to a distance. 1.3.9: it walked the whole line for every order card (6 ms each,
+# the board of orders froze for ~65 ms); now the running maximum is built once per line and read from the table.
+var climb_table := PackedFloat32Array()
+var climb_table_key = null
 func route_climb_to(distance: float) -> float:
-	var worst = 0.0
-	var s = 0.0
-	while s <= distance:
-		worst = maxf(worst, (model.route.sample(s + 30.0).y - model.route.sample(s).y) / 30.0)
-		s += 10.0
-	return worst
+	var key = [model.route, model.route.seed_value, model.route.points.size()]
+	if climb_table_key != key:
+		climb_table_key = key
+		climb_table.clear()
+		var worst = 0.0
+		var s = 0.0
+		var last = float(model.route.station_s[-1]) + 100.0
+		while s <= last:
+			worst = maxf(worst, (model.route.sample(s + 30.0).y - model.route.sample(s).y) / 30.0)
+			climb_table.append(worst)
+			s += 10.0
+	if distance < 0.0: return 0.0
+	var index = floori(distance / 10.0)
+	if index < climb_table.size(): return climb_table[index]
+	var worst_far = climb_table[-1]
+	var s_far = float(climb_table.size()) * 10.0
+	while s_far <= distance:
+		worst_far = maxf(worst_far, (model.route.sample(s_far + 30.0).y - model.route.sample(s_far).y) / 30.0)
+		s_far += 10.0
+	return worst_far
 
 func take_mission(mission: Dictionary) -> void:
 	if model.accept_mission(mission):
