@@ -92,6 +92,9 @@ func measure(scene: String, physics: bool = true) -> void:
 	var line = "PERF %-14s" % scene
 	for counter in ["frame", "draw", "update_view", "hud", "physics"]:
 		if row.has(counter): line += "  %s %.2f/%.2f" % [counter, float(row[counter].median), float(row[counter].p95)]
+	var rough = 0
+	for v in frame_ms: if float(v) > 25.0: rough += 1
+	line += "  rough>25ms %d/%d" % [rough, frame_ms.size()]   # 1.3.9: torn frames are counted for the eye, not checked against the base
 	print(line, "   (median/p95 ms)")
 	var parts = ""
 	for counter in ["cab_forward", "cab_nose", "cab_glass", "cab_frame", "cab_dash", "cab_gauges", "cab_rest", "f_bg", "f_ground", "f_beds", "f_ballast", "f_sleepers", "f_rails", "f_joints", "f_stations", "f_poles", "f_trees", "f_streaks"]:
