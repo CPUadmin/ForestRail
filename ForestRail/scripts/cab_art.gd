@@ -2,6 +2,22 @@ extends RefCounted
 # Т7 (разбивка main.gd), шаг 2: кисть кабины: вид вперёд, нос машины, рама, приборная панель, указатель поворота, приборы.
 # Рисует на холсте canvas (main.gd) его же методами; состояние (кабина, подсказки нажатий, стрелки) осталось в main.gd.
 
+# the colours of the view forward, parsed once (1.3.5) and named by their hex code
+const C_2c2a27 = Color("2c2a27")
+const C_3a5e3c = Color("3a5e3c")
+const C_4a3b2e = Color("4a3b2e")
+const C_4b3a2c = Color("4b3a2c")
+const C_554d43 = Color("554d43")
+const C_5f7f54 = Color("5f7f54")
+const C_6a5646 = Color("6a5646")
+const C_77a06a = Color("77a06a")
+const C_8a8174 = Color("8a8174")
+const C_b7ab94 = Color("b7ab94")
+const C_b8b4a9 = Color("b8b4a9")
+const C_e2dfd6 = Color("e2dfd6")
+const C_e6d9a8 = Color("e6d9a8")
+const C_e8e4d4 = Color("e8e4d4")
+
 var canvas = null   # the node that draws (main.gd): it holds the font, the model and the shared state
 
 func _init(owner_canvas) -> void:
@@ -15,8 +31,12 @@ func draw_cab_scene(size: Vector2) -> void:
 	# The view and the machine's nose shake with the track and the engine; the frame
 	# and the dashboard stay put, so the controls keep their places under the mouse.
 	canvas.draw_set_transform_matrix(Transform2D(0.0, Vector2.ONE, 0.0, canvas.cab_shake()))
+	var perf = canvas.perf_on   # 1.3.5: the parts of the cab are counted apart in check_perf_budget
+	var t0 = Time.get_ticks_usec() if perf else 0
 	var look = draw_cab_forward(view)
+	if perf: canvas.perf_add("cab_forward", t0); t0 = Time.get_ticks_usec()
 	draw_cab_nose(view, look)
+	if perf: canvas.perf_add("cab_nose", t0); t0 = Time.get_ticks_usec()
 	# B4.1: the glass at night and at dawn
 	var night = canvas.model.night_amount()
 	if canvas.model.twilight() > 0.01: canvas.draw_rect(view, Color(1.0, 0.5, 0.25, 0.16 * minf(1.0, canvas.model.twilight())))
@@ -34,7 +54,9 @@ func draw_cab_scene(size: Vector2) -> void:
 			canvas.draw_polygon(PackedVector2Array([vanishing_point, track_center - spread, track_center]), PackedColorArray([clear_beam, clear_beam, beam]))
 			canvas.draw_polygon(PackedVector2Array([vanishing_point, track_center, track_center + spread]), PackedColorArray([clear_beam, beam, clear_beam]))
 	canvas.draw_set_transform_matrix(Transform2D.IDENTITY)
+	if perf: canvas.perf_add("cab_glass", t0); t0 = Time.get_ticks_usec()
 	draw_cab_frame(size, top)
+	if perf: canvas.perf_add("cab_frame", t0); t0 = Time.get_ticks_usec()
 	if canvas.model.vehicle_id() == "jet" and bool(canvas.model.jet.counting):
 		# the countdown: a red lamp pulses at the top of the frame
 		var pulse = 0.5 + 0.5 * sin(canvas.time * 8.0)
@@ -44,7 +66,9 @@ func draw_cab_scene(size: Vector2) -> void:
 		canvas.draw_zeppelin_pult(Rect2(layout.rect).position, float(layout.k))
 	else:
 		draw_cab_dash_details(size, layout)
+		if perf: canvas.perf_add("cab_dash", t0); t0 = Time.get_ticks_usec()
 		draw_cab_gauges(size, layout)
+		if perf: canvas.perf_add("cab_gauges", t0); t0 = Time.get_ticks_usec()
 		canvas.draw_control_zoom()
 	canvas.draw_set_transform_matrix(Transform2D.IDENTITY)
 	canvas.cab_exit_rect = Rect2(size.x - 206, 14, 190, 40)
@@ -52,11 +76,56 @@ func draw_cab_scene(size: Vector2) -> void:
 	canvas.draw_string(canvas.font, canvas.cab_exit_rect.position + Vector2(0, 27), "Выйти [E]", HORIZONTAL_ALIGNMENT_CENTER, canvas.cab_exit_rect.size.x, 19, canvas.PAPER)
 	var ahead = canvas.instruments.climb_ahead(canvas.model.sight_m()) if canvas.instruments != null else {}
 	var text = "Впереди без крутых подъёмов" if ahead.is_empty() else ("Подъём +%.1f%% — сейчас" % ahead.grade if ahead.distance < 10 else "Подъём +%.1f%% через %d м" % [ahead.grade, ahead.distance])
+	if perf: canvas.perf_add("cab_rest", t0)
 	canvas.draw_string(canvas.font, Vector2(0, 44), canvas.model.journey_heading() + "  ·  " + text, HORIZONTAL_ALIGNMENT_CENTER, size.x - 240, 18, Color(canvas.PAPER, 0.92))
 
 # The view forward along the track. Returns the horizon line and focal length so the
 # nose of the machine can be placed against it.
-func draw_cab_ground(project: Callable, travelled: float) -> void:
+# 1.3.5: the projection of the view forward. One call of depth(z) gives the scale and the screen line of a distance z;
+# the points of one distance share it (a row of the ground, both ends of a sleeper), so the heights of the track are looked up once per distance.
+var p_cx = 0.0
+var p_focal = 1.0
+var p_horizon = 0.0
+var p_camera = 0.0
+var p_origin = 0.0
+var p_facing = 1
+var p_rail = 0.0
+var p_elevations := {}
+
+func depth(z: float) -> Vector2:
+	var e = p_elevations.get(z)
+	if e == null:
+		e = canvas.model.route.sample(p_origin + p_facing * z).y - p_rail
+		p_elevations[z] = e
+	var k = p_focal / z
+	return Vector2(k, p_horizon + (p_camera - float(e)) * k)
+
+func proj(x: float, z: float) -> Vector2:
+	var d = depth(z)
+	return Vector2(p_cx + x * d.x, d.y)
+
+# 1.3.5: the quads of one layer (the ground, the bed, the rails) go to the screen in one batch of triangles instead of one polygon each
+var b_points := PackedVector2Array()
+var b_colors := PackedColorArray()
+var b_uvs := PackedVector2Array()
+var b_indices := PackedInt32Array()
+
+func quad(p0: Vector2, p1: Vector2, p2: Vector2, p3: Vector2, c0: Color, c1: Color, c2: Color, c3: Color, uv: PackedVector2Array = PackedVector2Array()) -> void:
+	var n = b_points.size()
+	b_points.append_array(PackedVector2Array([p0, p1, p2, p3]))
+	b_colors.append_array(PackedColorArray([c0, c1, c2, c3]))
+	if not uv.is_empty(): b_uvs.append_array(uv)
+	b_indices.append_array(PackedInt32Array([n, n + 1, n + 2, n, n + 2, n + 3]))
+
+func flush(texture: Texture2D = null) -> void:
+	if not b_indices.is_empty():
+		RenderingServer.canvas_item_add_triangle_array(canvas.get_canvas_item(), b_indices, b_points, b_colors, b_uvs if texture != null else PackedVector2Array(), PackedInt32Array(), PackedFloat32Array(), texture.get_rid() if texture != null else RID())
+	b_points.clear()
+	b_colors.clear()
+	b_uvs.clear()
+	b_indices.clear()
+
+func draw_cab_ground(travelled: float) -> void:
 	# Use the grass above the exposed cross-section in the existing roadside tile.
 	const TILE_LENGTH = 3.0
 	const TILE_WIDTH = 8.0
@@ -75,18 +144,14 @@ func draw_cab_ground(project: Callable, travelled: float) -> void:
 		var tint_near = Color(0.83, 0.96, 0.83, 0.34 * (1.0 - smoothstep(9.0, 29.0, near)))
 		var tint_far = Color(tint_near, 0.34 * (1.0 - smoothstep(9.0, 29.0, end)))
 		if tint_near.a <= 0.0: continue
+		var dn = depth(near)
+		var de = depth(end)
+		var uvs = PackedVector2Array([Vector2(0, v_near), Vector2(1, v_near), Vector2(1, v_far), Vector2(0, v_far)])
 		for col in range(-4, 4):
 			var left = float(col) * TILE_WIDTH
 			var right = left + TILE_WIDTH
-			var points = PackedVector2Array([
-				project.call(left, near),
-				project.call(right, near),
-				project.call(right, end),
-				project.call(left, end),
-			])
-			canvas.draw_polygon(points, PackedColorArray([tint_near, tint_near, tint_far, tint_far]), PackedVector2Array([
-				Vector2(0, v_near), Vector2(1, v_near), Vector2(1, v_far), Vector2(0, v_far),
-			]), canvas.ArtWorld.ROAD_GROUND)
+			quad(Vector2(p_cx + left * dn.x, dn.y), Vector2(p_cx + right * dn.x, dn.y), Vector2(p_cx + right * de.x, de.y), Vector2(p_cx + left * de.x, de.y), tint_near, tint_near, tint_far, tint_far, uvs)
+	flush(canvas.ArtWorld.ROAD_GROUND)
 
 func draw_cab_forward(view: Rect2) -> Dictionary:
 	var facing = int(canvas.model.state.direction)
@@ -101,11 +166,14 @@ func draw_cab_forward(view: Rect2) -> Dictionary:
 	# Look through the driver's pane so the centre pillar leaves the track visible.
 	var cx = view.size.x * 0.40
 	var camera_height = 1.7 + (float(canvas.model.air_z) if canvas.model.vehicle_id() == "zeppelin" and canvas.model.air_fly else 0.0)   # in flight the eye rises with the machine
-	var elevations := {}
-	var project := func(x: float, z: float) -> Vector2:
-		if not elevations.has(z):
-			elevations[z] = canvas.model.route.sample(origin + facing * z).y - rail_height
-		return Vector2(cx + x * focal / z, horizon + (camera_height - float(elevations[z])) * focal / z)
+	p_cx = cx
+	p_focal = focal
+	p_horizon = horizon
+	p_camera = camera_height
+	p_origin = origin
+	p_facing = facing
+	p_rail = rail_height
+	p_elevations.clear()
 	var look = {"horizon": horizon, "focal": focal, "cx": cx, "speed": speed, "travelled": travelled}
 	# C1: the sky and the three layers of the forest are the same painted pictures as outside the window
 	var sky: Texture2D = canvas.art.textures["parallax/sky"]
@@ -121,62 +189,73 @@ func draw_cab_forward(view: Rect2) -> Dictionary:
 			canvas.draw_texture_rect(tex, Rect2(layer_x, horizon + float(layer[2]) - layer_h, layer_w + 1.0, layer_h), false, layer[3])
 			layer_x += layer_w
 	canvas.draw_polygon(PackedVector2Array([Vector2(0, horizon - 3), Vector2(view.size.x, horizon - 3), Vector2(view.size.x, horizon + 28), Vector2(0, horizon + 28)]), PackedColorArray([Color(0.85, 0.92, 0.9, 0.0), Color(0.85, 0.92, 0.9, 0.0), Color(0.85, 0.92, 0.9, 0.5), Color(0.85, 0.92, 0.9, 0.5)]))
-	canvas.draw_polygon(PackedVector2Array([Vector2(0, horizon), Vector2(view.size.x, horizon), view.end, Vector2(0, view.end.y)]), PackedColorArray([Color("77a06a"), Color("77a06a"), Color("3a5e3c"), Color("3a5e3c")]))
-	draw_cab_ground(project, travelled)
+	canvas.draw_polygon(PackedVector2Array([Vector2(0, horizon), Vector2(view.size.x, horizon), view.end, Vector2(0, view.end.y)]), PackedColorArray([C_77a06a, C_77a06a, C_3a5e3c, C_3a5e3c]))
+	draw_cab_ground(travelled)
 	var near = 1.3
 	var far = 170.0
 	var steps = [near, 2.0, 3.0, 4.5, 7.0, 11.0, 18.0, 25.0, 33.0, 44.0, 55.0, 70.0, 85.0, 100.0, 125.0, 150.0, far]
-	for bed in [[2.6, Color("5f7f54")], [1.9, Color("8a8174")]]:
+	for bed in [[2.6, C_5f7f54], [1.9, C_8a8174]]:
 		var half: float = bed[0]
 		for i in range(steps.size() - 1):
 			var a: float = steps[i]
 			var b: float = steps[i + 1]
-			canvas.draw_colored_polygon(PackedVector2Array([project.call(-half, a), project.call(half, a), project.call(half, b), project.call(-half, b)]), bed[1])
+			var da = depth(a)
+			var db = depth(b)
+			var c: Color = bed[1]
+			quad(Vector2(p_cx - half * da.x, da.y), Vector2(p_cx + half * da.x, da.y), Vector2(p_cx + half * db.x, db.y), Vector2(p_cx - half * db.x, db.y), c, c, c, c)
+	flush()
 	# ballast speckle close to the train
 	for i in range(60):
 		var z = near + 0.4 + fposmod(canvas.cab_hash(i, 6.0) * 14.0 - travelled, 14.0)
-		var spot = project.call((canvas.cab_hash(i, 7.0) - 0.5) * 3.4, z)
+		var spot = proj((canvas.cab_hash(i, 7.0) - 0.5) * 3.4, z)
 		canvas.draw_rect(Rect2(spot, Vector2(clampf(0.06 * focal / z, 1, 5), clampf(0.03 * focal / z, 1, 3))), Color(0.35, 0.32, 0.28, 0.6))
 	var phase = fposmod(-travelled, 0.9)
 	for k in range(0, 150):
 		var z = near + phase + k * 0.9
 		if z > 120.0: break
-		var a = project.call(-1.15, z)
-		var b = project.call(1.15, z)
-		canvas.draw_line(a, b, canvas.cab_fog(Color("4a3b2e"), z), clampf(0.2 * focal / z, 1.0, 20.0), true)
-		canvas.draw_line(a + Vector2(0, -clampf(0.07 * focal / z, 0, 6)), b + Vector2(0, -clampf(0.07 * focal / z, 0, 6)), canvas.cab_fog(Color("6a5646"), z), clampf(0.05 * focal / z, 0.5, 5.0), true)
+		var d = depth(z)
+		var a = Vector2(p_cx - 1.15 * d.x, d.y)
+		var b = Vector2(p_cx + 1.15 * d.x, d.y)
+		canvas.draw_line(a, b, canvas.cab_fog(C_4a3b2e, z), clampf(0.2 * focal / z, 1.0, 20.0), true)
+		canvas.draw_line(a + Vector2(0, -clampf(0.07 * focal / z, 0, 6)), b + Vector2(0, -clampf(0.07 * focal / z, 0, 6)), canvas.cab_fog(C_6a5646, z), clampf(0.05 * focal / z, 0.5, 5.0), true)
+	var glints: Array = []
 	for rail_x in [-0.55, 0.55]:
 		for i in range(steps.size() - 1):
 			var z0: float = steps[i]
 			var z1: float = steps[i + 1]
-			var a: Vector2 = project.call(rail_x, z0)
-			var b: Vector2 = project.call(rail_x, z1)
+			var a: Vector2 = proj(rail_x, z0)
+			var b: Vector2 = proj(rail_x, z1)
 			var head_a = a - Vector2(0, 0.14 * focal / z0)
 			var head_b = b - Vector2(0, 0.14 * focal / z1)
-			canvas.draw_colored_polygon(PackedVector2Array([a, b, head_b, head_a]), canvas.cab_fog(Color("554d43"), z0))
+			var body = canvas.cab_fog(C_554d43, z0)
+			quad(a, b, head_b, head_a, body, body, body, body)
 			var width_a = Vector2(0.035 * focal / z0, 0)
 			var width_b = Vector2(0.035 * focal / z1, 0)
 			if absf(head_a.y - head_b.y) >= 0.1:
-				canvas.draw_colored_polygon(PackedVector2Array([head_a - width_a, head_a + width_a, head_b + width_b, head_b - width_b]), canvas.cab_fog(Color("b8b4a9"), z0))
-			canvas.draw_line(head_a - width_a, head_b - width_b, canvas.cab_fog(Color("e2dfd6"), z0), clampf(0.015 * focal / z0, 0.4, 2.0), true)
+				var head = canvas.cab_fog(C_b8b4a9, z0)
+				quad(head_a - width_a, head_a + width_a, head_b + width_b, head_b - width_b, head, head, head, head)
+			glints.append([head_a - width_a, head_b - width_b, canvas.cab_fog(C_e2dfd6, z0), clampf(0.015 * focal / z0, 0.4, 2.0)])
+	flush()
+	# the bright edge of the rail head goes on top of the batch, as before
+	for g in glints: canvas.draw_line(g[0], g[1], g[2], g[3], true)
 	# rail joints every 12 m
 	var joint_phase = fposmod(-travelled, 12.0)
 	for j in range(0, 12):
 		var z = near + joint_phase + j * 12.0
 		if z > 110.0: break
 		for rail_x in [-0.55, 0.55]:
-			var p: Vector2 = project.call(rail_x, z) - Vector2(0, 0.14 * focal / z)
-			canvas.draw_rect(Rect2(p + Vector2(-clampf(0.08 * focal / z, 1, 9), -1), Vector2(clampf(0.16 * focal / z, 2, 18), clampf(0.03 * focal / z, 1, 3))), canvas.cab_fog(Color("2c2a27"), z))
+			var p: Vector2 = proj(rail_x, z) - Vector2(0, 0.14 * focal / z)
+			canvas.draw_rect(Rect2(p + Vector2(-clampf(0.08 * focal / z, 1, 9), -1), Vector2(clampf(0.16 * focal / z, 2, 18), clampf(0.03 * focal / z, 1, 3))), canvas.cab_fog(C_2c2a27, z))
 	# stations ahead: platform, building, sign
 	for i in range(canvas.model.route.station_s.size()):
 		var z = (float(canvas.model.route.station_s[i]) - canvas.model.render_s()) * facing
 		if z < 6.0 or z > 190.0: continue
 		var z0 = maxf(near + 0.5, z - 9.0)
 		var z1 = z + 9.0
-		canvas.draw_colored_polygon(PackedVector2Array([project.call(1.5, z0), project.call(3.4, z0), project.call(3.4, z1), project.call(1.5, z1)]), canvas.cab_fog(Color("b7ab94"), z))
-		var edge_a = project.call(1.5, z0)
-		var edge_b = project.call(1.5, z1)
-		canvas.draw_line(edge_a, edge_b, canvas.cab_fog(Color("e6d9a8"), z), clampf(0.06 * focal / z, 1, 5), true)
+		canvas.draw_colored_polygon(PackedVector2Array([proj(1.5, z0), proj(3.4, z0), proj(3.4, z1), proj(1.5, z1)]), canvas.cab_fog(C_b7ab94, z))
+		var edge_a = proj(1.5, z0)
+		var edge_b = proj(1.5, z1)
+		canvas.draw_line(edge_a, edge_b, canvas.cab_fog(C_e6d9a8, z), clampf(0.06 * focal / z, 1, 5), true)
 		var station = canvas.model.data.stations[i]
 		var building_id = canvas.art_world.station_building_id(i)
 		var facade: Array = canvas.ArtWorld.STATION_ART.get(station.id, [])
@@ -184,7 +263,7 @@ func draw_cab_forward(view: Rect2) -> Dictionary:
 		var height_m = texture.get_height() * canvas.art.scale_for(building_id) / canvas.ArtV3.PX if facade.is_empty() else float(facade[1])
 		var height = height_m * focal / z
 		var width = height * float(texture.get_width()) / float(texture.get_height())
-		var foot: Vector2 = project.call(10.5, z)
+		var foot: Vector2 = proj(10.5, z)
 		canvas.draw_texture_rect(texture, Rect2(foot - Vector2(width * 0.5, height), Vector2(width, height)), false, canvas.cab_fog(Color.WHITE, z))
 		if z < 70.0:
 			var label_size = clampi(roundi(600.0 / z), 9, 18)
@@ -199,25 +278,25 @@ func draw_cab_forward(view: Rect2) -> Dictionary:
 	for i in range(pole_last, pole_first - 1, -1):
 		var z = i * 40.0 - travelled
 		if z < 5.0 or z > 160.0: continue
-		var base = project.call(-4.6, z)
+		var base = proj(-4.6, z)
 		var tall = 7.0 * focal / z
-		canvas.draw_line(base, base + Vector2(0, -tall), canvas.cab_fog(Color("4b3a2c"), z), clampf(0.2 * focal / z, 1, 9), true)
-		canvas.draw_line(base + Vector2(-tall * 0.16, -tall * 0.92), base + Vector2(tall * 0.16, -tall * 0.92), canvas.cab_fog(Color("4b3a2c"), z), clampf(0.1 * focal / z, 1, 5), true)
+		canvas.draw_line(base, base + Vector2(0, -tall), canvas.cab_fog(C_4b3a2c, z), clampf(0.2 * focal / z, 1, 9), true)
+		canvas.draw_line(base + Vector2(-tall * 0.16, -tall * 0.92), base + Vector2(tall * 0.16, -tall * 0.92), canvas.cab_fog(C_4b3a2c, z), clampf(0.1 * focal / z, 1, 5), true)
 		var tops = [base + Vector2(-tall * 0.14, -tall * 0.92), base + Vector2(tall * 0.14, -tall * 0.92)]
 		for wire in range(2):
 			if previous_top.size() == 2:
 				var a = tops[wire]
 				var b = previous_top[wire]
-				canvas.draw_polyline(PackedVector2Array([a, a.lerp(b, 0.5) + Vector2(0, tall * 0.05), b]), canvas.cab_fog(Color("2c2a27"), z), clampf(0.03 * focal / z, 0.7, 2.0), true)
+				canvas.draw_polyline(PackedVector2Array([a, a.lerp(b, 0.5) + Vector2(0, tall * 0.05), b]), canvas.cab_fog(C_2c2a27, z), clampf(0.03 * focal / z, 0.7, 2.0), true)
 		previous_top = tops
 	var post_first = floori((travelled + 4.0) / 100.0)
 	for i in range(post_first + 2, post_first - 1, -1):
 		var z = i * 100.0 - travelled
 		if z < 6.0 or z > 160.0: continue
-		var base = project.call(2.6, z)
+		var base = proj(2.6, z)
 		var tall = 1.1 * focal / z
-		canvas.draw_rect(Rect2(base.x - 0.16 * focal / z, base.y - tall, 0.32 * focal / z, tall), canvas.cab_fog(Color("e8e4d4"), z))
-		canvas.draw_string(canvas.font, Vector2(base.x - 0.2 * focal / z, base.y - tall * 0.45), str(i), HORIZONTAL_ALIGNMENT_CENTER, 0.4 * focal / z, clampi(roundi(0.35 * focal / z), 6, 20), Color("2c2a27"))
+		canvas.draw_rect(Rect2(base.x - 0.16 * focal / z, base.y - tall, 0.32 * focal / z, tall), canvas.cab_fog(C_e8e4d4, z))
+		canvas.draw_string(canvas.font, Vector2(base.x - 0.2 * focal / z, base.y - tall * 0.45), str(i), HORIZONTAL_ALIGNMENT_CENTER, 0.4 * focal / z, clampi(roundi(0.35 * focal / z), 6, 20), C_2c2a27)
 	# C1: near the track the old flat trees give way to the painted things of the side view (rocks, grass, ferns,
 	# flowers, stumps) that stand as pictures in the perspective; the forest behind them is painted too
 	var first = floori((travelled + 5.0) / 2.2)
@@ -235,7 +314,7 @@ func draw_cab_forward(view: Rect2) -> Dictionary:
 			thing = canvas.textures["birch" if canvas.cab_hash(i, 4.0) > 0.65 else "pine"]
 			thing_m = lerpf(2.8, 4.5, canvas.cab_hash(i, 3.0))
 			lateral = side * (7.0 + canvas.cab_hash(i, 2.0) * 13.0)
-		var base = project.call(lateral, z)
+		var base = proj(lateral, z)
 		var h = thing_m * focal / z
 		var w = h * float(thing.get_width()) / float(thing.get_height())
 		canvas.draw_texture_rect(thing, Rect2(base.x - w * 0.5, base.y - h, w, h), false, canvas.cab_fog(Color(0.95, 0.96, 0.9), z))

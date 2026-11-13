@@ -3316,8 +3316,9 @@ func cab_needle(key: String, target: float) -> float:
 func cab_hash(i: int, salt: float = 0.0) -> float:
 	return fposmod(sin(float(i) * 12.9898 + salt * 78.233) * 43758.5453, 1.0)
 
+const CAB_FOG = Color("cfe0dc")
 func cab_fog(color: Color, z: float) -> Color:
-	return color.lerp(Color("cfe0dc"), clampf(z / 170.0, 0.0, 0.85))
+	return color.lerp(CAB_FOG, clampf(z / 170.0, 0.0, 0.85))
 
 var cab_art_cache = null
 func cab_art():
