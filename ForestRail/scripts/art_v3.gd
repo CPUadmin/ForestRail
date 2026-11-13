@@ -74,6 +74,7 @@ const GADGET_ART = {
 	"pole_pogo": {"vehicle": "pole", "x": -0.85, "lift": 0.0, "h": 0.55, "tex": preload("res://assets/art_gadgets/pole_pogo.png")},
 	"pole_grapnel": {"vehicle": "pole", "x": 0.8, "lift": 0.0, "h": 0.5, "tex": preload("res://assets/art_gadgets/pole_grapnel.png")},
 	"sail_autopilot": {"vehicle": "sail", "x": 0.95, "lift": 0.0, "h": 0.5, "tex": preload("res://assets/art_gadgets/sail_autopilot.png")},
+	"sail_spinnaker": {"vehicle": "sail", "x": 0.3, "lift": 0.0, "h": 0.45, "tex": preload("res://assets/art_gadgets/sail_spinnaker.png")},   # the spinnaker bag on the deck (the cloth itself is drawn by code)
 	"steam_stoker": {"vehicle": "steam", "x": -1.1, "lift": 0.0, "h": 0.55, "tex": preload("res://assets/art_gadgets/steam_stoker.png")},
 	"steam_superheater": {"vehicle": "steam", "x": 0.2, "lift": 0.9, "h": 0.5, "tex": preload("res://assets/art_gadgets/steam_superheater.png")},
 	"motorcar_automatic": {"vehicle": "motorcar", "x": -1.2, "lift": 0.0, "h": 0.5, "tex": preload("res://assets/art_gadgets/motorcar_automatic.png")},

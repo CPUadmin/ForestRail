@@ -1244,6 +1244,26 @@ func gadget_icon(box: VBoxContainer, card_id: String) -> void:
 	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	box.add_child(icon)
 
+# The pictures of the junk (P9b, painted by GPT: the sheets of junk and of rare junk, cut into junk_1..9 and rare_1..9): the sheets are general, so only the kinds
+# that really match a picture have one; the rest stay a text line (no wrong picture is better than a wrong one).
+const JUNK_ICON = {"rusty_bolt": "junk_1", "bearing_cover": "junk_2", "tie_plate": "junk_4", "brake_shoe": "junk_6", "lever_bolt": "junk_7", "stationmaster_watch": "junk_9",
+	"golden_bolt": "rare_2", "cracked_lantern": "rare_4", "grate_bar": "rare_6", "mikhalych_seal": "rare_9"}
+
+func junk_icon(parent: Node, id: String, size: float = 40.0) -> void:
+	var holder = Control.new()
+	holder.custom_minimum_size = Vector2(size, size)
+	parent.add_child(holder)
+	var name = str(JUNK_ICON.get(id, ""))
+	var path = "res://assets/art_kazik/%s.png" % name
+	if name == "" or not ResourceLoader.exists(path): return
+	var icon = TextureRect.new()
+	icon.texture = load(path)
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	icon.set_anchors_preset(Control.PRESET_FULL_RECT)
+	holder.add_child(icon)
+
 # B6.11 c: the receiving desk: the bag with the price of every kind, sell one or all, or all the common ones at once.
 func build_receiving(box: VBoxContainer) -> void:
 	var casino = model.casino()
@@ -1257,8 +1277,9 @@ func build_receiving(box: VBoxContainer) -> void:
 		var line = HBoxContainer.new()
 		line.add_theme_constant_override("separation", 8)
 		box.add_child(line)
+		junk_icon(line, id)
 		var label = add_label(line, "%s ×%d" % [entry.name, int(entry.count)], 20)
-		label.custom_minimum_size.x = 330
+		label.custom_minimum_size.x = 290
 		var each = add_label(line, "по %d" % int(entry.coins), 18, MUTED_INK)
 		each.custom_minimum_size.x = 70
 		add_button(line, "Продать 1", func(): sell_bolts(id, 1, rare))
