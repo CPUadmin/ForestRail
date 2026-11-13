@@ -144,10 +144,20 @@ func draw_profile(area: Rect2, from_s: float, to_s: float, floor_y: float, sampl
 	if traveled.size()>1: draw_polyline(traveled,GOLD,width,true)
 
 # First climb steeper than 1.5 % within the window ahead, in travel direction.
+# 1.3.5: the hill ahead is looked for once per metre of the road (it was twice a frame, ~700 samples of the track), the answer is kept
+var climb_cache={}
 func climb_ahead(limit_m: float) -> Dictionary:
 	var m=game.model
 	var drive=m.drive_direction()
-	var here=float(m.state.s)
+	var here=floorf(float(m.state.s))
+	var key=[here,drive,int(limit_m),m.route,m.route.seed_value,m.route.points.size()]
+	if climb_cache.has(key): return climb_cache[key]
+	if climb_cache.size()>8: climb_cache.clear()
+	var found=_climb_ahead(m,drive,here,limit_m)
+	climb_cache[key]=found
+	return found
+
+func _climb_ahead(m, drive, here: float, limit_m: float) -> Dictionary:
 	for step in range(0,int(limit_m),5):
 		var s=here+drive*step
 		if s<0 or s>float(m.route.station_s[-1]): break

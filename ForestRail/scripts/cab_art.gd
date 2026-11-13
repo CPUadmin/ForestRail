@@ -426,17 +426,21 @@ func draw_cab_frame(size: Vector2, top: float) -> void:
 	var lamp_flicker = 1.0 - (0.22 * (0.5 + 0.5 * sin(canvas.time * 27.0)) if running_engine and canvas.light_flicker_enabled() else 0.0)
 	var roof = size.y * 0.075
 	canvas.draw_polygon(PackedVector2Array([Vector2(0, 0), Vector2(size.x, 0), Vector2(size.x, roof), Vector2(0, roof)]), PackedColorArray([dark, dark, green, green]))
+	var planks := PackedVector2Array()   # 1.3.5: the many thin lines of the frame go in one call each
 	for plank in range(1, 24):
-		canvas.draw_line(Vector2(size.x * plank / 24.0, 0), Vector2(size.x * plank / 24.0, roof), Color(0, 0, 0, 0.22), 2.0)
+		planks.append(Vector2(size.x * plank / 24.0, 0))
+		planks.append(Vector2(size.x * plank / 24.0, roof))
+	canvas.draw_multiline(planks, Color(0, 0, 0, 0.22), 2.0)
 	canvas.draw_line(Vector2(0, roof), Vector2(size.x, roof), brass, 3.0)
 	canvas.draw_line(Vector2(0, roof + 3), Vector2(size.x, roof + 3), Color(0, 0, 0, 0.4), 3.0)
 	var pillar = size.x * 0.12
 	canvas.draw_colored_polygon(PackedVector2Array([Vector2(0, 0), Vector2(pillar, 0), Vector2(pillar * 0.45, top), Vector2(0, top)]), green)
 	canvas.draw_colored_polygon(PackedVector2Array([Vector2(size.x, 0), Vector2(size.x - pillar, 0), Vector2(size.x - pillar * 0.45, top), Vector2(size.x, top)]), green)
+	var grains := PackedVector2Array()
 	for grain in range(7):
 		var gx = pillar * (0.1 + grain * 0.1)
-		canvas.draw_line(Vector2(gx, 0), Vector2(gx * 0.55, top), Color(0, 0, 0, 0.12), 1.5)
-		canvas.draw_line(Vector2(size.x - gx, 0), Vector2(size.x - gx * 0.55, top), Color(0, 0, 0, 0.12), 1.5)
+		grains.append_array(PackedVector2Array([Vector2(gx, 0), Vector2(gx * 0.55, top), Vector2(size.x - gx, 0), Vector2(size.x - gx * 0.55, top)]))
+	canvas.draw_multiline(grains, Color(0, 0, 0, 0.12), 1.5)
 	for side in [-1.0, 1.0]:
 		var edge_x = pillar if side < 0 else size.x - pillar
 		var low_x = pillar * 0.45 if side < 0 else size.x - pillar * 0.45
@@ -530,24 +534,40 @@ func draw_plain_header(size: Vector2, top: float, kind: String, brass: Color) ->
 func dash_v2() -> bool:
 	return canvas.model.vehicle_id() == "motorcar" and canvas.cab_active()
 
+var panel_key = null
+var panel_streaks := PackedVector2Array()
+var panel_streak_colors := PackedColorArray()
+var panel_wear := PackedVector2Array()
+
 func draw_dash_panel_v2(size: Vector2, top: float) -> void:
 	var copper = Color("b9793a")
 	var copper_light = Color("e0a15f")
 	canvas.draw_polygon(PackedVector2Array([Vector2(0, top - 4), Vector2(size.x, top - 4), Vector2(size.x, size.y), Vector2(0, size.y)]), PackedColorArray([Color("1d1c1a"), Color("1d1c1a"), Color("080808"), Color("080808")]))
 	# brushed metal: faint vertical streaks
-	for streak in range(120):
-		var x = size.x * canvas.cab_hash(streak, 31.0)
-		canvas.draw_line(Vector2(x, top + 6), Vector2(x + 2.0, size.y - 8), Color(1, 1, 1, 0.012 + 0.02 * canvas.cab_hash(streak, 32.0)), 1.0)
+	var key = [size, top]
+	if panel_key != key:
+		# the streaks and the worn marks hang on the size only: built once, drawn in two calls
+		panel_key = key
+		panel_streaks = PackedVector2Array()
+		panel_streak_colors = PackedColorArray()
+		for streak in range(120):
+			var x = size.x * canvas.cab_hash(streak, 31.0)
+			panel_streaks.append_array(PackedVector2Array([Vector2(x, top + 6), Vector2(x + 2.0, size.y - 8)]))
+			panel_streak_colors.append(Color(1, 1, 1, 0.012 + 0.02 * canvas.cab_hash(streak, 32.0)))
+		var rim = Rect2(10, top + 2, size.x - 20, size.y - top - 14)
+		panel_wear = PackedVector2Array()
+		for wear in range(70):
+			var along = canvas.cab_hash(wear, 33.0)
+			var on_top = canvas.cab_hash(wear, 34.0) < 0.5
+			var at = Vector2(lerpf(rim.position.x, rim.end.x, along), rim.position.y if on_top else rim.end.y)
+			panel_wear.append_array(PackedVector2Array([at, at + Vector2(6.0 + 10.0 * canvas.cab_hash(wear, 35.0), 0)]))
+	canvas.draw_multiline_colors(panel_streaks, panel_streak_colors, 1.0)
 	# the worn copper rim of the panel and an inner line
 	var frame = Rect2(10, top + 2, size.x - 20, size.y - top - 14)
 	canvas.draw_rect(frame, copper, false, 4.0)
 	canvas.draw_rect(frame.grow(-5.0), Color(0, 0, 0, 0.65), false, 2.0)
 	canvas.draw_line(frame.position + Vector2(6, 2), Vector2(frame.end.x - 6, frame.position.y + 2), copper_light, 1.5)
-	for wear in range(70):
-		var along = canvas.cab_hash(wear, 33.0)
-		var on_top = canvas.cab_hash(wear, 34.0) < 0.5
-		var at = Vector2(lerpf(frame.position.x, frame.end.x, along), frame.position.y if on_top else frame.end.y)
-		canvas.draw_line(at, at + Vector2(6.0 + 10.0 * canvas.cab_hash(wear, 35.0), 0), Color("1d1c1a"), 3.0)
+	canvas.draw_multiline(panel_wear, Color("1d1c1a"), 3.0)
 	for corner in [frame.position, Vector2(frame.end.x, frame.position.y), Vector2(frame.position.x, frame.end.y), frame.end]:
 		canvas.draw_circle(corner, 5.0, copper_light)
 		canvas.draw_circle(corner, 2.0, Color("2a1a0c"))
