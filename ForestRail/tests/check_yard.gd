@@ -67,13 +67,14 @@ func run() -> void:
 	check(absf(game.rail_baseline() - game.yard_ui().rail_y(size)) < 0.5, "the train stands on the rails of the yard picture")
 	await shot("yard_1600")
 
+	check(is_equal_approx(game.view_scale(), game.fit_train_zoom()), "in the yard the train is as big as on the line")
 	button_with_tooltip("Мастерская").pressed.emit()
 	check(game.place == "workshop" and game.tab == "Улучшения", "the workshop opens from its building")
 	check(button_with_tooltip("Во двор [Backspace]") != null, "the place has the way back to the yard")
 	var tabs = 0
 	for name in ["Депо [1]", "Мастерская [2]", "Магазин [3]", "Казик [4]"]: if button_with_tooltip(name) != null: tabs += 1
 	check(tabs == 4, "the place has the four places as tabs (%d)" % tabs)
-	check(absf(game.rail_baseline() - game.yard_ui().room_rail_y(size, "workshop")) < 0.5, "in the workshop the train stands on the painted rails")
+	check(is_equal_approx(game.view_scale(), game.fit_train_zoom()), "in the workshop the train is as big as on the line (%.2f, %.2f)" % [game.view_scale(), game.fit_train_zoom()])
 	await shot("workshop_1600")
 	key(KEY_3)
 	check(game.place == "shop" and game.tab == "Магазин", "key 3 opens the shop")
@@ -83,6 +84,7 @@ func run() -> void:
 	await shot("shop_1600")
 	key(KEY_1)
 	check(game.place == "depot", "key 1 opens the depot")
+	check(is_equal_approx(game.view_scale(), game.fit_train_zoom()), "in the depot the train is as big as on the line")
 	await shot("depot_1600")
 	key(KEY_BACKSPACE)
 	check(game.place == "yard", "Backspace leads back to the yard")

@@ -2609,20 +2609,18 @@ func rail_baseline() -> float:
 	if screen == "depot" and yard_ui().rooms.has(place): return yard_ui().room_rail_y(get_viewport_rect().size, place)
 	return minf(height*0.66,dock_rect().position.y-20) if screen=="game" else height*0.63
 
+func home_scale() -> float:
+	var tall_cap = {"handcar": 1.05, "pole": 0.94, "sail": 0.94}.get(model.vehicle_id(), 1.5)
+	return minf(fit_train_zoom(), tall_cap)
+
 func cab_active() -> bool:
 	return screen == "game" and cab_view and not model.human_powered()
 
 func view_scale() -> float:
 	if screen != "depot": return zoom_level
-	if place == "yard": return yard_ui().train_scale(get_viewport_rect().size)
-	# the workshop shows the machine bigger, as far as the train still fits
-	# the tabs where the whole train does not have to be reachable (the garage, the trips, the casino) show the machine and the first wagon big, the rest of the train goes off to the left
-	var span = depot_span_m()
-	if tab not in ["Улучшения", "Состав"]:
-		span = minf(model.train_length(), Geometry.length(model.vehicle_id()) + 1.3 * Geometry.length("W01"))   # the parked wagons wait off to the left
-	# the tall rigs (the lever of the handcar, the pole, the mast) would run into the text panel at the top: they stay smaller
-	var tall_cap = {"handcar": 1.05, "pole": 0.94, "sail": 0.94}.get(model.vehicle_id(), 1.5)
-	return minf(1.9 if tab == "Улучшения" else float(tall_cap), (get_viewport_rect().size.x * 0.46 - 150) / (ArtV3.PX * span))
+	# owner 15.11: the train is the same size everywhere: in the yard, the depot, the workshop and the shop as on the line
+	# (one metre is as many points as on the road); the rooms are painted in the same metres (data/yard_layout.json width_m)
+	return home_scale()
 
 func _draw() -> void:
 	var draw_started = Time.get_ticks_usec() if perf_on else 0

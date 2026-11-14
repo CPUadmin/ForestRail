@@ -1,10 +1,9 @@
 {
-  "_comment": "Двор «Узловая Лесная» (docs/STATION_LOCATIONS_REWORK_RU.md), арт П23 (GPT). Все прямоугольники в долях картинки двора [x, y, ширина, высота]. track_y: высота рельсов, на которых стоит состав игрока. train_x: где стоит голова машины. train_width: длина машины в долях ширины картинки. Комнаты: rooms.<место>.track_y — рельсы на картинке комнаты.",
+  "_comment": "Двор «Узловая Лесная» (docs/STATION_LOCATIONS_REWORK_RU.md), арт П23 (GPT). Прямоугольники в долях картинки двора [x, y, ширина, высота]. width_m: сколько метров линии в ширине картинки (поезд везде в масштабе дороги: 1 м = 96 точек). track_y: высота рельсов в долях картинки. train_x: где стоит машина. rooms.<место>: нарисованная комната, её width_m и track_y; без записи место рисуется комнатой депо.",
   "day": "res://assets/art_yard/yard_day.png",
   "evening": "res://assets/art_yard/yard_evening.png",
   "track_y": 0.785,
   "train_x": 0.62,
-  "train_width": 0.21,
   "signs_painted": false,
   "buildings": {
     "depot": {
@@ -64,14 +63,6 @@
       ]
     }
   },
-  "rooms": {
-    "workshop": {
-      "picture": "res://assets/art_yard/workshop_interior.png",
-      "track_y": 0.712
-    },
-    "shop": {
-      "picture": "res://assets/art_yard/shop_interior.png",
-      "track_y": 0.762
-    }
-  }
+  "rooms": {},
+  "width_m": 16.7
 }

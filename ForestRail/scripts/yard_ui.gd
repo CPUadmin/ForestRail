@@ -31,11 +31,12 @@ func _init(owner_canvas) -> void:
 		if ResourceLoader.exists(path): rooms[id] = load(path)
 	for id in PLACES: icons[id] = load("res://assets/art_yard/icon_%s.png" % id)
 
-# The picture covers the window (the sides are cut on a narrow window, never stretched); the track stays in view.
+# The picture is as many metres wide as the layout says (width_m), in the metres of the line, so the train stands in it
+# at its road size; it never gets narrower or lower than the window. The track stays in view.
 func image_rect(size: Vector2) -> Rect2:
 	if day == null: return Rect2(Vector2.ZERO, size)
 	var aspect = float(day.get_width()) / float(day.get_height())
-	var w = maxf(size.x, size.y * aspect)
+	var w = maxf(maxf(size.x, size.y * aspect), float(layout.get("width_m", 17.0)) * canvas.ArtV3.PX * canvas.home_scale())
 	var h = w / aspect
 	var top = clampf(size.y - h, size.y * 0.82 - float(layout.get("track_y", 0.8)) * h, 0.0)   # the track no lower than 82% of the window
 	return Rect2((size.x - w) * 0.5, top, w, h)
@@ -49,7 +50,7 @@ func room_rect(size: Vector2, id: String) -> Rect2:
 	var picture: Texture2D = rooms.get(id)
 	if picture == null: return Rect2()
 	var aspect = float(picture.get_width()) / float(picture.get_height())
-	var w = maxf(size.x, size.y * aspect)
+	var w = maxf(maxf(size.x, size.y * aspect), float(layout.rooms[id].get("width_m", 17.0)) * canvas.ArtV3.PX * canvas.home_scale())
 	var h = w / aspect
 	var top = clampf(size.y * 0.63 - float(layout.rooms[id].track_y) * h, size.y - h, 0.0)
 	return Rect2((size.x - w) * 0.5, top, w, h)
@@ -69,11 +70,6 @@ func rail_y(size: Vector2) -> float:
 func train_x(size: Vector2) -> float:
 	var r = image_rect(size)
 	return r.position.x + float(layout.get("train_x", 0.6)) * r.size.x
-
-# The machine is as long as the painted buildings want it (a share of the picture), whatever the machine is.
-func train_scale(size: Vector2) -> float:
-	var length = canvas.Geometry.length(canvas.model.vehicle_id())
-	return image_rect(size).size.x * float(layout.get("train_width", 0.12)) / (canvas.ArtV3.PX * maxf(1.0, length))
 
 # --- the picture
 func draw_yard(size: Vector2) -> void:
