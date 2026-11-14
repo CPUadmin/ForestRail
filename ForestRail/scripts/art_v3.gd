@@ -63,7 +63,16 @@ const JetFlame = preload("res://scripts/jet_flame.gd")   # the flame of the rock
 const JET_FX = {
 	"smoke_light": preload("res://assets/art_jet/smoke_light.png"), "smoke_dark": preload("res://assets/art_jet/smoke_dark.png"),
 	"chute_open": preload("res://assets/art_jet/chute_open.png"), "chute_slack": preload("res://assets/art_jet/chute_slack.png")}
-const ZEP_LAMP = Vector2(1535, 485)   # the glass of the brass headlamp on the nose of the zeppelin picture (1774 px wide): the light comes from it, no second lamp is drawn
+const ZEP_LAMP = Vector2(1535, 485)
+# The landing gear of the zeppelin (P24, painted by GPT; owner 15.11: wheels a little like an airplane's, with a soft
+# shock absorber). Under each brass cap of the bogies hangs a strut: the cylinder is fixed to the body, the piston with the
+# fork and the wheel run on the rail, so when the body rides on its springs the piston slides in the cylinder by itself.
+const ZEP_GEAR = {"wheel": preload("res://assets/art_zeppelin/gear_wheel.png"), "cylinder": preload("res://assets/art_zeppelin/gear_cylinder.png"),
+	"piston": preload("res://assets/art_zeppelin/gear_piston.png"), "link": preload("res://assets/art_zeppelin/gear_link.png")}
+const ZEP_GEAR_M = 0.000485       # metres per pixel of the strut pictures (one scale for the cylinder, the piston and the link)
+const ZEP_WHEEL_R = 0.14          # the radius of the gear wheel, m
+const ZEP_EYE_PX = 30.0           # the eye on top of the cylinder: from the top of its picture
+const ZEP_FORK_PX = 37.0          # the axle hole of the fork: from the bottom of the piston picture   # the glass of the brass headlamp on the nose of the zeppelin picture (1774 px wide): the light comes from it, no second lamp is drawn
 const JET_LAMP = Vector2(1604, 513)   # the glass of the brass lantern on the nose of the jet picture (1774 px wide)
 const JET_MOUTH = Vector2(215, 395)   # the mouth of the nozzle in the picture of the jet body (1774 px wide)
 # The gadgets on the machines (P12, painted by GPT): an installed gadget shows its part on the deck. x is metres from the middle of the machine (forward is positive),
@@ -424,6 +433,7 @@ func draw_stock_body(canvas: Node2D, id: String, outer: Transform2D) -> void:
 # and the rods always stand on the rail (null: the same as the body, as in the depot and in the menu).
 func draw_vehicle(canvas: Node2D, id: String, distance: float, facing: int, outer: Transform2D, model, active: bool, pose_override: Dictionary = {}, draw_open_rig: bool = true, rail_outer = null) -> void:
 	var run: Transform2D = outer if rail_outer == null else rail_outer
+	if id == "zeppelin" and not is_skinned(id): draw_zeppelin_gear(canvas, distance, facing, outer, run, model)   # behind the body: the caps cover the eyes of the struts
 	if id == "pole" and not is_skinned(id): draw_wheels(canvas, id, distance, facing, run, {})   # behind the platform
 	if is_skinned(id):
 		draw_part(canvas, body_key(id), Vector2(0, axis_height(id)), 0, scale_for(body_key(id)), outer)
@@ -447,12 +457,40 @@ func draw_vehicle(canvas: Node2D, id: String, distance: float, facing: int, oute
 	if draw_open_rig and id=="pole": draw_pole_overlay(canvas, model, outer)
 	if draw_open_rig and id=="sail": draw_sail_overlay(canvas, model)
 	if id=="motorcar": draw_petrol_overlay(canvas, model)
-	if id != "zeppelin" and not (id == "pole" and not is_skinned(id)): draw_wheels(canvas, id, distance, facing, run, p)   # the zeppelin has no visible wheels (the rocket train has them)
+	if id != "zeppelin" and not (id == "pole" and not is_skinned(id)): draw_wheels(canvas, id, distance, facing, run, p)   # the zeppelin has its own gear (drawn first)
 	if id == "steam" or id == "pneumatic": draw_steam_motion(canvas, distance, facing, run, id)
 	if id == "motorcar": draw_side_rod(canvas, id, distance, facing, run)
 	if id == "handcar": draw_mechanism(canvas, model, outer,p)
 	if id == "jet" and model != null: draw_jet_chutes(canvas, outer, model)
 	if model != null: draw_gadget_parts(canvas, outer, id, model)
+
+func draw_zeppelin_gear(canvas: Node2D, distance: float, facing: int, outer: Transform2D, run: Transform2D, model) -> void:
+	var g = ZEP_GEAR_M * PX
+	var wheel_r = ZEP_WHEEL_R * PX
+	var spin = fposmod(distance * PX / wheel_r * facing, TAU)
+	# in the air the struts hang out a little (the weight is off the wheels)
+	var hang = clampf(float(model.air_z) * 0.6, 0.0, 0.035) * PX if model != null else 0.0
+	var to_run = run.affine_inverse() * outer
+	var cyl_size = Vector2(ZEP_GEAR.cylinder.get_width(), ZEP_GEAR.cylinder.get_height()) * g
+	var rod_size = Vector2(ZEP_GEAR.piston.get_width(), ZEP_GEAR.piston.get_height()) * g
+	var link_size = Vector2(ZEP_GEAR.link.get_width(), ZEP_GEAR.link.get_height()) * g
+	for axle in wheel_positions("zeppelin"):
+		var eye = to_run * axle   # the cap of the bogie, where the body rides now
+		var hub = Vector2(axle.x, -wheel_r + hang)
+		canvas.draw_set_transform_matrix(run * Transform2D(spin, hub))
+		canvas.draw_texture_rect(ZEP_GEAR.wheel, Rect2(-Vector2.ONE * wheel_r, Vector2.ONE * wheel_r * 2.0), false)
+		canvas.draw_set_transform_matrix(run)
+		var cyl = Rect2(Vector2(eye.x - cyl_size.x * 0.5, eye.y - ZEP_EYE_PX * g), cyl_size)
+		var rod = Rect2(Vector2(hub.x - rod_size.x * 0.5, hub.y + ZEP_FORK_PX * g - rod_size.y), rod_size)
+		canvas.draw_texture_rect(ZEP_GEAR.piston, rod, false)
+		canvas.draw_texture_rect(ZEP_GEAR.cylinder, cyl, false)
+		# the torque link folds between the collar of the cylinder and the fork: as tall as the gap, as wide as drawn
+		var top = Vector2(eye.x + cyl_size.x * 0.45, cyl.end.y - 0.02 * PX)
+		var bottom = Vector2(hub.x + rod_size.x * 0.4, hub.y - 0.045 * PX)
+		var span = maxf(link_size.y * 0.5, bottom.y - top.y)
+		var width = link_size.x * clampf(link_size.y / span, 0.7, 1.4)
+		canvas.draw_texture_rect(ZEP_GEAR.link, Rect2(Vector2(top.x - width * 0.3, top.y), Vector2(width, span)), false)
+	canvas.draw_set_transform_matrix(Transform2D.IDENTITY)
 
 # The movable parts of the zeppelin (B6.5): the tail plane and the wing turn about their pivots, the propeller blades are drawn
 # as they foreshorten with the turn, and above some revs a soft disc replaces them.
