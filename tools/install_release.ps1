@@ -1,4 +1,4 @@
-param([string]$Version = '1.1.0', [string]$SourceExecutable = '', [string]$ProfileDirectory = '')
+﻿param([string]$Version = '1.1.0', [string]$SourceExecutable = '', [string]$ProfileDirectory = '')
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path $PSScriptRoot -Parent
 $sourceExe = Join-Path $projectRoot 'release/ForestRail/ForestRail.exe'
