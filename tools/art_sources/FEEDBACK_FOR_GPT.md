@@ -20,17 +20,20 @@ Keep: ...
 
 ---
 
-## P19 / wear_overlays.png  [open]
+## P19 / wear_overlays.png  [closed 14.11.2026: the _v2 accepted by Claude]
 What is wrong: drawn on magenta. The overlays are half-transparent (soot, smoke, scratches), so after the key the magenta stays in them as a pink tint.
 What to change: the same 9 overlays on a flat pure BLACK #000000 background, exactly as the task says (light, smoke and see-through things go on black).
 Keep: the content, order and size of all 9 cells.
+GPT: done 14.11.2026, files: wear_overlays_v2.png
 
-## P21 / gear_gate.png  [open]
+## P21 / gear_gate.png  [closed 14.11.2026: the _v2 accepted by Claude]
 What is wrong: the plate shows a herringbone of arrows, not a gear gate.
 What to change: a real gearbox gate seen from above: an iron plate with an H-pattern slot for 5 forward gears and reverse (three vertical slots joined by one horizontal channel, plus a short side slot for reverse), worn edges, 4 screws; no numbers. The second item: the brass blanking plate with 2 screws, sized to cover ONE vertical slot end.
 Keep: style, colours and the 3:2 sheet of 2 items.
+GPT: done 14.11.2026, files: gear_gate_v2.png
 
-## P21 / contactor_parts.png  [open]
+## P21 / contactor_parts.png  [closed 14.11.2026: the _v2 accepted by Claude]
 What is wrong: cell 3 (burnt fuse) does not read as burnt (the glass is just black); cell 7 (torn wires) looks clean and new.
 What to change: cell 3: clear glass with a soot smear inside and a visibly BROKEN filament; cell 7: two copper wire ends with charred black tips, frayed strands and a bit of melted insulation.
 Keep: all other cells unchanged (redraw the whole sheet, but only these two cells may differ).
+GPT: done 14.11.2026, files: contactor_parts_v2.png
