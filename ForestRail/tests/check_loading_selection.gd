@@ -154,7 +154,7 @@ func gui() -> void:
 		await drag(id,game.slot_hits[0].rect.get_center())
 		get_tree().root.get_texture().get_image().save_png(out_dir.path_join("choice_"+str(resolution.x)+".png"))
 		for b in game.action_bar.get_children():
-			if b is Button and b.text=="Отправиться →":
+			if b is Button and b.text.begins_with("Отправиться"):
 				var p=b.get_global_rect().get_center();await mouse(p,true);await mouse(p,false);break
 		check(game.model.state.phase=="route" and game.model.state.cargo.size()==1,"mouse departs with one accepted item")
 		var saved=game.saves.read_valid("save_v2.json")

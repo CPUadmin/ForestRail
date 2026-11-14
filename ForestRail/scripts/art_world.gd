@@ -382,10 +382,12 @@ func draw_stations(canvas: Node2D) -> void:
 			draw_pennant(canvas, center + Vector2(half_width * 0.74, -height * sc * 0.93), sc, float(game.model.route.station_s[i]), flag_colours[i % flag_colours.size()], float(i) * 1.7)
 		var plaque = Rect2(center+Vector2(-150,-height-48)*sc,Vector2(300,42)*sc)
 		if game.screen=="game": plaque.position.y=maxf(plaque.position.y,game.hud_top_clearance())
+		# ui-v2: a board that would fall on the instruments at the bottom is not drawn (the station has its name on the building)
+		var low=game.screen=="game" and game.instruments!=null and is_instance_valid(game.instruments) and plaque.end.y>game.instruments.hud_top()-30
 		plaque.position.x=clampf(plaque.position.x,12,size.x-plaque.size.x-12)
 		# In the depot the board would sit under the info box or the tab panel.
 		var covered=game.screen=="depot" and (plaque.intersects(game.depot_info_rect) or plaque.end.x>size.x*0.46)
-		if not covered:
+		if not covered and not low:
 			draw_station_board(canvas,plaque,sc,station.name)
 		if i == 0 and game.model.state.finale:
 			canvas.draw_texture_rect(game.textures.final_flags,Rect2(center+Vector2(-170,-290),Vector2(320,130)),false)

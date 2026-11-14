@@ -309,21 +309,22 @@ func cargo_layout(id: String) -> Array[Rect2]:
 func draw_loading_dock(size: Vector2) -> void:
 	var interaction=canvas.station_state()
 	var station_index = int(interaction.station_index)
-	var rect = canvas.dock_rect()
+	var full = canvas.dock_rect()
 	var accepting=canvas.drag=="cargo" and interaction.can_transfer and (canvas.drag_item in interaction.eligible or station_index==0)
-	canvas.draw_style_box(canvas.style(Color(0.14, 0.21, 0.17, 0.95), canvas.GOLD if accepting else Color("82916c"), 12), rect)
-	var title = ("ПОГРУЗКА · " if canvas.model.state.phase=="loading" else "РАЗГРУЗКА · ")+interaction.station_name
-	if canvas.model.state.phase=="loading" and canvas.model.selectable_loading():
-		var plan=canvas.model.loading_preview()
-		title+=" · На складе %d · Везём %d из %d" % [canvas.model.state.cargo.size()-int(plan.loaded),plan.loaded,plan.offered]
-	canvas.draw_string(canvas.font, rect.position + Vector2(20, 28), title, HORIZONTAL_ALIGNMENT_LEFT, 600, 18, canvas.PAPER)
-	if accepting:
-		canvas.draw_string(canvas.font, rect.position + Vector2(590, 28), "✓ ОТПУСТИ ЗДЕСЬ · "+interaction.station_name, HORIZONTAL_ALIGNMENT_RIGHT, rect.size.x - 615, 18, canvas.GOLD)
+	# ui-v2 (макет 2): a narrow shelf as wide as its things; the drop still works over the whole old band (forgiving)
+	var things = canvas.shelf_count() if station_index == 0 else 0
+	var rect = Rect2(full.position + Vector2(0, 30), Vector2(clampf(60.0 + things * 128.0, 380.0, full.size.x), full.size.y - 30))
+	canvas.draw_style_box(canvas.style(Color(0.16, 0.11, 0.07, 0.88), canvas.GOLD if accepting else Color("8a6a2c"), 12), rect)
+	var title = "Склад станции" if canvas.model.state.phase=="loading" else "Выгрузка · " + interaction.station_name
+	if accepting: title = "✓ Отпусти здесь"
+	canvas.draw_string(canvas.font, rect.position + Vector2(4, -10) + Vector2(1.5, 2), title, HORIZONTAL_ALIGNMENT_LEFT, 500, 19, Color(0, 0, 0, 0.8))
+	canvas.draw_string(canvas.font, rect.position + Vector2(4, -10), title, HORIZONTAL_ALIGNMENT_LEFT, 500, 19, canvas.GOLD if accepting else canvas.PAPER)
+	rect = Rect2(rect.position - Vector2(0, 30), rect.size + Vector2(0, 30))
 	var index = 0
 	for item in canvas.model.state.cargo:
 		if item.delivered or item.slot != "": continue
 		if station_index != 0: continue
-		var p = rect.position + Vector2(42 + index * 128, 58)
+		var p = rect.position + Vector2(42 + index * 128, 50)
 		if item.id != canvas.drag_item:
 			canvas.sprite(canvas.model.cargo_base(item.type).sprite, Rect2(p, Vector2(60, 65)))
 		canvas.cargo_hits.append({"id": item.id, "rect": Rect2(p - Vector2(8, 4), Vector2(96, 82))})
@@ -335,8 +336,7 @@ func draw_loading_dock(size: Vector2) -> void:
 		if canvas.selected_cargo!="" and canvas.selected_cargo not in interaction.eligible and station_index!=0:
 			for cargo in canvas.model.state.cargo:
 				if cargo.id==canvas.selected_cargo and not cargo.delivered: text="Этот груз ждут в «%s»" % canvas.model.station_name(cargo.destination)
-		canvas.draw_string(canvas.font, rect.position + Vector2(25, 67), text, HORIZONTAL_ALIGNMENT_LEFT, rect.size.x - 50, 19, canvas.PAPER)
-		if canvas.selected_cargo=="": canvas.draw_string(canvas.font,rect.position+Vector2(25,115),"Перетащи предмет или выбери его кликом для выгрузки кнопкой",HORIZONTAL_ALIGNMENT_LEFT,rect.size.x-50,17,Color("b9c7b2"))
+		canvas.draw_string(canvas.font, rect.position + Vector2(25, 82), text, HORIZONTAL_ALIGNMENT_LEFT, rect.size.x - 50, 18, canvas.PAPER)
 
 func draw_cargo_feedback() -> void:
 	var interaction=canvas.station_state()

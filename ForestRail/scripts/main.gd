@@ -842,6 +842,7 @@ func draw_zone_label() -> void:
 	if info.is_empty(): return
 	var width=minf(font.get_string_size(info.text,HORIZONTAL_ALIGNMENT_LEFT,-1,16).x+28,maxf(120,info.width))
 	var box=Rect2(info.anchor+Vector2(-12,-24),Vector2(width,32))
+	if instruments!=null and is_instance_valid(instruments) and box.end.y>instruments.hud_top()-40: return
 	draw_style_box(style(Color(INK,0.86),info.color,10),box)
 	draw_string(font,box.position+Vector2(14,22),info.text,HORIZONTAL_ALIGNMENT_LEFT,width-20,16,info.color)
 
@@ -878,6 +879,9 @@ func update_hud() -> void:
 		grapnel_button.text = grapnel_button_text()
 		grapnel_button.disabled = model.state.phase != "route" or model.grapnel.mode in ["flying", "dropped", "torn"]
 	order_label.text=order
+	if state.phase=="loading" and model.selectable_loading():
+		var plan_line=model.loading_preview()
+		order_label.text="Заказ · %s · погружено %d из %d" % [order, plan_line.loaded, plan_line.offered]
 	var hint = ""
 	if state.phase == "loading":
 		if model.selectable_loading():
@@ -915,9 +919,23 @@ func update_hud() -> void:
 	var interaction=station_state()
 	if mini_button != null and is_instance_valid(mini_button): mini_button.visible = not cab_active()
 	order_label.visible=not cab_active() and state.phase=="loading"
-	hint_label.visible=not cab_active() and (state.phase=="loading" or (drag!="" and state.tutorial and not interaction.visible))
-	action_bar.position.y=168 if state.phase=="loading" else 70
+	hint_label.visible=not cab_active() and state.tutorial and (state.phase=="loading" or (drag!="" and not interaction.visible))
+	# ui-v2: the loading actions stand at the bottom right above the instruments, the main one last (nearest the corner)
+	if state.phase=="loading":
+		var bottom_y=(instruments.hud_top() if instruments!=null and is_instance_valid(instruments) else get_viewport_rect().size.y-174)-70
+		action_bar.position=Vector2(get_viewport_rect().size.x-720, bottom_y)
+		action_bar.size=Vector2(686, 64)
+		action_bar.alignment=BoxContainer.ALIGNMENT_END
+		if cargo_actions!=null and is_instance_valid(cargo_actions): cargo_actions.position.y=bottom_y-58   # above the main button, never over it
+	else:
+		action_bar.position=Vector2(34, 70)
+		action_bar.size=Vector2(get_viewport_rect().size.x-68, 48)
+		action_bar.alignment=BoxContainer.ALIGNMENT_BEGIN
+		if cargo_actions!=null and is_instance_valid(cargo_actions): cargo_actions.position.y=dock_rect().position.y+84
 	hint_label.text = hint if state.phase=="loading" else (interaction.reason if interaction.visible else (hint if state.tutorial else ""))
+	var max_w = get_viewport_rect().size.x - 68
+	order_label.size.x = minf(max_w, font.get_string_size(order_label.text, HORIZONTAL_ALIGNMENT_LEFT, -1, int(16 * float(settings.text_scale))).x + 12)
+	hint_label.size.x = minf(minf(max_w, 900.0), font.get_string_size(hint_label.text, HORIZONTAL_ALIGNMENT_LEFT, -1, int(17 * float(settings.text_scale))).x + 12)
 	update_cargo_actions(interaction)
 	var key = "%s_%d_%s_%s_%s_%d" % [state.phase, stop_index, str(model.stopped()), str(model.all_loaded()), str(returning), model.drive_direction()]
 	if state.phase=="loading": key+=str(model.loading_preview().signature)
@@ -926,14 +944,14 @@ func update_hud() -> void:
 		last_action_key = key
 		clear_children(action_bar)
 		if state.phase == "loading":
-			add_button(action_bar, "Отправиться →", func():
+			add_button(action_bar, "В депо", start_depot_entry, false, false, &"QuietAction")
+			var plan=model.loading_preview()
+			var go_text="Отправиться →" if int(plan.loaded)>=int(plan.offered) or not model.selectable_loading() else "Отправиться · %d из %d →" % [plan.loaded, plan.offered]
+			var go=add_button(action_bar, go_text, func():
 				if model.depart(): save_game(); rebuild()
 				else: notify(model.message), not model.all_loaded(), false, &"PrimaryAction")
-			add_button(action_bar, "Заехать в депо →", start_depot_entry)
-			var plan=model.loading_preview()
-			var choice_label=add_label(action_bar,"Везём %d / %d · %d кг · %d монет" % [plan.loaded,plan.capacity,plan.mass_kg,plan.reward],19,PAPER)
-			choice_label.add_theme_stylebox_override("normal",style(INK,Color("5d7561"),6))
-			choice_label.vertical_alignment=VERTICAL_ALIGNMENT_CENTER
+			go.custom_minimum_size=Vector2(320, 60)
+			go.tooltip_text="%d кг · награда %d" % [plan.mass_kg, plan.reward]
 		elif model.stopped():
 			if model.vehicle_id() == "sail" and (model.oars_owned() or model.oars_out()):
 				add_button(action_bar, "Убрать вёсла" if model.oars_out() else "Вёсла", func():
@@ -2214,7 +2232,20 @@ func world_point(s: float) -> Vector2:
 	return Vector2(wp_head + (p.x - wp_cam.x) * wp_scale, wp_base - (p.y - camera_y) * wp_scale)
 
 func dock_visible() -> bool:
-	return screen=="game" and not cab_active() and (station_state().visible or drag=="cargo")
+	if screen!="game" or cab_active(): return false
+	if drag=="cargo": return true
+	var interaction=station_state()
+	if not interaction.visible: return false
+	# ui-v2: an empty station adds nothing (the old panel said «nothing to unload» on half of the screen)
+	if model.state.phase=="loading": return shelf_count()>0
+	return not interaction.eligible.is_empty()
+
+# things that still wait on the shelf of the home station
+func shelf_count() -> int:
+	var n=0
+	for item in model.state.cargo:
+		if not item.delivered and item.slot=="": n+=1
+	return n
 
 func station_state() -> Dictionary:
 	var result=model.station_interaction()
