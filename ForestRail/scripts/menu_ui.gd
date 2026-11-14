@@ -49,19 +49,6 @@ func settings_key(box: VBoxContainer, action: String, title: String) -> void:
 
 func build_settings(box: VBoxContainer) -> void:
 	canvas.add_label(box, "Настройки", 32)
-	var actions = HBoxContainer.new()
-	box.add_child(actions)
-	canvas.add_button(actions, "Применить", func():
-		canvas.save_settings()
-		canvas.settings_backup = canvas.settings.duplicate(true)
-		canvas.notify("Настройки сохранены")
-		canvas.close_modal(), false, false, &"PrimaryAction")
-	canvas.add_button(actions, "Отменить", canvas.close_modal, false, false, &"QuietAction")
-	canvas.add_button(actions, "По умолчанию", func():
-		canvas.copy_settings(canvas.settings, canvas.DEFAULT_SETTINGS)
-		canvas.apply_settings()
-		canvas.apply_window_size()
-		canvas.rebuild())
 	var tabs = GridContainer.new()
 	tabs.columns = 3
 	box.add_child(tabs)
@@ -118,11 +105,28 @@ func build_settings(box: VBoxContainer) -> void:
 			settings_key(box, "ice", "Сбить иней (пневматический)")
 			settings_key(box, "brake", "Тормоз: затянуть или отпустить")
 			settings_key(box, "sail_side", "Парусная: гик на другой борт")
-		canvas.add_button(box, "Как играть", func(): canvas.show_modal("help"))
-		canvas.add_button(box, "Об игре", func(): canvas.show_modal("credits"))
-		canvas.add_label(box, "Версия игры %s" % ProjectSettings.get_setting("application/config/version"), 20)
-		canvas.add_label(box, "Сохранения и настройки: %s" % ProjectSettings.globalize_path(canvas.saves.directory), 17, canvas.MUTED_INK)
-		canvas.add_button(box, "Открыть папку сохранений", func(): OS.shell_open(ProjectSettings.globalize_path(canvas.saves.directory)))
+	# ui-v2 (owner 14.11): the buttons at the bottom; «Как играть» and «Об игре» moved to the help (Справка)
+	var gap = Control.new()
+	gap.custom_minimum_size.y = 10
+	box.add_child(gap)
+	var actions = HBoxContainer.new()
+	actions.add_theme_constant_override("separation", 12)
+	box.add_child(actions)
+	var defaults = canvas.add_button(actions, "По умолчанию", func():
+		canvas.copy_settings(canvas.settings, canvas.DEFAULT_SETTINGS)
+		canvas.apply_settings()
+		canvas.apply_window_size()
+		canvas.rebuild(), false, false, &"QuietAction")
+	defaults.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	var spacer = Control.new()
+	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	actions.add_child(spacer)
+	canvas.add_button(actions, "Отменить", canvas.close_modal, false, false, &"QuietAction").size_flags_horizontal = Control.SIZE_SHRINK_END
+	canvas.add_button(actions, "Применить", func():
+		canvas.save_settings()
+		canvas.settings_backup = canvas.settings.duplicate(true)
+		canvas.notify("Настройки сохранены")
+		canvas.close_modal(), false, false, &"PrimaryAction").size_flags_horizontal = Control.SIZE_SHRINK_END
 
 # A folded group: the button "Ещё ▾" / "Ещё ▴" opens and closes it; returns true when the group is open.
 func settings_fold_button(box: VBoxContainer, id: String, title: String) -> bool:

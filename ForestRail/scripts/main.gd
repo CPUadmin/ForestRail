@@ -1494,6 +1494,10 @@ func build_modal(size: Vector2) -> void:
 			add_label(box, "Цеппелин: газ даёт ход, ползунок «Шаг» надо менять по ходу (мелкий на старте, крупнее с разгоном, держи его у зелёной метки: в красной зоне мотор изнашивается, на тяжёлом винте глохнет). На 130 км/ч потяни «Ручку» до зелёной черты (+3,5°), и он взлетит. В воздухе винт слабее: скорость держи ручкой вниз. Садись плавно: газ меньше, ручку чуть на себя (около +3°), тогда касание мягкое. Рычаги держат положение, их не надо удерживать. Грубая посадка стоит половины монет.", 18, MUTED_INK)
 		if screen != "menu":
 			add_button(box, "Подсказки: " + ("вкл." if model.state.tutorial else "выкл."), func(): model.state.tutorial = not model.state.tutorial; save_game(); rebuild())
+		# «Об игре» lives here now (owner 14.11: not in the settings)
+		add_label(box, "Об игре", 26)
+		add_label(box, "Небольшая игра о работе лесной железной дороги. Разработка: владелец проекта вместе с Claude и GPT, 2026. Godot Engine 4.7.2, лицензия MIT.\nВерсия %s" % ProjectSettings.get_setting("application/config/version"), 18, MUTED_INK)
+		add_button(box, "Открыть папку сохранений", func(): OS.shell_open(ProjectSettings.globalize_path(saves.directory)), false, false, &"QuietAction")
 		add_button(box, "Понятно", close_modal)
 	elif modal_kind == "result":
 		var result = model.state.get("last_result", {})
