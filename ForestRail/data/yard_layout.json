@@ -63,6 +63,17 @@
       ]
     }
   },
-  "rooms": {},
+  "rooms": {
+    "workshop": {
+      "picture": "res://assets/art_yard/workshop_interior.png",
+      "width_m": 17.0,
+      "track_y": 0.735
+    },
+    "shop": {
+      "picture": "res://assets/art_yard/shop_interior.png",
+      "width_m": 17.0,
+      "track_y": 0.735
+    }
+  },
   "width_m": 16.7
 }
