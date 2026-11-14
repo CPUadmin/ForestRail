@@ -869,7 +869,8 @@ func update_hud() -> void:
 	var returning = not state.active.is_empty() and state.active.phase == "return"
 	var stop_index = model.station_index()
 	var at_station = model.station_name(model.data.stations[stop_index].id) if stop_index >= 0 else ""
-	hud.text = "%s · %d м · %s · %s" % [model.journey_heading(),absf(target_s-float(state.s)),model.clock_text(),model.weather_name() if int(settings.weather) != 2 else "ясно"] + deadline_text() + brake_hint_text(target_s) + keys_hint_text()
+	# ui-v2: time, weather and the target only; the distance is on the route strip at the bottom
+	hud.text = "%s · %s · → %s" % [model.clock_text(), model.weather_name() if int(settings.weather) != 2 else "ясно", model.station_name(destination)] + deadline_text() + brake_hint_text(target_s) + keys_hint_text()
 	if burst_button != null and is_instance_valid(burst_button):
 		burst_button.text = burst_button_text()
 		burst_button.disabled = not model.burst_ready()
@@ -2391,7 +2392,10 @@ func _draw_scene() -> void:
 			draw_style_box(style(Color(0.08,0.15,0.12,0.88),Color(0.5,0.57,0.39,0.45),8),Rect2(22,12,size.x-44,depot_header_bottom-12))
 			draw_style_box(style(Color(0.08,0.15,0.12,0.88),Color(0.5,0.57,0.39,0.45),8),depot_info_rect)
 		if screen == "game" and not clean_frame:
-			draw_style_box(style(Color(0.08,0.15,0.12,0.88),Color(0.5,0.57,0.39,0.45),8),Rect2(22,10,size.x-44,46))
+			# ui-v2: a chip as wide as its text instead of a bar over the whole sky
+			if hud != null and is_instance_valid(hud):
+				var chip_w = minf(size.x - 160, font.get_string_size(hud.text, HORIZONTAL_ALIGNMENT_LEFT, -1, int(20 * float(settings.text_scale))).x + 30)
+				draw_style_box(style(Color(0.09,0.07,0.05,0.72),Color(0.79,0.64,0.31,0.35),14),Rect2(22,10,chip_w,46))
 			draw_zone_label()
 			# The order title and the hint share one backing; alone on the sky the
 			# title was unreadable and the hint panel clipped it.
@@ -2762,7 +2766,23 @@ func control_geometry(id: String, closeup: bool = false) -> Dictionary:
 	if id=="start": angle=0.0 if (model.heating_on() if model.vehicle_id()=="pneumatic" else model.state.engine) else PI
 	return {"pivot":pivot,"grip":pivot+Vector2(0,-length).rotated(angle),"angle":angle}
 
+var lever_marks: Array = []
 func draw_controls(body_transform: Transform2D, show_labels: bool = true) -> void:
+	lever_marks.clear()
+	draw_controls_inner(body_transform, show_labels)
+	for mark in lever_marks:
+		var id = str(mark.id)
+		var tone = Color("e8806a") if id == "brake" else Color("8fd17f")
+		draw_arc(mark.grip, 13.0, 0, TAU, 28, Color(tone, 0.95), 2.5, true)
+		var name_text = "Тормоз" if id == "brake" else ("Газ" if model.vehicle_id() not in ["locomotive", "jet"] else "Тяга")
+		# side: the sliders stand in a row (brake left, pull right); the levers lean (brake right, gas left)
+		var right = (id == "throttle") if bool(mark.slider) else (id == "brake")
+		var name_w = font.get_string_size(name_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 16).x
+		var at = mark.grip + Vector2(18.0 if right else -30.0 - name_w, 6.0)
+		draw_style_box(style(Color(0.09, 0.07, 0.05, 0.82), Color.TRANSPARENT, 7), Rect2(at + Vector2(-6, -17), Vector2(name_w + 12, 24)))
+		draw_string(font, at, name_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 16, tone)
+
+func draw_controls_inner(body_transform: Transform2D, show_labels: bool = true) -> void:
 	var ids = world_control_ids()
 	var hover = get_global_mouse_position()
 	if model.vehicle_id()=="handcar":
@@ -2807,6 +2827,10 @@ func draw_controls(body_transform: Transform2D, show_labels: bool = true) -> voi
 				sprite("control_" + id, Rect2(-pivot * factor, Vector2.ONE * 256 * factor))
 			draw_set_transform_matrix(body_transform)
 		var highlighted = drag==id or hover.distance_to(body_transform*geo.grip)<24
+		# ui-v2 (макет 1): the two levers of the machine are always marked: a ring at the grip and a short name beside it
+		if show_labels and id in ["brake", "throttle"] and not cab_active():
+			# drawn after all the levers (below), so that a later lever never covers the name of an earlier one
+			lever_marks.append({"id": id, "grip": geo.grip, "slider": kind == "slider"})
 		if not highlighted or not show_labels: continue
 		draw_arc(geo.grip, 9, 0, TAU, 28, PAPER, 1.5, true)
 		if kind == "lever" and id in ["brake","throttle"]:

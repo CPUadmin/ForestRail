@@ -214,9 +214,12 @@ func _draw() -> void:
 func _draw_hud() -> void:
 	if game == null or game.model.state.is_empty(): return
 	if full_map: draw_full_map(); return
-	draw_speedometer()
-	draw_minimap()
-	draw_status()
+	# ui-v2 (суд интерфейса 14.11, макет 1): no boxes, three quiet groups over a soft shade; the details by holding Tab
+	draw_shade()
+	draw_speed_v2()
+	draw_route_v2()
+	draw_supply_v2()
+	if Input.is_physical_key_pressed(KEY_TAB): draw_details_v2()
 
 # The lamp "АВАРИЯ" instead of the line of text: dark while all is well, steady amber when a node of the train is below 40%, red and blinking (2 Hz) below 20%.
 static func lamp_state(cond: float) -> String:
@@ -565,3 +568,133 @@ func _gui_input(event: InputEvent) -> void:
 		var shift=-event.relative.x*(view.y-view.x)/map_area().size.x
 		set_map_view(view.x+shift,view.y+shift)
 		accept_event()
+
+
+# ===== ui-v2: the road HUD of the mockup 1 (docs/UI_AUDIT_RU.md) =====
+const SHADE = Color(0.04, 0.03, 0.02)
+
+func shadow_put(text: String, at: Vector2, width: float, font_size: int, color: Color, align: int = HORIZONTAL_ALIGNMENT_LEFT) -> void:
+	put(text, at + Vector2(1.5, 2.0), width, font_size, Color(0, 0, 0, 0.8), align)
+	put(text, at, width, font_size, color, align)
+
+func draw_shade() -> void:
+	var top = size.y - 175.0
+	draw_polygon(PackedVector2Array([Vector2(0, top), Vector2(size.x, top), Vector2(size.x, size.y), Vector2(0, size.y)]),
+		PackedColorArray([Color(SHADE, 0.0), Color(SHADE, 0.0), Color(SHADE, 0.72), Color(SHADE, 0.72)]))
+
+# the speed: a big number under an arc, the red part of the arc is over the limit of the machine; the lamp of the wear only when it is lit
+func draw_speed_v2() -> void:
+	var r = Rect2(22, hud_top(), 230, hud_height())
+	var maximum = dial_maximum()
+	var current = absf(float(game.model.state.v)) * 3.6
+	var nominal = nominal_speed()
+	var center = Vector2(r.position.x + 108, r.end.y - 6)
+	var radius = 92.0
+	var start = PI
+	var limit = start + PI * clampf(nominal / maximum, 0.0, 1.0)
+	draw_arc(center, radius, start, TAU, 48, Color(PAPER, 0.25), 9, true)
+	draw_arc(center, radius, limit, TAU, 16, Color(Color("d63b26"), 0.75), 9, true)
+	var fill = start + PI * clampf(current / maximum, 0.0, 1.0)
+	if fill > start + 0.01: draw_arc(center, radius, start, fill, 32, Color("d9ae55"), 9, true)
+	var digits = PAPER
+	if current > nominal + 0.5: digits = Color("e8806a")
+	shadow_put("%d" % roundi(current), center + Vector2(-72, -14), 110, 54, digits, HORIZONTAL_ALIGNMENT_CENTER)
+	shadow_put("км/ч", center + Vector2(34, -16), 60, 17, MUTED)
+	var m = game.model
+	var note = ""
+	if m.vehicle_id() == "motorcar": note = "передача " + gear_label(m)
+	if float(m.state.brake) > 0.05: note = ("тормоз %d%%" % roundi(float(m.state.brake) * 100.0)) if note == "" else note + " · тормоз"
+	if m.wheel_lock: note = "колёса встали"
+	if note != "": shadow_put(note, Vector2(r.position.x + 10, r.position.y - 6), 220, 16, Color("e8806a") if m.wheel_lock else MUTED)
+	if game.Model.wear_rules and lamp_state(float(m.wear().train_worst().cond)) != "off":
+		draw_wear_lamp(Rect2(r.position + Vector2(170, -6), Vector2(60, 40)))
+		shadow_put("АВАРИЯ", Vector2(r.position.x + 196, r.position.y + 44), 70, 13, Color("e6b34a"))
+
+# the route: the target and the distance above a thin line of the whole line, the stations are dots, the train is a flag; a click opens the map
+func draw_route_v2() -> void:
+	var r = mini_rect()
+	var m = game.model
+	var destination = m.next_destination()
+	var target = game.station_number(destination)
+	var left_m = absf(float(m.route.station_s[target]) - float(m.state.s))
+	var distance = ("%.1f км" % (left_m / 1000.0)).replace(".", ",") if left_m >= 1000.0 else "%d м" % roundi(left_m)
+	var title = m.station_name(destination)
+	var font = ThemeDB.fallback_font
+	var title_px = roundi(24 * float(game.settings.text_scale))
+	var dist_px = roundi(20 * float(game.settings.text_scale))
+	var tw = font.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, title_px).x
+	var dw = font.get_string_size("  ·  " + distance, HORIZONTAL_ALIGNMENT_LEFT, -1, dist_px).x
+	var x0 = r.position.x + (r.size.x - tw - dw) * 0.5
+	shadow_put(title, Vector2(x0, r.position.y + 30), tw + 4, 24, PAPER)
+	shadow_put("  ·  " + distance, Vector2(x0 + tw, r.position.y + 30), dw + 4, 20, MUTED)
+	var y = r.position.y + 58
+	var x_left = r.position.x + 10
+	var width = r.size.x - 20
+	var total = maxf(1.0, float(m.route.station_s[-1]))
+	draw_line(Vector2(x_left, y), Vector2(x_left + width, y), Color(PAPER, 0.28), 6, true)
+	var here = clampf(float(m.state.s) / total, 0.0, 1.0)
+	draw_line(Vector2(x_left, y), Vector2(x_left + width * here, y), Color("d9ae55"), 6, true)
+	for i in range(m.route.station_s.size()):
+		var sx = x_left + width * float(m.route.station_s[i]) / total
+		var dot = 9.0 if i == target else 7.0
+		draw_circle(Vector2(sx, y), dot, Color("2a1d12"))
+		draw_arc(Vector2(sx, y), dot, 0, TAU, 20, Color("ffd47a") if i == target else Color(PAPER, 0.7), 3, true)
+	var fx = x_left + width * here
+	draw_line(Vector2(fx, y), Vector2(fx, y - 26), Color("ffd47a"), 3, true)
+	var dir = float(m.drive_direction())
+	draw_colored_polygon(PackedVector2Array([Vector2(fx, y - 26), Vector2(fx + 16 * dir, y - 20), Vector2(fx, y - 13)]), Color("ffd47a"))
+	var climb = climb_ahead(WINDOW_AHEAD_M)
+	if not climb.is_empty():
+		var hill = "▲ подъём сейчас" if climb.distance < 10 else "▲ подъём через %d м" % climb.distance
+		shadow_put(hill, Vector2(r.end.x - 300, y + 30), 290, 17, Color("e0a63a"), HORIZONTAL_ALIGNMENT_RIGHT)
+
+# the supply: one bar with a word, the same language for every machine; the units are in the cab and under Tab
+func draw_supply_v2() -> void:
+	var r = Rect2(size.x - status_width() - 22, hud_top(), status_width(), hud_height())
+	var m = game.model
+	var stats = m.object_stats(m.vehicle_id())
+	var amount = float(m.state.fleet_by_id[m.vehicle_id()].fuel)
+	var name = {"locomotive": "Заряд", "steam": "Пар", "pneumatic": "Воздух", "jet": "Керосин", "handcar": "Сила рук", "pole": "Толчок", "sail": "Ветер в парусе"}.get(m.vehicle_id(), "Бензин")
+	var fraction = amount / maxf(0.001, float(stats.tank))
+	var extra = ""
+	if m.vehicle_id() == "sail":
+		fraction = float(m.sail_info.get("quality", 0.0)) if not m.sail_info.is_empty() else 0.0
+	elif m.vehicle_id() == "pole":
+		fraction = absf(m.pole.effort)
+	elif m.vehicle_id() == "handcar":
+		fraction = m.output_power / maxf(1.0, float(stats.power))
+	elif m.vehicle_id() == "steam":
+		fraction = float(m.boiler().pressure)
+		extra = "уголь %.0f кг · вода %.0f л" % [amount, float(m.state.fleet_by_id.steam.get("water", 0))]
+	elif m.vehicle_id() == "pneumatic" and m.frost() > 0.3:
+		extra = "иней на трубках %d%%" % roundi(m.frost() * 100.0)
+	if m.vehicle_id() == "locomotive" and m.regen_kw > 0.01: extra = "торможение заряжает +%.1f кВт" % m.regen_kw
+	var human = m.human_powered()
+	var color = Color("8fc46a") if human else level_color(fraction)
+	var word = ""
+	if not human and m.vehicle_id() != "steam":
+		word = "запас %d%%" % roundi(clampf(fraction, 0.0, 1.0) * 100.0)
+		if fraction <= 0.15: word = "почти пусто"
+		elif fraction <= 0.35: word = "мало: заправься"
+	var x = r.position.x + 20
+	var w = r.size.x - 40
+	shadow_put(name, Vector2(x, r.position.y + 30), w * 0.6, 19, MUTED)
+	if word != "": shadow_put(word, Vector2(x + w * 0.4, r.position.y + 30), w * 0.6, 17, color if fraction <= 0.35 else Color(PAPER, 0.85), HORIZONTAL_ALIGNMENT_RIGHT)
+	var bar_rect = Rect2(Vector2(x, r.position.y + 44), Vector2(w, 12))
+	draw_style_box(game.style(Color(PAPER, 0.2), Color.TRANSPARENT, 6), bar_rect)
+	if fraction > 0.0: draw_style_box(game.style(color, Color.TRANSPARENT, 6), Rect2(bar_rect.position, Vector2(w * clampf(fraction, 0.0, 1.0), 12)))
+	if extra != "": shadow_put(extra, Vector2(x, r.position.y + 80), w, 16, Color("e0a63a") if "иней" in extra else MUTED)
+
+# Tab: the numbers for those who want them (the old status card)
+func draw_details_v2() -> void:
+	var r = Rect2(size.x - status_width() - 22, hud_top() - 150, status_width(), 136)
+	panel(r, Color(0.08, 0.06, 0.04, 0.92), Color("d9b45a"))
+	var m = game.model
+	var dry_mass = 0.0
+	for id in m.body_ids(): dry_mass += float(m.object_stats(id).mass)
+	var grade = tan(m.route.slope(float(m.state.s))) * 100
+	put("Состав  %d кг" % m.train_mass(), r.position + Vector2(18, 32), r.size.x - 36, 17)
+	put("Груз  %d кг" % (m.train_mass() - dry_mass), r.position + Vector2(18, 58), r.size.x - 36, 17)
+	put("Уклон  %+.1f%%" % grade, r.position + Vector2(18, 84), r.size.x - 36, 17, slope_color(grade))
+	put("Тормоз  %d%%" % roundi(float(m.state.brake) * 100), r.position + Vector2(18, 110), r.size.x - 36, 17)
+	put("Tab", r.position + Vector2(r.size.x - 60, 32), 44, 13, MUTED, HORIZONTAL_ALIGNMENT_RIGHT)
