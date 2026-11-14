@@ -19,6 +19,15 @@ const PARTS = {
 	"lamp_off": preload("res://assets/art_jet/lamp_off.png"), "lamp_on": preload("res://assets/art_jet/lamp_on.png"),
 	"locked": preload("res://assets/art_jet/button_locked.png"), "armed": preload("res://assets/art_jet/button_armed.png"), "burning": preload("res://assets/art_jet/button_burning.png")}
 
+# The ring of the chute (plan В6.6в, owner 14.11): pulled down with the mouse, the chute goes out at the bottom of the pull;
+# let go earlier and the ring springs back. Painted by GPT (P17 pult_buttons: the plate and the ring), the rope is drawn.
+const RING_PARTS = {"plate": preload("res://assets/art_jet/chute_plate.png"), "ring": preload("res://assets/art_jet/chute_ring.png")}
+const RING_PULL = 38.0   # how far down the ring goes, units
+var ring_pull = 0.0      # 0..1, where the ring is now
+var ring_grab_y = 0.0
+var ring_fired = false
+var ring_tick = 0
+
 var origin = Vector2.ZERO
 var k = 1.0
 var active = ""
@@ -52,11 +61,19 @@ func cover_tab() -> Rect2:
 func start_rect() -> Rect2:
 	return rect(180.0, 126.0, 190.0, 50.0)
 
-func chute_button(two: bool) -> Rect2:
-	return rect(535.0, 52.0 if not two else 100.0, 92.0, 44.0)
+func plate_rect() -> Rect2:
+	return rect(554.0, 38.0, 54.0, 56.0)
+
+# no chute left in the pack: the ring hangs pulled out
+func ring_spent() -> bool:
+	return int(model.jet.chutes_left) <= 0
+
+func ring_rect() -> Rect2:
+	var pull = 1.0 if ring_spent() and active != "ring" else ring_pull
+	return rect(561.0, 92.0 + RING_PULL * pull, 40.0, 37.4)
 
 func burner_button() -> Rect2:
-	return rect(535.0, 148.0, 92.0, 28.0)
+	return rect(640.0, 162.0, 98.0, 24.0)
 
 func slider_value(id: String) -> float:
 	if id == "throttle": return clampf(float(model.state.throttle), 0.0, 1.0)
@@ -96,15 +113,14 @@ func press(pos: Vector2) -> bool:
 			if fuse_rect(i).has_point(pos):
 				model.flip_jet_fuse(i)
 				return true
+	if not ring_spent() and ring_rect().grow(8.0 * k).has_point(pos):
+		active = "ring"
+		ring_grab_y = pos.y - ring_pull * RING_PULL * k
+		ring_fired = false
+		return true
 	if start_rect().has_point(pos):
 		if model.jet.started or model.jet.counting: model.jet_stop()   # the lit button puts the engine out, the counting one cancels the start
 		else: model.jet_start()
-		return true
-	if chute_button(false).has_point(pos):
-		model.pull_jet_chute(1)
-		return true
-	if model.jet.double_chute_gadget and chute_button(true).has_point(pos):
-		model.pull_jet_chute(2)
 		return true
 	if model.jet.afterburner_gadget and burner_button().has_point(pos):
 		model.fire_jet_afterburner()
@@ -113,6 +129,12 @@ func press(pos: Vector2) -> bool:
 
 func motion(pos: Vector2) -> void:
 	if active == "" or model == null: return
+	if active == "ring":
+		ring_pull = clampf((pos.y - ring_grab_y) / (RING_PULL * k), 0.0, 1.0)
+		if ring_pull >= 0.97 and not ring_fired:
+			ring_fired = true
+			model.pull_jet_chute(1)   # one chute a pull; with the gadget the ring comes back for the second one
+		return
 	set_slider(active, level_at(["throttle", "brake"].find(active), pos))
 
 func release() -> void:
@@ -152,7 +174,7 @@ func draw(canvas, mouse: Vector2) -> void:
 	draw_fuses(canvas, jet)
 	draw_cover(canvas, jet)
 	draw_display(canvas, jet)
-	draw_buttons(canvas, jet)
+	draw_buttons(canvas, jet, mouse)
 	draw_speed(canvas, jet)
 	draw_bars(canvas, jet)
 	if bool(model.state.get("tutorial", false)):
@@ -243,16 +265,28 @@ func draw_display(canvas, jet) -> void:
 	if bool(jet.started) or bool(jet.counting): mode = str(jet.mode.name) if bool(jet.started) else ""
 	canvas.draw_string(font, r.position + Vector2(0.0, 112.0 * k), mode, HORIZONTAL_ALIGNMENT_CENTER, r.size.x, int(round(13.0 * k)), GOLD)
 
-func draw_buttons(canvas, jet) -> void:
-	var one = chute_button(false)
-	var out = int(jet.chutes_open) > 0
-	box(canvas, one, Color("2a3d6e") if out else Color("26312d"), PAPER if out else EDGE, 6, 2)
-	canvas.draw_string(font, one.position + Vector2(0.0, one.size.y * 0.42), "Парашют", HORIZONTAL_ALIGNMENT_CENTER, one.size.x, int(round(15.0 * k)), PAPER)
-	canvas.draw_string(font, one.position + Vector2(0.0, one.size.y * 0.82), ("раскрыт" if out else ("в укладке: %d" % int(jet.chutes_left))), HORIZONTAL_ALIGNMENT_CENTER, one.size.x, int(round(12.0 * k)), GOLD)
-	if bool(jet.double_chute_gadget):
-		var two = chute_button(true)
-		box(canvas, two, Color("26312d"), EDGE, 6, 2)
-		canvas.draw_string(font, two.position + Vector2(0.0, two.size.y * 0.42), "Оба сразу", HORIZONTAL_ALIGNMENT_CENTER, two.size.x, int(round(15.0 * k)), PAPER)
+func draw_buttons(canvas, jet, mouse: Vector2) -> void:
+	# the ring springs back when it is let go before the end of the pull
+	var now = Time.get_ticks_msec()
+	var dt = clampf(float(now - ring_tick) / 1000.0, 0.0, 0.1)
+	ring_tick = now
+	if active != "ring" and ring_pull > 0.0: ring_pull = maxf(0.0, ring_pull - dt * 6.0)
+	var plate = plate_rect()
+	var ring = ring_rect()
+	var top = plate.position + Vector2(plate.size.x * 0.5, plate.size.y * 0.92)
+	var bottom = ring.position + Vector2(ring.size.x * 0.5, 5.0 * k)
+	if bottom.y > top.y:
+		canvas.draw_line(top, bottom, Color("6e5f45"), 5.0 * k)
+		canvas.draw_line(top, bottom, Color("d8c79d"), 3.2 * k)
+	canvas.draw_texture_rect(RING_PARTS.plate, plate, false)
+	var hot = active == "ring" or (not ring_spent() and ring.grow(8.0 * k).has_point(mouse))
+	canvas.draw_texture_rect(RING_PARTS.ring, ring, false, Color(1.18, 1.12, 1.0) if hot else Color.WHITE)
+	var status = "тяни вниз"
+	if int(jet.chutes_open) > 0: status = "раскрыт" if ring_spent() else "раскрыт · ещё %d" % int(jet.chutes_left)
+	elif int(jet.chutes_left) > 1: status = "тяни вниз · %d шт." % int(jet.chutes_left)
+	elif ring_spent(): status = "уложат в депо"
+	text(canvas, Vector2(522.0, 36.0), "Парашют", 13, Color("a8b3a3"), 118.0)
+	text(canvas, Vector2(510.0, 186.0 if ring_spent() or active == "ring" else 152.0), status, 12, GOLD, 142.0)
 	if bool(jet.afterburner_gadget):
 		var b = burner_button()
 		box(canvas, b, Color("8a3a1a") if float(jet.afterburner_time) > 0.0 else Color("26312d"), GOLD if float(jet.afterburner_time) > 0.0 else EDGE, 5, 2)
