@@ -62,7 +62,7 @@ func run() -> void:
 	game.tab = "Состав"
 	game.rebuild()
 	for button in game.find_children("*", "Button", true, false):
-		if str(button.text).begins_with("Болты ("): desk = true
+		if str(button.tooltip_text).begins_with("Болты:"): desk = true
 	check(desk, "the button 'Болты' (the desk) is in the depot")
 	for size in [Vector2i(1600, 900), Vector2i(1280, 720)]:
 		get_tree().root.size = size

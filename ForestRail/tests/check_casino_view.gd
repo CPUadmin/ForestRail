@@ -51,7 +51,7 @@ func run() -> void:
 	var enter = false
 	var odds = false
 	for button in game.find_children("*", "Button", true, false):
-		if str(button.text).begins_with("Войти в казик"): enter = true
+		if str(button.tooltip_text).begins_with("Войти в казик"): enter = true
 	for label in game.find_children("*", "Label", true, false):
 		if str(label.text).contains("Честные шансы"): odds = true
 	check(enter and odds, "the tab of the casino has the way in and the honest odds")

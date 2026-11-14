@@ -31,11 +31,15 @@ func build_depot(size: Vector2) -> void:
 		coins.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		coins.tooltip_text = "Монеты"
 		coins.mouse_filter = Control.MOUSE_FILTER_PASS
+	# ui-v2 (owner 14.11): the bolts always stand next to the coins, as a picture of a bolt and the count
 	var bolts = model.casino().bolt_total()
-	if bolts > 0:
-		var chip = canvas.add_button(top_row, "Болты (%d)" % bolts, func(): canvas.show_modal("receiving"), false, false, &"QuietAction")
-		chip.size_flags_horizontal = Control.SIZE_SHRINK_END
-		chip.tooltip_text = "Приёмка болтов: сдать шлак за монеты или жетоны"
+	var chip = canvas.add_button(top_row, "%d" % bolts, func(): canvas.show_modal("receiving"), false, false, &"QuietAction")
+	chip.icon = load("res://assets/art_kazik/junk_1.png")
+	chip.expand_icon = true
+	chip.add_theme_constant_override("icon_max_width", 34)
+	chip.custom_minimum_size = Vector2(96, 52)
+	chip.size_flags_horizontal = Control.SIZE_SHRINK_END
+	chip.tooltip_text = "Болты: %d шт. Приёмка: сдать шлак за монеты или жетоны" % bolts
 	var menu = canvas.add_button(top_row, "☰", func(): canvas.pause_game(), false, false, &"QuietAction")
 	menu.size_flags_horizontal = Control.SIZE_SHRINK_END
 	menu.custom_minimum_size = Vector2(60, 52)
@@ -212,10 +216,10 @@ func cargo_text(mission: Dictionary) -> String:
 func build_casino_door(rect: Rect2) -> void:
 	var tokens = canvas.model.casino().tokens()
 	var door = Button.new()
-	door.text = "Казик\nу стрелки"
 	door.tooltip_text = "Казик"
 	door.position = rect.position
 	door.size = rect.size
+	facade_picture(door, Rect2(440, 90, 380, 640), "КАЗИК", Vector2(0, 8), 26)
 	door.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	for state in ["normal", "hover", "pressed", "focus"]:
 		var s = StyleBoxFlat.new()
@@ -228,9 +232,6 @@ func build_casino_door(rect: Rect2) -> void:
 			s.shadow_color = Color(canvas.UiKit.GLOW, 0.45)
 			s.shadow_size = 18
 		door.add_theme_stylebox_override(state, s)
-	door.add_theme_color_override("font_color", canvas.UiKit.LAMP)
-	door.add_theme_color_override("font_hover_color", Color("fff1c4"))
-	door.add_theme_font_size_override("font_size", int(24 * float(canvas.settings.text_scale)))
 	door.pressed.connect(func():
 		canvas.sound.play("ui_click", 0.5)
 		canvas.show_modal("casino"))
@@ -239,6 +240,40 @@ func build_casino_door(rect: Rect2) -> void:
 	album.position = rect.position + Vector2(0, rect.size.y + 12)
 	album.size = Vector2(rect.size.x, 48)
 	album.tooltip_text = "Альбом карточек Таро"
+
+# ui-v2: the painted kiosk of the casino (P9 facade) inside a button: the picture is set in by the border, so the
+# border shows the hover and the glow of the tokens; the name is written on the blank sign over the door
+func facade_picture(button: Button, region: Rect2, name: String, name_at: Vector2, name_size: int) -> void:
+	var atlas = AtlasTexture.new()
+	atlas.atlas = load("res://assets/art_kazik/facade.png")
+	atlas.region = region
+	var picture = TextureRect.new()
+	picture.texture = atlas
+	picture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	picture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	picture.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	picture.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	for side in [SIDE_LEFT, SIDE_TOP]: picture.set_offset(side, 4)
+	for side in [SIDE_RIGHT, SIDE_BOTTOM]: picture.set_offset(side, -4)
+	picture.clip_contents = true
+	button.add_child(picture)
+	button.clip_contents = true
+	button.mouse_entered.connect(func(): picture.modulate = Color(1.12, 1.08, 1.0))
+	button.mouse_exited.connect(func(): picture.modulate = Color.WHITE)
+	if name == "": return
+	var label = Label.new()
+	label.text = name
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	label.add_theme_font_size_override("font_size", int(name_size * float(canvas.settings.text_scale)))
+	label.add_theme_color_override("font_color", Color("3a2412"))
+	label.add_theme_color_override("font_outline_color", Color(1.0, 0.86, 0.55, 0.55))
+	label.add_theme_constant_override("outline_size", 3)
+	label.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	label.position = name_at
+	label.custom_minimum_size = Vector2(0, 52)
+	button.add_child(label)
 
 # the one panel of the room for the rare things: the workshop, the wagons, the shop of machines, the casino notes, the records, all the orders
 func build_depot_popover(rect: Rect2) -> void:
@@ -339,7 +374,31 @@ func build_casino_tab(right: VBoxContainer) -> void:
 	canvas.add_label(c, "КАЗИК «у стрелки»", 26)
 	canvas.add_label(c, "Жетонов: %d  ·  шлака: %d шт.  ·  до гарантированной карточки: %d из %d" % [casino.tokens(), casino.bolt_total(), casino.pity(), int(canvas.model.data.casino.pity_max)], 18)
 	canvas.add_label(c, "Михалыч берёт шлак жетонами («деп»), за жетоны крутится колесо «лудки». Из колеса выпадают жетоны, шлак, монеты, ремнаборы, бонуски, а изредка карточка гаджета.", 16, canvas.MUTED_INK)
-	canvas.add_button(c, "Войти в казик →", func(): canvas.show_modal("casino"))
+	var enter = Button.new()
+	enter.tooltip_text = "Войти в казик"
+	enter.custom_minimum_size = Vector2(0, 190)
+	enter.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	for state in ["normal", "hover", "pressed", "focus"]:
+		var s = StyleBoxFlat.new()
+		s.bg_color = canvas.UiKit.WOOD_DARK
+		s.border_color = canvas.UiKit.LAMP if state in ["hover", "focus"] else canvas.UiKit.BRASS_DARK
+		s.set_border_width_all(4)
+		s.set_corner_radius_all(8)
+		enter.add_theme_stylebox_override(state, s)
+	enter.pressed.connect(func():
+		canvas.sound.play("ui_click", 0.5)
+		canvas.show_modal("casino"))
+	c.add_child(enter)
+	facade_picture(enter, Rect2(250, 80, 780, 520), "", Vector2.ZERO, 22)
+	var way = canvas.add_label(enter, "Войти в казик →", 22, canvas.UiKit.LAMP)
+	way.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	way.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	way.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
+	way.offset_top = -46
+	way.offset_bottom = -4
+	var strip = StyleBoxFlat.new()
+	strip.bg_color = Color(0.06, 0.04, 0.02, 0.78)
+	way.add_theme_stylebox_override("normal", strip)
 	var album_total = canvas.model.data.casino.cards.size() + 4
 	var album_have = 0
 	for card in canvas.model.data.casino.cards:
