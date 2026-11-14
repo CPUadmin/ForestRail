@@ -1,10 +1,12 @@
 ﻿{
-    "shortcut":  "C:\\Users\\Lenovo\\Desktop\\Р›РµСЃРЅР°СЏ РєРѕР»РµСЏ.lnk",
+    "shortcut":  "C:\\Users\\Lenovo\\Desktop\\Лесная колея.lnk",
     "version":  "1.3.0.0-B2",
     "sha256":  "448DE482E7A1585F719505757C9DE133890FB98748127C5851DB2885F60A1A5F",
     "save_hashes":  {
                         "save_v2.backup.json":  "C00AF0BEA80CC99BE53F26010C3471E78F328BF34B597672D8457E3BD68257B1"
                     },
     "saves_unchanged":  true,
-    "executable":  "C:\\Users\\Lenovo\\AppData\\Local\\Programs\\ForestRail\\1.3.0.0-B2\\ForestRail.exe"
+    "executable":  "C:\\Users\\Lenovo\\AppData\\Local\\Programs\\ForestRail\\1.3.0.0-B2\\ForestRail.exe",
+    "profile":  "C:\\Users\\Lenovo\\AppData\\Local\\Programs\\ForestRail\\Profiles\\P8",
+    "note":  "the script was read without BOM and made a second shortcut with a broken name; it was removed, the real shortcut was set by hand to 1.3.0.0-B2 with the profile P8; the script got a BOM"
 }
