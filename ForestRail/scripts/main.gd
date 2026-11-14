@@ -2967,21 +2967,9 @@ func control_geometry(id: String, closeup: bool = false) -> Dictionary:
 	if id=="start": angle=0.0 if (model.heating_on() if model.vehicle_id()=="pneumatic" else model.state.engine) else PI
 	return {"pivot":pivot,"grip":pivot+Vector2(0,-length).rotated(angle),"angle":angle}
 
-var lever_marks: Array = []
 func draw_controls(body_transform: Transform2D, show_labels: bool = true) -> void:
-	lever_marks.clear()
+	# owner 14.11: no names and no rings on the levers during the trip (the ui-v2 marks are taken away); the ring shows on hover only
 	draw_controls_inner(body_transform, show_labels)
-	for mark in lever_marks:
-		var id = str(mark.id)
-		var tone = Color("e8806a") if id == "brake" else Color("8fd17f")
-		draw_arc(mark.grip, 13.0, 0, TAU, 28, Color(tone, 0.95), 2.5, true)
-		var name_text = "Тормоз" if id == "brake" else ("Газ" if model.vehicle_id() not in ["locomotive", "jet"] else "Тяга")
-		# side: the sliders stand in a row (brake left, pull right); the levers lean (brake right, gas left)
-		var right = (id == "throttle") if bool(mark.slider) else (id == "brake")
-		var name_w = font.get_string_size(name_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 16).x
-		var at = mark.grip + Vector2(18.0 if right else -30.0 - name_w, 6.0)
-		draw_style_box(style(Color(0.09, 0.07, 0.05, 0.82), Color.TRANSPARENT, 7), Rect2(at + Vector2(-6, -17), Vector2(name_w + 12, 24)))
-		draw_string(font, at, name_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 16, tone)
 
 func draw_controls_inner(body_transform: Transform2D, show_labels: bool = true) -> void:
 	var ids = world_control_ids()
@@ -3028,10 +3016,6 @@ func draw_controls_inner(body_transform: Transform2D, show_labels: bool = true) 
 				sprite("control_" + id, Rect2(-pivot * factor, Vector2.ONE * 256 * factor))
 			draw_set_transform_matrix(body_transform)
 		var highlighted = drag==id or hover.distance_to(body_transform*geo.grip)<24
-		# ui-v2 (макет 1): the two levers of the machine are always marked: a ring at the grip and a short name beside it
-		if show_labels and id in ["brake", "throttle"] and not cab_active():
-			# drawn after all the levers (below), so that a later lever never covers the name of an earlier one
-			lever_marks.append({"id": id, "grip": geo.grip, "slider": kind == "slider"})
 		if not highlighted or not show_labels: continue
 		draw_arc(geo.grip, 9, 0, TAU, 28, PAPER, 1.5, true)
 		if kind == "lever" and id in ["brake","throttle"]:
