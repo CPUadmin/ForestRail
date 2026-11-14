@@ -1039,7 +1039,10 @@ func consist_strip(parent: Node) -> void:
 	strip.add_theme_constant_override("separation", 6)
 	parent.add_child(strip)
 	var coupled: Array = [model.vehicle_id()] + model.state.consist_ids
-	for id in coupled:
+	# ui-v2 (owner 14.11): drawn as on the rails of the room: the wagons on the left, the machine on the right
+	var drawn = coupled.duplicate()
+	drawn.reverse()
+	for id in drawn:
 		var tile = TextureRect.new()
 		tile.texture = art.textures[art.body_key(id)]
 		tile.custom_minimum_size = Vector2(0, 54.0 * float(settings.text_scale))

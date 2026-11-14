@@ -149,7 +149,7 @@ func main_order() -> Dictionary:
 # one line under the name of the machine: places, speed and whether the supply is enough for the main order
 func garage_line() -> String:
 	var model = canvas.model
-	var line = "%d мест · до %.0f км/ч" % [model.capacity(), model.top_speed_kmh()]
+	var line = "%s · до %.0f км/ч" % [places(model.capacity()), model.top_speed_kmh()]
 	if model.human_powered(): return line + " · без топлива"
 	var f = model.trip_forecast(main_order())
 	if not f.is_empty():
@@ -349,7 +349,7 @@ func build_depot_tab(right: VBoxContainer) -> void:
 			var stats = canvas.model.object_stats(id)
 			var coupled = id in canvas.model.state.consist_ids
 			var c = canvas.picture_card(right, id, coupled, canvas.GOLD if coupled else canvas.CARD_EDGE)
-			canvas.add_label(c, "%s  ·  %d мест  ·  %d кг%s" % [id, stats.slots, stats.mass, "  ·  в составе" if coupled else ""], 21)
+			canvas.add_label(c, "%s  ·  %s  ·  %d кг%s" % [id, places(int(stats.slots)), stats.mass, "  ·  в составе" if coupled else ""], 21)
 			canvas.add_button(c, "Отцепить " + id if id in canvas.model.state.consist_ids else "Прицепить " + id, func():
 				if canvas.model.toggle_wagon(id): canvas.save_game(); canvas.rebuild()
 				else: canvas.notify(canvas.model.message))
@@ -579,11 +579,9 @@ func build_upgrades(right: VBoxContainer) -> void:
 	for id in objects:
 		canvas.add_button(row, "Машина" if not id.begins_with("W") else id, func(): canvas.selected_object = id; canvas.rebuild(), false, id == canvas.selected_object)
 	var before = canvas.model.object_stats(canvas.selected_object)
-	canvas.add_label(right, "Выбран: " + (canvas.selected_object if canvas.selected_object.begins_with("W") else canvas.vehicle_display_name()), 22)
-	if canvas.selected_object.begins_with("W"): canvas.add_label(right, "%d мест · %d кг · тормоз %d Н" % [before.slots, before.mass, before.brake], 18)
-	else: canvas.add_label(right, "Сама машина: %d кг · тормоз %d Н%s" % [before.mass, before.brake, (" · %d мест" % before.slots) if int(before.slots) > 0 else ""], 18)
 	if canvas.selected_object.begins_with("W"):
-		canvas.add_label(right, "Качение: %.4f · защита посуды: %d%%" % [before.rolling, roundi((1.0 - float(before.shock)) * 100)], 18)
+		canvas.add_label(right, "Вагон %s · %s · %d кг · тормоз %d Н · защита посуды %d%%" % [canvas.selected_object, places(int(before.slots)), before.mass, before.brake, roundi((1.0 - float(before.shock)) * 100)], 18)
+	else: canvas.add_label(right, "%s · %d кг · тормоз %d Н%s" % [canvas.vehicle_display_name(), before.mass, before.brake, (" · " + places(int(before.slots))) if int(before.slots) > 0 else ""], 18)
 	build_wear_card(right)
 	var branches: Array = []
 	for branch in canvas.model.data.upgrade_catalog:
@@ -591,7 +589,7 @@ func build_upgrades(right: VBoxContainer) -> void:
 			continue
 		if str(branch.id) == canvas.workshop_branch: branches.push_front(branch)
 		else: branches.append(branch)
-	if not branches.is_empty(): canvas.add_label(right, "Укажи деталь на машине слева или выбери здесь.", 17, canvas.MUTED_INK)
+	if not branches.is_empty(): canvas.add_label(right, "Деталь можно выбрать и на машине слева.", 16, canvas.MUTED_INK)
 	for branch in branches:
 		var lv = int(canvas.model.object_state(canvas.selected_object).levels.get(branch.id, 0))
 		var name = upgrade_branch_name(canvas.selected_object, branch)
@@ -614,7 +612,7 @@ func build_upgrades(right: VBoxContainer) -> void:
 						else:
 							canvas.notify("Гаджет можно установить в депо до погрузки"), not canvas.model.depot_editable())
 					continue
-				canvas.add_label(c, "Карта ещё не найдена", 17, canvas.MUTED_INK)
+				canvas.add_label(c, "Карты пока нет: её дают в казике, или поставь за монеты", 16, canvas.MUTED_INK)
 			if gadget and bool(canvas.model.data.casino.cards_only): continue
 			var cost = int(branch.level_costs[lv])
 			canvas.add_button(c, ("Установить гаджет · %d монет" % cost) if gadget else ("Улучшить до %s · %d монет" % ["I" if lv == 0 else "II", cost]), func():
@@ -642,6 +640,15 @@ func build_upgrades(right: VBoxContainer) -> void:
 				canvas.add_label(c, "Максимальный уровень", 17, canvas.GREEN)
 
 # the picture of a gadget (the same one as on the back of its Tarot card) above its card in the workshop
+# «1 место», «3 места», «5 мест»
+func places(n: int) -> String:
+	var last = n % 10
+	var word = "мест"
+	if n % 100 < 11 or n % 100 > 14:
+		if last == 1: word = "место"
+		elif last >= 2 and last <= 4: word = "места"
+	return "%d %s" % [n, word]
+
 func gadget_icon(box: VBoxContainer, card_id: String) -> void:
 	var path = "res://assets/art_kazik/gadget_icons/%s.png" % card_id
 	if not ResourceLoader.exists(path): return
@@ -870,19 +877,24 @@ func num_text(v: float) -> String:
 	return s
 
 func stat_change(before, after) -> String:
-	if before is Array and after is Array:
-		var sum_before = 0.0
-		var sum_after = 0.0
-		for v in before: sum_before += float(v)
-		for v in after: sum_after += float(v)
-		if sum_before <= 0.0: return "изменится"
-		return "%+d%% на всех передачах" % int(round((sum_after / sum_before - 1.0) * 100.0))
+	if before is Array and after is Array: return percent_change(before, after)
 	var fb = float(before)
 	var fa = float(after)
 	var text = "%s → %s" % [num_text(fb), num_text(fa)]
 	if absf(fb) > 0.0001: text += " (%+d%%)" % int(round((fa / fb - 1.0) * 100.0))
 	return text
 
+# the change as a percent; a row of numbers (one per gear) by its mean
+func percent_change(before, after) -> String:
+	var sum_before = 0.0
+	var sum_after = 0.0
+	for v in (before if before is Array else [before]): sum_before += float(v)
+	for v in (after if after is Array else [after]): sum_after += float(v)
+	if absf(sum_before) < 0.000001: return "изменится"
+	return ("%+d%%" % int(round((sum_after / sum_before - 1.0) * 100.0))).replace("-", "−")
+
+# ui-v2 (owner 14.11): one short line per change, «Тяга +15%», «Тормоз 1800 → 2250 Н»; no units in the name,
+# no «на всех передачах» on every line, a gadget is not named twice (its name is the title of the card)
 func upgrade_preview(id: String, branch: Dictionary) -> String:
 	var object = canvas.model.object_state(id)
 	var lv = int(object.levels.get(branch.id, 0))
@@ -891,20 +903,26 @@ func upgrade_preview(id: String, branch: Dictionary) -> String:
 	var after = canvas.model.object_stats(id)
 	object.levels[branch.id] = lv
 	var parts: Array = []
+	var battery = id == "locomotive"
+	var names = {"slots": ["Места", ""], "mass": ["Масса", " кг"], "brake": ["Тормоз", " Н"], "tank": ["Батарея" if battery else ("Запас угля" if id == "steam" else "Бак"), " кВт·ч" if battery else ("" if id == "steam" else " л")], "power": ["Мощность", " Вт"], "rolling": ["Сопротивление качению", ""], "shock": ["Битьё посуды", ""], "traction": ["Тяга", ""], "speeds": ["Скорость на передачах", ""]}
 	for key in ["slots", "mass", "brake", "tank", "power", "rolling", "shock", "traction", "speeds"]:
 		if not before.has(key) or before[key] == after[key]: continue
-		var label = {"slots": "Места", "mass": "Масса, кг", "brake": "Тормоз, Н", "tank": "Батарея, кВт·ч" if id == "locomotive" else "Бак, л", "power": "Мощность, Вт", "rolling": "Качение", "shock": "Повреждение посуды", "traction": "Тяга, Н", "speeds": "Скорость, м/с"}[key]
-		parts.append("%s: %s" % [label, stat_change(before[key], after[key])])
+		if before[key] is Array or key in ["rolling", "shock"]: parts.append("%s %s" % [names[key][0], percent_change(before[key], after[key])])
+		else: parts.append("%s %s → %s%s" % [names[key][0], num_text(float(before[key])), num_text(float(after[key])), names[key][1]])
 	# parts of a machine that are not a stat of the table above: the strength of the push, the sail, the fire...
 	var before_ef = canvas.model.effects(id)
 	object.levels[branch.id] = lv + 1
 	var after_ef = canvas.model.effects(id)
 	object.levels[branch.id] = lv
-	var words = {"steam_superheater": "Пароперегреватель: угля на 30% меньше, пара на 10% больше, но разогревается дольше", "steam_stoker": "Механический кочегар: сам подбрасывает уголь и держит огонь ровно, но тратит на 20% больше", "sail_spinnaker": "Спинакер: тяга на попутном ветре ×1,8 (в бейдевинд хуже, рвётся раньше)", "sail_autopilot": "Парус сам держит угол, шкот фиксируется в любом положении (80% тяги)", "pole_force_multiplier": "Сила толчка", "zep_power_multiplier": "Мощность мотора", "sail_oars": "Вёсла: на штиле можно грести (медленно, но всегда доедешь)", "zep_flaps_gadget": "Закрылки: взлёт на скорости ниже на 20%, сопротивление в воздухе +5%", "zep_trim": "Триммер: держит высоту, на которой включён, ручка не нужна", "zep_wing_multiplier": "Площадь крыла (взлёт при меньшей скорости)", "pole_grip_multiplier": "Хватка наконечника", "sail_area_multiplier": "Площадь паруса", "sail_hold_multiplier": "Держит порыв", "steam_power_multiplier": "Пар", "fire_burn_multiplier": "Расход угля в топке", "water_capacity_multiplier": "Запас воды", "frost_multiplier": "Рост инея"}
-	for key in words:
-		if not after_ef.has(key): continue
-		if after_ef[key] is bool or key in ["sail_spinnaker", "steam_superheater", "steam_stoker"]: parts.append(str(words[key]))
-		else: parts.append("%s: ×%.2f → ×%.2f" % [words[key], float(before_ef.get(key, 1.0)), float(after_ef[key])])
+	var sentences = {"steam_superheater": "Угля на 30% меньше, пара на 10% больше, но разогревается дольше", "steam_stoker": "Сам подбрасывает уголь и держит огонь ровно, но тратит на 20% больше", "sail_spinnaker": "Тяга на попутном ветре ×1,8 (в бейдевинд хуже, рвётся раньше)", "sail_autopilot": "Парус сам держит угол, шкот фиксируется в любом положении (80% тяги)", "sail_oars": "На штиле можно грести: медленно, но всегда доедешь", "zep_flaps_gadget": "Взлёт на скорости ниже на 20%, сопротивление в воздухе +5%", "zep_trim": "Держит высоту, на которой включён, ручка не нужна"}
+	var factors = {"work_multiplier": "Сила качания", "pole_force_multiplier": "Сила толчка", "zep_power_multiplier": "Мощность мотора", "zep_wing_multiplier": "Площадь крыла (взлёт при меньшей скорости)", "pole_grip_multiplier": "Хватка наконечника", "sail_area_multiplier": "Площадь паруса", "sail_hold_multiplier": "Держит порыв", "steam_power_multiplier": "Пар", "fire_burn_multiplier": "Расход угля", "water_capacity_multiplier": "Запас воды", "frost_multiplier": "Рост инея"}
+	for key in sentences:
+		if after_ef.has(key) and not before_ef.has(key) or (after_ef.has(key) and after_ef[key] != before_ef.get(key)): parts.append(str(sentences[key]))
+	for key in factors:
+		if not after_ef.has(key) or after_ef[key] is bool: continue
+		var b = float(before_ef.get(key, 1.0))
+		if is_equal_approx(b, float(after_ef[key])): continue
+		parts.append("%s %s" % [factors[key], percent_change(b, float(after_ef[key]))])
 	return "\n".join(parts)
 
 func build_missions(right: VBoxContainer) -> void:

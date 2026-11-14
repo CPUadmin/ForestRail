@@ -62,7 +62,8 @@ func run() -> void:
 			check(level == 0 and game.model.casino().card_owned("magician"), "workshop removes the gadget and keeps the card (level %d, installed %s)" % [level, str(game.model.casino().st().installed)])
 	# the helper itself
 	check(game.stat_change(100.0, 115.0) == "100 → 115 (+15%)", "a number: before, after, percent (%s)" % game.stat_change(100.0, 115.0))
-	check(game.stat_change([100.0, 200.0], [110.0, 220.0]) == "+10% на всех передачах", "a row of numbers: the mean change (%s)" % game.stat_change([100.0, 200.0], [110.0, 220.0]))
+	check(game.stat_change([100.0, 200.0], [110.0, 220.0]) == "+10%", "a row of numbers: the mean change (%s)" % game.stat_change([100.0, 200.0], [110.0, 220.0]))
+	check(game.depot_ui().places(1) == "1 место" and game.depot_ui().places(3) == "3 места" and game.depot_ui().places(12) == "12 мест", "places are counted in Russian")
 	print("UPGRADE TEXT CHECKS ", checks, "; FAILURES ", failures)
 	get_tree().quit(0 if failures.is_empty() else 1)
 
