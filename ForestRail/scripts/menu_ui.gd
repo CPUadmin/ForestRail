@@ -103,7 +103,7 @@ func build_settings(box: VBoxContainer) -> void:
 			settings_choice(box, "weather_frequency", "Частота смены погоды", [[0.5, "Медленнее"], [1.0, "Обычно"], [2.0, "Быстрее"]])
 	else:
 		settings_slider(box, "sensitivity", "Чувствительность ручной дрезины", 0.5, 2, 0.05)
-		settings_choice(box, "autosave", "Автосохранение раз в", [[0, "Выкл."], [30, "30 с"], [60, "60 с"], [120, "2 мин"], [300, "5 мин"]])
+		settings_choice(box, "autosave", "Автосохранение", [[0, "Выкл."], [30, "30 с"], [60, "60 с"], [120, "2 мин"], [300, "5 мин"]])
 		if canvas.screen != "menu" and not canvas.model.state.is_empty():
 			canvas.add_button(box, "Подсказки: " + ("вкл." if canvas.model.state.tutorial else "выкл."), func():
 				canvas.model.state.tutorial = not canvas.model.state.tutorial

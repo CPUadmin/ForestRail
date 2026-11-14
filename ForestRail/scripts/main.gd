@@ -1470,7 +1470,12 @@ func build_modal(size: Vector2) -> void:
 	elif modal_kind == "settings":
 		build_settings(box)
 	elif modal_kind == "help":
-		add_label(box, "Как играть", 32)
+		var help_head = HBoxContainer.new()
+		box.add_child(help_head)
+		var help_title = add_label(help_head, "Как играть", 32)
+		help_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var help_close = add_button(help_head, "Понятно ✕", close_modal, false, false, &"QuietAction")
+		help_close.size_flags_horizontal = Control.SIZE_SHRINK_END
 		var fleet_speeds: PackedStringArray = []
 		for id in Model.VEHICLE_IDS:
 			fleet_speeds.append("%s — %d" % [model.vehicle_base(id).name, roundi(model.top_speed_kmh(id))])
@@ -1486,7 +1491,11 @@ func build_modal(size: Vector2) -> void:
 		add_label(box, "Линия работает" if result.get("final", false) else "С возвращением", 38)
 		add_label(box, "Линия работает. До Дальнего бора снова ходят поезда. А дома тебя ждёт следующий рейс." if result.get("final", false) else str(result.get("title", "Рейс окончен")), 25)
 		var notes_text = "\n" + "\n".join(result.get("notes", [])) if not result.get("notes", []).is_empty() else ""
-		add_label(box, "Оплата: %d монет%s\nВсего доставлено: %d предметов\nПройдено: %.1f км\nОсновные рейсы: %d / 10" % [result.get("reward", 0), notes_text, model.state.stats.deliveries, float(model.state.stats.distance) / 1000, model.state.chapter], 23)
+		var reward_label = add_label(box, "+%d" % int(result.get("reward", 0)), 56, GOLD)
+		reward_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		reward_label.tooltip_text = "Оплата за рейс, монет"
+		if notes_text != "": add_label(box, notes_text.strip_edges(), 19, MUTED_INK)
+		add_label(box, "Всего доставлено %d · пройдено %.1f км · основные рейсы %d / 10" % [model.state.stats.deliveries, float(model.state.stats.distance) / 1000, model.state.chapter], 18, MUTED_INK)
 		var finds: Array = result.get("finds", [])
 		if not finds.is_empty():
 			var parts: Array = []
@@ -1498,7 +1507,6 @@ func build_modal(size: Vector2) -> void:
 		if Model.wear_rules and not model.wear().journal.is_empty():
 			add_label(box, "Что случилось в рейсе:\n%s" % "\n".join(model.wear().journal_lines()), 20)
 		add_button(box, "Продолжить перевозки", close_modal, false, false, &"PrimaryAction")
-		add_button(box, "В главное меню", func(): screen = "menu"; close_modal(), false, false, &"QuietAction")
 	else:
 		add_label(box, "Лесная колея", 36)
 		add_label(box, "Небольшая игра о работе лесной железной дороги.\nРазработка: Codex совместно с владельцем проекта, 2026.\nГрафика: предоставленный комплект ForestRail, созданный с image_gen. Звуки синтезированы для этого комплекта.\nGodot Engine 4.7.2, лицензия MIT. Полные лицензии движка и его компонентов включены в поставку.\n\nВерсия игры %s · ТЗ 3.0 · проверка P8." % ProjectSettings.get_setting("application/config/version"), 22)
@@ -2420,7 +2428,8 @@ func _draw_scene() -> void:
 		if screen == "depot": draw_depot_interior(size)
 		draw_train()
 		if screen == "depot" and not clean_frame:
-			draw_style_box(style(Color(0.08,0.15,0.12,0.88),Color(0.5,0.57,0.39,0.45),8),Rect2(22,12,size.x-44,depot_header_bottom-12))
+			# ui-v2: no box under the header; a soft shade keeps the station name readable over the rafters
+			ArtWorld.vertical_gradient(self, Rect2(0, 0, size.x, 120), Color(0.05, 0.035, 0.02, 0.85), Color(0.05, 0.035, 0.02, 0.0))
 			draw_style_box(style(Color(0.08,0.15,0.12,0.88),Color(0.5,0.57,0.39,0.45),8),depot_info_rect)
 		if screen == "game" and not clean_frame:
 			# ui-v2: a chip as wide as its text instead of a bar over the whole sky

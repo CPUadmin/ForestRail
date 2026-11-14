@@ -191,7 +191,8 @@ func dial(canvas, centre: Vector2, radius: float, value: float, title: String, r
 	var angle = deg_to_rad(135.0 + 270.0 * clampf(value, 0.0, 1.0))
 	canvas.draw_line(centre, centre + Vector2(cos(angle), sin(angle)) * (radius - 8.0 * k), PAPER, 2.5 * k, true)
 	canvas.draw_circle(centre, 4.0 * k, GOLD)
-	canvas.draw_string(font, centre + Vector2(-radius, radius * 0.62), title, HORIZONTAL_ALIGNMENT_CENTER, radius * 2.0, int(round(13.0 * k)), Color("a8b3a3"))
+	# the title stays between the end numbers of the scale (it was read together with them: «0об/мин3»)
+	canvas.draw_string(font, centre + Vector2(-radius * 0.55, radius * 0.62), title, HORIZONTAL_ALIGNMENT_CENTER, radius * 1.1, int(round(13.0 * k)), Color("a8b3a3"))
 	canvas.draw_string(font, centre + Vector2(-radius, radius * 0.95), readout, HORIZONTAL_ALIGNMENT_CENTER, radius * 2.0, int(round(15.0 * k)), GOLD)
 
 # the takeoff speed of this very machine (the wing upgrade and the flaps gadget lower it)

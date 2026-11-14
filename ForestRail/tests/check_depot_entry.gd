@@ -194,7 +194,7 @@ func run() -> void:
 	await RenderingServer.frame_post_draw
 	get_tree().root.get_texture().get_image().save_png(output_dir.path_join("consist_%d.png" % get_tree().root.size.y))
 	var tiles = 0
-	for node in game.ui.find_children("*", "Button", true, false): if node.tooltip_text in ["Гараж", "Состав", "Мастерская", "Доска заказов"]: tiles += 1
-	check(tiles == 4, "four pictured places in the depot (%d)" % tiles)
+	for node in game.ui.find_children("*", "Button", true, false): if node.tooltip_text in ["Гараж", "Состав", "Улучшения", "Казик"]: tiles += 1
+	check(tiles == 4, "four places of the depot room: workshop, wagons, garage, the casino door (%d)" % tiles)
 	print("DEPOT ENTRY CHECKS ", checks, "; FAILURES ", failures)
 	get_tree().quit(0 if failures.is_empty() else 1)
