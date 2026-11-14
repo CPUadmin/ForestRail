@@ -870,8 +870,8 @@ func update_hud() -> void:
 	var returning = not state.active.is_empty() and state.active.phase == "return"
 	var stop_index = model.station_index()
 	var at_station = model.station_name(model.data.stations[stop_index].id) if stop_index >= 0 else ""
-	# ui-v2: time, weather and the target only; the distance is on the route strip at the bottom
-	hud.text = "%s · %s · → %s" % [model.clock_text(), model.weather_name() if int(settings.weather) != 2 else "ясно", model.station_name(destination)] + deadline_text() + brake_hint_text(target_s) + keys_hint_text()
+	# ui-v2: the time and the weather only; the target and the distance are on the minimap (the owner: no doubles)
+	hud.text = "%s · %s" % [model.clock_text(), model.weather_name() if int(settings.weather) != 2 else "ясно"] + deadline_text() + brake_hint_text(target_s) + keys_hint_text()
 	if burst_button != null and is_instance_valid(burst_button):
 		burst_button.text = burst_button_text()
 		burst_button.disabled = not model.burst_ready()
