@@ -93,7 +93,7 @@ func run() -> void:
 	get_tree().root.size=Vector2i(1280,720)
 	await frame(6)
 	started_ms=Time.get_ticks_msec()
-	check(await click_button("Новая игра"),"soak starts from actual new-game button")
+	check(await click_button("Играть") and await click_button("Новая игра") and await click_button("Кампания"),"soak starts from actual new-game buttons (Играть → Новая игра → Кампания)")
 	if game.model.vehicle_id() != "handcar":
 		# The normal career now starts with a pole. Use a fresh isolated lever
 		# handcar career so the timed part still exercises the intended controls.

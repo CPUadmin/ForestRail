@@ -46,6 +46,40 @@ func write(model, preserve_backup: bool = false) -> bool:
 		return false
 	return true
 
+# ui-v2 (owner 14.11): three manual slots besides the current game. A slot is written whole through a temp file and checked.
+const SLOTS = 3
+
+func slot_name(n: int) -> String:
+	return "save_slot_%d.json" % n
+
+func write_slot(model, n: int) -> bool:
+	error = ""
+	var temp_name = "save_slot_%d.tmp" % n
+	var temp = FileAccess.open(path(temp_name), FileAccess.WRITE)
+	if temp == null:
+		error = "Не удалось записать слот %d" % n
+		return false
+	temp.store_string(JSON.stringify(model.serialize()))
+	temp.flush()
+	var write_error = temp.get_error()
+	temp.close()
+	if write_error != OK or read_valid(temp_name).is_empty():
+		error = "Проверка слота %d не пройдена" % n
+		return false
+	if FileAccess.file_exists(path(slot_name(n))): DirAccess.remove_absolute(path(slot_name(n)))
+	if DirAccess.rename_absolute(path(temp_name), path(slot_name(n))) != OK:
+		error = "Не удалось записать слот %d" % n
+		return false
+	return true
+
+# one line about a save for the list of the menu: the mode, the progress, the coins and when it was written
+func summary(name: String) -> String:
+	var saved = read_valid(name)
+	if saved.is_empty(): return ""
+	var when = Time.get_datetime_string_from_unix_time(FileAccess.get_modified_time(path(name)), true).replace("T", " ").substr(0, 16)
+	if str(saved.get("mode", "career")) == "creative": return "творческий режим · " + when
+	return "карьера · рейсов %d из 10 · %d монет · %s" % [int(saved.get("chapter", 0)), int(saved.get("money", 0)), when]
+
 func has_any() -> bool:
 	return FileAccess.file_exists(path("save_v2.json")) or FileAccess.file_exists(path("save_v2.backup.json"))
 

@@ -145,7 +145,6 @@ func build_menu(size: Vector2) -> void:
 	column.size = Vector2(minf(620, size.x * 0.5), 0)
 	column.add_theme_constant_override("separation", int(10 * k))
 	canvas.ui.add_child(column)
-	canvas.add_label(column, "ЛЕСНАЯ ЖЕЛЕЗНАЯ ДОРОГА", 17, Color("e2c27a"))
 	var title = canvas.add_label(column, "Лесная\nколея", 96, canvas.PAPER)
 	title.add_theme_font_size_override("font_size", int(96 * k))
 	title.add_theme_constant_override("line_spacing", int(-22 * k))
@@ -159,24 +158,59 @@ func build_menu(size: Vector2) -> void:
 	box.custom_minimum_size.x = 330
 	box.add_theme_constant_override("separation", int(6 * k))
 	column.add_child(box)
+	# ui-v2 (owner 14.11): pages. Main: Играть, Настройки, Справка, Выход. Играть: Продолжить, Новая игра, Загрузить.
+	# Новая игра: Кампания or Творческий режим. Загрузить: the current game, its backup, the previous career and the slots.
 	var has_save = canvas.saves.has_any()
-	if has_save: menu_button(box, "Продолжить", canvas.continue_game, true)
-	menu_button(box, "Новая игра", func():
-		if has_save:
-			canvas.confirm("Начать новую карьеру? Текущая будет сохранена в файл %s рядом с сохранениями." % canvas.SaveGame.PREVIOUS_CAREER, func(): canvas.begin_new())
-		else:
-			canvas.begin_new(), not has_save)
-	menu_button(box, "Творческий режим", func():
-		if has_save:
-			canvas.confirm("Начать творческий режим? Текущая карьера будет сохранена в файл %s рядом с сохранениями." % canvas.SaveGame.PREVIOUS_CAREER, func(): canvas.begin_new(-1, true))
-		else:
-			canvas.begin_new(-1, true))
-	menu_button(box, "Настройки", func(): canvas.show_modal("settings"))
-	# "Как играть" and "Об игре" live in the settings (the tab "Служебное") and in F1: the menu keeps only what is needed to start
-	menu_button(box, "Выход", func(): canvas.get_tree().quit())
+	var page = canvas.menu_page
+	var go = func(to: String): canvas.menu_page = to; canvas.rebuild()
+	if page == "play":
+		menu_heading(box, "Играть")
+		if has_save: menu_button(box, "Продолжить", canvas.continue_game, true)
+		menu_button(box, "Новая игра", func(): go.call("new"), not has_save)
+		menu_button(box, "Загрузить", func(): go.call("load"))
+		menu_button(box, "← Назад", func(): go.call("main"))
+	elif page == "new":
+		menu_heading(box, "Новая игра")
+		menu_button(box, "Кампания", func():
+			if has_save:
+				canvas.confirm("Начать новую карьеру? Текущая будет сохранена в файл %s рядом с сохранениями." % canvas.SaveGame.PREVIOUS_CAREER, func(): canvas.menu_page = "main"; canvas.begin_new())
+			else:
+				canvas.menu_page = "main"; canvas.begin_new(), true)
+		menu_button(box, "Творческий режим", func():
+			if has_save:
+				canvas.confirm("Начать творческий режим? Текущая карьера будет сохранена в файл %s рядом с сохранениями." % canvas.SaveGame.PREVIOUS_CAREER, func(): canvas.menu_page = "main"; canvas.begin_new(-1, true))
+			else:
+				canvas.menu_page = "main"; canvas.begin_new(-1, true))
+		menu_button(box, "← Назад", func(): go.call("play"))
+	elif page == "load":
+		menu_heading(box, "Загрузить")
+		var entries = [["save_v2.json", "Текущая игра"], ["save_v2.backup.json", "Резервная копия"], [canvas.SaveGame.PREVIOUS_CAREER, "Прошлая карьера"]]
+		for n in range(1, canvas.saves.SLOTS + 1): entries.append([canvas.saves.slot_name(n), "Слот %d" % n])
+		var any = false
+		for entry in entries:
+			var line = canvas.saves.summary(str(entry[0]))
+			if line == "": continue
+			any = true
+			var file = str(entry[0])
+			menu_button(box, "%s  ·  %s" % [entry[1], line], func():
+				var saved = canvas.saves.read_valid(file)
+				if saved.is_empty(): canvas.notify("Сохранение не читается"); return
+				canvas.menu_page = "main"
+				canvas.load_career(saved)
+				canvas.save_game())
+		if not any: canvas.add_label(box, "Сохранений пока нет", 20, Color(canvas.PAPER, 0.7))
+		menu_button(box, "← Назад", func(): go.call("play"))
+	else:
+		menu_button(box, "Играть", func(): go.call("play"), true)
+		menu_button(box, "Настройки", func(): canvas.show_modal("settings"))
+		menu_button(box, "Справка", func(): canvas.show_modal("help"))
+		menu_button(box, "Выход", func(): canvas.get_tree().quit())
 	# The footer needs the room the column leaves at small windows with large text.
 	if size.y / float(canvas.settings.text_scale) > 640:
 		canvas.positioned_label("От ручной дрезины до электровоза  ·  версия %s" % ProjectSettings.get_setting("application/config/version"), Rect2(86, size.y - 52, 700, 30), 15, Color(canvas.PAPER, 0.55))
+
+func menu_heading(parent: Node, text: String) -> void:
+	canvas.add_label(parent, text, 26, Color("e2c27a"))
 
 # Menu entries are a plain list on the scrim; only the main action is filled.
 func menu_button(parent: Node, text: String, action: Callable, primary: bool = false) -> Button:

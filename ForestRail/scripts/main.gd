@@ -84,6 +84,8 @@ var settings_backup: Dictionary = {}
 var settings_tab = "Звук"
 var free_trips_open = false   # the depot: the list of free trips is unfolded under the main order
 var settings_fold: Dictionary = {}   # which folded groups of the settings are open
+var menu_page = "main"   # ui-v2: the main menu has pages: main, play, new, load
+var pause_slots_open = false   # the pause menu: «Сохранить в слот» is unfolded
 var pause_stuck_open = false   # the pause menu: the group "Застрял?" (the help of the depot and the repair at the station) is unfolded
 var awaiting_key = ""
 var camera_s = 0.0
@@ -1448,6 +1450,13 @@ func build_modal(size: Vector2) -> void:
 		add_button(box, "Сохранить", func(): save_game(); notify("Сохранено"))
 		add_button(box, "Настройки", func(): show_modal("settings"))
 		# the rare actions are folded under one line: the pause menu shows three things at first sight
+		add_button(box, "Сохранить в слот ▴" if pause_slots_open else "Сохранить в слот ▾", func(): pause_slots_open = not pause_slots_open; show_modal("pause"), false, false, &"QuietAction")
+		if pause_slots_open:
+			for n in range(1, saves.SLOTS + 1):
+				var line = saves.summary(saves.slot_name(n))
+				add_button(box, "Слот %d · %s" % [n, line if line != "" else "пусто"], func():
+					if saves.write_slot(model, n): notify("Сохранено в слот %d" % n); show_modal("pause")
+					else: notify(saves.error), false, false, &"QuietAction")
 		add_button(box, "Застрял? ▴" if pause_stuck_open else "Застрял? ▾", func(): pause_stuck_open = not pause_stuck_open; show_modal("pause"), false, false, &"QuietAction")
 		if pause_stuck_open and Model.wear_rules and model.wear().emergency_possible() and float(model.wear().train_worst().cond) < 0.5:
 			add_button(box, "Аварийный ремонт (до 50%)", func():
