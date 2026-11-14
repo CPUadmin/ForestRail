@@ -157,7 +157,11 @@ func draw(canvas, mouse: Vector2) -> void:
 	draw_bars(canvas, jet)
 	if bool(model.state.get("tutorial", false)):
 		var lesson = hint(jet, float(model.state.brake), float(model.state.throttle))
-		if lesson != "": text(canvas, Vector2(20.0, 22.0), lesson, 14, Color("e9ce83"), 640.0, HORIZONTAL_ALIGNMENT_LEFT)
+		if lesson != "":
+			# ui-v2: the lesson stands above the pult on its own backing and wraps to two lines (it was cut and lay over «Газ»)
+			var lesson_rect = Rect2(origin + Vector2(0.0, -58.0) * k, Vector2(760.0, 52.0) * k)
+			canvas.draw_style_box(canvas.style(Color(0.07, 0.06, 0.04, 0.88), Color("8a6a2c"), 6), lesson_rect)
+			canvas.draw_multiline_string(font, lesson_rect.position + Vector2(12.0, 20.0) * k, lesson, HORIZONTAL_ALIGNMENT_LEFT, (760.0 - 24.0) * k, int(round(15.0 * k)), 2, Color("e9ce83"))
 
 func draw_slider(canvas, index: int, id: String, title: String, color: Color, mouse: Vector2) -> void:
 	var t = track(index)

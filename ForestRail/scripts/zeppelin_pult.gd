@@ -192,7 +192,7 @@ func dial(canvas, centre: Vector2, radius: float, value: float, title: String, r
 	canvas.draw_line(centre, centre + Vector2(cos(angle), sin(angle)) * (radius - 8.0 * k), PAPER, 2.5 * k, true)
 	canvas.draw_circle(centre, 4.0 * k, GOLD)
 	# the title stays between the end numbers of the scale (it was read together with them: «0об/мин3»)
-	canvas.draw_string(font, centre + Vector2(-radius * 0.55, radius * 0.62), title, HORIZONTAL_ALIGNMENT_CENTER, radius * 1.1, int(round(13.0 * k)), Color("a8b3a3"))
+	canvas.draw_string(font, centre + Vector2(-radius * 0.55, radius * 0.4), title, HORIZONTAL_ALIGNMENT_CENTER, radius * 1.1, int(round(13.0 * k)), Color("a8b3a3"))
 	canvas.draw_string(font, centre + Vector2(-radius, radius * 0.95), readout, HORIZONTAL_ALIGNMENT_CENTER, radius * 2.0, int(round(15.0 * k)), GOLD)
 
 # the takeoff speed of this very machine (the wing upgrade and the flaps gadget lower it)
@@ -263,4 +263,8 @@ func draw_warning(canvas, zep) -> void:
 	if line != "": text(canvas, Vector2(300.0, 187.0), line, 13, color, 290.0)
 	if bool(model.state.get("tutorial", false)):
 		var lesson = hint(zep, takeoff_kmh_now(), float(model.state.brake), float(model.state.throttle))
-		if lesson != "": text(canvas, Vector2(20.0, 22.0), lesson, 14, Color("e9ce83"), 640.0, HORIZONTAL_ALIGNMENT_LEFT)
+		if lesson != "":
+			# ui-v2: the lesson stands above the pult on its own backing and wraps to two lines (it was cut and lay over «Газ»)
+			var lesson_rect = Rect2(origin + Vector2(0.0, -58.0) * k, Vector2(760.0, 52.0) * k)
+			canvas.draw_style_box(canvas.style(Color(0.07, 0.06, 0.04, 0.88), Color("8a6a2c"), 6), lesson_rect)
+			canvas.draw_multiline_string(font, lesson_rect.position + Vector2(12.0, 20.0) * k, lesson, HORIZONTAL_ALIGNMENT_LEFT, (760.0 - 24.0) * k, int(round(15.0 * k)), 2, Color("e9ce83"))
