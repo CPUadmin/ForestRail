@@ -73,7 +73,6 @@ func train_x(size: Vector2) -> float:
 
 # --- the picture
 func draw_yard(size: Vector2) -> void:
-	canvas.draw_rect(Rect2(Vector2.ZERO, size), Color("10140f"))
 	var r = image_rect(size)
 	if entering != "" and canvas.depot_anim == "leave":
 		# the camera comes closer to the building while the screen darkens
@@ -81,16 +80,23 @@ func draw_yard(size: Vector2) -> void:
 		var focus = building_rect(size, entering).get_center()
 		var k = 1.0 + ENTER_ZOOM * t
 		r = Rect2(focus + (r.position - focus) * k, r.size * k)
-	if day != null: canvas.draw_texture_rect(day, r, false)
+	# owner 15.11: one track everywhere: the picture ends at the rails, below them the game shows its own track and ground
+	var rail = r.position.y + float(layout.get("track_y", 0.8)) * r.size.y
+	if day != null: draw_above(day, r, rail, Color.WHITE)
 	# the evening picture comes in with the dusk of the game clock (the same layout, the lamps lit)
 	var dusk = clampf(canvas.model.night_amount() * 1.2 + canvas.model.twilight() * 0.5, 0.0, 1.0)
-	if evening != null and dusk > 0.01: canvas.draw_texture_rect(evening, r, false, Color(1, 1, 1, dusk))
-	elif evening == null and dusk > 0.01: canvas.draw_rect(r, Color(0.05, 0.06, 0.16, 0.45 * dusk))
+	if evening != null and dusk > 0.01: draw_above(evening, r, rail, Color(1, 1, 1, dusk))
+	elif evening == null and dusk > 0.01: canvas.draw_rect(Rect2(r.position, Vector2(r.size.x, rail - r.position.y)), Color(0.05, 0.06, 0.16, 0.45 * dusk))
 	# the building under the mouse: its windows and door get warmer (a soft lamp glow over it, no frame over the painting)
 	if hover != "" and entering == "":
 		var b = building_rect(size, hover)
 		var glow = maxf(b.size.x, b.size.y) * 1.25
 		canvas.draw_texture_rect(canvas.DEPOT_GLOW, Rect2(b.get_center() - Vector2(glow, glow) * 0.5, Vector2(glow, glow)), false, Color(1.0, 0.82, 0.5, 0.55))
+
+# a picture drawn down to the line of the rails only
+func draw_above(texture: Texture2D, r: Rect2, rail: float, tint: Color) -> void:
+	var share = clampf((rail - r.position.y) / r.size.y, 0.0, 1.0)
+	canvas.draw_texture_rect_region(texture, Rect2(r.position, Vector2(r.size.x, r.size.y * share)), Rect2(0, 0, texture.get_width(), texture.get_height() * share), tint)
 
 # --- the controls over the picture
 func build_yard(size: Vector2) -> void:

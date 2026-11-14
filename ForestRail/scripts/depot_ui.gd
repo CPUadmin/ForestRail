@@ -17,6 +17,7 @@ func build_depot(size: Vector2) -> void:
 	build_place_nav(size)
 	build_place_room(size)
 
+const COIN_ICON = preload("res://assets/ui/coin.png")
 const PLACE_TITLE = {"depot": "Депо", "workshop": "Мастерская", "shop": "Магазин"}
 const PLACE_ORDER = ["depot", "workshop", "shop", "casino"]
 const PLACE_NAME = {"depot": "Депо", "workshop": "Мастерская", "shop": "Магазин", "casino": "Казик"}
@@ -38,12 +39,40 @@ func build_header(size: Vector2, title: String) -> void:
 	top_row.add_theme_constant_override("separation", 14)
 	canvas.ui.add_child(top_row)
 	if not model.creative():
-		var coins = canvas.add_label(top_row, "◉ %d" % int(model.state.money), 28, canvas.GOLD)
+		# owner 15.11: the coins in a frame like the bolts beside them: the painted coin (P18) and the sum on a brass-edged plate
+		var plate = PanelContainer.new()
+		plate.size_flags_horizontal = Control.SIZE_SHRINK_END
+		plate.custom_minimum_size = Vector2(0, 52)
+		plate.tooltip_text = "Монеты"
+		plate.mouse_filter = Control.MOUSE_FILTER_PASS
+		var frame = StyleBoxFlat.new()
+		frame.bg_color = Color(0.13, 0.09, 0.05, 0.92)
+		frame.border_color = canvas.UiKit.BRASS_DARK
+		frame.set_border_width_all(2)
+		frame.border_width_bottom = 4
+		frame.set_corner_radius_all(8)
+		frame.content_margin_left = 12
+		frame.content_margin_right = 16
+		frame.content_margin_top = 4
+		frame.content_margin_bottom = 4
+		plate.add_theme_stylebox_override("panel", frame)
+		top_row.add_child(plate)
+		var inside = HBoxContainer.new()
+		inside.add_theme_constant_override("separation", 8)
+		inside.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		plate.add_child(inside)
+		var coin = TextureRect.new()
+		coin.texture = COIN_ICON
+		coin.custom_minimum_size = Vector2(30, 30)
+		coin.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		coin.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		coin.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		inside.add_child(coin)
+		var coins = canvas.add_label(inside, "%d" % int(model.state.money), 26, canvas.GOLD)
 		coins.autowrap_mode = TextServer.AUTOWRAP_OFF
 		coins.size_flags_horizontal = Control.SIZE_SHRINK_END
 		coins.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		coins.tooltip_text = "Монеты"
-		coins.mouse_filter = Control.MOUSE_FILTER_PASS
+		coins.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	# ui-v2 (owner 14.11): the bolts always stand next to the coins, as a picture of a bolt and the count
 	var bolts = model.casino().bolt_total()
 	var chip = canvas.add_button(top_row, "%d" % bolts, func(): canvas.show_modal("receiving"), false, false, &"QuietAction")
@@ -603,7 +632,7 @@ func draw_depot_interior(size: Vector2) -> void:
 	# Узловая Лесная: the workshop and the shop are painted rooms (P23); their rails meet the rails of the machine
 	var picture: Texture2D = canvas.yard_ui().rooms.get(canvas.place)
 	if picture != null:
-		canvas.draw_texture_rect(picture, canvas.yard_ui().room_rect(size, canvas.place), false)
+		canvas.yard_ui().draw_above(picture, canvas.yard_ui().room_rect(size, canvas.place), floor_y, Color.WHITE)   # below the rails: the track and the floor of the depot
 		return
 	# the wall: a tile as high as the wall, repeated along; the dark top and bottom keep the lamplight in the middle
 	var wall_w = floor_y * float(canvas.DEPOT_WALL.get_width()) / float(canvas.DEPOT_WALL.get_height())
