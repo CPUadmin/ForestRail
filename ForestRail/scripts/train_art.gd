@@ -185,7 +185,7 @@ func body_transform(id: String, s: float, swaying: bool = true) -> Transform2D:
 		# B5.1: the body rides on its springs: it bobs on the joints and the crests and rocks when the train
 		# speeds up or brakes (the nose comes up and dips). It turns about the middle of the wheelbase.
 		var index = canvas.model.body_ids().find(id)
-		var bob = canvas.model.live.lift_m(index) * (3.5 if id == "zeppelin" else 1.0)   # the gear of the zeppelin is soft (owner 15.11)
+		var bob = canvas.model.live.lift_m(index) * (2.5 if id == "zeppelin" else 1.0)   # the zeppelin rides a little softer on its bogie springs (owner 15.11)
 		var pitch_air = clampf(float(canvas.model.air_vy) * 0.035, -0.2, 0.2) if canvas.model.air_fly else 0.0   # B5.5: the nose follows the flight
 		var turn = -(canvas.model.live.rock_rad(index) + pitch_air) * float(direction)
 		if absf(bob) > 0.0001 or absf(turn) > 0.00005:
