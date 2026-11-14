@@ -1083,6 +1083,7 @@ func settle() -> bool:
 	var exact = false
 	var story = not state.active.get("free", false)
 	var notes: Array = []
+	var medals: Array = []   # ui-v2: the small medals of the result screen (P22): on_time, night, heavy, first
 	if state.active.has("budget_s") and float(state.active.get("t_start", -1.0)) >= 0.0 and not creative():
 		var budget = maxf(1.0, float(state.active.budget_s))
 		var ratio = (float(state.stats.seconds) - float(state.active.t_start)) / budget
@@ -1094,15 +1095,19 @@ func settle() -> bool:
 			if ratio <= 0.75:
 				bonus += 0.25
 				notes.append("раньше срока +25%")
+				medals.append("on_time")
 			elif ratio <= 0.9:
 				bonus += 0.10
 				notes.append("раньше срока +10%")
+				medals.append("on_time")
 			if bool(state.active.get("night_start", false)):
 				bonus += NIGHT_BONUS
 				notes.append("ночной рейс +30%")
+				medals.append("night")
 			var heavy = float(state.active.get("cargo_bonus", 0.0))
 			if heavy > 0.0:
 				bonus += heavy
+				medals.append("heavy")
 				notes.append("тяжёлый и большой груз +%d%%" % roundi(heavy * 100.0))
 			reward = roundi(float(reward) * (1.0 + bonus))
 	if late:
@@ -1127,6 +1132,7 @@ func settle() -> bool:
 	if junk_rules and not creative(): finds = casino().trip_finds(exact, late)
 	if not late and not creative(): casino().trip_done(bool(state.active.get("night_start", false)) or rain_effect() > 0.3)
 	if not state.active.get("free", false) and not creative() and not late:
+		if state.completed_ids.is_empty(): medals.append("first")
 		state.completed_ids.append(id)
 		state.chapter = mini(int(state.chapter) + 1, 10)
 	if late:
@@ -1137,7 +1143,7 @@ func settle() -> bool:
 	else:
 		events.append("coins")
 	if creative(): state.money = CREATIVE_MONEY
-	state.last_result = {"title": state.active.title, "reward": reward, "final": state.active.get("final", false) and not creative() and not late, "late": late, "notes": notes, "finds": finds, "left_on_warehouse":state.active.get("warehouse_cargo",[]).size()}
+	state.last_result = {"title": state.active.title, "reward": reward, "final": state.active.get("final", false) and not creative() and not late, "late": late, "notes": notes, "medals": medals, "finds": finds, "left_on_warehouse":state.active.get("warehouse_cargo",[]).size()}
 	state.active = {}
 	state.cargo = []
 	drop_temporary_wagon()
