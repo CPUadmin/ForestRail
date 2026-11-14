@@ -352,6 +352,7 @@ func load_settings() -> void:
 				elif (value is int or value is float) and is_finite(float(value)):
 					settings[key] = value
 	apply_settings()
+	apply_window_size.call_deferred(true)   # the first window fits the screen and its scaling
 
 func apply_settings() -> void:
 	if art != null: art.reduce_motion_flag = bool(settings.reduce_motion)
@@ -410,8 +411,27 @@ func copy_settings(target: Dictionary, source: Dictionary) -> void:
 func settings_changed() -> bool:
 	return JSON.stringify(settings) != JSON.stringify(settings_backup)
 
-func apply_window_size() -> void:
-	if not bool(settings.fullscreen): DisplayServer.window_set_size(WINDOW_SIZES[int(settings.window_size)])
+# The window sizes of the settings are in the points of the screen, not in its pixels: on a laptop with Windows scaling 200%
+# (2880x1800) a window of 1600x900 pixels was a small box with tiny letters (owner 15.11). The size is multiplied by the
+# scaling of the screen and kept inside the free area of the screen (16:9), and the window stands in its middle.
+func window_pixels(index: int) -> Vector2i:
+	var screen = DisplayServer.window_get_current_screen()
+	var factor = maxf(1.0, maxf(DisplayServer.screen_get_scale(screen), float(DisplayServer.screen_get_dpi(screen)) / 96.0))
+	var want = Vector2(WINDOW_SIZES[clampi(index, 0, WINDOW_SIZES.size() - 1)]) * factor
+	var usable = Vector2(DisplayServer.screen_get_usable_rect(screen).size) * 0.94
+	if usable.x > 0.0 and usable.y > 0.0:
+		var fit = minf(1.0, minf(usable.x / want.x, usable.y / want.y))
+		want *= fit
+	return Vector2i(want.round())
+
+func apply_window_size(at_start: bool = false) -> void:
+	if bool(settings.fullscreen) or DisplayServer.get_name() == "headless": return
+	if at_start and test_mode: return   # the checks set their own window
+	var screen = DisplayServer.window_get_current_screen()
+	var size = window_pixels(int(settings.window_size))
+	DisplayServer.window_set_size(size)
+	var usable = DisplayServer.screen_get_usable_rect(screen)
+	DisplayServer.window_set_position(usable.position + (usable.size - size) / 2)
 
 func key_name(action: String) -> String:
 	return OS.get_keycode_string(int(settings.keys[action]))

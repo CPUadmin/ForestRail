@@ -107,9 +107,9 @@ func run() -> void:
 	await press("Окно без рамки")
 	check(not DisplayServer.window_get_flag(DisplayServer.WINDOW_FLAG_BORDERLESS), "and with a frame again")
 	await press("1280")
-	check(int(game.settings.window_size) == 0 and DisplayServer.window_get_size() == Vector2i(1280, 720), "window size 1280x720")
+	check(int(game.settings.window_size) == 0 and DisplayServer.window_get_size() == game.window_pixels(0), "window size 1280x720 (in the points of the screen: %s)" % str(game.window_pixels(0)))
 	await press("1600")
-	check(DisplayServer.window_get_size() == Vector2i(1600, 900), "and back to 1600x900")
+	check(DisplayServer.window_get_size() == game.window_pixels(1), "and back to 1600x900")
 	# controls: sensitivity and key rebinding with real key events
 	game.settings_tab = "Игра"; game.settings_fold["keys_more"] = true; game.rebuild(); await frame(2)
 	check(await press("Кабина"), "the cab key can be chosen for rebinding")
