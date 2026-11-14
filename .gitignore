@@ -50,3 +50,6 @@ qa/autonomous_run_1105/
 qa/night_report_2026-11-05/
 tools/art_sources/inbox/P18_ui_kit.zip
 tools/art_sources/archive/**/*.import
+
+# the screens of the UI tour (tests/probe_ui_tour.gd)
+qa/ui_tour/
