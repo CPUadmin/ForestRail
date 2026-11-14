@@ -140,14 +140,20 @@ func sign_label(size: Vector2, id: String) -> void:
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	# the name fits the plate: as tall as half the plate, and no wider than the plate
-	var font_size = clampf(at.size.y * 0.52, 14.0, 34.0)
+	# the name fits the plate: a little more than half the plate high, never over the rivets (8% margin each side)
+	var font_size = clampf(at.size.y * 0.56, 16.0, 36.0)
 	var wide = canvas.font.get_string_size(NAMES[id], HORIZONTAL_ALIGNMENT_LEFT, -1, int(font_size)).x
-	if wide > at.size.x * 0.86: font_size = maxf(12.0, font_size * at.size.x * 0.86 / wide)
+	if wide > at.size.x * 0.84: font_size = maxf(14.0, font_size * at.size.x * 0.84 / wide)
 	label.add_theme_font_size_override("font_size", int(font_size))
-	label.add_theme_color_override("font_color", Color("2e1c0e"))
-	label.add_theme_color_override("font_outline_color", Color(1.0, 0.85, 0.55, 0.35))
-	label.add_theme_constant_override("outline_size", 2)
+	# the council of 15.11 (art, readability, UI): gilded letters as on the railway signs of the time: light brass with a dark
+	# keyline and a small shadow under them; in the evening they take the warm colour of the lamps
+	var dusk = clampf(canvas.model.night_amount() * 1.2 + canvas.model.twilight() * 0.5, 0.0, 1.0)
+	label.add_theme_color_override("font_color", canvas.UiKit.BRASS_LIGHT.lerp(canvas.UiKit.LAMP, dusk * 0.6))
+	label.add_theme_color_override("font_outline_color", Color(canvas.UiKit.WOOD_DARK, 0.9))
+	label.add_theme_constant_override("outline_size", maxi(3, int(font_size * 0.12)))
+	label.add_theme_color_override("font_shadow_color", Color(canvas.UiKit.BRASS_SHADOW, 0.85))
+	label.add_theme_constant_override("shadow_offset_x", 0)
+	label.add_theme_constant_override("shadow_offset_y", 2)
 	canvas.ui.add_child(label)
 
 # what waits inside, in one short word on a chip by the building (nothing when nothing waits)

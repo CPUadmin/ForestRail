@@ -18,6 +18,14 @@ func build_depot(size: Vector2) -> void:
 	build_place_room(size)
 
 const COIN_ICON = preload("res://assets/ui/coin.png")
+
+func headline(label: Label, outline: int) -> void:
+	label.add_theme_color_override("font_outline_color", Color(canvas.UiKit.WOOD_DARK, 0.92))
+	label.add_theme_constant_override("outline_size", outline)
+	label.add_theme_color_override("font_shadow_color", Color(0.08, 0.05, 0.02, 0.7))
+	label.add_theme_constant_override("shadow_offset_x", 0)
+	label.add_theme_constant_override("shadow_offset_y", 2)
+	label.add_theme_constant_override("shadow_outline_size", outline + 3)
 const PLACE_TITLE = {"depot": "Депо", "workshop": "Мастерская", "shop": "Магазин"}
 const PLACE_ORDER = ["depot", "workshop", "shop", "casino"]
 const PLACE_NAME = {"depot": "Депо", "workshop": "Мастерская", "shop": "Магазин", "casino": "Казик"}
@@ -27,11 +35,12 @@ func build_header(size: Vector2, title: String) -> void:
 	canvas.depot_header_bottom = 96.0
 	canvas.depot_info_rect = Rect2()
 	var model = canvas.model
-	canvas.positioned_label(title, Rect2(34, 12, 520, 56), 34)
+	# the council of 15.11: warm light letters with a dark keyline and shadow, readable over the painted forest and the rafters
+	headline(canvas.positioned_label(title, Rect2(34, 12, 520, 56), 34, canvas.UiKit.T1), 3)
 	if canvas.place == "yard":
-		var sub = "творческий режим · деньги и топливо без ограничений" if model.creative() else "основных рейсов %d из 10" % int(model.state.chapter)
+		var sub = "творческий режим · деньги и топливо без ограничений" if model.creative() else "Основные рейсы: %d из 10" % int(model.state.chapter)
 		if int(model.state.get("debt", 0)) > 0: sub += " · долг %d" % int(model.state.get("debt", 0))
-		canvas.positioned_label(sub, Rect2(38, 62, 700, 30), 18, canvas.MUTED_INK)
+		headline(canvas.positioned_label(sub, Rect2(38, 62, 700, 30), 18, canvas.UiKit.T2), 2)
 	var top_row = HBoxContainer.new()
 	top_row.position = Vector2(size.x - 560, 18)
 	top_row.size = Vector2(530, 54)
@@ -68,7 +77,7 @@ func build_header(size: Vector2, title: String) -> void:
 		coin.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		coin.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		inside.add_child(coin)
-		var coins = canvas.add_label(inside, "%d" % int(model.state.money), 26, canvas.GOLD)
+		var coins = canvas.add_label(inside, "%d" % int(model.state.money), 26, canvas.UiKit.BRASS_LIGHT)
 		coins.autowrap_mode = TextServer.AUTOWRAP_OFF
 		coins.size_flags_horizontal = Control.SIZE_SHRINK_END
 		coins.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
