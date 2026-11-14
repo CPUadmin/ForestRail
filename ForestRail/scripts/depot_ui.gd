@@ -11,13 +11,26 @@ func build_depot(size: Vector2) -> void:
 	# ui-v2 (суд интерфейса 14.11, макет 3): the depot is a room, not a window with tabs. The header is the station, the progress,
 	# the coins and ☰; the main order hangs on the wall as a paper; the casino is a door; the garage is ‹ › by the name of the machine;
 	# the workshop, the wagons, the shop of machines and the records open as one panel on the right with ✕. One main button: «Выехать».
+	# Узловая Лесная (owner 14.11): this room is one of the places of the yard: the depot, the workshop or the shop
+	var model = canvas.model
+	build_header(size, PLACE_TITLE.get(canvas.place, model.station_name("A")))
+	build_place_nav(size)
+	build_place_room(size)
+
+const PLACE_TITLE = {"depot": "Депо", "workshop": "Мастерская", "shop": "Магазин"}
+const PLACE_ORDER = ["depot", "workshop", "shop", "casino"]
+const PLACE_NAME = {"depot": "Депо", "workshop": "Мастерская", "shop": "Магазин", "casino": "Казик"}
+
+# the top of every home screen: the name of the place, the progress (in the yard), the coins, the bolts and ☰
+func build_header(size: Vector2, title: String) -> void:
 	canvas.depot_header_bottom = 96.0
 	canvas.depot_info_rect = Rect2()
 	var model = canvas.model
-	canvas.positioned_label(model.station_name("A"), Rect2(34, 12, 520, 56), 34)
-	var sub = "творческий режим · деньги и топливо без ограничений" if model.creative() else "основных рейсов %d из 10" % int(model.state.chapter)
-	if int(model.state.get("debt", 0)) > 0: sub += " · долг %d" % int(model.state.get("debt", 0))
-	canvas.positioned_label(sub, Rect2(38, 62, 700, 30), 18, canvas.MUTED_INK)
+	canvas.positioned_label(title, Rect2(34, 12, 520, 56), 34)
+	if canvas.place == "yard":
+		var sub = "творческий режим · деньги и топливо без ограничений" if model.creative() else "основных рейсов %d из 10" % int(model.state.chapter)
+		if int(model.state.get("debt", 0)) > 0: sub += " · долг %d" % int(model.state.get("debt", 0))
+		canvas.positioned_label(sub, Rect2(38, 62, 700, 30), 18, canvas.MUTED_INK)
 	var top_row = HBoxContainer.new()
 	top_row.position = Vector2(size.x - 560, 18)
 	top_row.size = Vector2(530, 54)
@@ -45,15 +58,35 @@ func build_depot(size: Vector2) -> void:
 	menu.custom_minimum_size = Vector2(60, 52)
 	menu.tooltip_text = "Меню [Esc]"
 
+# the way between the places: back to the yard, and the four places with the one you are in marked
+func build_place_nav(size: Vector2) -> void:
+	var nav = HBoxContainer.new()
+	nav.position = Vector2(30, 66)
+	nav.size = Vector2(size.x * 0.56, 46)
+	nav.add_theme_constant_override("separation", 8)
+	canvas.ui.add_child(nav)
+	var back = canvas.add_button(nav, "← На узловую", func(): canvas.go_place("yard"), false, false, &"QuietAction")
+	back.tooltip_text = "Во двор [Backspace]"
+	back.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	for i in range(PLACE_ORDER.size()):
+		var id = str(PLACE_ORDER[i])
+		var b = canvas.add_button(nav, PLACE_NAME[id], func(): canvas.go_place(id), false, canvas.place == id, &"QuietAction")
+		b.icon = canvas.yard_ui().icons.get(id)
+		b.add_theme_constant_override("icon_max_width", 26)
+		b.tooltip_text = "%s [%d]" % [PLACE_NAME[id], i + 1]
+		b.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+
+func build_place_room(size: Vector2) -> void:
+	var model = canvas.model
 	var door_x = size.x - 214.0
-	var right_rect = Rect2(size.x * 0.5, 112, door_x - size.x * 0.5 - 24, size.y - 112 - 150)
-	var popover = canvas.tab in ["Гараж", "Состав", "Улучшения", "Казик", "Рекорды"] or (canvas.tab == "Рейсы" and canvas.free_trips_open) or not model.state.active.is_empty()
+	var right_rect = Rect2(size.x * 0.5, 124, size.x * 0.5 - 30, size.y - 124 - 150)
+	var popover = canvas.place in ["workshop", "shop"] or canvas.tab in ["Состав", "Рекорды", "Казик", "Гараж"] or (canvas.tab == "Рейсы" and canvas.free_trips_open) or not model.state.active.is_empty()
 	if popover: build_depot_popover(right_rect)
 	else: build_order_paper(right_rect)
-	build_casino_door(Rect2(door_x, 150, 186, 360))
 
-	# under the machine: the garage arrows and the quiet doors of the room
+	# under the machine: the garage arrows and the quiet doors of the room (the shop sells, it does not switch your machines)
 	var left_w = size.x * 0.48
+	if canvas.place == "shop": return
 	var garage = HBoxContainer.new()
 	garage.position = Vector2(30, size.y - 262)
 	garage.size = Vector2(left_w, 70)
@@ -92,8 +125,8 @@ func build_depot(size: Vector2) -> void:
 	places.size = Vector2(left_w, 52)
 	places.add_theme_constant_override("separation", 10)
 	canvas.ui.add_child(places)
-	var doors = [["Улучшения", "Мастерская"], ["Состав", "Вагоны"], ["Гараж", "Купить машину"]]
-	if model.records_open(): doors.append(["Рекорды", "Рекорды"])
+	var doors = [["Состав", "Вагоны"]] if canvas.place == "depot" else []
+	if canvas.place == "depot" and model.records_open(): doors.append(["Рекорды", "Рекорды"])
 	for entry in doors:
 		var place = str(entry[0])
 		var b = canvas.add_button(places, str(entry[1]), func():
@@ -104,7 +137,7 @@ func build_depot(size: Vector2) -> void:
 		b.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	var refill = model.refill_cost() if not model.human_powered() else 0
 	var room = model.tank_missing() > 0.0001
-	if not model.human_powered() and room:
+	if canvas.place == "depot" and not model.human_powered() and room:
 		var refill_text = ({"locomotive": "Зарядить", "pneumatic": "Накачать"}.get(model.vehicle_id(), "Заправить")) + (" · %d" % refill if refill > 0 else "")
 		var refill_button = canvas.add_button(places, refill_text, func():
 			if model.refuel(): canvas.save_game(); canvas.rebuild(); canvas.notify(model.message if model.message != "" else "Запас пополнен"); model.message = ""
@@ -121,12 +154,13 @@ func build_depot(size: Vector2) -> void:
 	main_row.alignment = BoxContainer.ALIGNMENT_END
 	main_row.add_theme_constant_override("separation", 14)
 	canvas.ui.add_child(main_row)
+	if model.state.active.is_empty() and canvas.place != "depot": return   # the workshop and the shop: no way out from here, the depot leads out
 	if model.state.active.is_empty():
 		canvas.add_button(main_row, "Просто поехать →", canvas.take_free_ride, false, false, &"QuietAction").size_flags_horizontal = Control.SIZE_SHRINK_END
 		var main = main_order()
 		if not main.is_empty():
 			var problem = model.mission_error(main)
-			var go = canvas.add_button(main_row, "Выехать: %s →" % str(main.title), func(): canvas.take_mission(main), problem != "", false, &"PrimaryAction")
+			var go = canvas.add_button(main_row, "К погрузке: %s →" % str(main.title), func(): canvas.take_mission(main), problem != "", false, &"PrimaryAction")
 			go.custom_minimum_size = Vector2(440, 68)
 			go.size_flags_horizontal = Control.SIZE_SHRINK_END
 			if problem != "": go.tooltip_text = problem
@@ -278,6 +312,9 @@ func facade_picture(button: Button, region: Rect2, name: String, name_at: Vector
 # the one panel of the room for the rare things: the workshop, the wagons, the shop of machines, the casino notes, the records, all the orders
 func build_depot_popover(rect: Rect2) -> void:
 	var right = canvas.panel_at(canvas.ui, rect, true)
+	if canvas.place in ["workshop", "shop"] and canvas.model.state.active.is_empty():
+		build_depot_tab(right)
+		return
 	var head = HBoxContainer.new()
 	right.add_child(head)
 	var name = canvas.tab
@@ -337,6 +374,8 @@ func build_depot_tab(right: VBoxContainer) -> void:
 							canvas.save_game()
 							canvas.rebuild()
 						else: canvas.notify(canvas.model.message)))
+	elif canvas.tab == "Магазин":
+		build_shop(right)
 	elif canvas.tab == "Казик":
 		build_casino_tab(right)
 	elif canvas.tab == "Рекорды" and canvas.model.records_open():
@@ -364,6 +403,44 @@ func build_depot_tab(right: VBoxContainer) -> void:
 		build_upgrades(right)
 	else:
 		build_missions(right)
+
+# Узловая Лесная: the shop sells the machines and the wagons; what is bought stands in the depot
+func build_shop(right: VBoxContainer) -> void:
+	var model = canvas.model
+	canvas.add_label(right, "Машины", 26)
+	var owned_names: Array = []
+	for id in canvas.Model.VEHICLE_IDS:
+		var base = model.vehicle_base(id)
+		if model.state.fleet_by_id.has(id):
+			owned_names.append(str(base.name))
+			continue
+		var label = str(base.name)
+		var cost = int(base.cost)
+		var c = canvas.picture_card(right, id, false, canvas.GOLD if cost > 0 and cost <= int(model.state.money) else canvas.CARD_EDGE)
+		canvas.add_label(c, label, 23)
+		canvas.add_label(c, str(canvas.VEHICLE_ROLE.get(id, "")), 18, canvas.INK)
+		canvas.add_label(c, canvas.vehicle_summary(id), 17, canvas.MUTED_INK)
+		if cost <= 0:
+			canvas.add_button(c, "Взять бесплатно", func():
+				if model.buy_vehicle(id): canvas.selected_object = id; canvas.save_game(); canvas.rebuild()
+				else: canvas.notify(model.message))
+		else:
+			canvas.add_button(c, "Купить · %d монет" % cost, func():
+				canvas.confirm("Купить %s за %d? Останется %d монет. Машина встанет в депо." % [label, cost, maxi(0, int(model.state.money) - cost)], func():
+					if model.buy_vehicle(id): canvas.selected_object = id; canvas.save_game(); canvas.rebuild()
+					else: canvas.notify(model.message)), cost > int(model.state.money) and not model.creative(), false, &"PrimaryAction")
+	if not owned_names.is_empty(): canvas.add_label(right, "Уже в депо: " + ", ".join(owned_names), 17, canvas.MUTED_INK)
+	canvas.add_label(right, "Вагоны", 26)
+	var next_wagon = model.next_wagon_id()
+	if next_wagon == "":
+		canvas.add_label(right, "Все вагоны куплены.", 18, canvas.MUTED_INK)
+	else:
+		var price = model.wagon_price(next_wagon)
+		var w = canvas.picture_card(right, next_wagon, false, canvas.CARD_EDGE)
+		canvas.add_label(w, "Вагон %s · %s" % [next_wagon, places(int(model.object_stats(next_wagon).slots)) if model.state.wagons_by_id.has(next_wagon) else "платформа"], 21)
+		canvas.add_button(w, "Купить %s · %d монет" % [next_wagon, price], func(): canvas.confirm("Купить вагон %s за %d? Останется %d монет." % [next_wagon, price, maxi(0, int(model.state.money) - price)], func():
+			if model.buy_wagon(): canvas.save_game(); canvas.rebuild()
+			else: canvas.notify(model.message)), price > int(model.state.money) and not model.creative())
 
 # A big picture button for one place of the depot: the picture and its name are drawn on top of an
 # ordinary button, which keeps the click, the hover and the keyboard focus.
@@ -523,6 +600,11 @@ func depot_prop(name: String, base: Vector2, height: float, tint: Color = Color(
 
 func draw_depot_interior(size: Vector2) -> void:
 	var floor_y = canvas.rail_baseline()
+	# Узловая Лесная: the workshop and the shop are painted rooms (P23); their rails meet the rails of the machine
+	var picture: Texture2D = canvas.yard_ui().rooms.get(canvas.place)
+	if picture != null:
+		canvas.draw_texture_rect(picture, canvas.yard_ui().room_rect(size, canvas.place), false)
+		return
 	# the wall: a tile as high as the wall, repeated along; the dark top and bottom keep the lamplight in the middle
 	var wall_w = floor_y * float(canvas.DEPOT_WALL.get_width()) / float(canvas.DEPOT_WALL.get_height())
 	var x = -wall_w * 0.35

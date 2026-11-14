@@ -88,9 +88,14 @@ func _ready() -> void:
 	add_child(row)
 	spin_button = game.add_button(row, "Крутануть", Callable(self, "on_spin"))
 	dep_button = game.add_button(row, "Деп", Callable(self, "on_deposit"))
-	back_button = game.add_button(row, "Назад в депо", game.close_modal)
+	# Узловая Лесная: the album and the bolts desk live here, with Mikhalych; the way out leads to the yard
+	var album_button = game.add_button(row, "Альбом", func(): game.show_modal("album"))
+	var desk_button = game.add_button(row, "Сдать болты", func(): game.show_modal("receiving"))
+	back_button = game.add_button(row, "На узловую", game.close_modal)
 	brass_button(spin_button, true)
 	brass_button(dep_button, false)
+	brass_button(album_button, false)
+	brass_button(desk_button, false)
 	brass_button(back_button, false)
 	refresh_buttons()
 

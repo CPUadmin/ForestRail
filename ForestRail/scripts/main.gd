@@ -11,6 +11,7 @@ const CabArt = preload("res://scripts/cab_art.gd")
 const TrainArt = preload("res://scripts/train_art.gd")
 const MenuUi = preload("res://scripts/menu_ui.gd")
 const DepotUi = preload("res://scripts/depot_ui.gd")
+const YardUi = preload("res://scripts/yard_ui.gd")
 const ArtWorld = preload("res://scripts/art_world.gd")
 const Geometry = preload("res://scripts/world_geometry.gd")
 const Instruments = preload("res://scripts/instruments.gd")
@@ -84,6 +85,9 @@ var settings_backup: Dictionary = {}
 var settings_tab = "Звук"
 var free_trips_open = false   # the depot: the list of free trips is unfolded under the main order
 var settings_fold: Dictionary = {}   # which folded groups of the settings are open
+var place = "yard"   # Узловая Лесная: where the player is between the trips: the yard, or inside the depot, the workshop, the shop
+const PLACE_TAB = {"depot": "Рейсы", "workshop": "Улучшения", "shop": "Магазин"}
+var place_change = false   # the fade is a quick one: a walk across the yard, not a ride out of the depot
 var menu_page = "main"   # ui-v2: the main menu has pages: main, play, new, load
 var pause_slots_open = false   # the pause menu: «Сохранить в слот» is unfolded
 var pause_stuck_open = false   # the pause menu: the group "Застрял?" (the help of the depot and the repair at the station) is unfolded
@@ -597,16 +601,21 @@ func rebuild() -> void:
 	clear_children(overlay)
 	setup_theme()
 	var size = get_viewport_rect().size
+	# a tab opened from the code (a hint, a test, the old buttons) opens its place of the yard
+	if screen == "depot" and place == "yard" and tab != "Рейсы":
+		place = {"Улучшения": "workshop", "Гараж": "shop", "Магазин": "shop"}.get(tab, "depot")
 	if screen == "depot":
 		camera_s = 0.0
 		camera_y = 0.0
 		camera_x = size.x * 0.31 if model.state.consist_ids.is_empty() else size.x * 0.46 - 136
+		if place == "yard": camera_x = yard_ui().train_x(size)
 	ui.size = size
 	overlay.size = size
 	if screen == "menu":
 		build_menu(size)
 	elif screen == "depot":
-		build_depot(size)
+		if place == "yard": yard_ui().build_yard(size)
+		else: build_depot(size)
 	else:
 		build_hud(size)
 	if modal_kind != "":
@@ -622,6 +631,7 @@ func begin_new(seed_number: int = -1, creative_mode: bool = false) -> void:
 	model.new_game(seed_number, 2, "creative" if creative_mode else "career", true, "pole")
 	selected_object = model.vehicle_id()
 	screen = "depot"
+	place = "yard"
 	tab = "Рейсы"
 	paused = false
 	modal_kind = ""
@@ -647,6 +657,7 @@ func load_career(saved: Dictionary) -> void:
 		notify("Сохранение несовместимо или повреждено")
 		return
 	screen = "depot" if model.state.phase == "depot" else "game"
+	place = "yard"
 	selected_object = model.vehicle_id()
 	camera_s = float(model.state.s)
 	camera_y = model.route.sample(camera_s).y
@@ -692,6 +703,36 @@ func depot_ui():
 
 func build_depot(size: Vector2) -> void:
 	depot_ui().build_depot(size)
+
+var yard_ui_cache = null
+func yard_ui():
+	if yard_ui_cache == null: yard_ui_cache = YardUi.new(self)
+	return yard_ui_cache
+
+# a walk across the yard: the screen darkens (the camera comes closer to the building), the place opens, the light comes back
+func go_place(id: String) -> void:
+	if id == "casino":
+		show_modal("casino")
+		return
+	var change = func():
+		place = id
+		tab = PLACE_TAB.get(id, "Рейсы")
+		free_trips_open = false
+		selected_object = model.vehicle_id()
+		rebuild()
+	if place == id: return
+	if test_mode and not animate_in_tests:
+		change.call()
+		return
+	cancel_drag()
+	place_change = true
+	depot_exit_action = change
+	depot_anim = "leave"
+	depot_anim_t = 0.0
+	ensure_fade_rect()
+
+func place_fade_s() -> float:
+	return 0.25 if place_change else DEPOT_FADE_S
 
 func draw_depot_interior(size: Vector2) -> void:
 	depot_ui().draw_depot_interior(size)
@@ -1807,6 +1848,7 @@ func _process(dt: float) -> void:
 		var ahead_x = 0.3 if model.grapnel_installed() else 0.65   # with the grapnel the truck stands far back so that the posts ahead are in the frame
 		var target_x = get_viewport_rect().size.x * (0.31 if screen == "depot" else (ahead_x if model.state.direction > 0 else 1.0 - ahead_x))
 		if screen == "depot" and not model.state.consist_ids.is_empty(): target_x = get_viewport_rect().size.x * 0.46 - 136
+		if screen == "depot" and place == "yard": target_x = yard_ui().train_x(get_viewport_rect().size)
 		if drag in ["","pump","brake","throttle","gear","start","coal","sail","pole","zpult","oars"]: camera_x = lerpf(camera_x if camera_x > 0 else target_x, target_x, 1 - exp(-dt * 3))
 		refresh_seconds += dt
 		if refresh_seconds >= 0.08:
@@ -1951,8 +1993,8 @@ func start_depot_entry() -> void:
 
 func skip_depot_anim() -> void:
 	if depot_anim == "in": depot_anim_t = maxf(depot_anim_t, DEPOT_MOVE_S)
-	elif depot_anim == "leave": depot_anim_t = DEPOT_FADE_S
-	elif depot_anim == "out": depot_anim_t = DEPOT_FADE_S
+	elif depot_anim == "leave": depot_anim_t = place_fade_s()
+	elif depot_anim == "out": depot_anim_t = place_fade_s()
 
 func advance_depot_anim(dt: float) -> void:
 	depot_anim_t += dt
@@ -1968,6 +2010,7 @@ func advance_depot_anim(dt: float) -> void:
 			zoom_level = depot_anim_zoom
 			if model.back_to_depot():
 				screen = "depot"
+				place = "yard"
 				save_game()
 				rebuild()
 				depot_anim = "out"
@@ -1977,16 +2020,18 @@ func advance_depot_anim(dt: float) -> void:
 				depot_anim = ""
 				if fade_rect != null: fade_rect.color.a = 0.0
 	elif depot_anim == "leave":
-		if fade_rect != null: fade_rect.color.a = clampf(depot_anim_t / DEPOT_FADE_S, 0.0, 1.0)
-		if depot_anim_t >= DEPOT_FADE_S:
+		if fade_rect != null: fade_rect.color.a = clampf(depot_anim_t / place_fade_s(), 0.0, 1.0)
+		if screen == "depot" and place == "yard": queue_redraw()   # the camera comes closer to the building
+		if depot_anim_t >= place_fade_s():
 			if depot_exit_action.is_valid(): depot_exit_action.call()
 			depot_exit_action = Callable()
 			depot_anim = "out"
 			depot_anim_t = 0.0
 	elif depot_anim == "out":
-		if fade_rect != null: fade_rect.color.a = 1.0 - clampf(depot_anim_t / DEPOT_FADE_S, 0.0, 1.0)
-		if depot_anim_t >= DEPOT_FADE_S:
+		if fade_rect != null: fade_rect.color.a = 1.0 - clampf(depot_anim_t / place_fade_s(), 0.0, 1.0)
+		if depot_anim_t >= place_fade_s():
 			depot_anim = ""
+			place_change = false
 			if fade_rect != null: fade_rect.color.a = 0.0
 
 func _input(event: InputEvent) -> void:
@@ -2034,6 +2079,12 @@ func _input(event: InputEvent) -> void:
 		show_modal("help")   # the help is also at hand without the menu
 		get_viewport().set_input_as_handled()
 		return
+	if event is InputEventKey and event.pressed and not event.echo and screen == "depot" and modal_kind == "" and drag == "":
+		var key_place = {KEY_1: "depot", KEY_2: "workshop", KEY_3: "shop", KEY_4: "casino", KEY_BACKSPACE: "yard"}.get(event.keycode, "")
+		if key_place != "" and model.state.active.is_empty():
+			go_place(key_place)
+			get_viewport().set_input_as_handled()
+			return
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
 		if cab_view:
 			toggle_cab_view()
@@ -2554,6 +2605,8 @@ func dock_rect() -> Rect2:
 func rail_baseline() -> float:
 	var height = get_viewport_rect().size.y
 	# The compact bottom strip leaves room to set the track lower in the frame.
+	if screen == "depot" and place == "yard": return yard_ui().rail_y(get_viewport_rect().size)
+	if screen == "depot" and yard_ui().rooms.has(place): return yard_ui().room_rail_y(get_viewport_rect().size, place)
 	return minf(height*0.66,dock_rect().position.y-20) if screen=="game" else height*0.63
 
 func cab_active() -> bool:
@@ -2561,6 +2614,7 @@ func cab_active() -> bool:
 
 func view_scale() -> float:
 	if screen != "depot": return zoom_level
+	if place == "yard": return yard_ui().train_scale(get_viewport_rect().size)
 	# the workshop shows the machine bigger, as far as the train still fits
 	# the tabs where the whole train does not have to be reachable (the garage, the trips, the casino) show the machine and the first wagon big, the rest of the train goes off to the left
 	var span = depot_span_m()
@@ -2606,7 +2660,9 @@ func _draw_scene() -> void:
 
 		draw_menu_train(size)
 	else:
-		if screen == "depot": draw_depot_interior(size)
+		if screen == "depot":
+			if place == "yard": yard_ui().draw_yard(size)
+			else: draw_depot_interior(size)
 		draw_train()
 		if screen == "depot" and not clean_frame:
 			# ui-v2: no box under the header; a soft shade keeps the station name readable over the rafters

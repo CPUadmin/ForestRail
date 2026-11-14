@@ -148,6 +148,7 @@ func run() -> void:
 	game.model.new_game(42, 2)
 	game.screen = "depot"
 	game.tab = "Рейсы"
+	game.place = "depot"   # Узловая Лесная: the way out without an order is in the depot
 	game.rebuild()
 	var driving = false
 	for node in game.ui.find_children("*", "Button", true, false): if node.text.begins_with("Просто поехать"): driving = true
@@ -193,8 +194,12 @@ func run() -> void:
 	for i in range(6): await get_tree().process_frame
 	await RenderingServer.frame_post_draw
 	get_tree().root.get_texture().get_image().save_png(output_dir.path_join("consist_%d.png" % get_tree().root.size.y))
+	# Узловая Лесная: every place has the way back to the yard and the four places, the one you are in marked
 	var tiles = 0
-	for node in game.ui.find_children("*", "Button", true, false): if node.tooltip_text in ["Гараж", "Состав", "Улучшения", "Казик"]: tiles += 1
-	check(tiles == 4, "four places of the depot room: workshop, wagons, garage, the casino door (%d)" % tiles)
+	var back = false
+	for node in game.ui.find_children("*", "Button", true, false):
+		for name in ["Депо [1]", "Мастерская [2]", "Магазин [3]", "Казик [4]"]: if node.tooltip_text == name: tiles += 1
+		if node.tooltip_text.begins_with("Во двор"): back = true
+	check(tiles == 4 and back, "the places of the yard and the way back are in the room (%d, %s)" % [tiles, str(back)])
 	print("DEPOT ENTRY CHECKS ", checks, "; FAILURES ", failures)
 	get_tree().quit(0 if failures.is_empty() else 1)
