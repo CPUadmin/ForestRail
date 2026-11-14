@@ -1,0 +1,54 @@
+<!doctype html><html lang="ru"><head><meta charset="utf-8"><link rel="stylesheet" href="mock.css">
+<style>
+.fade-bottom { position:absolute; left:0; right:0; bottom:0; height:300px; background:linear-gradient(to bottom, rgba(10,8,5,0), rgba(10,8,5,.75)); }
+.sack { position:absolute; height:58px; filter: drop-shadow(0 3px 3px rgba(0,0,0,.6)); }
+.slot { position:absolute; width:52px; height:56px; border:3px dashed var(--lamp); border-radius:10px; background:rgba(255,212,122,.18); box-shadow:0 0 16px rgba(255,212,122,.6); }
+.shelf { position:absolute; left:120px; top:650px; width:200px; height:96px; border-radius:12px; background:rgba(42,29,18,.85); border:2px solid var(--brass-dark); }
+.shelf .cap { position:absolute; left:16px; top:-30px; font-size:19px; color:var(--t2); }
+.progress { width:120px; height:10px; border-radius:5px; background:rgba(243,230,196,.25); position:relative; }
+.progress i { position:absolute; left:0; top:0; bottom:0; width:75%; border-radius:5px; background:var(--brass-fill); }
+.hint { position:absolute; padding:8px 14px; border-radius:10px; background:rgba(23,18,13,.9); border:1px solid var(--brass); font-size:18px; }
+.door-sign { position:absolute; left:1408px; top:318px; padding:6px 14px; border-radius:8px; background:rgba(23,18,13,.78); border:1px solid var(--brass-dark); color:var(--t2); font-size:19px; }
+</style></head><body>
+<img class="bg" src="bg_loading.png">
+<div class="fade-bottom"></div>
+
+<div class="chip" style="left:24px; top:18px;">
+  <span class="muted">Заказ</span><b>Мука → Тихая заводь</b>
+  <span class="muted">·</span><span>3 / 4</span><div class="progress"><i></i></div>
+</div>
+<div class="btn menu">☰</div>
+
+<!-- the cargo goes straight onto the wagons; the free place glows -->
+<img class="sack" src="../../ForestRail/assets/art_p2/sack.png" style="left:118px; top:452px">
+<img class="sack" src="../../ForestRail/assets/art_p2/sack.png" style="left:176px; top:452px">
+<img class="sack" src="../../ForestRail/assets/art_p2/sack.png" style="left:420px; top:452px">
+<div class="slot" style="left:478px; top:452px"></div>
+
+<!-- the shelf of the station: only the things, the hint over the thing itself -->
+<div class="shelf"><div class="cap shadow-text">Склад станции</div>
+  <img class="sack" src="../../ForestRail/assets/art_p2/sack.png" style="left:30px; top:16px; height:64px">
+</div>
+<div class="hint" style="left:150px; top:582px">Мешок муки · 35 кг · тащи на вагон</div>
+
+<div class="door-sign">В депо</div>
+
+<div class="btn primary" style="right:36px; bottom:40px; width:380px; height:72px; font-size:26px;">Отправиться · 3 из 4 →</div>
+<div class="abs shadow-text" style="right:40px; bottom:122px; font-size:18px; color:var(--t2)">можно и неполным: награда меньше</div>
+
+<div class="pin" style="left:520px; top:22px">1</div>
+<div class="pin" style="left:540px; top:410px">2</div>
+<div class="pin" style="left:330px; top:650px">3</div>
+<div class="pin" style="left:1140px; top:820px">4</div>
+<div class="pin" style="left:1370px; top:280px">5</div>
+<div class="legend" style="left:600px; right:auto; top:640px; bottom:auto; width:470px">
+<b>Погрузка: что изменилось</b>
+<ol>
+<li>Заказ одной строкой с прогрессом «3 / 4» вместо плашки в три строки.</li>
+<li>Мешки ложатся прямо на вагоны; свободное место светится.</li>
+<li>Склад станции узкой полкой: только сами вещи, крупно, без букв C/D. Подсказка над вещью.</li>
+<li>Одна главная кнопка «Отправиться» справа внизу; с неполным грузом честно сказано, что награда меньше.</li>
+<li>Депо — табличка на двери станции, тихая, не спорит с «Отправиться».</li>
+</ol></div>
+<div class="title-tag">Макет 2 · Погрузка на станции</div>
+</body></html>

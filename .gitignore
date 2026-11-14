@@ -53,3 +53,5 @@ tools/art_sources/archive/**/*.import
 
 # the screens of the UI tour (tests/probe_ui_tour.gd)
 qa/ui_tour/
+# the backgrounds of the mockups are made by tests/probe_clean_scenes.gd
+qa/ui_mockups/bg_*.png

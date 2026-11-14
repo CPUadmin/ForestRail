@@ -89,6 +89,7 @@ var awaiting_key = ""
 var camera_s = 0.0
 var camera_y = 0.0
 var camera_x = 0.0
+var clean_frame = false   # the scene without the panels of the interface (pictures for mockups, tests/probe_ui_tour.gd); never on in the game
 var camera_target_last = INF   # where the camera aimed in the previous frame: gives it the speed of the train
 var zoom_level = 1.0
 # B1.2a: driving into the depot is a short scene, not a button that swaps the screen
@@ -2386,10 +2387,10 @@ func _draw_scene() -> void:
 	else:
 		if screen == "depot": draw_depot_interior(size)
 		draw_train()
-		if screen == "depot":
+		if screen == "depot" and not clean_frame:
 			draw_style_box(style(Color(0.08,0.15,0.12,0.88),Color(0.5,0.57,0.39,0.45),8),Rect2(22,12,size.x-44,depot_header_bottom-12))
 			draw_style_box(style(Color(0.08,0.15,0.12,0.88),Color(0.5,0.57,0.39,0.45),8),depot_info_rect)
-		if screen == "game":
+		if screen == "game" and not clean_frame:
 			draw_style_box(style(Color(0.08,0.15,0.12,0.88),Color(0.5,0.57,0.39,0.45),8),Rect2(22,10,size.x-44,46))
 			draw_zone_label()
 			# The order title and the hint share one backing; alone on the sky the

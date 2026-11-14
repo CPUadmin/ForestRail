@@ -1,0 +1,85 @@
+<!doctype html><html lang="ru"><head><meta charset="utf-8"><link rel="stylesheet" href="mock.css">
+<style>
+.fade-bottom { position:absolute; left:0; right:0; bottom:0; height:170px; background:linear-gradient(to bottom, rgba(10,8,5,0), rgba(10,8,5,.72)); }
+.speed { left:40px; bottom:22px; width:220px; height:130px; }
+.speed .num { position:absolute; left:54px; top:52px; font-size:64px; font-weight:700; line-height:1; color:var(--t1); }
+.speed .unit { position:absolute; left:136px; top:86px; font-size:20px; color:var(--t2); }
+.route { left:330px; bottom:34px; width:940px; height:80px; }
+.route .label { position:absolute; left:0; right:0; top:0; text-align:center; font-size:24px; font-weight:600; }
+.route .label .muted { font-weight:400; color:var(--t2); font-size:20px; }
+.route .line { position:absolute; left:0; right:0; top:52px; height:6px; border-radius:3px; background:rgba(243,230,196,.28); }
+.route .done { position:absolute; left:0; width:40%; top:52px; height:6px; border-radius:3px; background:var(--brass-fill); }
+.route .dot { position:absolute; top:47px; width:16px; height:16px; border-radius:50%; background:var(--wood); border:3px solid var(--t2); }
+.route .flag { position:absolute; top:30px; left:calc(40% - 6px); width:0; height:0; border-left:16px solid var(--lamp); border-top:9px solid transparent; border-bottom:9px solid transparent; }
+.route .pole { position:absolute; top:30px; left:calc(40% - 8px); width:3px; height:30px; background:var(--lamp); }
+.route .hill { position:absolute; right:0; top:66px; font-size:17px; color:var(--warn); }
+.fuel { right:36px; bottom:40px; width:260px; height:70px; }
+.fuel .name { font-size:18px; color:var(--t2); }
+.fuel .bar { position:relative; margin-top:8px; height:12px; border-radius:6px; background:rgba(243,230,196,.22); }
+.fuel .bar i { position:absolute; left:0; top:0; bottom:0; width:96%; border-radius:6px; background:var(--ok); }
+.fuel .ok { margin-top:6px; font-size:18px; color:var(--ok); }
+.lever { position:absolute; width:58px; height:58px; border-radius:50%; border:4px solid; background:rgba(23,18,13,.35); }
+.lever-label { position:absolute; font-size:21px; font-weight:700; padding:4px 12px; border-radius:10px; background:rgba(23,18,13,.82); }
+.tip { position:absolute; padding:12px 18px; border-radius:12px; background:rgba(23,18,13,.88); border:2px solid var(--lamp); font-size:21px; line-height:1.3; }
+.tip:after { content:""; position:absolute; left:60px; bottom:-14px; border-left:12px solid transparent; border-right:12px solid transparent; border-top:14px solid var(--lamp); }
+.hover-e { position:absolute; left:842px; top:362px; font-size:18px; padding:4px 12px; border-radius:10px; background:rgba(23,18,13,.65); color:var(--t2); }
+</style></head><body>
+<img class="bg" src="bg_road.png">
+<div class="fade-bottom"></div>
+
+<div class="chip" style="left:24px; top:18px;">
+  <svg width="26" height="26" viewBox="0 0 26 26"><circle cx="13" cy="13" r="6" fill="#ffd47a"/><g stroke="#ffd47a" stroke-width="2.5" stroke-linecap="round"><path d="M13 1v4M13 21v4M1 13h4M21 13h4M4.5 4.5l2.8 2.8M18.7 18.7l2.8 2.8M4.5 21.5l2.8-2.8M18.7 7.3l2.8-2.8"/></g></svg>
+  <span>07:00</span><span class="muted">·</span><span>→ <b>Лесопилка</b></span>
+</div>
+<div class="btn menu">☰</div>
+
+<!-- the levers on the machine: big, named, the first trip says how -->
+<div class="tip" style="left:700px; top:300px;">Первый рейс: <b style="color:var(--ok)">газ</b> вверх, <b style="color:var(--danger-text)">тормоз</b> вниз</div>
+<div class="lever" style="left:866px; top:466px; border-color:var(--ok);"></div>
+<div class="lever" style="left:880px; top:500px; border-color:var(--danger); width:40px; height:40px; opacity:.0"></div>
+<div class="lever-label" style="left:770px; top:478px; color:var(--ok)">Газ</div>
+<div class="lever-label" style="left:956px; top:536px; color:var(--danger-text)">Тормоз</div>
+<div class="lever" style="left:908px; top:512px; border-color:var(--danger); width:44px; height:44px;"></div>
+<div class="hover-e">E · кабина</div>
+
+<!-- the bottom: no boxes, three quiet groups over a soft shade -->
+<div class="abs speed">
+  <svg width="220" height="110" viewBox="0 0 220 110"><path d="M20 100 A90 90 0 0 1 200 100" fill="none" stroke="rgba(243,230,196,.25)" stroke-width="10" stroke-linecap="round"/>
+  <path d="M20 100 A90 90 0 0 1 92 13" fill="none" stroke="#d9ae55" stroke-width="10" stroke-linecap="round"/>
+  <path d="M182 46 A90 90 0 0 1 200 100" fill="none" stroke="#d63b26" stroke-width="10" stroke-linecap="round" opacity=".7"/></svg>
+  <div class="num shadow-text">36</div><div class="unit">км/ч</div>
+</div>
+
+<div class="abs route">
+  <div class="label shadow-text">Лесопилка <span class="muted">· 1,7 км</span></div>
+  <div class="line"></div><div class="done"></div>
+  <div class="dot" style="left:-6px; border-color:var(--brass-fill)"></div>
+  <div class="dot" style="left:52%"></div><div class="dot" style="left:calc(100% - 10px)"></div>
+  <div class="pole"></div><div class="flag"></div>
+  <div class="hill">▲ подъём через 300 м</div>
+</div>
+
+<div class="abs fuel">
+  <div class="name shadow-text">Бензин</div>
+  <div class="bar"><i></i></div>
+  <div class="ok shadow-text">✓ хватит до Лесопилки</div>
+</div>
+
+<div class="pin" style="left:330px; top:20px">1</div>
+<div class="pin" style="left:1470px; top:26px">2</div>
+<div class="pin" style="left:700px; top:258px">3</div>
+<div class="pin" style="left:24px; top:730px">4</div>
+<div class="pin" style="left:640px; top:782px">5</div>
+<div class="pin" style="left:1250px; top:790px">6</div>
+<div class="legend" style="top:84px; bottom:auto; right:16px">
+<b>Рейс: что изменилось</b>
+<ol>
+<li>Нет полосы сверху: время, погода и цель одной строкой. Клавиши не висят постоянно.</li>
+<li>Одна кнопка ☰ (меню, сохранение, настройки).</li>
+<li>Рычаги на машине крупные и подписаны; в первом рейсе подсказка «как ехать».</li>
+<li>Скорость крупным числом с дугой, без рамки и цифр шкалы.</li>
+<li>Лента маршрута тонкая: цель, расстояние, подъём впереди. Клик или M = карта.</li>
+<li>Запас одной полоской и словом «хватит». Масса, уклон, тормоз %: по Tab, тревоги появятся сами.</li>
+</ol></div>
+<div class="title-tag">Макет 1 · Рейс (HUD) · было ≈25% экрана под панелями, стало ≈8%</div>
+</body></html>

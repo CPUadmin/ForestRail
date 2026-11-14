@@ -1,0 +1,39 @@
+/* Макеты нового интерфейса «Лесной колеи» (суд интерфейса 14.11.2026). Цвета и размеры из ForestRail/scripts/ui_kit.gd. */
+:root {
+  --wood-deep: #17120d; --wood-dark: #241a10; --wood: #2a1d12; --wood-mid: #3a2916; --wood-light: #4a3520;
+  --brass-shadow: #5c431a; --brass-dark: #8a6a2c; --brass: #c9a24e; --brass-light: #e8c878; --brass-fill: #d9ae55;
+  --lamp: #ffd47a; --ok: #6fae6a; --warn: #e0a63a; --danger: #d63b26; --danger-text: #e8806a;
+  --t1: #f3e6c4; --t2: #cdbb92; --t3: #a89a78; --ink1: #2b1d10; --paper: #e9dcb8;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { width: 1600px; height: 900px; overflow: hidden; position: relative; font-family: "Segoe UI", "Noto Sans", sans-serif; color: var(--t1); background: #000; }
+.bg { position: absolute; inset: 0; width: 1600px; height: 900px; object-fit: cover; }
+.abs { position: absolute; }
+.shadow-text { text-shadow: 0 2px 6px rgba(0,0,0,.85), 0 0 2px rgba(0,0,0,.9); }
+
+/* chip: the quiet status pill on the scene */
+.chip { position: absolute; display: flex; align-items: center; gap: 14px; padding: 10px 18px; border-radius: 14px;
+  background: rgba(23,18,13,.72); border: 1px solid rgba(201,162,78,.35); font-size: 22px; backdrop-filter: blur(3px); }
+.chip .muted { color: var(--t2); font-size: 18px; }
+
+/* buttons: the brass key with the step at the bottom (ui_kit.box) */
+.btn { position: absolute; display: flex; align-items: center; justify-content: center; gap: 12px; border-radius: 8px;
+  font-size: 24px; font-weight: 600; border: 2px solid; border-bottom-width: 5px; }
+.btn.primary { background: var(--brass-fill); color: var(--ink1); border-color: var(--brass-shadow); box-shadow: 0 0 18px rgba(255,185,74,.35); }
+.btn.secondary { background: var(--wood-mid); color: var(--t1); border-color: var(--brass-dark); }
+.btn.quiet { background: rgba(42,29,18,.8); color: var(--t2); border-color: #6a4a14; font-weight: 500; font-size: 20px; }
+.btn.menu { width: 56px; height: 52px; font-size: 26px; top: 18px; right: 22px; background: rgba(42,29,18,.85); color: var(--brass-light); border-color: var(--brass-dark); }
+
+/* the boards and the paper */
+.board { position: absolute; background: var(--wood); border: 2px solid var(--brass); border-radius: 12px; box-shadow: 0 8px 22px rgba(0,0,0,.55); }
+.paper { position: absolute; background: var(--paper); color: var(--ink1); border-radius: 6px; box-shadow: 0 6px 16px rgba(0,0,0,.6); }
+
+/* the notes of the mockup itself (what changed and why): numbered pins */
+.pin { position: absolute; width: 34px; height: 34px; border-radius: 50%; background: #2d7ff9; color: #fff; font: 700 18px/34px "Segoe UI";
+  text-align: center; box-shadow: 0 0 0 3px rgba(255,255,255,.85); z-index: 50; }
+.legend { position: absolute; right: 16px; bottom: 16px; width: 420px; background: rgba(10,14,22,.86); border-radius: 10px; padding: 12px 16px;
+  font-size: 15px; line-height: 1.35; color: #e8eef7; z-index: 60; border: 1px solid rgba(120,160,230,.5); }
+.legend b { color: #8fbaff; }
+.legend li { margin: 3px 0 3px 18px; }
+.title-tag { position: absolute; left: 50%; transform: translateX(-50%); top: 16px; z-index: 60; background: rgba(10,14,22,.86); color: #e8eef7; padding: 8px 14px;
+  border-radius: 8px; font-size: 17px; border: 1px solid rgba(120,160,230,.5); }

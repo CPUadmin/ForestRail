@@ -1,0 +1,93 @@
+<!doctype html><html lang="ru"><head><meta charset="utf-8"><link rel="stylesheet" href="mock.css">
+<style>
+.top { position:absolute; left:0; right:0; top:0; height:96px; background:linear-gradient(to bottom, rgba(14,10,6,.92), rgba(14,10,6,0)); }
+.station { position:absolute; left:32px; top:18px; font-size:34px; font-weight:700; letter-spacing:.5px; }
+.station small { font-size:20px; font-weight:400; color:var(--t2); margin-left:14px; }
+.coins { position:absolute; right:96px; top:24px; display:flex; align-items:center; gap:10px; font-size:28px; font-weight:700; color:var(--brass-light); }
+.coin { width:28px; height:28px; border-radius:50%; background:radial-gradient(circle at 35% 35%, #ffe7a0, #c9a24e 60%, #7a5a20); border:2px solid #5c431a; }
+.order { position:absolute; left:860px; top:150px; width:470px; padding:22px 26px 18px; transform:rotate(-1.2deg); }
+.order .pinhead { position:absolute; top:-10px; width:20px; height:20px; border-radius:50%; background:radial-gradient(circle at 35% 35%, #ffb59b, #a63c2c 70%); box-shadow:0 2px 3px rgba(0,0,0,.5); }
+.order .kind { font-size:16px; letter-spacing:1px; color:#7a5a2c; font-weight:700; }
+.order h2 { font-size:30px; margin:4px 0 8px; }
+.order .route { font-size:19px; color:#5a4630; }
+.order .cargo { margin-top:10px; display:flex; align-items:center; gap:10px; font-size:20px; }
+.order .cargo img { height:40px; }
+.order .reward { margin-top:10px; font-size:26px; font-weight:700; display:flex; align-items:center; gap:8px; }
+.order .more { margin-top:12px; font-size:18px; color:#7a5a2c; text-decoration:underline; }
+.door { position:absolute; left:1380px; top:250px; width:170px; height:350px; border-radius:6px 6px 0 0; background:linear-gradient(#3a2916,#241a10); border:4px solid var(--brass-dark); box-shadow: inset 0 0 30px rgba(0,0,0,.6); }
+.door .sign { position:absolute; left:-18px; top:-62px; width:206px; padding:8px 0; text-align:center; border-radius:8px; background:var(--wood-dark); border:2px solid var(--lamp); color:var(--lamp); font-size:20px; font-weight:700; box-shadow:0 0 24px rgba(255,212,122,.55); }
+.door .knob { position:absolute; right:22px; top:170px; width:16px; height:16px; border-radius:50%; background:var(--brass); }
+.switcher { position:absolute; left:170px; top:650px; width:520px; display:flex; align-items:center; justify-content:space-between; }
+.arrow { width:58px; height:58px; border-radius:50%; background:rgba(42,29,18,.9); border:2px solid var(--brass); color:var(--brass-light); font-size:34px; display:flex; align-items:center; justify-content:center; }
+.vname { text-align:center; font-size:30px; font-weight:700; }
+.vname small { display:block; font-size:18px; font-weight:400; color:var(--t2); margin-top:4px; }
+.hot { position:absolute; width:34px; height:34px; border-radius:50%; border:3px solid var(--lamp); background:rgba(255,212,122,.18); box-shadow:0 0 14px rgba(255,212,122,.7); }
+.pop { position:absolute; left:560px; top:300px; width:300px; padding:16px 18px; }
+.pop h3 { font-size:22px; margin-bottom:6px; }
+.pop .lv { font-size:18px; color:var(--t2); }
+.pop .eff { font-size:20px; margin:8px 0 12px; color:var(--ok); }
+.hold { position:relative; height:52px; border-radius:8px; background:var(--wood-mid); border:2px solid var(--brass); overflow:hidden; display:flex; align-items:center; justify-content:center; font-size:20px; font-weight:700; }
+.hold i { position:absolute; left:0; top:0; bottom:0; width:38%; background:rgba(217,174,85,.45); }
+.hold span { position:relative; }
+.consist { position:absolute; left:24px; top:585px; font-size:18px; color:var(--t2); }
+</style></head><body>
+<img class="bg" src="bg_depot_zoom.png">
+<div class="top"></div>
+<div class="station shadow-text">Лесная<small>рейс 5 из 10</small></div>
+<div class="coins shadow-text"><div class="coin"></div>1840</div>
+<div class="btn menu">☰</div>
+
+<!-- the order board hangs on the wall: one main order on paper -->
+<div class="paper order">
+  <div class="pinhead" style="left:30px"></div><div class="pinhead" style="right:30px"></div>
+  <div class="kind">ОСНОВНОЙ РЕЙС</div>
+  <h2>Мука для разъезда</h2>
+  <div class="route">Лесная → Лесопилка → Тихая заводь · 3,5 км · ▲ лёгкий</div>
+  <div class="cargo"><img src="../../ForestRail/assets/art_p2/sack.png"><img src="../../ForestRail/assets/art_p2/sack.png"><img src="../../ForestRail/assets/art_p2/sack.png"><img src="../../ForestRail/assets/art_p2/sack.png"><span>мука ×4</span></div>
+  <div class="reward"><div class="coin" style="width:24px;height:24px"></div>до 2063</div>
+  <div class="more">ещё 3 свободных рейса ›</div>
+</div>
+
+<!-- the casino is a door with a sign -->
+<div class="door"><div class="sign">Казик у стрелки</div><div class="knob"></div></div>
+
+<!-- the workshop: hot spots on the parts, a popover at the part -->
+<div class="hot" style="left:470px; top:455px"></div>
+<div class="hot" style="left:300px; top:520px; border-color:var(--warn)"></div>
+<div class="board pop">
+  <h3>Двигатель</h3>
+  <div class="lv">уровень 0 → 1</div>
+  <div class="eff">тяга +15% на всех передачах</div>
+  <div class="hold"><i></i><span>держи · 80 монет</span></div>
+</div>
+
+<!-- the garage: arrows by the name, the machine changes in the scene -->
+<div class="switcher">
+  <div class="arrow">‹</div>
+  <div class="vname shadow-text">Бензиновая машина<small>4 места · до 120 км/ч · бензин хватит ✓</small></div>
+  <div class="arrow">›</div>
+</div>
+<div class="consist shadow-text">состав 2 / 2 вагона · места 4 / 6</div>
+
+<div class="btn primary" style="left:550px; bottom:34px; width:560px; height:76px; font-size:27px;">Выехать: Мука для разъезда →</div>
+
+<div class="pin" style="left:300px; top:22px">1</div>
+<div class="pin" style="left:1330px; top:132px">2</div>
+<div class="pin" style="left:140px; top:660px">3</div>
+<div class="pin" style="left:866px; top:280px">4</div>
+<div class="pin" style="left:1560px; top:190px">5</div>
+<div class="pin" style="left:1124px; top:810px">6</div>
+<div class="pin" style="left:20px; top:548px">7</div>
+<div class="legend" style="top:auto; bottom:130px; right:auto; left:1150px; width:430px">
+<b>Депо: что изменилось</b>
+<ol>
+<li>Шапка: станция, прогресс, монеты, ☰. Болты и жетоны появятся значком, когда они есть.</li>
+<li>Доска заказов висит на стене: один главный заказ на бумаге, остальные «ещё 3 ›».</li>
+<li>Гараж: стрелки ‹ › у названия, машина меняется прямо в сцене (покупка удержанием).</li>
+<li>Мастерская: кружки на деталях машины, всплывашка у детали с уровнем, эффектом и ценой.</li>
+<li>Казик — дверь с вывеской, светится, когда есть жетоны.</li>
+<li>Одна главная кнопка «Выехать» с названием заказа. «Просто поехать» в списке свободных.</li>
+<li>Состав прямо на рельсах. Правая панель со вкладками и левая плашка исчезли, машина крупнее.</li>
+</ol></div>
+<div class="title-tag">Макет 3 · Депо как комната (без вкладок)</div>
+</body></html>
