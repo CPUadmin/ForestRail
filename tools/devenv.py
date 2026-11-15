@@ -63,6 +63,61 @@ def ensure_no_godot() -> None:
                          + "\n  ".join(running) + "\nЗакрой игру или заверши эти процессы и запусти снова.")
 
 
+class godot_turn:
+    """The turn to run Godot: one at a time for all the work folders of this computer (a lock file in the temp folder).
+
+    Waits (up to `wait_hours`) while another run holds the turn. The lock is the open file itself, so a run that
+    dies frees the turn at once. Nested use inside one run (run_all_checks under godot_lock.py) is allowed through
+    the FORESTRAIL_GODOT_TURN environment mark.
+    """
+
+    def __init__(self, wait_hours: float = 6.0):
+        self.wait_s = wait_hours * 3600.0
+        self.handle = None
+
+    def __enter__(self):
+        import os
+        import tempfile
+        import time
+        if os.environ.get("FORESTRAIL_GODOT_TURN") == "1":
+            return self
+        import msvcrt
+        path = Path(tempfile.gettempdir()) / "forestrail_godot.lock"
+        started = time.time()
+        told = False
+        while True:
+            handle = open(path, "a+")
+            try:
+                handle.seek(0)
+                msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
+                self.handle = handle
+                break
+            except OSError:
+                handle.close()
+                if not told:
+                    print("Жду очереди на Godot (его сейчас гоняет другой прогон)...", flush=True)
+                    told = True
+                if time.time() - started > self.wait_s:
+                    raise SystemExit("Очередь на Godot не освободилась за отведённое время.")
+                time.sleep(3.0)
+        os.environ["FORESTRAIL_GODOT_TURN"] = "1"
+        return self
+
+    def __exit__(self, *exc):
+        import os
+        if self.handle is not None:
+            import msvcrt
+            try:
+                self.handle.seek(0)
+                msvcrt.locking(self.handle.fileno(), msvcrt.LK_UNLCK, 1)
+            except OSError:
+                pass
+            self.handle.close()
+            self.handle = None
+            os.environ.pop("FORESTRAIL_GODOT_TURN", None)
+        return False
+
+
 def kill_godot() -> None:
     subprocess.run(["taskkill", "/F", "/IM", "Godot*"], capture_output=True)
 

@@ -31,6 +31,8 @@ if bad:
 skip = set(s for s in args.skip.split(",") if s)
 suites = [s for s in suites if s not in skip]
 godot = devenv.godot_path()
+turn = devenv.godot_turn()
+turn.__enter__()   # one Godot at a time for all the work folders; freed when this run ends (or dies)
 devenv.ensure_no_godot()
 report = args.report_dir.resolve()
 report.mkdir(parents=True, exist_ok=True)
