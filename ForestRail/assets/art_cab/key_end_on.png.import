@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://clrdsdtuobhev"
-path="res://.godot/imported/key_fob.png-7952a241b291fb6420eaee64174154ab.ctex"
+uid="uid://bhb7p0ilb2r18"
+path="res://.godot/imported/key_end_on.png-c6de7761f827d6d309b23fe100473fdc.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/art_cab/key_fob.png"
-dest_files=["res://.godot/imported/key_fob.png-7952a241b291fb6420eaee64174154ab.ctex"]
+source_file="res://assets/art_cab/key_end_on.png"
+dest_files=["res://.godot/imported/key_end_on.png-c6de7761f827d6d309b23fe100473fdc.ctex"]
 
 [params]
 

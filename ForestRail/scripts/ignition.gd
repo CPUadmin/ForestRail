@@ -1,34 +1,35 @@
 extends RefCounted
 # The ignition key of the petrol motorcar (owner 14.11, 16.11): a painted lock, the key the player turns with the
-# mouse or holds with a key of the keyboard, the leather fob on its chain (a small damped pendulum) and the choke knob.
+# mouse or holds with a key of the keyboard, the key ring with a second key and a tag (a small damped pendulum) and the choke knob.
 # Three positions: ВЫКЛ -> ЗАЖИГАНИЕ -> СТАРТЕР (on a spring). Held about a second on СТАРТЕР the starter has turned
 # enough and the engine catches or coughs (Model.key_crank). main.gd keeps one of these, calls update() every frame,
-# press/drag_to/release from the mouse and the keyboard, and draws it in the cab pult and on the machine outside.
+# press/drag_to/release from the mouse and the keyboard, and draws it in the cab dashboard and on the machine outside.
 
-const LOCK = preload("res://assets/art_cab/ignition_lock.png")
-const CORE = preload("res://assets/art_cab/ignition_lock_core.png")   # the turning cylinder, cut from the lock
-const CORE_CENTRE = Vector2(77.5, 77.0)
-const HEAD = preload("res://assets/art_cab/ignition_key_head.png")
-const FOB = preload("res://assets/art_cab/key_fob.png")
-const CHOKE_IN = preload("res://assets/art_cab/choke_knob_in.png")
-const CHOKE_OUT = preload("res://assets/art_cab/choke_knob_out.png")
+# P28/P29 (owner 16.11): the lock is set into the dashboard right under the gauges, we look at the key along its axis
+const PANEL = preload("res://assets/art_cab/ignition_panel.png")
+const PANEL_KEYHOLE = Vector2(176.8, 178.9)   # the centre of the keyhole: the axis of the key
+const CORE = preload("res://assets/art_cab/ignition_core.png")   # the cylinder of the lock with its slot: it turns with the key
+const CORE_CENTRE = Vector2(75.8, 75.9)
+const RING = preload("res://assets/art_cab/key_ring.png")
+const RING_TOP = Vector2(45.8, 4.2)           # the top of the small ring: here it hangs in the hole of the key
+const CHOKE_IN = preload("res://assets/art_cab/choke_pull_in.png")
+const CHOKE_OUT = preload("res://assets/art_cab/choke_pull_out.png")
+const CHOKE_RATIO = 266.0 / 354.0             # the choke plate against the lock plate (one scale of the art)
+# the key seen along its axis (the flat head edge-on), P29: square cells, the axis (the middle of the collar) at each
+# centre, painted at 0, 35 and 65 degrees with the light fixed
+const KEY_SHEET = preload("res://assets/art_cab/key_end_on.png")
+const KEY_PAINTED = [0.0, 0.6109, 1.1345]
+const KEY_TOPS = [69.8, 71.5, 68.5]           # the hole for the ring above the axis in each cell, pixels of a cell
+const KEY_LONG = 1.35                         # owner 16.11: «ключ толще и больше»: the painted key drawn longer
+const KEY_WIDE = 2.1                          # and much thicker across its edge
 
 const OFF = 0
 const ON = 1
 const START = 2
-const ANGLES = [0.0, 0.62, 1.12]          # radians, clockwise from upright: the three marks of the painted lock
+const ANGLES = [0.0, 0.61, 1.12]          # radians, clockwise from upright: the three marks of the painted lock (0, 35, 64 degrees)
 const NAMES = ["Выкл.", "Зажигание", "Стартер"]
 const HOLD_TO_START = 0.3                 # a press held this long goes on past ЗАЖИГАНИЕ to СТАРТЕР
 const CRANK_S = 1.0                       # the starter turns this long before the engine catches or coughs
-# picture anchors, pixels of the cut PNGs
-const LOCK_CENTRE = Vector2(180.5, 180.0)
-const HEAD_CENTRE = Vector2(98.6, 90.3)   # the hole of the head: the fob hangs in it
-const HEAD_HOLE_R = 34.0
-const KEY_ROOT = Vector2(98.6, 206.0)     # the bottom of the collar: here the blade goes into the keyhole
-const KEY_SCALE = 0.95                    # the key against the lock
-const FOB_TOP = Vector2(66.0, 0.0)
-const FOB_SCALE = 0.72                    # the fob against the lock: a little smaller than painted, so it fits the pult
-const CHOKE_ANCHOR = Vector2(0.0, 84.0)   # the left edge of the panel, its middle
 
 var model = null
 var reduce_motion = false
@@ -47,7 +48,7 @@ var cough_t = 9.0         # seconds since the last cough: the key twitches once
 var clock = 0.0
 var events: Array = []    # for main.gd: click, refused, crank_tick, caught, coughed
 var tick_t = 0.0
-# the fob: angle from the vertical of the screen, its speed, and what pushes it
+# the key ring: angle from the vertical of the screen, its speed, and what pushes it
 var fob_theta = 0.0
 var fob_omega = 0.0
 var pivot_screen = Vector2.ZERO   # where the fob hangs, screen pixels (set by draw)
@@ -175,44 +176,57 @@ func shake_angle() -> float:
 	if reduce_motion: return 0.0
 	return sin(clock * 53.0) * 0.035 if cranking() else 0.0
 
-# Draws the lock with the key and the fob, centred on `centre` of the current draw transform, `side` pixels wide.
-# `xform` is the transform the canvas draws with (for the fob to hang straight down on the screen and for the shake).
+# Draws the lock with the key and the ring, the keyhole on `centre` of the current draw transform, the plate `side`
+# pixels wide. `xform` is the transform the canvas draws with (for the ring to hang straight down on the screen).
 func draw(canvas, centre: Vector2, side: float, xform: Transform2D, hovered: bool) -> void:
-	var scale = side / float(LOCK.get_width())
+	var scale = side / float(PANEL.get_width())
 	var shake = xform.affine_inverse().basis_xform(shake_offset()) if xform.determinant() != 0.0 else Vector2.ZERO
 	canvas.draw_set_transform_matrix(xform)
-	canvas.draw_texture_rect(LOCK, Rect2(centre - LOCK_CENTRE * scale, LOCK.get_size() * scale), false)
-	if hovered: canvas.draw_arc(centre, side * 0.5, 0, TAU, 40, Color(1.0, 0.86, 0.5, 0.55), maxf(1.0, side * 0.025), true)
-	# the key stands out of the keyhole (its blade is in the lock) and turns about the keyhole; a soft shadow under it
-	var key_scale = scale * KEY_SCALE
+	canvas.draw_texture_rect(PANEL, Rect2(centre - PANEL_KEYHOLE * scale, PANEL.get_size() * scale), false)
+	if hovered: canvas.draw_arc(centre, side * 0.39, 0, TAU, 40, Color(1.0, 0.86, 0.5, 0.55), maxf(1.0, side * 0.02), true)
 	var root = centre + shake
 	var turn = angle + shake_angle()
-	# the cylinder of the lock (with its keyhole) turns with the key
+	# the cylinder with its slot turns with the key (in a real lock the slot goes round with it)
 	canvas.draw_set_transform_matrix(xform * Transform2D(angle, centre))
 	canvas.draw_texture_rect(CORE, Rect2(-CORE_CENTRE * scale, CORE.get_size() * scale), false)
-	canvas.draw_set_transform_matrix(xform * Transform2D(turn, root + Vector2(0.03, 0.045) * side))
-	canvas.draw_texture_rect(HEAD, Rect2(-KEY_ROOT * key_scale, HEAD.get_size() * key_scale), false, Color(0, 0, 0, 0.45))
-	canvas.draw_set_transform_matrix(xform * Transform2D(turn, root))
-	canvas.draw_texture_rect(HEAD, Rect2(-KEY_ROOT * key_scale, HEAD.get_size() * key_scale), false)
-	# the fob hangs from the top of the hole in the head, straight down on the screen whatever the tilt of the machine
-	var hole = root + ((HEAD_CENTRE - KEY_ROOT) * key_scale).rotated(turn)
-	var hang = hole + Vector2(0, -HEAD_HOLE_R * 0.6 * key_scale).rotated(-xform.get_rotation())
-	var fob_scale = scale * FOB_SCALE
-	pivot_screen = xform * hang
-	fob_length_screen = FOB.get_height() * fob_scale * xform.get_scale().x
-	canvas.draw_set_transform_matrix(xform * Transform2D(fob_theta - xform.get_rotation(), hang))
-	canvas.draw_texture_rect(FOB, Rect2(-FOB_TOP * fob_scale, FOB.get_size() * fob_scale), false)
+	canvas.draw_set_transform_matrix(xform)
+	var top = draw_key(canvas, root, turn, scale, xform)
+	# the ring hangs from the top of the key, straight down on the screen whatever the tilt of the machine
+	pivot_screen = xform * top
+	fob_length_screen = RING.get_height() * scale * xform.get_scale().x
+	canvas.draw_set_transform_matrix(xform * Transform2D(fob_theta - xform.get_rotation(), top))
+	canvas.draw_texture_rect(RING, Rect2(-RING_TOP * scale, RING.get_size() * scale), false)
 	canvas.draw_set_transform_matrix(xform)
 
-# The choke knob: `at` is the left edge of its panel (middle), `height` its drawn height.
-func choke_rect(at: Vector2, height: float) -> Rect2:
-	var scale = height / float(CHOKE_OUT.get_height())
-	return Rect2(at - CHOKE_ANCHOR * scale, CHOKE_OUT.get_size() * scale)
+# The key along its axis: a narrow brass head standing edge-on over the keyhole slot, turned like a clock hand about
+# the keyhole. Between two painted angles the two neighbouring pictures cross-fade, each turned only by what is left,
+# so the light on the brass stays where it is. Returns the top of the key (where the ring hangs), local coordinates.
+func draw_key(canvas, root: Vector2, turn: float, scale: float, xform: Transform2D) -> Vector2:
+	var cell = float(KEY_SHEET.get_height())
+	var i = 0
+	while i < KEY_PAINTED.size() - 2 and turn > KEY_PAINTED[i + 1]: i += 1
+	var t = clampf((turn - KEY_PAINTED[i]) / (KEY_PAINTED[i + 1] - KEY_PAINTED[i]), 0.0, 1.0)
+	var w = smoothstep(0.25, 0.75, t)
+	# the nearer picture is drawn whole and the other fades over it: the middle of the turn is never see-through
+	var order = [[i, 1.0], [i + 1, w]] if w <= 0.5 else [[i, 1.0 - w], [i + 1, 1.0]]
+	if w > 0.5: order.reverse()
+	for pair in order:
+		if float(pair[1]) <= 0.001: continue
+		var k = int(pair[0])
+		# stretched along its own painted axis (the cell is turned by KEY_PAINTED[k]): thicker across, longer along
+		var own = KEY_PAINTED[k]
+		var stretch = Transform2D(own, Vector2.ZERO) * Transform2D(0.0, Vector2(KEY_WIDE, KEY_LONG), 0.0, Vector2.ZERO) * Transform2D(-own, Vector2.ZERO)
+		canvas.draw_set_transform_matrix(xform * Transform2D(turn - own, root) * stretch)
+		canvas.draw_texture_rect_region(KEY_SHEET, Rect2(Vector2.ONE * -cell * 0.5 * scale, Vector2.ONE * cell * scale), Rect2(k * cell, 0, cell, cell), Color(1, 1, 1, float(pair[1])))
+	canvas.draw_set_transform_matrix(xform)
+	return root + Vector2(0, -lerpf(KEY_TOPS[i], KEY_TOPS[i + 1], t) * scale * KEY_LONG).rotated(turn)
 
-func draw_choke(canvas, at: Vector2, height: float, hovered: bool) -> void:
+# The choke knob in its own plate: `centre` the middle of the plate, `side` its width.
+func choke_rect(centre: Vector2, side: float) -> Rect2:
+	return Rect2(centre - Vector2.ONE * side * 0.5, Vector2.ONE * side)
+
+func draw_choke(canvas, centre: Vector2, side: float, hovered: bool) -> void:
 	var out = model != null and not model.state.is_empty() and model.choke_out()
-	var tex = CHOKE_OUT if out else CHOKE_IN
-	var scale = height / float(tex.get_height())
-	var rect = Rect2(at - CHOKE_ANCHOR * scale, tex.get_size() * scale)
-	if hovered: canvas.draw_rect(rect.grow(2.0), Color(1.0, 0.86, 0.5, 0.35), false, 1.5)
-	canvas.draw_texture_rect(tex, rect, false)
+	var rect = choke_rect(centre, side)
+	canvas.draw_texture_rect(CHOKE_OUT if out else CHOKE_IN, rect, false)
+	if hovered: canvas.draw_arc(centre, side * 0.36, 0, TAU, 40, Color(1.0, 0.86, 0.5, 0.55), maxf(1.0, side * 0.02), true)
