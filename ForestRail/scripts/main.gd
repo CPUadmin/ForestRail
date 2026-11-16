@@ -106,6 +106,14 @@ var depot_anim_t = 0.0
 var depot_anim_from = 0.0
 var depot_anim_zoom = 1.0
 var depot_exit_action = Callable()
+# the casino doors: "casino_in" (the camera flies to the door, warm light floods the screen), "casino_out" (a short warm fade back)
+const CASINO_IN_S = 0.6        # the flight to the door and the flood of light
+const CASINO_OUT_S = 0.4       # the casino coming out of the warm light
+const CASINO_LEAVE_S = 0.17    # each half of the way back to the yard
+const CASINO_DEEP = Color("d98a1e")
+var place_style = ""
+var fade_tint = Color(0, 0, 0)
+var casino_intro = false       # the next casino screen shows its greeting (the wheel turns lazily, the line appears)
 var animate_in_tests = false
 var fade_rect: ColorRect = null
 # Cab view (E): the camera closes in on the cab and every control of the machine is
@@ -712,7 +720,23 @@ func yard_ui():
 # a walk across the yard: the screen darkens (the camera comes closer to the building), the place opens, the light comes back
 func go_place(id: String) -> void:
 	if id == "casino":
-		show_modal("casino")
+		var open = func():
+			casino_intro = true
+			show_modal("casino")
+		if test_mode and not animate_in_tests:
+			open.call()
+			return
+		if depot_anim != "": return
+		cancel_drag()
+		if place == "yard" and not bool(settings.reduce_motion): yard_ui().entering = "casino"
+		place_style = "casino_in" if not bool(settings.reduce_motion) else ""
+		fade_tint = UiKit.GLOW if place_style != "" else Color(0, 0, 0)
+		place_change = true
+		depot_exit_action = open
+		depot_anim = "leave"
+		depot_anim_t = 0.0
+		ensure_fade_rect()
+		sound.play("gear", 0.3, 1.5)
 		return
 	var change = func():
 		place = id
@@ -732,7 +756,32 @@ func go_place(id: String) -> void:
 	ensure_fade_rect()
 
 func place_fade_s() -> float:
+	if place_style == "casino_in": return CASINO_OUT_S if depot_anim == "out" else CASINO_IN_S
+	if place_style == "casino_out": return CASINO_LEAVE_S
 	return 0.25 if place_change else DEPOT_FADE_S
+
+# the way out of the casino: a short warm fade back to the yard
+func leave_casino() -> void:
+	if (test_mode and not animate_in_tests) or depot_anim != "":
+		close_modal()
+		return
+	cancel_drag()
+	place_style = "casino_out"
+	fade_tint = UiKit.GLOW
+	place_change = true
+	depot_exit_action = close_modal
+	depot_anim = "leave"
+	depot_anim_t = 0.0
+	ensure_fade_rect()
+
+# the cover of the fade: black for the usual walks, warm light for the casino doors
+func set_fade(alpha: float) -> void:
+	if fade_rect != null: fade_rect.color = Color(fade_tint.r, fade_tint.g, fade_tint.b, alpha)
+
+# how far the casino flood has come (0 to 1) while the camera flies to the door
+func casino_flight() -> float:
+	if place_style != "casino_in" or depot_anim != "leave": return 0.0
+	return clampf(depot_anim_t / place_fade_s(), 0.0, 1.0)
 
 func draw_depot_interior(size: Vector2) -> void:
 	depot_ui().draw_depot_interior(size)
@@ -1995,6 +2044,11 @@ func skip_depot_anim() -> void:
 	if depot_anim == "in": depot_anim_t = maxf(depot_anim_t, DEPOT_MOVE_S)
 	elif depot_anim == "leave": depot_anim_t = place_fade_s()
 	elif depot_anim == "out": depot_anim_t = place_fade_s()
+	if place_style != "":   # the casino doors: a click goes straight to the end
+		advance_depot_anim(0.0)
+		if depot_anim == "out":
+			depot_anim_t = place_fade_s()
+			advance_depot_anim(0.0)
 
 func advance_depot_anim(dt: float) -> void:
 	depot_anim_t += dt
@@ -2020,7 +2074,11 @@ func advance_depot_anim(dt: float) -> void:
 				depot_anim = ""
 				if fade_rect != null: fade_rect.color.a = 0.0
 	elif depot_anim == "leave":
-		if fade_rect != null: fade_rect.color.a = clampf(depot_anim_t / place_fade_s(), 0.0, 1.0)
+		var p = clampf(depot_anim_t / place_fade_s(), 0.0, 1.0)
+		if place_style == "casino_in":
+			fade_tint = UiKit.GLOW.lerp(CASINO_DEEP, smoothstep(0.4, 1.0, p))
+			set_fade(smoothstep(0.35, 1.0, p))   # the light floods in at the end of the flight, not from the start
+		else: set_fade(p)
 		if screen == "depot" and place == "yard": queue_redraw()   # the camera comes closer to the building
 		if depot_anim_t >= place_fade_s():
 			if depot_exit_action.is_valid(): depot_exit_action.call()
@@ -2028,11 +2086,15 @@ func advance_depot_anim(dt: float) -> void:
 			depot_anim = "out"
 			depot_anim_t = 0.0
 	elif depot_anim == "out":
-		if fade_rect != null: fade_rect.color.a = 1.0 - clampf(depot_anim_t / place_fade_s(), 0.0, 1.0)
+		var q = clampf(depot_anim_t / place_fade_s(), 0.0, 1.0)
+		if place_style != "": fade_tint = CASINO_DEEP.lerp(UiKit.LAMP, q)
+		set_fade(1.0 - smoothstep(0.0, 1.0, q) if place_style != "" else 1.0 - q)
 		if depot_anim_t >= place_fade_s():
 			depot_anim = ""
 			place_change = false
-			if fade_rect != null: fade_rect.color.a = 0.0
+			place_style = ""
+			fade_tint = Color(0, 0, 0)
+			set_fade(0.0)
 
 func _input(event: InputEvent) -> void:
 	if depot_anim != "" and ((event is InputEventKey and event.pressed and not event.echo) or (event is InputEventMouseButton and event.pressed)):

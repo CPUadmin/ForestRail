@@ -93,6 +93,39 @@ func run() -> void:
 	check(game.modal_kind == "casino" and game.place == "yard", "the casino opens as its own screen over the yard")
 	game.close_modal()
 
+	# the casino entrance with its animation: the camera flies to the door, warm light, the casino out of the light
+	game.animate_in_tests = true
+	game.go_place("casino")
+	check(game.depot_anim == "leave" and game.place_style == "casino_in" and game.modal_kind == "", "the casino entrance starts its flight")
+	game.advance_depot_anim(0.3)
+	check(game.casino_flight() > 0.3 and game.fade_rect != null, "the camera is on its way to the door")
+	game.advance_depot_anim(0.4)
+	check(game.depot_anim == "out" and game.modal_kind == "casino" and game.fade_rect.color.a > 0.9 and game.fade_rect.color.r > game.fade_rect.color.b, "the casino opens inside warm amber light, not black")
+	game.advance_depot_anim(1.0)
+	check(game.depot_anim == "" and game.place_style == "" and game.fade_rect.color.a == 0.0, "the entrance ends with the casino open and the screen clear")
+	var angle_before = game.overlay.get_child(game.overlay.get_child_count() - 1).angle
+	game.close_modal()
+	game.go_place("casino")
+	game.skip_depot_anim()
+	check(game.depot_anim == "" and game.modal_kind == "casino" and game.fade_rect.color.a == 0.0, "a click skips the entrance to its end")
+	var casino_screen = game.overlay.get_child(game.overlay.get_child_count() - 1)
+	check(casino_screen.intro_t >= 0.0 and is_equal_approx(casino_screen.angle, angle_before), "the lazy turn of the wheel is only a look: the logical angle is not touched")
+	game.leave_casino()
+	check(game.depot_anim == "leave" and game.place_style == "casino_out", "leaving the casino starts a short warm fade")
+	game.advance_depot_anim(0.2)
+	check(game.modal_kind == "" and game.place == "yard", "the yard is back after the fade out")
+	game.advance_depot_anim(0.3)
+	check(game.depot_anim == "" and game.fade_rect.color.a == 0.0, "the fade back ends clear")
+	game.settings.reduce_motion = true
+	game.go_place("casino")
+	check(game.place_style == "" and game.depot_anim == "leave", "with reduced motion the entrance is a plain quick fade")
+	game.advance_depot_anim(0.3)
+	game.advance_depot_anim(0.3)
+	check(game.depot_anim == "" and game.modal_kind == "casino", "the plain fade is over in half a second")
+	game.settings.reduce_motion = false
+	game.animate_in_tests = false
+	game.close_modal()
+
 	# the evening: the lamps of the yard are lit
 	game.model.state.stats.seconds = 13.0 * 3600.0 / 24.0 * float(game.model.DAY_SECONDS) / 3600.0
 	game.rebuild()
