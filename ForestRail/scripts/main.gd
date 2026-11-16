@@ -1571,7 +1571,9 @@ func world_control_ids() -> Array:
 	if has_own_pult(): return []   # the zeppelin and the jet have their own pults
 	if model.vehicle_id() == "handcar": return ["pump", "brake"]
 	if model.vehicle_id() in ["pole", "sail"]: return ["brake"]
-	if model.vehicle_id() == "motorcar": return ["brake", "throttle", "start"]   # 16.11: a small ignition lock with its key on the cab wall
+	# 16.11: the ignition key of the petrol car lives in the cab dashboard only (the owner chose its place); outside the
+	# machine keeps the two usual levers, and the tiny lock there stood in the way of the brake grip
+
 	return ["brake", "throttle"]
 
 func draw_lever(base: Transform2D, pivot: Vector2, length: float, angle: float, knob: Color, active: bool) -> void:
