@@ -310,11 +310,15 @@ func run() -> void:
 		await button(point,true)
 		check(game.drag==id,"GUI captures closeup "+id)
 		await button(point,false)
-	var point=grip("start",true)
-	await button(point,true)
-	await motion(point+Vector2(0,-30),Vector2(0,-30))
-	await button(point+Vector2(0,-30),false)
-	check(game.model.state.engine,"closeup starts engine through mouse")
+	# 16.11: the motorcar starts with the ignition key: held on the starter until the engine catches (the choke out: at most 3 tries)
+	game.model.set_choke(true)
+	for attempt in range(3):
+		if game.model.state.engine: break
+		var point=grip("start",true)
+		await button(point,true)
+		for i in range(80): game.ignition_step(1.0/60)
+		await button(point,false)
+	check(game.model.state.engine,"closeup key starts engine through mouse")
 	# Since preview.9 the levers follow their visible arc (LEVER_CONTROLS_RU.md),
 	# so the drags go along the arc instead of straight up or down.
 	await gate_drag(1)

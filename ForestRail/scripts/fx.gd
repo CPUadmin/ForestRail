@@ -214,6 +214,23 @@ func emit_petrol(dt: float) -> void:
 		var r = hash01(next_seed, 11)
 		spawn(pipe.x, pipe.y, vel * KEEP_SPEED, 0.5 + 0.6 * load, 1.3 + 0.5 * r, 0.05, 0.38 + 0.12 * r, 0.22 + 0.3 * load, Color(0.70, 0.72, 0.74), 0.6)
 
+# The petrol engine catches: one light grey puff out of the stack (no black smoke, the owner 14.11). A cough: a wisp.
+func petrol_catch_puff() -> void:
+	petrol_burst(9, 0.55, 0.45)
+
+func petrol_cough_puff() -> void:
+	petrol_burst(3, 0.3, 0.25)
+
+func petrol_burst(count: int, size: float, alpha: float) -> void:
+	if canvas.model.vehicle_id() != "motorcar": return
+	var body_s = body_s_of("motorcar")
+	if is_nan(body_s): return
+	var pipe = to_world(body_s, canvas.art.petrol_stack_local())
+	for k in range(count):
+		var r = hash01(next_seed, 13)
+		var side = hash01(next_seed, 14) - 0.5
+		spawn(pipe.x, pipe.y, side * 0.8, 0.9 + 0.8 * r, 1.4 + 0.6 * r, 0.08, size * (0.7 + 0.5 * r), alpha, Color(0.74, 0.75, 0.76), 0.5)
+
 # --- picture ---
 # A soft puff made by code once: a few overlapping blobs with a ragged edge, lit from above.
 func make_puff(variant: int) -> Texture2D:

@@ -100,6 +100,7 @@ func build_settings(box: VBoxContainer) -> void:
 			canvas.add_label(box, "Клавиши (Esc всегда пауза, F1 справка):", 20)
 			settings_key(box, "map", "Карта")
 			settings_key(box, "cab", "Кабина")
+			settings_key(box, "ignition", "Ключ бензиновой: держи до пуска")
 			settings_key(box, "burst", "Рывок (суперконденсатор, нитро)")
 			settings_key(box, "grapnel", "Кошка шестовой: бросить или отпустить")
 			settings_key(box, "ice", "Сбить иней (пневматический)")

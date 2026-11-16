@@ -78,7 +78,7 @@ var modal_kind = ""
 const DEFAULT_SETTINGS = {"master": 0.65, "mechanisms": 0.7, "forest": 0.6, "music": 0.25, "interface": 0.8,
 	"sensitivity": 1.0, "text_scale": 1.0, "fullscreen": false, "borderless": false, "window_size": 1,
 	"vsync": true, "fps_cap": 0, "msaa": 0, "instrument_hz": 30, "reduce_motion": false, "cab_shake": 1.0,
-	"autosave": 60, "night_light": 0.0, "light_flicker": true, "weather": 0, "weather_frequency": 1.0, "keys": {"map": KEY_M, "cab": KEY_E, "ice": KEY_I, "brake": KEY_SPACE, "sail_side": KEY_F, "burst": KEY_B, "grapnel": KEY_G}}
+	"autosave": 60, "night_light": 0.0, "light_flicker": true, "weather": 0, "weather_frequency": 1.0, "keys": {"map": KEY_M, "cab": KEY_E, "ice": KEY_I, "brake": KEY_SPACE, "sail_side": KEY_F, "burst": KEY_B, "grapnel": KEY_G, "ignition": KEY_K}}
 const WINDOW_SIZES = [Vector2i(1280, 720), Vector2i(1600, 900), Vector2i(1920, 1080)]
 const SETTINGS_TABS = ["Звук", "Экран", "Игра"]   # three groups; the technical things are folded under "Ещё"
 var settings = DEFAULT_SETTINGS.duplicate(true)
@@ -135,6 +135,14 @@ var whistle_pull = 0.0
 var mini_button: Button   # the invisible button over the minimap; the cab dashboard has its own gauges there
 var was_docked = false
 var cab_hits: Array = []
+# The ignition key of the petrol motorcar (scripts/ignition.gd): its state, the choke knob's hit rectangles (screen)
+# and, while the key is held by the mouse, the screen point it turns about.
+const Ignition = preload("res://scripts/ignition.gd")
+const KEY_LOCK_M = 0.21   # the side of the lock on the machine outside, metres
+var ignition_cache = null
+var ignition_hits: Array = []
+var key_pivot_screen = Vector2.ZERO
+var key_grab = 0.0
 # The pult drawn full size inside the cab scene is the same pult scaled and moved:
 # pult_t maps its own coordinates to the screen (identity for the panel on C).
 var pult_t = Transform2D.IDENTITY
@@ -392,6 +400,7 @@ func apply_settings() -> void:
 	var keys: Dictionary = settings.keys
 	if not keys.has("burst"): keys["burst"] = KEY_B   # saves from before the supercapacitor keep their own keys
 	if not keys.has("grapnel"): keys["grapnel"] = KEY_G
+	if not keys.has("ignition"): keys["ignition"] = KEY_K   # the key of the petrol motorcar, added 16.11
 	var seen: Array = []
 	var valid = true
 	for action in DEFAULT_SETTINGS.keys:
@@ -1022,7 +1031,7 @@ func update_hud() -> void:
 	elif model.vehicle_id() == "locomotive":
 		hint = "Тяга — зелёный рычаг, тормоз — красный. Направление выбирается на стоянке кнопками «Тяга ←» и «Тяга →»."
 	elif not state.engine:
-		hint = "Запуск: подача 0%, передача N. Щёлкни тумблер, затем выбери передачу и подай газ."
+		hint = "Запуск: газ 0%, передача N. Поверни ключ и держи, пока мотор не схватит."
 	else:
 		hint = "Подача — зелёный рычаг, тормоз — красный. Передача меняется при подаче ниже 15%."
 	if float(state.brake) > 0.95 and not model.stopped():
@@ -1554,6 +1563,7 @@ func world_control_ids() -> Array:
 	if has_own_pult(): return []   # the zeppelin and the jet have their own pults
 	if model.vehicle_id() == "handcar": return ["pump", "brake"]
 	if model.vehicle_id() in ["pole", "sail"]: return ["brake"]
+	if model.vehicle_id() == "motorcar": return ["brake", "throttle", "start"]   # 16.11: a small ignition lock with its key on the cab wall
 	return ["brake", "throttle"]
 
 func draw_lever(base: Transform2D, pivot: Vector2, length: float, angle: float, knob: Color, active: bool) -> void:
@@ -1593,6 +1603,8 @@ func draw_control_zoom() -> void:
 		if kind=="gate":
 			if model.auto_gearbox(): draw_selector(gate_rect(true),gate_pos if drag=="gear" else gate_slot_pos(int(model.state.gear)),drag==id)
 			else: draw_gate(gate_rect(true),gate_pos if drag=="gear" else gate_slot_pos(int(model.state.gear)),drag==id)
+		elif kind=="key":
+			draw_ignition(geo,pult_t,true)
 		elif kind=="wheel":
 			draw_handwheel(pivot,float(geo.radius),angle,GOLD if id=="gear" else GREEN,drag==id)
 		elif kind=="slider":
@@ -1612,21 +1624,22 @@ func draw_control_zoom() -> void:
 			draw_set_transform_matrix(pult_t*Transform2D(angle,pivot))
 			sprite("control_"+id,Rect2(-Vector2(128,224)*factor,Vector2.ONE*256*factor))
 			draw_set_transform_matrix(pult_t)
-		grip_hits.append({"id":id,"position":pult_t*point,"closeup":true})
+		grip_hits.append({"id":id,"position":pult_t*point,"closeup":true,"radius":float(geo.get("side",0.0))*0.5*pult_t.get_scale().x})
 		var steam=model.vehicle_id()=="steam"
 		var title={"brake":"Тормоз","throttle":{"locomotive":"Тяга","steam":"Вентиль","pneumatic":"Вентиль"}.get(model.vehicle_id(),"Газ"),"gear":"Вода" if steam else ("Редуктор" if model.vehicle_id()=="pneumatic" else "Передача"),"start":"Розжиг" if steam else ("Обогрев" if model.vehicle_id()=="pneumatic" else "Пуск")}[id]
 		var shown_gear=lever_pending_gear if drag=="gear" else int(model.state.gear)
-		var label={"brake":"%d%%" % (model.state.brake*100),"throttle":"%d%%" % (model.state.throttle*100),"gear":("%d%%" % (float(model.boiler().feed)*100)) if steam else (("%.0f бар" % model.working_pressure()) if model.vehicle_id()=="pneumatic" else GEAR_LABELS[shown_gear]),"start":("Горит" if model.state.engine else "Разжечь") if steam else (("Греет" if model.heating_on() else "Выкл.") if model.vehicle_id()=="pneumatic" else ("Вкл." if model.state.engine else "Выкл."))}[id]
+		var label={"brake":"%d%%" % (model.state.brake*100),"throttle":"%d%%" % (model.state.throttle*100),"gear":("%d%%" % (float(model.boiler().feed)*100)) if steam else (("%.0f бар" % model.working_pressure()) if model.vehicle_id()=="pneumatic" else GEAR_LABELS[shown_gear]),"start":("Горит" if model.state.engine else "Разжечь") if steam else (("Греет" if model.heating_on() else "Выкл.") if model.vehicle_id()=="pneumatic" else key_label())}[id]
 		draw_string(font,rect.position+Vector2(15+100*i,78),title,HORIZONTAL_ALIGNMENT_CENTER,100,16,PAPER)
-		draw_string(font,rect.position+Vector2(15+100*i,168 if id=="start" else (268 if kind=="slider" else 253)),label,HORIZONTAL_ALIGNMENT_CENTER,100,16,GOLD)
+		# the key has no label under it: the lock, its marks and the lamps say where it stands
+		if kind!="key": draw_string(font,rect.position+Vector2(15+100*i,168 if id=="start" else (268 if kind=="slider" else 253)),label,HORIZONTAL_ALIGNMENT_CENTER,100,16,GOLD)
 		if kind=="lever":
 			for endpoint in range(2):
 				var mark=pivot+Vector2(0,-length).rotated(lerpf(-0.55,0.55,float(endpoint)))
 				# the ends of neighbouring levers stand close: "100" is set higher than "0" so that they never touch
 				draw_string(font,mark+Vector2(-17,-27 if endpoint==1 else -12),["0","100"][endpoint],HORIZONTAL_ALIGNMENT_CENTER,34,13,PAPER)
-		if drag==id or (pult_t*point).distance_to(get_global_mouse_position())<24: draw_arc(point,10,0,TAU,28,PAPER,1.5,true)
+		if kind!="key" and (drag==id or (pult_t*point).distance_to(get_global_mouse_position())<24): draw_arc(point,10,0,TAU,28,PAPER,1.5,true)
 	if model.vehicle_id()=="steam": draw_steam_panel(rect)
-	var feedback=toast if toast_seconds>0 else ("Крути вентиль по кругу, отпусти — закроется сам. Розжиг — щелчком." if model.vehicle_id()=="steam" else ("Веди шар рычага по кулисе: через N в нужный паз. Пуск — щелчком." if model.vehicle_id()=="motorcar" else ("Двигай ручки вверх и вниз по прорезям, они держат положение." if model.vehicle_id()=="locomotive" else "Редуктор: крути колесо, 3 оборота. Обогрев и клапаны: щелчок.")))
+	var feedback=toast if toast_seconds>0 else ("Крути вентиль по кругу, отпусти — закроется сам. Розжиг — щелчком." if model.vehicle_id()=="steam" else ("Веди шар рычага по кулисе: через N в нужный паз. Ключ — держи до пуска." if model.vehicle_id()=="motorcar" else ("Двигай ручки вверх и вниз по прорезям, они держат положение." if model.vehicle_id()=="locomotive" else "Редуктор: крути колесо, 3 оборота. Обогрев и клапаны: щелчок.")))
 	draw_multiline_string(font,rect.position+Vector2(16,rect.size.y-35),feedback,HORIZONTAL_ALIGNMENT_LEFT,310,15,2,GOLD if toast_seconds>0 else Color("c7c3a0"))
 
 func show_modal(kind: String) -> void:
@@ -1758,7 +1771,7 @@ func build_modal(size: Vector2) -> void:
 		for id in Model.VEHICLE_IDS:
 			fleet_speeds.append("%s — %d" % [model.vehicle_base(id).name, roundi(model.top_speed_kmh(id))])
 		var speed_help = "Предельные скорости в км/ч. " + " · ".join(fleet_speeds) + "."
-		add_label(box, "1. В депо выбери рейс и нажми «К погрузке». Перетащи каждый предмет с площадки в свободное место на машине или вагоне. Когда всё погружено, просто тронься: дай ход, и рейс начался (кнопка «Отправиться» тоже есть).\n\n2. Тормоз ставить на станции не нужно: остановился на платформе, и состав стоит сам, он отпустится, когда дашь ход. В пути тормоз красной рукоятью, веди её по дуге к 0%. На ручной дрезине веди любой конец деревянного рычага по его дуге. На спуске можно катиться по инерции.\n\n3. Перед станцией плавно переведи тормоз к 100%. Остановись в пределах платформы и перетащи нужные грузы на площадку. У каждого предмета указана станция.\n\n4. После последней доставки убери подачу, разверни пустой состав кнопкой на станции и вернись в Лесную. Деньги выдаются в домашнем депо.\n\n5. Карьера начинается с шестовой дрезины. Другие машины покупаются в гараже. Если на машине нет мест для груза, она получает первый вагон. Дополнительные вагоны покупаются отдельно. Свободные рейсы помогают накопить монеты. " + speed_help + " «Творческий режим» из меню: всё открыто, деньги и топливо без ограничений, любые рейсы.\n\n6. Паровоз: разожги котёл тумблером (режим Н, регулятор 0%), выбери отсечку 1 и открой регулятор. Он тратит уголь и воду. Бензиновая машина запускается так же и тратит бензин. Электровоз тратит заряд; ниже 75% заряда тяга слабеет, торможение возвращает часть энергии. Пополнение платное: в депо и на станции Дальний бор (там в полтора раза дороже), воду можно набрать ещё на Тихой заводи. Остановись у платформы, затяни тормоз и нажми «Заправить» в панели станции. Бака хватает примерно на один рейс туда и обратно: смотри строку «Рейс: нужно… есть…» в депо и на карте.\n\n7. Вагоны в депо стоят на пути. Щёлкни по сцепке между составом и вагоном: хвостовой вагон отъедет, ближайший стоящий подкатится и сцепится. Улучшения следуют за ID вагона. Для финального рейса нужны шесть мест.\n\nЗадний ход: остановись, затяни тормоз и выбери стрелку направления. На ручной дрезине направление задаётся усилием на рычаге с отпущенным тормозом. Обратное усилие сначала замедляет движение. В мёртвой точке потяни край платформы, чтобы подтолкнуть машину. Состав при этом сохраняет положение и груз.\n\nКолесо мыши — приблизить машину. Esc — пауза. Карта и кабина открываются клавишами из настроек (по умолчанию M и E). В кабине все органы и приборы машины; на станции кабина сама опускается, чтобы был виден груз, а когда тронешься, поднимается снова. При потере фокуса игра останавливается. Если застрял или кончилась энергия, вызови помощь депо из паузы.", 20)
+		add_label(box, "1. В депо выбери рейс и нажми «К погрузке». Перетащи каждый предмет с площадки в свободное место на машине или вагоне. Когда всё погружено, просто тронься: дай ход, и рейс начался (кнопка «Отправиться» тоже есть).\n\n2. Тормоз ставить на станции не нужно: остановился на платформе, и состав стоит сам, он отпустится, когда дашь ход. В пути тормоз красной рукоятью, веди её по дуге к 0%. На ручной дрезине веди любой конец деревянного рычага по его дуге. На спуске можно катиться по инерции.\n\n3. Перед станцией плавно переведи тормоз к 100%. Остановись в пределах платформы и перетащи нужные грузы на площадку. У каждого предмета указана станция.\n\n4. После последней доставки убери подачу, разверни пустой состав кнопкой на станции и вернись в Лесную. Деньги выдаются в домашнем депо.\n\n5. Карьера начинается с шестовой дрезины. Другие машины покупаются в гараже. Если на машине нет мест для груза, она получает первый вагон. Дополнительные вагоны покупаются отдельно. Свободные рейсы помогают накопить монеты. " + speed_help + " «Творческий режим» из меню: всё открыто, деньги и топливо без ограничений, любые рейсы.\n\n6. Паровоз: разожги котёл тумблером (режим Н, регулятор 0%), выбери отсечку 1 и открой регулятор. Он тратит уголь и воду. Бензиновую заводи ключом: держи его на стартере, пока мотор не схватит (холодной поможет подсос); она тратит бензин. Электровоз тратит заряд; ниже 75% заряда тяга слабеет, торможение возвращает часть энергии. Пополнение платное: в депо и на станции Дальний бор (там в полтора раза дороже), воду можно набрать ещё на Тихой заводи. Остановись у платформы, затяни тормоз и нажми «Заправить» в панели станции. Бака хватает примерно на один рейс туда и обратно: смотри строку «Рейс: нужно… есть…» в депо и на карте.\n\n7. Вагоны в депо стоят на пути. Щёлкни по сцепке между составом и вагоном: хвостовой вагон отъедет, ближайший стоящий подкатится и сцепится. Улучшения следуют за ID вагона. Для финального рейса нужны шесть мест.\n\nЗадний ход: остановись, затяни тормоз и выбери стрелку направления. На ручной дрезине направление задаётся усилием на рычаге с отпущенным тормозом. Обратное усилие сначала замедляет движение. В мёртвой точке потяни край платформы, чтобы подтолкнуть машину. Состав при этом сохраняет положение и груз.\n\nКолесо мыши — приблизить машину. Esc — пауза. Карта и кабина открываются клавишами из настроек (по умолчанию M и E). В кабине все органы и приборы машины; на станции кабина сама опускается, чтобы был виден груз, а когда тронешься, поднимается снова. При потере фокуса игра останавливается. Если застрял или кончилась энергия, вызови помощь депо из паузы.", 20)
 		if model.state.get("fleet_by_id", {}).has("zeppelin"):
 			add_label(box, "Цеппелин: газ даёт ход, ползунок «Шаг» надо менять по ходу (мелкий на старте, крупнее с разгоном, держи его у зелёной метки: в красной зоне мотор изнашивается, на тяжёлом винте глохнет). На 130 км/ч потяни «Ручку» до зелёной черты (+3,5°), и он взлетит. В воздухе винт слабее: скорость держи ручкой вниз. Садись плавно: газ меньше, ручку чуть на себя (около +3°), тогда касание мягкое. Рычаги держат положение, их не надо удерживать. Грубая посадка стоит половины монет.", 18, MUTED_INK)
 		if screen != "menu":
@@ -1808,6 +1821,7 @@ func notify(text: String) -> void:
 	toast_seconds = 5.0
 
 func cancel_drag() -> void:
+	if drag == "start" and ignition_cache != null: ignition_cache.release()
 	drag = ""
 	drag_item = ""
 	drag_total = 0
@@ -1876,6 +1890,7 @@ func _process(dt: float) -> void:
 		if delivery_ghost.time>0.45: delivery_ghost={}
 	toast_seconds = maxf(0, toast_seconds - dt)
 	if (screen == "game" or screen == "depot") and not paused: fx().update(dt)   # the smoke and steam live in the world (scripts/fx.gd)
+	if screen == "game" and not paused and not model.state.is_empty() and model.vehicle_id() == "motorcar": ignition_step(dt)
 	if screen != "menu" and not model.state.is_empty():
 		var target_s = model.render_s()
 		if screen == "depot": target_s = 0
@@ -1937,6 +1952,8 @@ func _process(dt: float) -> void:
 			sound.play("land_thud", clampf(0.35 + float(model.last_landing) * 0.18, 0.35, 1.0), clampf(1.15 - float(model.last_landing) * 0.08, 0.8, 1.15))
 			sound.play("cargo", clampf(0.15 + float(model.last_landing) * 0.1, 0.15, 0.6), 0.7)
 			cab_jolt = 1.0
+		elif event_name in ["choke_out", "choke_in"]:
+			sound.play("gear", 0.35, 2.2)   # the knob of the choke clicks out, or back in by itself when the engine is warm
 		elif event_name == "record":
 			notify(model.last_record_text)
 			sound.play("coins", 0.5, 1.3)
@@ -2116,6 +2133,12 @@ func _input(event: InputEvent) -> void:
 		bind_key(event.keycode)
 		get_viewport().set_input_as_handled()
 		return
+	if key_is(event,"ignition") and not event.echo and screen=="game" and not paused and not model.state.is_empty() and model.vehicle_id()=="motorcar":
+		# holding the key of the keyboard turns the ignition key on to the starter, letting go lets it spring back
+		if event.pressed: ignition().press()
+		else: ignition().release()
+		get_viewport().set_input_as_handled()
+		return
 	if key_is(event,"brake") and event.pressed and not event.echo and screen=="game" and not paused and model.state.phase=="route" and model.vehicle_id()!="handcar":
 		# one key sets the brake fully or lets it go, so that the hands stay on the sail or the pole
 		model.state.brake = 0.0 if float(model.state.brake) > 0.5 else 1.0
@@ -2224,7 +2247,9 @@ func _input(event: InputEvent) -> void:
 			model.set_pump_target(((pump_target_point-model.handcar.pose().rocker)*pump_grip_side).angle(),model.hand_drive.clock+Engine.get_physics_interpolation_fraction()/60.0)
 		elif drag in ["brake","throttle","gear","start"]:
 			lever_travel+=event.relative.length()
-			if drag!="start":
+			if drag=="start" and control_kind("start")=="key" and lever_travel>=8:
+				ignition().drag_to(wrapf(key_mouse_angle(get_global_mouse_position())+key_grab,-PI,PI))
+			elif drag!="start":
 				var outer=pult_t if drag_closeup else body_transform(model.vehicle_id(),model.body_s_render(0))
 				# Relative local travel excludes camera motion and preserves the grab offset.
 				# Motor controls follow the visible arc one-to-one, independent of pump sensitivity.
@@ -2351,10 +2376,15 @@ func _unhandled_input(event: InputEvent) -> void:
 					model.casino().pick_glint(int(hit.index))
 					get_viewport().set_input_as_handled()
 					return
+		for hit in ignition_hits:
+			if hit.rect.has_point(mouse):
+				model.set_choke(not model.choke_out())
+				get_viewport().set_input_as_handled()
+				return
 		for hit in grip_hits:
 			if in_closeup!=bool(hit.get("closeup",false)): continue
 			var d = mouse.distance_to(hit.position)
-			if d < distance:
+			if d < distance or d < float(hit.get("radius",0.0)):
 				distance = d
 				nearest = hit
 		for hit in cargo_hits:
@@ -2379,6 +2409,11 @@ func _unhandled_input(event: InputEvent) -> void:
 				elif control_kind(drag)=="wheel":
 					wheel_last=atan2(press_geo.grip.x-press_geo.pivot.x,-(press_geo.grip.y-press_geo.pivot.y))
 					wheel_acc=float(press_geo.angle)
+				elif control_kind(drag)=="key":
+					key_pivot_screen=nearest.position
+					# taken by the rim the key keeps its offset to the cursor; taken at the keyhole it simply points at the cursor
+					key_grab=ignition().angle-key_mouse_angle(mouse) if mouse.distance_to(key_pivot_screen)>8.0 else 0.0
+					ignition().press()
 			model.reset_input()
 			if drag=="pump":
 				var outer=body_transform(model.vehicle_id(),model.body_s_render(0))
@@ -2483,6 +2518,8 @@ func finish_drag(mouse: Vector2) -> void:
 			notify("Брось уголь в топку: перетащи ведро на красную топку")
 	elif drag == "gear" and lever_pending_gear!=model.selector_gear():
 		if not model.set_gear(lever_pending_gear): notify(model.message)
+	elif drag == "start" and control_kind("start") == "key":
+		ignition().release()
 	elif drag == "start" and lever_travel<8 and mouse.distance_to(lever_click_origin)<8:
 		if model.vehicle_id()=="pneumatic":
 			model.set_heating(not model.heating_on())
@@ -2724,6 +2761,7 @@ func _draw_scene() -> void:
 	workshop_hits.clear()
 	steam_hits.clear()
 	cab_hits.clear()
+	ignition_hits.clear()
 	slot_hits.clear()
 	cargo_hits.clear()
 	cargo_visuals.clear()
@@ -2964,6 +3002,52 @@ func advance_shunting(dt: float) -> void:
 	save_game()
 	rebuild()
 
+func ignition():
+	if ignition_cache == null: ignition_cache = Ignition.new(model)
+	ignition_cache.model = model
+	return ignition_cache
+
+func key_mouse_angle(mouse: Vector2) -> float:
+	return atan2(mouse.x - key_pivot_screen.x, -(mouse.y - key_pivot_screen.y))
+
+func key_label() -> String:
+	if bool(model.state.engine): return "Работает"
+	return Ignition.NAMES[ignition().pos]
+
+# The lock, the key and the fob, and the choke knob beside them: in the close-up pult (cab) or small on the machine.
+func draw_ignition(geo: Dictionary, xform: Transform2D, closeup: bool) -> void:
+	var key = ignition()
+	var mouse = get_global_mouse_position()
+	var centre: Vector2 = geo.pivot
+	var side = float(geo.side)
+	key.draw(self, centre, side, xform, drag == "start" or mouse.distance_to(xform * centre) < side * 0.5 * xform.get_scale().x + 4.0)
+	var at = centre + (Vector2(-34, 96) if closeup else Vector2(side * 0.62, side * 0.05))
+	var height = 30.0 if closeup else side * 0.42
+	var local_mouse = xform.affine_inverse() * mouse
+	var rect = key.choke_rect(at, height)
+	key.draw_choke(self, at, height, rect.has_point(local_mouse))
+	if closeup: draw_string(font, at + Vector2(-12, 30), "ПОДСОС", HORIZONTAL_ALIGNMENT_LEFT, 90, 11, Color("a9a589"))
+	var screen_rect: Rect2 = xform * rect
+	ignition_hits.append({"id": "choke", "rect": screen_rect.grow(maxf(0.0, 12.0 - minf(screen_rect.size.x, screen_rect.size.y) * 0.5))})
+
+func ignition_step(dt: float) -> void:
+	var key = ignition()
+	key.reduce_motion = bool(settings.reduce_motion)
+	key.update(dt, get_global_mouse_position())
+	while not key.events.is_empty():
+		match str(key.events.pop_front()):
+			"click": sound.play("gear", 0.3, 1.9)
+			"refused":
+				if model.message != "": notify(model.message)
+				model.message = ""
+			"crank_tick": sound.play("pump", 0.22, 1.5)
+			"caught":
+				fx().petrol_catch_puff()
+				if not settings.reduce_motion: cab_jolt = maxf(cab_jolt, 0.5)
+			"coughed":
+				sound.play("petrol_stall", 0.45, 1.35)
+				fx().petrol_cough_puff()
+
 var fx_cache = null
 func fx():
 	if fx_cache == null: fx_cache = Fx.new(self)
@@ -3013,6 +3097,7 @@ func control_kind(id: String) -> String:
 	if model.vehicle_id() == "steam" and id in ["throttle", "gear"]: return "wheel"
 	if model.vehicle_id() == "pneumatic" and id == "gear": return "wheel"   # the reducer: a hand wheel, turn it round like the valve of the steam locomotive
 	if model.vehicle_id() == "motorcar" and id == "gear": return "gate"
+	if model.vehicle_id() == "motorcar" and id == "start": return "key"   # 16.11: the ignition key instead of the toggle
 	return "toggle" if id == "start" else "lever"
 
 func gate_rect(closeup: bool) -> Rect2:
@@ -3127,6 +3212,13 @@ func control_geometry(id: String, closeup: bool = false) -> Dictionary:
 		var rect=gate_rect(closeup)
 		var knob=gate_pos if drag=="gear" else gate_slot_pos(int(model.state.gear))
 		return {"pivot":rect.get_center(),"grip":gate_local(rect,knob),"angle":0.0}
+	if kind=="key":
+		var centre=control_anchor(id)*ArtV3.PX
+		var side=KEY_LOCK_M*ArtV3.PX
+		if closeup:
+			centre=control_zoom_rect().position+Vector2(365,126)
+			side=76.0
+		return {"pivot":centre,"grip":centre,"angle":ignition().angle,"side":side}
 	if kind=="wheel":
 		var radius=34.0 if closeup else 0.17*ArtV3.PX
 		var center=control_anchor(id)*ArtV3.PX
@@ -3174,6 +3266,9 @@ func draw_controls_inner(body_transform: Transform2D, show_labels: bool = true) 
 		if kind == "gate":
 			if model.auto_gearbox(): draw_selector(gate_rect(false), gate_pos if drag == "gear" else gate_slot_pos(int(model.state.gear)), drag == id)
 			else: draw_gate(gate_rect(false), gate_pos if drag == "gear" else gate_slot_pos(int(model.state.gear)), drag == id)
+		elif kind == "key":
+			draw_ignition(geo, body_transform, false)
+			continue
 		elif kind == "wheel":
 			draw_handwheel(geo.pivot, float(geo.radius), angle, GOLD if id == "gear" else GREEN, drag == id)
 		elif kind == "slider":
@@ -3227,7 +3322,8 @@ func add_world_hits(id: String, index: int, transform: Transform2D) -> void:
 	if index == 0:
 		var ids = world_control_ids()
 		for control_id in ids:
-			grip_hits.append({"id": control_id, "position": transform * lever_geometry(control_id).grip})
+			var control_geo = lever_geometry(control_id)
+			grip_hits.append({"id": control_id, "position": transform * control_geo.grip, "radius": float(control_geo.get("side", 0.0)) * 0.5 * transform.get_scale().x})
 		if id=="handcar":
 			grip_hits.append({"id":"pump","side":-1.0,"position":transform*(model.handcar.pose().grip_left*ArtV3.PX)})
 		if id=="sail":
@@ -3296,7 +3392,9 @@ func draw_tooltip() -> void:
 	var text = ""
 	for hit in grip_hits:
 		if hit.position.distance_to(mouse) < 31:
-			text = {"pump": "Зажми хват и веди его по дуге рычага", "brake": "Тормоз: двигай ручку вверх по прорези от 0 до 100%" if model.vehicle_id() == "locomotive" else "Тормоз: веди рукоять по дуге от 0 до 100%", "throttle": "Вентиль: крути колесо по кругу, отпустишь — закроется сам" if model.vehicle_id() == "steam" else ("Тяга: двигай ручку вверх по прорези от 0 до 100%" if model.vehicle_id() == "locomotive" else "Подача: веди рукоять по дуге от 0 до 100%"), "gear": "Кран воды: крути по кругу. Без воды пара нет" if model.vehicle_id() == "steam" else "Кулиса: веди шар через N в паз. Менять при газе ниже 15%, R только на остановке", "start": "Щёлкни, чтобы разжечь или погасить огонь" if model.vehicle_id() == "steam" else "Щёлкни тумблер, чтобы включить или выключить"}[hit.id]
+			text = {"pump": "Зажми хват и веди его по дуге рычага", "brake": "Тормоз: двигай ручку вверх по прорези от 0 до 100%" if model.vehicle_id() == "locomotive" else "Тормоз: веди рукоять по дуге от 0 до 100%", "throttle": "Вентиль: крути колесо по кругу, отпустишь — закроется сам" if model.vehicle_id() == "steam" else ("Тяга: двигай ручку вверх по прорези от 0 до 100%" if model.vehicle_id() == "locomotive" else "Подача: веди рукоять по дуге от 0 до 100%"), "gear": "Кран воды: крути по кругу. Без воды пара нет" if model.vehicle_id() == "steam" else "Кулиса: веди шар через N в паз. Менять при газе ниже 15%, R только на остановке", "start": "Щёлкни, чтобы разжечь или погасить огонь" if model.vehicle_id() == "steam" else ("Ключ: держи, пока мотор не схватит. Щелчок — выкл." if model.vehicle_id() == "motorcar" else "Щёлкни тумблер, чтобы включить или выключить")}[hit.id]
+	for hit in ignition_hits:
+		if hit.rect.has_point(mouse): text = "Подсос: вытяни для холодного мотора, сам уйдёт, когда прогреется"
 	if text=="" and screen=="game" and model.vehicle_id()=="locomotive" and charge_strip_rect.has_point(mouse):
 		text="Заряд %d%% · доступная тяга %d%%" % [roundi(charge_fraction()*100),roundi(model.charge_traction_factor()*100)]
 	for hit in cargo_hits:

@@ -58,6 +58,22 @@ func pull(id: String,value: float) -> void:
 	await mouse(target,false)
 	check(game.drag=="","release clears capture "+id)
 
+# Holds the ignition key with the real mouse for `seconds` of game time (the test drives the key's clock itself).
+func key_hold(seconds: float) -> void:
+	var point=game.pult_t*game.control_geometry("start",true).grip
+	await mouse(point,true)
+	check(game.drag=="start","real mouse takes the key")
+	for i in range(maxi(1,int(seconds*60))): game.ignition_step(1.0/60)
+	await mouse(point,false)
+	game.ignition_step(1.0/60)
+
+# Starts the petrol engine with the key, the choke out: never more than two coughs in a row.
+func key_start() -> void:
+	game.model.set_choke(true)
+	for attempt in range(3):
+		if game.model.state.engine: break
+		await key_hold(1.3)
+
 # Drags the petrol gear knob through the neutral channel into a slot.
 func pull_gear(gear: int) -> void:
 	var point=Vector2.ZERO
@@ -183,25 +199,32 @@ func run() -> void:
 				game.model.physics_step(1.0/60)
 				check(game.model.state.engine and game.model.state.gear==1,"electric drive always engaged while charged")
 			else:
-				await pull("start",1)
+				# 16.11: the petrol motorcar starts with the ignition key (scripts/ignition.gd)
+				await key_hold(1.3)
 				check(not game.model.state.engine and game.toast.contains("0%"),"nonzero throttle startup rejected with reason")
 				await pull("throttle",0)
 				await pull_gear(1)
-				await pull("start",1)
+				await key_hold(1.3)
 				check(not game.model.state.engine and game.toast.contains("нейтраль"),"startup in gear rejected with reason")
 				await pull_gear(0)
-				await pull("start",1)
-				check(game.model.state.engine,"mouse starts at neutral and zero throttle")
-				await pull("start",0)
-				check(not game.model.state.engine,"second click turns engine off")
-				await pull("start",1)
-				var switch_point=game.pult_t*game.control_geometry("start",true).grip
-				await mouse(switch_point,true)
-				var slip=InputEventMouseMotion.new()
-				slip.position=switch_point+Vector2(25,0);slip.relative=Vector2(25,0);slip.button_mask=MOUSE_BUTTON_MASK_LEFT
-				get_tree().root.push_input(slip,true)
-				await mouse(slip.position,false)
-				check(game.model.state.engine,"dragging away cancels switch click")
+				await key_start()
+				check(game.model.state.engine,"mouse key starts at neutral and zero throttle")
+				check(game.ignition().pos==game.Ignition.ON,"the key springs back to ЗАЖИГАНИЕ")
+				await key_hold(0.05)
+				check(not game.model.state.engine and game.ignition().pos==game.Ignition.OFF,"a click on the key turns it to ВЫКЛ")
+				await key_start()
+				# turning the key back by dragging round the lock stops the engine too
+				var lock_point=game.pult_t*game.control_geometry("start",true).grip
+				await mouse(lock_point,true)
+				var turn=InputEventMouseMotion.new()
+				turn.position=lock_point+Vector2(-40,-5);turn.relative=Vector2(-40,-5);turn.button_mask=MOUSE_BUTTON_MASK_LEFT
+				get_tree().root.push_input(turn,true)
+				await frame()
+				await mouse(turn.position,false)
+				game.ignition_step(1.0/60)
+				check(not game.model.state.engine and game.ignition().pos==game.Ignition.OFF,"dragging the key round to ВЫКЛ stops the engine")
+				await key_start()
+				check(game.model.state.engine,"the key starts it again")
 				await pull_gear(1)
 				check(game.model.state.gear==1,"gear has fixed detent")
 				game.model.state.v=2

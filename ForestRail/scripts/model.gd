@@ -1276,20 +1276,75 @@ func start_engine(value: bool) -> bool:
 	if vehicle_id() == "locomotive": return true
 	if vehicle_id() == "jet": return jet_stop() if not value else jet_start()
 	if vehicle_id() == "steam": return light_fire() if value else douse_fire()
-	if value:
-		if vehicle_id() == "motorcar" and engine_temp() > TEMP_RESTART:
-			return fail("Двигатель слишком горячий (%d%%): подожди, пока остынет" % roundi(engine_temp() * 100.0))
-		if int(state.gear) != 0:
-			return fail("Для запуска нужна нейтраль Н")
-		if float(state.throttle) > 0.01:
-			return fail("Для запуска убавь подачу до 0%")
-		if state.fleet_by_id[vehicle_id()].fuel <= 0:
-			return fail("Запас энергии закончился. Вызови помощь депо")
-		if float(object_stats(vehicle_id()).water) > 0 and float(state.fleet_by_id[vehicle_id()].get("water", 0)) <= 0:
-			return fail("Без воды котёл не разжечь. Пополни её в депо")
+	if value and not can_start(): return false
 	state.engine = value
 	events.append("gear")
 	return true
+
+# The rules of a start (neutral, throttle at zero, fuel), without starting: the key checks them before the starter turns.
+func can_start() -> bool:
+	if vehicle_id() == "motorcar" and engine_temp() > TEMP_RESTART:
+		return fail("Двигатель слишком горячий (%d%%): подожди, пока остынет" % roundi(engine_temp() * 100.0))
+	if int(state.gear) != 0:
+		return fail("Для запуска нужна нейтраль Н")
+	if float(state.throttle) > 0.01:
+		return fail("Для запуска убавь подачу до 0%")
+	if state.fleet_by_id[vehicle_id()].fuel <= 0:
+		return fail("Запас энергии закончился. Вызови помощь депо")
+	if float(object_stats(vehicle_id()).water) > 0 and float(state.fleet_by_id[vehicle_id()].get("water", 0)) <= 0:
+		return fail("Без воды котёл не разжечь. Пополни её в депо")
+	return true
+
+# --- The ignition key of the petrol motorcar (owner 14.11 and 16.11). start_engine(true) stays the plain start without dice
+# (the tests and the old paths use it); the key cranks through key_crank(), which may cough. Nothing else goes wrong: no
+# flooding, no smoke, no flat battery. The choke helps a cold engine and goes back in by itself after half a minute of running.
+const KEY_WARM = 0.2          # engine_temp from which the engine counts as warm (the idle settles near 0.22)
+const CHOKE_RUN_S = 30.0      # seconds of running after which the choke knob goes back in
+const KEY_MAX_FAILS_CHOKE = 2 # never more failures in a row than this with the choke out
+
+func choke_out() -> bool:
+	return bool(state.get("choke", false))
+
+func set_choke(out: bool) -> void:
+	if vehicle_id() != "motorcar" or out == choke_out(): return
+	state.choke = out
+	state.choke_run = 0.0
+	events.append("choke_out" if out else "choke_in")
+
+# The chance that one turn of the starter catches.
+func key_start_chance() -> float:
+	if creative(): return 1.0
+	if engine_temp() >= KEY_WARM: return 0.95
+	return 0.8 if choke_out() else 0.4
+
+# The dice of one attempt: the same for the same career and the same attempt number.
+func key_roll(attempt: int) -> float:
+	var rng = RandomNumberGenerator.new()
+	rng.seed = int(route.seed_value) * 92821 + attempt * 68917 + 31337
+	return rng.randf()
+
+# One turn of the starter held long enough: the engine catches or coughs. Returns true when it runs.
+func key_crank() -> bool:
+	if bool(state.engine): return true
+	if not can_start(): return false
+	var attempt = int(state.get("start_tries", 0))
+	state.start_tries = attempt + 1
+	var fails = int(state.get("start_fails", 0))
+	var caught = key_roll(attempt) < key_start_chance() or (choke_out() and fails >= KEY_MAX_FAILS_CHOKE)
+	if not caught:
+		state.start_fails = fails + 1
+		events.append("cough")
+		message = "Мотор чихнул. " + ("Холодному поможет подсос" if not choke_out() and engine_temp() < KEY_WARM else "Попробуй ещё раз")
+		return false
+	state.start_fails = 0
+	start_engine(true)
+	events.append("catch")
+	return true
+
+func choke_step(dt: float) -> void:
+	if not choke_out() or not bool(state.engine): return
+	state.choke_run = float(state.get("choke_run", 0.0)) + dt
+	if float(state.choke_run) >= CHOKE_RUN_S: set_choke(false)
 
 # --- B4.1: the time of day. A game day is 24 minutes of driving (the clock runs only on the road, like
 # the other statistics) and starts at seven in the morning, so that a save always knows what hour it is.
@@ -2492,6 +2547,7 @@ func physics_step(dt: float) -> void:
 			state.gear = 1
 			state.engine = float(fleet.fuel) > 0
 		thermal_step(dt, fleet)
+		if vehicle_id() == "motorcar": choke_step(dt)
 		burst_step(dt)
 		if vehicle_id() == "steam": drive = steam_step(dt, fleet)
 		elif vehicle_id() == "sail":

@@ -587,12 +587,16 @@ func draw_petrol_header_v2(size: Vector2, top: float) -> void:
 	var fleet = canvas.model.state.fleet_by_id.motorcar
 	var tank = float(canvas.model.object_stats("motorcar").tank)
 	var low_fuel = float(fleet.fuel) / maxf(0.001, tank) < 0.15
-	var lamps = [["ПИТАНИЕ", float(fleet.fuel) > 0.0, Color("5cc17f")], ["РАБОТА", bool(canvas.model.state.engine) and float(canvas.model.state.throttle) > 0.02, Color("e6b34a")], ["ДВИГАТЕЛЬ", bool(canvas.model.state.engine), Color("f0eed0")], ["ПЕРЕГРЕВ", canvas.model.engine_temp() > canvas.Model.TEMP_HOT, Color("e0564a")], ["АВАРИЯ", low_fuel or (canvas.model.engine_temp() >= 0.98), Color("e0564a")]]
+	# the key: ПИТАНИЕ lights with the ignition, and the lamps dip while the starter turns
+	var key = canvas.ignition()
+	var power = float(fleet.fuel) > 0.0 and (bool(canvas.model.state.engine) or key.pos >= key.ON)
+	var dip = 0.55 + 0.45 * absf(sin(canvas.time * 23.0)) if key.cranking() and not canvas.settings.reduce_motion else 1.0
+	var lamps = [["ПИТАНИЕ", power, Color("5cc17f")], ["РАБОТА", bool(canvas.model.state.engine) and float(canvas.model.state.throttle) > 0.02, Color("e6b34a")], ["ДВИГАТЕЛЬ", bool(canvas.model.state.engine), Color("f0eed0")], ["ПЕРЕГРЕВ", canvas.model.engine_temp() > canvas.Model.TEMP_HOT, Color("e0564a")], ["АВАРИЯ", low_fuel or (canvas.model.engine_temp() >= 0.98), Color("e0564a")]]
 	for i in range(lamps.size()):
 		var at = Vector2(box.position.x + 36 + i * 66, box.position.y + 26)
 		canvas.draw_circle(at, 12, Color("1a1a18"))
 		canvas.draw_arc(at, 12, 0, TAU, 20, Color("8a5a2c"), 1.5, true)
-		canvas.draw_circle(at, 9, lamps[i][2] if lamps[i][1] else lamps[i][2].darkened(0.8))
+		canvas.draw_circle(at, 9, lamps[i][2].darkened(1.0 - dip) if lamps[i][1] else lamps[i][2].darkened(0.8))
 		if lamps[i][1]:
 			canvas.draw_circle(at, 20, Color(lamps[i][2], 0.2))
 			canvas.draw_circle(at + Vector2(-3, -3), 3, Color(1, 1, 1, 0.5))
@@ -779,26 +783,10 @@ func draw_petrol_cab_extras(size: Vector2, layout: Dictionary) -> void:
 	var small = Color("c7c3a0")
 	var radius = clampf((pult.position.x - 70.0) * 0.22, 46.0, 92.0)
 	var gauge_y = top + (size.y - top) * 0.46
-	# switches in the top strip, right of the nameplate: ignition, choke, fuses
+	# the top strip, right of the nameplate: the fuses. The ignition lock with its key and the choke knob are painted and
+	# live in the pult, in the column «Пуск» (main.draw_ignition, scripts/ignition.gd)
 	var strip_x = cx + 190.0
-	var lock = Rect2(strip_x, top + 10, 84, 60)
-	canvas.draw_style_box(canvas.style(Color("1d2320"), brass, 6), lock)
-	canvas.draw_circle(lock.position + Vector2(30, 28), 14, Color("0a0c0b"))
-	canvas.draw_circle(lock.position + Vector2(30, 28), 12, Color("3b3f3a"))
-	canvas.draw_line(lock.position + Vector2(30, 22), lock.position + Vector2(30, 34), Color("050605"), 3.0)
-	var key_on = bool(canvas.model.state.engine)
-	canvas.draw_line(lock.position + Vector2(30, 28), lock.position + Vector2(30 + (16 if key_on else 9), 28 - (6 if key_on else 14)), Color("d9c27a"), 4.0, true)
-	canvas.draw_circle(lock.position + Vector2(30 + (18 if key_on else 11), 28 - (7 if key_on else 16)), 6, Color("d9c27a"))
-	canvas.draw_string(canvas.font, lock.position + Vector2(0, 54), "ЗАЖИГАН.", HORIZONTAL_ALIGNMENT_CENTER, lock.size.x, 10, small)
-	canvas.draw_circle(lock.position + Vector2(8, 8), 2.2, brass)
-	canvas.draw_circle(lock.position + Vector2(lock.size.x - 8, 8), 2.2, brass)
-	var choke = Vector2(strip_x + 132, top + 24)
-	canvas.draw_line(choke, choke + Vector2(0, 30), Color("8d9a98"), 5.0, true)
-	canvas.draw_circle(choke, 12, Color("1a1a1a"))
-	canvas.draw_circle(choke, 9, Color("2d2d2d"))
-	canvas.draw_circle(choke + Vector2(-3, -3), 3, Color(1, 1, 1, 0.3))
-	canvas.draw_string(canvas.font, choke + Vector2(-30, 46), "ПОДСОС", HORIZONTAL_ALIGNMENT_CENTER, 60, 10, small)
-	var box = Rect2(strip_x + 178, top + 20, 124, 44)
+	var box = Rect2(strip_x + 20, top + 20, 124, 44)
 	canvas.draw_style_box(canvas.style(Color("20261f"), Color("6c6f66"), 4), box)
 	for fuse in range(6):
 		var colour = [Color("e6b34a"), Color("5cc17f"), Color("e0564a"), Color("5cc17f"), Color("e6b34a"), Color("5cc17f")][fuse]
