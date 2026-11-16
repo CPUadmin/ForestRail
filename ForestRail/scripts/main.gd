@@ -2232,7 +2232,14 @@ func _input(event: InputEvent) -> void:
 						lever_pending_gear=selector_gear_of(gate_pos.y)
 					else:
 						gate_pos=gate_move(gate_pos,local_move/Vector2(gate.size.x*0.35,gate.size.y*0.38))
-						lever_pending_gear=gate_gear(gate_pos,lever_pending_gear)
+						var closed=closed_gate_gear(gate_pos)
+						if closed>0:
+							# the knob hits the brass plate of a closed gear and springs back to the gear it was in
+							gate_pos=gate_slot_pos(int(model.state.gear))
+							lever_pending_gear=model.selector_gear()
+							gate_bump(closed)
+						else:
+							lever_pending_gear=gate_gear(gate_pos,lever_pending_gear)
 				elif kind=="slider":
 					var level=clampf((geo.pivot.y-lever_target_point.y)/float(geo.length),0.0,1.0)
 					if level<0.001: level=0.0
@@ -3056,6 +3063,21 @@ func gate_gear(pos: Vector2, previous: int) -> int:
 	if pos.y <= -0.85: return {0: 1, 1: 3, 2: 5}.get(column, 0)
 	if pos.y >= 0.85: return {0: 2, 1: 4, 2: 6}.get(column, 0)
 	return previous
+
+# The forward gear whose slot the knob has entered when that gear is closed (under a brass plate), else 0.
+const GATE_PLATE_FROM = 0.3   # the plate starts this far from the neutral channel, in gate units
+func closed_gate_gear(pos: Vector2) -> int:
+	if model.auto_gearbox() or absf(pos.y) < GATE_PLATE_FROM: return 0
+	var gear = ({0: 1, 1: 3, 2: 5} if pos.y < 0.0 else {0: 2, 1: 4, 2: 6}).get(roundi(pos.x), 0)
+	return gear if gear > 0 and not model.gear_is_open(gear) else 0
+
+var gate_bump_time = -10.0
+# A short low clack and the notice, not more often than once a second.
+func gate_bump(gear: int) -> void:
+	if time - gate_bump_time < 1.0: return
+	gate_bump_time = time
+	sound.play("gear", 0.6, 0.55)
+	notify(model.closed_gear_text(gear))
 
 func draw_gate(rect: Rect2, knob: Vector2, active: bool) -> void:
 	control_art().draw_gate(rect, knob, active)

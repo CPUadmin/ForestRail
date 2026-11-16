@@ -20,6 +20,7 @@ func fresh(auto: bool):
 	m.state.money = 100000
 	m.state.chapter = 9
 	Fixtures.equip(m, "motorcar")
+	Fixtures.open_gears(m)   # the 4th and the 5th gear are opened by the gearbox upgrade
 	m.weather_force = {"cloud": 0.0, "rain": 0.0, "fog": 0.0}
 	if auto: m.object_state("motorcar").levels["motorcar_automatic"] = 1
 	for p in m.route.points: p[1] = 0.0

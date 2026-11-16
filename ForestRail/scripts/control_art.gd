@@ -7,6 +7,7 @@ const GREEN = Color("466c51")
 const GOLD = Color("bb964f")
 const RED = Color("a64d3b")
 const WHEEL_SWEEP = PI * 1.5
+const GEAR_PLATE = preload("res://assets/art_cab/gear_plate.png")   # the brass blanking plate over a closed gear
 
 var canvas = null   # the node that draws (main.gd): it holds the font and the style cache
 
@@ -54,7 +55,19 @@ func draw_gate(rect: Rect2, knob: Vector2, active: bool) -> void:
 	for item in labels:
 		var at = gate_local(rect, item[0])
 		var offset = Vector2(-small * 0.4, -small * 0.9) if item[0].y < 0 else (Vector2(-small * 0.4, small * 1.35) if item[0].y > 0 else Vector2(-small * 0.3, -small * 0.55))
-		canvas.draw_string(canvas.font, at + offset, item[1], HORIZONTAL_ALIGNMENT_LEFT, 20, small, item[2])
+		var shut = item[1] in ["4", "5"] and not canvas.model.gear_is_open(int(item[1]))
+		canvas.draw_string(canvas.font, at + offset, item[1], HORIZONTAL_ALIGNMENT_LEFT, 20, small, Color(item[2], 0.3) if shut else item[2])
+	# closed gears (the petrol car before the «Коробка передач» upgrade): a plate with two screws over the slot
+	for gear in [4, 5]:
+		if canvas.model.gear_is_open(gear): continue
+		var slot = Vector2(1, 1) if gear == 4 else Vector2(2, -1)
+		var near = gate_local(rect, Vector2(slot.x, slot.y * 0.3))
+		var far = gate_local(rect, Vector2(slot.x, slot.y * 1.15))
+		var length = absf(far.y - near.y)
+		var plate_w = length * float(GEAR_PLATE.get_width()) / float(GEAR_PLATE.get_height())
+		var top = minf(near.y, far.y)
+		canvas.draw_texture_rect(GEAR_PLATE, Rect2(Vector2(near.x - plate_w * 0.5 + 1.0, top + 1.5), Vector2(plate_w, length)), false, Color(0, 0, 0, 0.45))   # its shadow
+		canvas.draw_texture_rect(GEAR_PLATE, Rect2(Vector2(near.x - plate_w * 0.5, top), Vector2(plate_w, length)), false)
 	var ball = gate_local(rect, knob)
 	var radius = maxf(4.5, rect.size.x * 0.10)
 	canvas.draw_circle(ball + Vector2(1.5, 2.0), radius, Color(0, 0, 0, 0.45))

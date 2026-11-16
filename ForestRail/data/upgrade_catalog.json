@@ -111,8 +111,8 @@
       "target_type": "motorcar",
       "name": "Коробка передач",
       "level_costs": [
-        70,
-        130
+        90,
+        180
       ],
       "levels": 2,
       "effects_at_level": {

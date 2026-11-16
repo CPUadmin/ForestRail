@@ -238,6 +238,7 @@
       ],
       "drag": 0.3,
       "top_speed_kmh": 120,
+      "gears_top_kmh": [71, 108, 120],
       "gears": [
         [
           1200,
@@ -910,8 +911,8 @@
       "target_type": "motorcar",
       "name": "Коробка передач",
       "level_costs": [
-        70,
-        130
+        90,
+        180
       ],
       "levels": 2,
       "effects_at_level": {
