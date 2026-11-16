@@ -22,11 +22,11 @@ func fresh(with_nitro: bool):
 	m.weather_force = {"cloud": 0.0, "rain": 0.0, "fog": 0.0}
 	if with_nitro: m.object_state("motorcar").levels["motorcar_nitro"] = 1
 	m.state.phase = "route"
-	m.state.gear = 1
+	m.state.gear = 2   # 16.11: the boost is measured on the move (8 m/s in 2nd); from a standstill a full pull spins the wheels
 	m.state.engine = true
 	m.state.brake = 0.0
 	m.state.throttle = 1.0
-	m.state.v = 0.0
+	m.state.v = 8.0
 	m.state.fleet_by_id.motorcar.fuel = float(m.object_stats("motorcar").tank)
 	return m
 
@@ -65,7 +65,7 @@ func run() -> void:
 	# the pull and the burn
 	var plain = run_for(fresh(true), 3.0, false)
 	var boosted = run_for(fresh(true), 3.0, true)
-	check(float(boosted.v) > float(plain.v) * 1.1, "the nitro speeds the car up (%.2f against %.2f m/s after 3 s)" % [float(boosted.v), float(plain.v)])
+	check(float(boosted.v) - 8.0 > (float(plain.v) - 8.0) * 1.3, "the nitro speeds the car up (%.2f against %.2f m/s after 3 s)" % [float(boosted.v), float(plain.v)])
 	check(float(boosted.used) > float(plain.used) * 1.8, "and burns the petrol much faster (%.5f against %.5f l)" % [float(boosted.used), float(plain.used)])
 	print("NITRO CHECKS ", checks, "; FAILURES ", failures)
 	preload("res://tests/qa_exit.gd").quit(self, 0 if failures.is_empty() else 1)

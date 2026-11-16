@@ -2446,6 +2446,10 @@ func driving_force(demand: float) -> float:
 		wheel_slip = false
 		return demand
 	var cap = drive_cap()
+	# 16.11: a boost (the supercapacitor, the nitro) holds the wheels at the edge of the grip by itself: below the grip it
+	# adds its pull in full, above it the train gets all the rail holds and never spins (else the gadget only hurt at low speed)
+	if burst_left() > 0.0 and not wheel_slip:
+		return minf(demand, cap)
 	if wheel_slip:
 		if demand < 0.85 * cap: wheel_slip = false
 	elif demand > cap:

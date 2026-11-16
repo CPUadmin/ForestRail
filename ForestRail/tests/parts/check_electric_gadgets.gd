@@ -37,7 +37,9 @@ func temperature_after(m, seconds: float) -> float:
 func speed_after(m, seconds: float, burst: bool) -> float:
 	m.state.throttle = 1.0
 	m.state.brake = 0.0
-	m.state.v = 0.0
+	# 16.11: from a standstill a full pull spins the wheels (the rail holds less than the motor gives), so the boost
+	# is measured where it is used: on the move (about 60 km/h), where even the boosted pull stays below the grip of the rail
+	m.state.v = 17.0
 	if burst: check(m.start_burst(), "the burst starts")
 	for i in range(int(seconds * 60.0)): m.physics_step(1.0 / 60.0)
 	return float(m.state.v)
@@ -72,7 +74,8 @@ func run() -> void:
 	# the burst really pushes the train
 	var without = speed_after(fresh(true, false), 3.0, false)
 	var with_burst = speed_after(fresh(true, false), 3.0, true)
-	check(with_burst > without * 1.15, "the burst speeds the train up (%.2f against %.2f m/s after 3 s)" % [with_burst, without])
+	# the gain of speed in 3 s (the train starts at 17 m/s): the burst gives clearly more
+	check(with_burst - 17.0 > (without - 17.0) * 1.3, "the burst speeds the train up (%.2f against %.2f m/s after 3 s)" % [with_burst, without])
 	# a new run starts without a burst
 	var d = fresh(true, false)
 	d.start_burst()
