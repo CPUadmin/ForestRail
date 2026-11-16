@@ -91,12 +91,12 @@ func run() -> void:
 	open_place("workshop")
 	game.selected_object = "steam"
 	game.rebuild()
-	all_locked("Улучшить до", "workshop")
+	all_locked("Улучшить ·", "workshop")
 	all_locked("За ", "wear")
 	all_locked("Починить всё", "wear")
 	check(not any_text("ГАДЖЕТ") and not any_text("Установить гаджет") and not any_text("Карты пока нет"), "a gadget without its card is not shown at all")
 	await shot("workshop_0_coins")
-	check(buttons("Улучшить до")[0].mouse_default_cursor_shape == Control.CURSOR_POINTING_HAND, "the cursor shape is set; Godot shows the arrow over a disabled button")
+	check(buttons("Улучшить ·")[0].mouse_default_cursor_shape == Control.CURSOR_POINTING_HAND, "the cursor shape is set; Godot shows the arrow over a disabled button")
 	# --- the card makes the gadget appear
 	m.casino().st().cards.append("magician")
 	game.rebuild()
@@ -114,7 +114,7 @@ func run() -> void:
 	check(int(m.object_state("steam").levels.get("steam_superheater", 0)) == 0 and int(m.state.money) == 100000, "nothing is taken and nothing is installed")
 	# --- enough coins
 	game.rebuild()
-	none_locked("Улучшить до", "workshop")
+	none_locked("Улучшить ·", "workshop")
 	none_locked("За ", "wear")
 
 	# --- the refill button and the wagon tab of the depot

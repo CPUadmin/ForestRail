@@ -2,6 +2,8 @@
   "rules": {
     "level_values": "absolute relative to stock, not multiplied by previous level",
     "level_costs": "incremental price for the next level",
+    "endless_gain_decay": 0.7,
+    "endless_note": "endless branches: level n>=3 adds (v2-v1)*decay^(n-2); price(n) = price(2)*g^(n-2), g = price(2)/price(1) clamped to 1.6..2.2",
     "roll_coefficient_floor": 0.001,
     "adhesion_cap_always": true,
     "vehicle_upgrades_transfer": false,
@@ -15,6 +17,7 @@
   "catalog": [
     {
       "id": "handcar_lever",
+      "endless": true,
       "target_type": "handcar",
       "name": "Рычажный привод",
       "level_costs": [
@@ -36,6 +39,7 @@
     },
     {
       "id": "handcar_bearings",
+      "endless": true,
       "target_type": "handcar",
       "name": "Подшипники",
       "level_costs": [
@@ -53,6 +57,7 @@
     },
     {
       "id": "handcar_brakes",
+      "endless": true,
       "target_type": "handcar",
       "name": "Тормоз",
       "level_costs": [
@@ -91,6 +96,7 @@
     },
     {
       "id": "motorcar_engine",
+      "endless": true,
       "target_type": "motorcar",
       "name": "Двигатель",
       "level_costs": [
@@ -108,6 +114,7 @@
     },
     {
       "id": "motorcar_gearbox",
+      "endless": true,
       "target_type": "motorcar",
       "name": "Коробка передач",
       "level_costs": [
@@ -129,6 +136,7 @@
     },
     {
       "id": "motorcar_brakes",
+      "endless": true,
       "target_type": "motorcar",
       "name": "Тормоз",
       "level_costs": [
@@ -146,6 +154,7 @@
     },
     {
       "id": "motorcar_tank",
+      "endless": true,
       "target_type": "motorcar",
       "name": "Бак",
       "level_costs": [
@@ -163,6 +172,7 @@
     },
     {
       "id": "locomotive_engine",
+      "endless": true,
       "target_type": "locomotive",
       "name": "Двигатель",
       "level_costs": [
@@ -180,6 +190,7 @@
     },
     {
       "id": "locomotive_gearbox",
+      "endless": true,
       "target_type": "locomotive",
       "name": "Трансмиссия",
       "level_costs": [
@@ -201,6 +212,7 @@
     },
     {
       "id": "locomotive_brakes",
+      "endless": true,
       "target_type": "locomotive",
       "name": "Тормозная система",
       "level_costs": [
@@ -218,6 +230,7 @@
     },
     {
       "id": "locomotive_tank",
+      "endless": true,
       "target_type": "locomotive",
       "name": "Бак",
       "level_costs": [
@@ -273,6 +286,7 @@
     },
     {
       "id": "wagon_bearings",
+      "endless": true,
       "target_type": "wagon",
       "name": "Подшипники",
       "level_costs": [
@@ -290,6 +304,7 @@
     },
     {
       "id": "wagon_brakes",
+      "endless": true,
       "target_type": "wagon",
       "name": "Вагонный тормоз",
       "level_costs": [

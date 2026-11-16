@@ -52,7 +52,9 @@ func run() -> void:
 		var bought_1 = m.upgrade(str(b.target_type), str(b.id))
 		var bought_2 = m.upgrade(str(b.target_type), str(b.id))
 		var bought_3 = m.upgrade(str(b.target_type), str(b.id))
-		check(bought_1 and bought_2 and not bought_3, "%s buys twice and no more" % b.id)
+		# owner 16.11: the simple branches are endless, the third level is sold too
+		check(bought_1 and bought_2 and bought_3 == m.branch_endless(b), "%s buys twice, and a third time when endless" % b.id)
+		if bought_3: m.object_state(str(b.target_type)).levels[b.id] = 2
 		var ef = m.effects(str(b.target_type))
 		var ok = true
 		for key in b.effects_at_level: ok = ok and is_equal_approx(float(ef[key]), float(b.effects_at_level[key][1]))

@@ -1,5 +1,6 @@
 extends Node
-# D9: the upgrade cards say "before -> after (+x%)" and never show a raw array of numbers like [1200.0, 1100.0].
+# D9: the upgrade cards never show a raw array of numbers like [1200.0, 1100.0]; owner 16.11: an endless card says
+# what gets better in one or two plain phrases, without numbers and percent, and its title shows the level.
 const Fixtures = preload("res://tests/fixtures.gd")
 
 var game
@@ -31,6 +32,7 @@ func run() -> void:
 	game.model.state.chapter = 9
 	for kind in ["motorcar", "steam", "locomotive", "pole"]:
 		Fixtures.equip(game.model, kind)
+		if kind == "motorcar": game.model.object_state(kind).levels["motorcar_engine"] = 3
 		game.screen = "depot"
 		game.tab = "Улучшения"
 		game.selected_object = kind
@@ -45,13 +47,19 @@ func run() -> void:
 			await get_tree().process_frame
 			check(int(game.model.object_state(kind).levels.get("steam_stoker", 0)) == 1, "workshop installs the card's gadget")
 			check(game.model.state.money == money, "the card installs for free")
-		var seen = 0
+		var texts: Array = []
 		for label in game.find_children("*", "Label", true, false):
-			var text = str(label.text)
-			if text.contains("→") or text.contains("%"):
-				seen += 1
-				check(not text.contains("["), "%s: no raw array in the card (%s)" % [kind, text.substr(0, 70)])
-		check(seen > 0, "%s: the cards show what changes" % kind)
+			texts.append(str(label.text))
+			check(not str(label.text).contains("["), "%s: no raw array in the card (%s)" % [kind, str(label.text).substr(0, 70)])
+		# owner 16.11: an endless card says one or two plain phrases, no numbers and no percent
+		var seen = 0
+		for branch in game.model.data.upgrade_catalog:
+			if branch.target_type != kind or not game.model.branch_endless(branch): continue
+			var line = game.depot_ui().upgrade_line(kind, branch)
+			if line in texts: seen += 1
+			check(line != "" and not line.contains("%") and not line.contains("→") and line.split("\n").size() <= 2, "%s: a short plain line (%s)" % [branch.id, line])
+		check(seen > 0, "%s: the cards show what gets better" % kind)
+		if kind == "motorcar": check("Двигатель · ур. 3" in texts, "the title shows the level (%s)" % str(texts.filter(func(t): return t.contains("ур."))))
 		for k in range(6): await get_tree().process_frame
 		await RenderingServer.frame_post_draw
 		get_tree().root.get_texture().get_image().save_png(output_dir.path_join("upgrades_%s.png" % kind))

@@ -255,8 +255,47 @@ func effects(id: String) -> Dictionary:
 		if lv == 0:
 			continue
 		for key in branch.effects_at_level:
-			result[key] = branch.effects_at_level[key][lv - 1]
+			result[key] = level_value(branch, key, lv)
 	return result
+
+# Owner 16.11: the simple upgrades are endless, as in tycoon games. Levels 1 and 2 keep the numbers of the
+# data; from level 3 on a level adds (v2 - v1) * decay^(n - 2) on top of the previous one (the total
+# approaches a ceiling, or a floor for multipliers below 1), and the price grows by a factor every level.
+const ENDLESS_PRICE_CAP := 1.0e15
+
+func branch_endless(branch: Dictionary) -> bool:
+	return bool(branch.get("endless", false))
+
+# the level is the last one: the endless branches never are
+func branch_maxed(branch: Dictionary, lv: int) -> bool:
+	return not branch_endless(branch) and lv >= int(branch.get("levels", 2))
+
+func endless_decay() -> float:
+	return float(data.get("upgrade_rules", {}).get("endless_gain_decay", 0.7))
+
+# the value of an effect key at level lv (>= 1)
+func level_value(branch: Dictionary, key: String, lv: int):
+	var values: Array = branch.effects_at_level[key]
+	if lv <= values.size() or not branch_endless(branch) or values.size() < 2:
+		return values[clampi(lv, 1, values.size()) - 1]
+	var q = endless_decay()
+	var d = float(values[1]) - float(values[0])
+	return float(values[1]) + d * q * (1.0 - pow(q, lv - 2)) / (1.0 - q)
+
+# the price of the next level when the branch stands at level lv; 0 when there is none
+func level_cost(branch: Dictionary, lv: int) -> int:
+	var costs: Array = branch.level_costs
+	if lv < costs.size(): return int(costs[lv])
+	if not branch_endless(branch) or costs.size() < 2: return 0
+	var c1 = maxf(1.0, float(costs[0]))
+	var c2 = float(costs[1])
+	var g = clampf(c2 / c1, 1.6, 2.2)
+	return tidy_price(minf(ENDLESS_PRICE_CAP, c2 * pow(g, lv - 1)))
+
+# to 5 below 500, to 10 below 5000, to 100 above
+static func tidy_price(price: float) -> int:
+	var step = 5.0 if price < 500.0 else (10.0 if price < 5000.0 else 100.0)
+	return int(roundf(price / step) * step)
 
 func object_stats(id: String) -> Dictionary:
 	var wagon = id.begins_with("W")
@@ -535,9 +574,9 @@ func upgrade(id: String, branch_id: String, _via_card: bool = false, with_bolts:
 			return fail("Гаджет не продаётся: его выбивают в лудке и ставят по карте")
 		var object = object_state(id)
 		var lv = int(object.levels.get(branch_id, 0))
-		if lv >= int(branch.get("levels", 2)):
+		if branch_maxed(branch, lv):
 			return fail("Уже установлено" if branch.get("gadget", false) else "Достигнут максимальный уровень")
-		var cost = int(branch.level_costs[lv])
+		var cost = level_cost(branch, lv)
 		# B6.11 c: a half of the price may be paid with the bolts of the bag (gadgets only come from the casino)
 		var plan: Dictionary = {}
 		if with_bolts:
@@ -2937,9 +2976,15 @@ func validate_save(saved: Dictionary) -> bool:
 			if object.has("water") and (not numeric(object.water) or object.water < 0): return false
 			for branch_id in object.levels:
 				var valid = false
+				var endless = false
 				for branch in data.upgrade_catalog:
-					valid = valid or (branch.id == branch_id and branch.target_type == ("wagon" if id.begins_with("W") else id))
-				if not valid or not numeric(object.levels[branch_id]) or int(object.levels[branch_id]) not in [0, 1, 2]: return false
+					if branch.id == branch_id and branch.target_type == ("wagon" if id.begins_with("W") else id):
+						valid = true
+						endless = branch_endless(branch)
+				if not valid or not numeric(object.levels[branch_id]): return false
+				# an endless branch takes any whole level >= 0, the others stay within 0..2
+				var level = float(object.levels[branch_id])
+				if level < 0.0 or level != floorf(level) or (not endless and int(level) > 2): return false
 	if not saved.stats.has_all(["distance", "deliveries", "earned", "rescues", "seconds"]): return false
 	for key in saved.stats:
 		if not numeric(saved.stats[key]) or saved.stats[key] < 0: return false

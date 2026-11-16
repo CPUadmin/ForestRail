@@ -815,6 +815,7 @@
   "upgrade_catalog": [
     {
       "id": "handcar_lever",
+      "endless": true,
       "target_type": "handcar",
       "name": "Рычажный привод",
       "level_costs": [
@@ -836,6 +837,7 @@
     },
     {
       "id": "handcar_bearings",
+      "endless": true,
       "target_type": "handcar",
       "name": "Подшипники",
       "level_costs": [
@@ -853,6 +855,7 @@
     },
     {
       "id": "handcar_brakes",
+      "endless": true,
       "target_type": "handcar",
       "name": "Тормоз",
       "level_costs": [
@@ -891,6 +894,7 @@
     },
     {
       "id": "motorcar_engine",
+      "endless": true,
       "target_type": "motorcar",
       "name": "Двигатель",
       "level_costs": [
@@ -908,6 +912,7 @@
     },
     {
       "id": "motorcar_gearbox",
+      "endless": true,
       "target_type": "motorcar",
       "name": "Коробка передач",
       "level_costs": [
@@ -929,6 +934,7 @@
     },
     {
       "id": "motorcar_brakes",
+      "endless": true,
       "target_type": "motorcar",
       "name": "Тормоз",
       "level_costs": [
@@ -946,6 +952,7 @@
     },
     {
       "id": "motorcar_tank",
+      "endless": true,
       "target_type": "motorcar",
       "name": "Бак",
       "level_costs": [
@@ -963,6 +970,7 @@
     },
     {
       "id": "locomotive_engine",
+      "endless": true,
       "target_type": "locomotive",
       "name": "Двигатель",
       "level_costs": [
@@ -980,6 +988,7 @@
     },
     {
       "id": "locomotive_gearbox",
+      "endless": true,
       "target_type": "locomotive",
       "name": "Трансмиссия",
       "level_costs": [
@@ -1001,6 +1010,7 @@
     },
     {
       "id": "locomotive_brakes",
+      "endless": true,
       "target_type": "locomotive",
       "name": "Тормозная система",
       "level_costs": [
@@ -1018,6 +1028,7 @@
     },
     {
       "id": "locomotive_tank",
+      "endless": true,
       "target_type": "locomotive",
       "name": "Бак",
       "level_costs": [
@@ -1073,6 +1084,7 @@
     },
     {
       "id": "wagon_bearings",
+      "endless": true,
       "target_type": "wagon",
       "name": "Подшипники",
       "level_costs": [
@@ -1090,6 +1102,7 @@
     },
     {
       "id": "wagon_brakes",
+      "endless": true,
       "target_type": "wagon",
       "name": "Вагонный тормоз",
       "level_costs": [
@@ -1107,6 +1120,7 @@
     },
     {
       "id": "pole_shaft",
+      "endless": true,
       "target_type": "pole",
       "name": "Шест",
       "level_costs": [30, 60],
@@ -1118,6 +1132,7 @@
     },
     {
       "id": "pole_tip",
+      "endless": true,
       "target_type": "pole",
       "name": "Наконечник",
       "level_costs": [25, 50],
@@ -1129,6 +1144,7 @@
     },
     {
       "id": "pole_bearings",
+      "endless": true,
       "target_type": "pole",
       "name": "Колёса платформы",
       "level_costs": [25, 50],
@@ -1140,6 +1156,7 @@
     },
     {
       "id": "pole_brakes",
+      "endless": true,
       "target_type": "pole",
       "name": "Тормоз",
       "level_costs": [20, 40],
@@ -1151,6 +1168,7 @@
     },
     {
       "id": "sail_cloth",
+      "endless": true,
       "target_type": "sail",
       "name": "Парус",
       "level_costs": [40, 80],
@@ -1162,6 +1180,7 @@
     },
     {
       "id": "sail_rigging",
+      "endless": true,
       "target_type": "sail",
       "name": "Оснастка",
       "level_costs": [35, 70],
@@ -1173,6 +1192,7 @@
     },
     {
       "id": "sail_bearings",
+      "endless": true,
       "target_type": "sail",
       "name": "Колёса платформы",
       "level_costs": [25, 50],
@@ -1184,6 +1204,7 @@
     },
     {
       "id": "sail_brakes",
+      "endless": true,
       "target_type": "sail",
       "name": "Тормоз",
       "level_costs": [20, 40],
@@ -1195,6 +1216,7 @@
     },
     {
       "id": "steam_boiler",
+      "endless": true,
       "target_type": "steam",
       "name": "Котёл",
       "level_costs": [90, 170],
@@ -1206,6 +1228,7 @@
     },
     {
       "id": "steam_firebox",
+      "endless": true,
       "target_type": "steam",
       "name": "Топка",
       "level_costs": [80, 150],
@@ -1217,6 +1240,7 @@
     },
     {
       "id": "steam_tank",
+      "endless": true,
       "target_type": "steam",
       "name": "Тендер",
       "level_costs": [60, 110],
@@ -1229,6 +1253,7 @@
     },
     {
       "id": "steam_brakes",
+      "endless": true,
       "target_type": "steam",
       "name": "Тормоза",
       "level_costs": [60, 110],
@@ -1240,6 +1265,7 @@
     },
     {
       "id": "pneumatic_tank",
+      "endless": true,
       "target_type": "pneumatic",
       "name": "Баллон",
       "level_costs": [100, 190],
@@ -1251,6 +1277,7 @@
     },
     {
       "id": "pneumatic_pipes",
+      "endless": true,
       "target_type": "pneumatic",
       "name": "Утепление труб",
       "level_costs": [90, 170],
@@ -1262,6 +1289,7 @@
     },
     {
       "id": "pneumatic_engine",
+      "endless": true,
       "target_type": "pneumatic",
       "name": "Пневмодвигатель",
       "level_costs": [100, 190],
@@ -1273,6 +1301,7 @@
     },
     {
       "id": "pneumatic_brakes",
+      "endless": true,
       "target_type": "pneumatic",
       "name": "Тормоза",
       "level_costs": [70, 130],
@@ -1308,6 +1337,7 @@
     },
     {
       "id": "zeppelin_tank",
+      "endless": true,
       "target_type": "zeppelin",
       "name": "Бак",
       "level_costs": [120, 220],
@@ -1319,6 +1349,7 @@
     },
     {
       "id": "zeppelin_engine",
+      "endless": true,
       "target_type": "zeppelin",
       "name": "Мотор",
       "level_costs": [240, 450],
@@ -1330,6 +1361,7 @@
     },
     {
       "id": "zeppelin_wing",
+      "endless": true,
       "target_type": "zeppelin",
       "name": "Крыло",
       "level_costs": [200, 380],
@@ -1341,6 +1373,7 @@
     },
     {
       "id": "zeppelin_brakes",
+      "endless": true,
       "target_type": "zeppelin",
       "name": "Тормоза",
       "level_costs": [110, 200],
@@ -1566,6 +1599,8 @@
   "upgrade_rules": {
     "level_values": "absolute relative to stock, not multiplied by previous level",
     "level_costs": "incremental price for the next level",
+    "endless_gain_decay": 0.7,
+    "endless_note": "endless branches: level n>=3 adds (v2-v1)*decay^(n-2); price(n) = price(2)*g^(n-2), g = price(2)/price(1) clamped to 1.6..2.2",
     "roll_coefficient_floor": 0.001,
     "adhesion_cap_always": true,
     "vehicle_upgrades_transfer": false,

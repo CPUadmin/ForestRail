@@ -138,12 +138,12 @@ func view_checks() -> void:
 	for item in game.model.data.upgrade_catalog:
 		if item.id == "motorcar_gearbox": branch = item
 	check(branch.level_costs == [90.0, 180.0] or branch.level_costs == [90, 180], "the gearbox upgrade costs 90 and 180")
-	var card = game.depot_ui().upgrade_preview("motorcar", branch)
-	check(card.begins_with("Открывает 4-ю передачу: до 108 км/ч\n"), "the level 1 card says first that it opens the 4th: " + card.replace("\n", " | "))
+	var card = game.depot_ui().upgrade_line("motorcar", branch)
+	check(card.begins_with("Открывает 4-ю передачу\n"), "the level 1 card says first that it opens the 4th: " + card.replace("\n", " | "))
 	check(game.depot_ui().garage_line().contains("до 71 км/ч"), "the garage line shows 71 km/h without the upgrade: " + game.depot_ui().garage_line())
 	car.levels["motorcar_gearbox"] = 1
-	card = game.depot_ui().upgrade_preview("motorcar", branch)
-	check(card.begins_with("Открывает 5-ю передачу: до 120 км/ч\n"), "the level 2 card says first that it opens the 5th: " + card.replace("\n", " | "))
+	card = game.depot_ui().upgrade_line("motorcar", branch)
+	check(card.begins_with("Открывает 5-ю передачу\n"), "the level 2 card says first that it opens the 5th: " + card.replace("\n", " | "))
 	check(game.depot_ui().garage_line().contains("до 108 км/ч"), "the garage line shows 108 km/h with level 1: " + game.depot_ui().garage_line())
 	car.levels["motorcar_gearbox"] = 0
 	# the gate: the plate stops the knob, and the notice comes not more often than once a second

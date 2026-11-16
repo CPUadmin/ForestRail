@@ -708,17 +708,18 @@ func build_upgrades(right: VBoxContainer) -> void:
 	for branch in branches:
 		var lv = int(canvas.model.object_state(canvas.selected_object).levels.get(branch.id, 0))
 		var name = upgrade_branch_name(canvas.selected_object, branch)
-		var levels = int(branch.get("levels", 2))
+		var maxed = canvas.model.branch_maxed(branch, lv)
 		var gadget = bool(branch.get("gadget", false))
 		var tarot = canvas.model.casino().card_for_upgrade(str(branch.id)) if gadget else {}
 		# a gadget is never sold: it is shown only when its Tarot card is owned or it already stands on the machine (the creative mode shows all)
 		if gadget and lv < 1 and not canvas.model.creative() and (tarot.is_empty() or not canvas.model.casino().card_owned(str(tarot.id))): continue
-		var c = canvas.card(right, canvas.GOLD if str(branch.id) == canvas.workshop_branch else (canvas.GREEN if lv >= levels else (Color("c9a24e") if gadget else canvas.CARD_EDGE)))
+		var c = canvas.card(right, canvas.GOLD if str(branch.id) == canvas.workshop_branch else (canvas.GREEN if maxed else (Color("c9a24e") if gadget else canvas.CARD_EDGE)))
 		if not tarot.is_empty(): gadget_icon(c, str(tarot.id))
-		canvas.add_label(c, ("ГАДЖЕТ  ·  %s  ·  %s" % [name, "● установлен" if lv >= 1 else "○"]) if gadget else ("%s  ·  %s" % [name, ["○ ○", "● ○", "● ●"][lv]]), 22)
-		if lv < levels:
-			var preview = upgrade_preview(canvas.selected_object, branch)
-			canvas.add_label(c, preview, 17, canvas.MUTED_INK)
+		# owner 16.11: the title is the name and the level, «Двигатель · ур. 3» (level 0: just the name)
+		var title = name if lv == 0 else "%s · ур. %d" % [name, lv]
+		canvas.add_label(c, ("ГАДЖЕТ  ·  %s  ·  %s" % [name, "● установлен" if lv >= 1 else "○"]) if gadget else title, 22)
+		if not maxed:
+			canvas.add_label(c, upgrade_line(canvas.selected_object, branch), 17, canvas.MUTED_INK)
 			if not tarot.is_empty():
 				var card_id = str(tarot.id)
 				if canvas.model.casino().card_owned(card_id):
@@ -730,17 +731,17 @@ func build_upgrades(right: VBoxContainer) -> void:
 							canvas.notify("Гаджет можно установить в депо до погрузки"), not canvas.model.depot_editable())
 					continue
 			# only the creative mode gets here with a gadget and no card: there it is installed for free
-			var cost = int(branch.level_costs[lv])
-			buy_button(c, ("Установить гаджет · %d монет" % cost) if gadget else ("Улучшить до %s · %d монет" % ["I" if lv == 0 else "II", cost]), cost, func():
+			var cost = canvas.model.level_cost(branch, lv)
+			buy_button(c, ("Установить гаджет · %d монет" % cost) if gadget else ("Улучшить · %d монет" % cost), cost, func():
 				var id = canvas.selected_object
-				canvas.confirm("%s: %s\nЦена %d. Останется %d монет." % [id, preview, cost, maxi(0, int(canvas.model.state.money) - cost)], func():
+				canvas.confirm("%s · %d монет" % [name, cost], func():
 					if canvas.model.upgrade(id, branch.id): canvas.save_game(); canvas.rebuild()
 					else: canvas.notify(canvas.model.message)))
 			var plan = canvas.model.casino().bolt_plan(cost)
 			if not gadget and int(plan.count) > 0:
 				buy_button(c, "Доплатить болтами · %d монет + %d болтов" % [cost - int(plan.coins), int(plan.count)], cost - int(plan.coins), func():
 					var id = canvas.selected_object
-					canvas.confirm("%s: %s\nПлатишь %d монет и %d болтов вместо %d монет." % [id, preview, cost - int(plan.coins), int(plan.count), cost], func():
+					canvas.confirm("%s · %d монет + %d болтов" % [name, cost - int(plan.coins), int(plan.count)], func():
 						if canvas.model.upgrade(id, branch.id, false, true): canvas.save_game(); canvas.rebuild()
 						else: canvas.notify(canvas.model.message)))
 		else:
@@ -1017,8 +1018,40 @@ func percent_change(before, after) -> String:
 	if absf(sum_before) < 0.000001: return "изменится"
 	return ("%+d%%" % int(round((sum_after / sum_before - 1.0) * 100.0))).replace("-", "−")
 
-# ui-v2 (owner 14.11): one short line per change, «Тяга +15%», «Тормоз 1800 → 2250 Н»; no units in the name,
-# no «на всех передачах» on every line, a gadget is not named twice (its name is the title of the card)
+# Owner 16.11: an endless card says the minimum: one plain phrase of what gets better, no numbers, at most
+# two phrases; when the next level adds less than half a percent it says so. The petrol gearbox says first
+# which gear its level opens. The other branches and the gadgets keep the short preview below.
+const UPGRADE_PHRASES = {"traction_multiplier": "Тянет сильнее", "power_multiplier": "Мощнее", "work_multiplier": "Качать легче",
+	"brake_multiplier": "Тормозит лучше", "add_brake_n": "Тормозит лучше", "rolling_multiplier": "Легче катится",
+	"fuel_capacity_multiplier": "Больше запас топлива", "water_capacity_multiplier": "Больше запас воды",
+	"low_gear_multiplier": "Сильнее на низких передачах", "high_gear_speed_multiplier": "Быстрее на высоких передачах",
+	"pole_force_multiplier": "Толкает сильнее", "pole_grip_multiplier": "Шест меньше скользит",
+	"sail_area_multiplier": "Парус ловит больше ветра", "sail_hold_multiplier": "Держит сильный порыв",
+	"steam_power_multiplier": "Больше пара", "fire_burn_multiplier": "Угля уходит меньше", "frost_multiplier": "Меньше мёрзнет",
+	"zep_power_multiplier": "Мотор мощнее", "zep_wing_multiplier": "Взлетает раньше"}
+
+func upgrade_line(id: String, branch: Dictionary) -> String:
+	var model = canvas.model
+	if not model.branch_endless(branch): return upgrade_preview(id, branch)
+	var lv = int(model.object_state(id).levels.get(branch.id, 0))
+	var parts: Array = []
+	# the gearbox of the petrol car opens a gear at each of its first two levels
+	if branch.id == "motorcar_gearbox" and lv < 2 and not model.creative():
+		parts.append("Открывает %d-ю передачу" % (4 + lv))
+	# the relative gain of the next level (an added brake force counts against the level before)
+	var gain = 0.0
+	for key in branch.effects_at_level:
+		var now = float(model.level_value(branch, key, lv)) if lv > 0 else 1.0
+		var next = float(model.level_value(branch, key, lv + 1))
+		gain = maxf(gain, absf(next - now) / maxf(0.0001, absf(now)))
+		var phrase = str(UPGRADE_PHRASES.get(key, "Работает лучше"))
+		if key == "fuel_capacity_multiplier": phrase = "Батарея держит дольше" if id == "locomotive" else ("Больше запас угля" if id == "steam" else phrase)
+		if not phrase in parts: parts.append(phrase)
+	if lv >= 2 and gain < 0.005: return "Уже почти ничего не даст"
+	return "\n".join(parts.slice(0, 2))
+
+# ui-v2 (owner 14.11): one short line per change, «Места 2 → 3»; no units in the name, a gadget is not named
+# twice (its name is the title of the card); owner 16.11: at most two lines
 func upgrade_preview(id: String, branch: Dictionary) -> String:
 	var object = canvas.model.object_state(id)
 	var lv = int(object.levels.get(branch.id, 0))
@@ -1027,9 +1060,6 @@ func upgrade_preview(id: String, branch: Dictionary) -> String:
 	var after = canvas.model.object_stats(id)
 	object.levels[branch.id] = lv
 	var parts: Array = []
-	# the gearbox of the petrol car opens a gear at each level: say it first, in plain words
-	if branch.id == "motorcar_gearbox" and lv < 2 and not canvas.model.creative():
-		parts.append("Открывает %d-ю передачу: до %d км/ч" % [4 + lv, int(canvas.model.vehicle_base("motorcar").gears_top_kmh[lv + 1])])
 	var battery = id == "locomotive"
 	var names = {"slots": ["Места", ""], "mass": ["Масса", " кг"], "brake": ["Тормоз", " Н"], "tank": ["Батарея" if battery else ("Запас угля" if id == "steam" else "Бак"), " кВт·ч" if battery else ("" if id == "steam" else " л")], "power": ["Мощность", " Вт"], "rolling": ["Сопротивление качению", ""], "shock": ["Битьё посуды", ""], "traction": ["Тяга", ""], "speeds": ["Скорость на передачах", ""]}
 	for key in ["slots", "mass", "brake", "tank", "power", "rolling", "shock", "traction", "speeds"]:
@@ -1041,7 +1071,7 @@ func upgrade_preview(id: String, branch: Dictionary) -> String:
 	object.levels[branch.id] = lv + 1
 	var after_ef = canvas.model.effects(id)
 	object.levels[branch.id] = lv
-	var sentences = {"steam_superheater": "Угля на 30% меньше, пара на 10% больше, но разогревается дольше", "steam_stoker": "Сам подбрасывает уголь и держит огонь ровно, но тратит на 20% больше", "sail_spinnaker": "Тяга на попутном ветре ×1,8 (в бейдевинд хуже, рвётся раньше)", "sail_autopilot": "Парус сам держит угол, шкот фиксируется в любом положении (80% тяги)", "sail_oars": "На штиле можно грести: медленно, но всегда доедешь", "zep_flaps_gadget": "Взлёт на скорости ниже на 20%, сопротивление в воздухе +5%", "zep_trim": "Держит высоту, на которой включён, ручка не нужна"}
+	var sentences = {"steam_superheater": "Меньше угля и больше пара, но дольше греется", "steam_stoker": "Сам подбрасывает уголь, но тратит больше", "sail_spinnaker": "Сильно тянет на попутном ветре", "sail_autopilot": "Парус сам держит угол", "sail_oars": "На штиле можно грести", "zep_flaps_gadget": "Взлетает на меньшей скорости", "zep_trim": "Сам держит высоту"}
 	var factors = {"work_multiplier": "Сила качания", "pole_force_multiplier": "Сила толчка", "zep_power_multiplier": "Мощность мотора", "zep_wing_multiplier": "Площадь крыла (взлёт при меньшей скорости)", "pole_grip_multiplier": "Хватка наконечника", "sail_area_multiplier": "Площадь паруса", "sail_hold_multiplier": "Держит порыв", "steam_power_multiplier": "Пар", "fire_burn_multiplier": "Расход угля", "water_capacity_multiplier": "Запас воды", "frost_multiplier": "Рост инея"}
 	for key in sentences:
 		if after_ef.has(key) and not before_ef.has(key) or (after_ef.has(key) and after_ef[key] != before_ef.get(key)): parts.append(str(sentences[key]))
@@ -1050,7 +1080,7 @@ func upgrade_preview(id: String, branch: Dictionary) -> String:
 		var b = float(before_ef.get(key, 1.0))
 		if is_equal_approx(b, float(after_ef[key])): continue
 		parts.append("%s %s" % [factors[key], percent_change(b, float(after_ef[key]))])
-	return "\n".join(parts)
+	return "\n".join(parts.slice(0, 2))
 
 func build_missions(right: VBoxContainer) -> void:
 	if canvas.model.creative():
