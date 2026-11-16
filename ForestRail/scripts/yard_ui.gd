@@ -6,6 +6,7 @@ extends RefCounted
 
 const PLACES = ["depot", "workshop", "shop", "casino"]
 const NAMES = {"depot": "Депо", "workshop": "Мастерская", "shop": "Магазин", "casino": "Казик"}
+const CASINO_ZOOM = 0.8   # the casino door: zoom 1.8 in all
 const ENTER_ZOOM = 0.35   # how much closer the camera comes to the building while the screen darkens
 
 var canvas = null
@@ -80,6 +81,16 @@ func draw_yard(size: Vector2) -> void:
 		var focus = building_rect(size, entering).get_center()
 		var k = 1.0 + ENTER_ZOOM * t
 		r = Rect2(focus + (r.position - focus) * k, r.size * k)
+		if entering == "casino" and canvas.place_style == "casino_in":
+			# the casino is the grandest entrance: the camera aims at the door and flies in, ease in-out
+			var door = r_point(image_rect(size), layout.get("casino_door", [0.812, 0.479]))
+			var e = smoothstep(0.0, 1.0, clampf(canvas.casino_flight() * 1.08, 0.0, 1.0))
+			var kk = 1.0 + CASINO_ZOOM * e
+			r = image_rect(size)
+			r = Rect2(door + (r.position - door) * kk + (size * 0.5 - door) * e, r.size * kk)
+			# the picture always covers the window (the track side stays low; nothing blank at the sides or the top)
+			r.position.x = clampf(r.position.x, size.x - r.size.x, 0.0)
+			r.position.y = minf(r.position.y, 0.0)
 	# owner 15.11: one track everywhere: the picture ends at the rails, below them the game shows its own track and ground
 	var rail = r.position.y + float(layout.get("track_y", 0.8)) * r.size.y
 	if day != null: draw_above(day, r, rail, Color.WHITE)
@@ -87,11 +98,32 @@ func draw_yard(size: Vector2) -> void:
 	var dusk = clampf(canvas.model.night_amount() * 1.2 + canvas.model.twilight() * 0.5, 0.0, 1.0)
 	if evening != null and dusk > 0.01: draw_above(evening, r, rail, Color(1, 1, 1, dusk))
 	elif evening == null and dusk > 0.01: canvas.draw_rect(Rect2(r.position, Vector2(r.size.x, rail - r.position.y)), Color(0.05, 0.06, 0.16, 0.45 * dusk))
+	if entering == "casino" and canvas.casino_flight() > 0.0: draw_casino_light(r)
 	# the building under the mouse: its windows and door get warmer (a soft lamp glow over it, no frame over the painting)
 	if hover != "" and entering == "":
 		var b = building_rect(size, hover)
 		var glow = maxf(b.size.x, b.size.y) * 1.25
 		canvas.draw_texture_rect(canvas.DEPOT_GLOW, Rect2(b.get_center() - Vector2(glow, glow) * 0.5, Vector2(glow, glow)), false, Color(1.0, 0.82, 0.5, 0.55))
+
+func r_point(r: Rect2, frac) -> Vector2:
+	return r.position + Vector2(float(frac[0]) * r.size.x, float(frac[1]) * r.size.y)
+
+# the lamps of the Kazik flare up and flicker, then the light of the door pours out (soft glows made by code, no new sprites)
+func draw_casino_light(r: Rect2) -> void:
+	var p = canvas.casino_flight()
+	var clock = canvas.depot_anim_t
+	var flare = smoothstep(0.0, 0.45, p)
+	for i in range(3):
+		var lamp = r_point(r, layout.get("casino_lamps", [[0.786, 0.405], [0.867, 0.405], [0.937, 0.405]])[i])
+		var flicker = 0.80 + 0.12 * sin(clock * 47.0 + float(i) * 2.1) + 0.08 * sin(clock * 113.0 + float(i) * 5.3)
+		var g = r.size.x * (0.07 + 0.05 * flare) * flicker
+		canvas.draw_texture_rect(canvas.DEPOT_GLOW, Rect2(lamp - Vector2(g, g) * 0.5, Vector2(g, g)), false, Color(1.0, 0.78, 0.4, 0.9 * flare))
+	# the door opens: the light grows out of it and fills the window
+	var door = r_point(r, layout.get("casino_door", [0.812, 0.479]))
+	var open = smoothstep(0.25, 1.0, p)
+	var d = r.size.x * (0.10 + 0.9 * open)
+	for pass_index in range(2):
+		canvas.draw_texture_rect(canvas.DEPOT_GLOW, Rect2(door - Vector2(d, d) * 0.5, Vector2(d, d)), false, Color(1.0, 0.82, 0.45, 0.8 * open))
 
 # a picture drawn down to the line of the rails only
 func draw_above(texture: Texture2D, r: Rect2, rail: float, tint: Color) -> void:
@@ -229,7 +261,7 @@ func build_bottom_bar(size: Vector2) -> void:
 func enter(id: String) -> void:
 	canvas.sound.play("ui_click", 0.5)
 	if id == "casino":
-		canvas.show_modal("casino")
+		canvas.go_place("casino")
 		return
 	entering = id
 	canvas.go_place(id)

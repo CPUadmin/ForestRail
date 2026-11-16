@@ -17,6 +17,7 @@ func build_depot(size: Vector2) -> void:
 	build_place_nav(size)
 	build_place_room(size)
 
+const CasinoView = preload("res://scripts/casino_view.gd")
 const COIN_ICON = preload("res://assets/ui/coin.png")
 
 func headline(label: Label, outline: int) -> void:
@@ -488,7 +489,6 @@ func build_casino_tab(right: VBoxContainer) -> void:
 	var c = canvas.card(right, canvas.GOLD)
 	canvas.add_label(c, "КАЗИК «у стрелки»", 26)
 	canvas.add_label(c, "Жетонов: %d  ·  шлака: %d шт.  ·  до гарантированной карточки: %d из %d" % [casino.tokens(), casino.bolt_total(), casino.pity(), int(canvas.model.data.casino.pity_max)], 18)
-	canvas.add_label(c, "Михалыч берёт шлак жетонами («деп»), за жетоны крутится колесо «лудки». Из колеса выпадают жетоны, шлак, монеты, ремнаборы, бонуски, а изредка карточка гаджета.", 16, canvas.MUTED_INK)
 	var enter = Button.new()
 	enter.tooltip_text = "Войти в казик"
 	enter.custom_minimum_size = Vector2(0, 190)
@@ -519,17 +519,12 @@ func build_casino_tab(right: VBoxContainer) -> void:
 	for card in canvas.model.data.casino.cards:
 		if casino.card_owned(str(card.id)): album_have += 1
 	canvas.add_button(c, "Альбом карточек Таро (%d из %d)" % [album_have, album_total], func(): canvas.show_modal("album"))
-	var odds: Array = []
-	var total = 0.0
-	for s in canvas.model.data.casino.sectors: total += float(s.weight)
-	var names = {"empty": "пусто", "tokens1": "5 жетонов", "tokens2": "10 жетонов", "junk": "шлак", "coins": "монеты", "repair": "ремнабор", "golden": "золочёный болт", "bonus": "бонуска", "card": "КАРТОЧКА"}
-	for s in canvas.model.data.casino.sectors:
-		var chance = float(s.weight) / total * 100.0
-		if str(s.kind) == "card": chance = casino.card_chance() * 100.0
-		odds.append("%s %.1f%%" % [names.get(str(s.id), str(s.id)), chance])
-	var rules = canvas.card(right, canvas.CARD_EDGE)
-	canvas.add_label(rules, "Честные шансы одной крутки", 20)
-	canvas.add_label(rules, ", ".join(odds) + ". Карточка выпадает наверняка, когда счётчик гаранта дойдёт до %d; он растёт на каждой крутке и на каждом рейсе. Всё только за игровые жетоны." % int(canvas.model.data.casino.pity_max), 15, canvas.MUTED_INK)
+	# the casino does not write out its rules or odds: one honest notice (the same words as the sign on the wall inside)
+	var rules = canvas.card(right, canvas.UiKit.BRASS_DARK)
+	var title = canvas.add_label(rules, CasinoView.SIGN_TITLE, 22, canvas.UiKit.LAMP)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	for line in CasinoView.SIGN_RULES: canvas.add_label(rules, line, 17)
+	canvas.add_label(rules, CasinoView.SIGN_NOTE, 15, canvas.MUTED_INK)
 	canvas.add_button(right, "Приёмка болтов за монеты", func(): canvas.show_modal("receiving"))
 
 # B6.6d: the table of the records (a free ride from the first station to the last and back; every machine has its own line)
