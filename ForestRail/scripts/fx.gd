@@ -288,6 +288,7 @@ func emit_wear(dt: float) -> void:
 	var running = bool(model.state.get("engine", true)) and float(model.state.get("throttle", 0.0)) > 0.1
 	if id in MOTORS and running and power < wear.WARN_BELOW:
 		var often = 0.6 if power < wear.BREAKDOWN_BELOW else 0.22   # coughs a second
+		if not wear.omen.is_empty(): often = 1.6   # the omen of a stop: it coughs hard for the 8 seconds
 		if take("cough", often * dt) > 0:
 			var bang = power < wear.BREAKDOWN_BELOW and hash01(next_seed, 41) < 0.5
 			var at = to_world(body_s, exhaust_local(id))

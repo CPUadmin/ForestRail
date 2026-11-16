@@ -2218,7 +2218,7 @@
         {
           "id": "wing",
           "name": "Крыло и рули",
-          "effect": "roll",
+          "effect": "lift",
           "floor": 0.6,
           "per_km": 0.001
         },

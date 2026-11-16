@@ -42,6 +42,7 @@ var double_chute_gadget = false  # the gadget: a second chute
 # --- state
 var v = 0.0                 # speed along the rail, m/s
 var thrust = 0.0
+var wear_scale = 1.0       # the worn engine and nozzle (wear.gd, set by the model each step)
 var counting = false        # the countdown is running
 var countdown = 0.0         # seconds left
 var started = false         # the engine is lit
@@ -275,7 +276,7 @@ func thrust_scale() -> float:
 # the thrust the engine tries to reach now
 func target_thrust() -> float:
 	if not started or fuel <= 0.0: return 0.0
-	var value = throttle * c("thrust_max_n") * thrust_scale()
+	var value = throttle * c("thrust_max_n") * thrust_scale() * wear_scale
 	if afterburner_time > 0.0: value *= c("afterburner_thrust")
 	return value
 

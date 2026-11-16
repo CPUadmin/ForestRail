@@ -10,11 +10,16 @@ const BREAKDOWN_PER_MINUTE = 0.03
 const WARN_BELOW = 0.4          # лампа «АВАРИЯ»
 const FREE_TOUCH_UP = 0.2       # депо бесплатно подправляет узел до этого состояния
 const WORN_BELOW = 0.7          # ступень «износ»: тихие признаки (дым потемнел, тормоз дымит)
+const LIMP_POWER = 0.5          # «ковыляние»: узел тяги на отказе (ниже 20%) тянет вполовину
+const LIMP_HUMAN_FLOOR = 0.25   # ручные машины при ковылянии не слабее четверти
+const STOP_BELOW = 0.1          # ниже этого узел может встать на ходу, но только после предвестника
+const OMEN_SECONDS = 8.0        # предвестник остановки: кашель, мигающая лампа, строка
 
-const EFFECT_HINT = {"brake": "тормозной путь длиннее", "roll": "ход тяжелее", "power": "тяга слабее", "capacity": "запас меньше", "rig": "рвётся раньше", "shock": "груз бьётся"}
+const EFFECT_HINT = {"brake": "тормозной путь длиннее", "roll": "ход тяжелее", "power": "тяга слабее", "capacity": "запас меньше", "rig": "рвётся раньше", "shock": "груз бьётся", "lift": "взлёт тяжелее"}
 
 var m   # the model
 var last_damage = ""            # последняя причина повреждения (для подсказки)
+var omen = {}                  # предвестник остановки: {"id", "node", "t" секунд до остановки}; не сохраняется
 var journal: Array = []         # журнал рейса: последние причины урона [{why, node, name, amount}], новые в конце (не сохраняется)
 const JOURNAL_MAX = 5
 
@@ -50,7 +55,10 @@ func set_condition(id: String, node: String, value: float) -> void:
 	if value < old and m.state.phase == "route":
 		var line = WARN_BELOW if old >= WARN_BELOW and value < WARN_BELOW else (BREAKDOWN_BELOW if old >= BREAKDOWN_BELOW and value < BREAKDOWN_BELOW else -1.0)
 		if line > 0.0 and m.message == "":
-			m.message = "%s%s: %d%%, %s. Лампа АВАРИЯ" % [str(def.name), (" " + id) if id.begins_with("W") else "", roundi(clampf(value, 0.0, 1.0) * 100.0), EFFECT_HINT.get(str(def.effect), "хуже")]
+			if line == BREAKDOWN_BELOW and str(def.effect) == "power":
+				m.message = "%s на последнем дыхании: %d%%, тяга вполовину. Дотяни до мастерской" % [str(def.name), roundi(clampf(value, 0.0, 1.0) * 100.0)]
+			else:
+				m.message = "%s%s: %d%%, %s. Лампа АВАРИЯ" % [str(def.name), (" " + id) if id.begins_with("W") else "", roundi(clampf(value, 0.0, 1.0) * 100.0), EFFECT_HINT.get(str(def.effect), "хуже")]
 			m.events.append("wear_warn")
 
 # The multiplier of one kind of action: 1.0 for a new machine, down to the floors of its worn nodes.
@@ -62,7 +70,17 @@ func factor(id: String, effect: String) -> float:
 		if str(def.effect) != effect: continue
 		var floor_value = float(def.get("floor", 0.6))
 		result *= floor_value + (1.0 - floor_value) * condition(id, str(def.id))
+	if effect == "power" and limping(id):
+		result = maxf(result * LIMP_POWER, LIMP_HUMAN_FLOOR if m.human_powered(id) else 0.0)
 	return result
+
+# «Ковыляние»: a node of the pull is failing (below 20%, not yet dead); the machine pulls at half.
+func limping(id: String) -> bool:
+	for def in nodes_of(id):
+		if str(def.effect) != "power": continue
+		var value = condition(id, str(def.id))
+		if value > 0.0 and value < BREAKDOWN_BELOW: return true
+	return false
 
 # Ступени узла (docs/DAMAGE_SYSTEM_PROPOSAL_RU.md): хорошо 100–70, износ 69–40 (тихие признаки),
 # критично 39–20 (лампа, значок, искры, чих), отказ 19–1 (громко, может встать), стоп 0.
@@ -157,7 +175,9 @@ func damage_effect(id: String, effect: String, amount: float, why: String = "", 
 	var node = node_of(id, effect, preferred)
 	if node != "": damage(id, node, amount, why)
 
-# --- breakdown: below 20% a node may fail on the road (3% a minute); at 0 the machine does not go.
+# --- breakdown: below 20% the pull limps at half; below 10% a node may stop the machine on the road
+# (3% a minute), never at once: an omen of 8 seconds comes first (coughs, the blinking lamp, a line).
+# At 0 the machine does not go.
 func broken(id: String) -> String:
 	return str(m.object_state(id).get("broken", ""))
 
@@ -172,17 +192,34 @@ func cannot_drive(id: String) -> bool:
 
 func breakdown_step(dt: float) -> void:
 	var id = m.vehicle_id()
-	if broken(id) != "" or m.creative(): return
+	if broken(id) != "" or m.creative():
+		omen = {}
+		return
+	if not omen.is_empty():
+		if str(omen.id) != id or condition(id, str(omen.node)) >= STOP_BELOW:
+			omen = {}   # another machine, or the node was mended in time: no stop
+			return
+		omen.t = float(omen.t) - dt
+		if float(omen.t) <= 0.0:
+			var node = str(omen.node)
+			omen = {}
+			m.object_state(id).broken = node
+			m.state.throttle = 0.0
+			m.events.append("breakdown")
+			m.message = "Поломка: %s. Машина не едет. Вызови помощь депо или чинись на станции с мастерской" % str(node_def(id, node).name).to_lower()
+		return
 	var weak = worst(id)
-	if float(weak.cond) >= BREAKDOWN_BELOW: return
+	if float(weak.cond) >= STOP_BELOW: return
 	if absf(float(m.state.v)) < 0.3 and float(m.state.throttle) < 0.05: return
 	var rng = RandomNumberGenerator.new()
 	rng.seed = int(m.route.seed_value) * 2654435761 + int(float(m.state.stats.seconds) * 60.0)
 	if rng.randf() < BREAKDOWN_PER_MINUTE * dt / 60.0:
-		m.object_state(id).broken = str(weak.node)
-		m.state.throttle = 0.0
-		m.events.append("breakdown")
-		m.message = "Поломка: %s. Машина не едет. Вызови помощь депо или чинись на станции с мастерской" % str(weak.name).to_lower()
+		omen = {"id": id, "node": str(weak.node), "t": OMEN_SECONDS}
+		m.events.append("wear_omen")
+		m.message = "%s на пределе: скоро встанем. Сбавь ход, ищи станцию с мастерской" % str(weak.name)
+
+func omen_left() -> float:
+	return float(omen.get("t", 0.0))
 
 # --- repair
 func junk_repair(junk_id: String, id: String, node: String) -> float:

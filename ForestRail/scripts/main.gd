@@ -2036,6 +2036,8 @@ func _process(dt: float) -> void:
 			notify("Дрезина у опоры: крюк снят")
 		elif event_name == "wear_warn":
 			sound.play("coupler_clank", 0.35, 0.7)
+		elif event_name == "wear_omen":
+			sound.play("petrol_stall", 0.5, 1.2)   # the omen of a stop: the line itself comes with model.message
 		elif event_name == "breakdown":
 			sound.play("petrol_stall", 0.7)
 			cab_jolt = 1.0

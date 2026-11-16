@@ -117,18 +117,60 @@ func run() -> void:
 	for i in range(30): dry.steam_step(1.0 / 60.0, dry.state.fleet_by_id.steam)
 	check(approx(dry.wear().condition("steam", "boiler"), 0.95), "a boiler without water is hurt once (%.3f)" % dry.wear().condition("steam", "boiler"))
 	# --- breakdown
+	# (1.4.3) below 10% a node may stop the machine, 3% a minute, always after an omen of 8 seconds; 10-19% only limps
 	var counts = [0, 0, 0]
 	for k in range(3):
-		var level = [0.1, 0.5, 0.0][k]
+		var level = [0.05, 0.15, 0.5][k]
 		for seed_value in range(1, 41):
 			var b = fresh("motorcar", seed_value)
 			b.wear().set_condition("motorcar", "engine", level)
 			b.state.v = 6.0
 			b.state.throttle = 0.5
 			for i in range(60 * 60): b.wear().breakdown_step(1.0 / 60.0); b.state.stats.seconds += 1.0 / 60.0
-			if b.wear().broken("motorcar") != "": counts[k] += 1
-	check(counts[0] >= 1 and counts[0] <= 5, "a node at 10%% fails in about 3%% of the minutes: %d of 40 runs" % counts[0])
-	check(counts[1] == 0, "a node at 50%% never fails")
+			if b.wear().broken("motorcar") != "" or not b.wear().omen.is_empty(): counts[k] += 1
+	check(counts[0] >= 1 and counts[0] <= 5, "a node at 5%% fails in about 3%% of the minutes: %d of 40 runs" % counts[0])
+	check(counts[1] == 0, "a node at 15%% limps but never stops (%d)" % counts[1])
+	check(counts[2] == 0, "a node at 50%% never fails")
+	# the omen: 8 seconds of warning, then the stop; mended in time, no stop
+	var o = fresh("motorcar")
+	o.wear().set_condition("motorcar", "engine", 0.05)
+	o.state.v = 6.0
+	o.state.throttle = 0.5
+	var steps = 0
+	while o.wear().omen.is_empty() and steps < 60 * 60 * 120:
+		o.wear().breakdown_step(1.0 / 60.0); o.state.stats.seconds += 1.0 / 60.0; steps += 1
+	check(not o.wear().omen.is_empty() and o.wear().broken("motorcar") == "", "the omen comes before the stop")
+	check("wear_omen" in o.events and o.message.contains("на пределе"), "the omen is heard and told (%s)" % o.message)
+	for i in range(60 * 7): o.wear().breakdown_step(1.0 / 60.0)
+	check(o.wear().broken("motorcar") == "", "after 7 seconds of the omen the machine still goes")
+	for i in range(60 * 2): o.wear().breakdown_step(1.0 / 60.0)
+	check(o.wear().broken("motorcar") == "engine", "after the omen the engine stops the machine (%s)" % o.wear().broken("motorcar"))
+	var saved = fresh("motorcar")
+	saved.wear().omen = {"id": "motorcar", "node": "engine", "t": 8.0}
+	saved.wear().set_condition("motorcar", "engine", 0.3)
+	for i in range(60 * 10): saved.wear().breakdown_step(1.0 / 60.0)
+	check(saved.wear().broken("motorcar") == "" and saved.wear().omen.is_empty(), "a node mended during the omen does not stop")
+	# limping: a failing node of the pull pulls at half
+	var lame = fresh("motorcar")
+	lame.wear().set_condition("motorcar", "engine", 0.15)
+	check(lame.wear().limping("motorcar") and approx(lame.wear().factor("motorcar", "power"), (0.6 + 0.4 * 0.15) * 0.5), "a failing engine limps at half the pull (%.3f)" % lame.wear().factor("motorcar", "power"))
+	lame.wear().set_condition("motorcar", "engine", 0.25)
+	check(not lame.wear().limping("motorcar") and approx(lame.wear().factor("motorcar", "power"), 0.6 + 0.4 * 0.25), "a critical engine does not limp yet")
+	check(lame.wear().stage("motorcar", "engine") == "critical", "the stage of the engine at 25%% is critical")
+	# the zeppelin and the jet: their nodes now weaken the flight and the pull
+	var jz = fresh("jet")
+	jz.wear().set_condition("jet", "engine", 0.15)
+	jz.physics_step(1.0 / 60.0)
+	check(approx(jz.jet.wear_scale, jz.wear().factor("jet", "power")) and jz.jet.wear_scale < 0.5, "a failing jet engine gives less thrust (%.2f)" % jz.jet.wear_scale)
+	var zz = fresh("zeppelin")
+	zz.physics_step(1.0 / 60.0)
+	var power_new = float(zz.zep.cfg.power_w)
+	var wing_new = float(zz.zep.cfg.wing_area_m2)
+	zz.wear().set_condition("zeppelin", "motor", 0.3)
+	zz.wear().set_condition("zeppelin", "wing", 0.3)
+	zz.physics_step(1.0 / 60.0)
+	check(float(zz.zep.cfg.power_w) < power_new * 0.75, "a worn zeppelin motor gives less power (%.0f of %.0f W)" % [float(zz.zep.cfg.power_w), power_new])
+	check(float(zz.zep.cfg.wing_area_m2) < wing_new * 0.85, "a worn wing lifts less (%.1f of %.1f m2)" % [float(zz.zep.cfg.wing_area_m2), wing_new])
 	var g = fresh("locomotive")
 	g.wear().set_condition("locomotive", "motor", 0.0)
 	g.state.throttle = 1.0

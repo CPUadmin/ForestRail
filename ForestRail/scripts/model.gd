@@ -2060,6 +2060,7 @@ func jet_step(dt: float, fleet: Dictionary, old_v: float) -> float:
 	var ef = effects("jet")
 	jet.cfg.fuel_l = float(object_stats("jet").tank)
 	jet.cfg.pad_brake_n = float(object_stats("jet").brake)
+	jet.wear_scale = wear().factor("jet", "power")   # the engine and the nozzle; a failing one limps at half
 	jet.double_chute_gadget = bool(ef.get("jet_double_chute", false))
 	jet.afterburner_gadget = bool(ef.get("jet_afterburner", false))
 	jet.set_train(state.consist_ids.size(), 0.0)
@@ -2151,8 +2152,8 @@ func zeppelin_step(dt: float, fleet: Dictionary, old_v: float) -> float:
 	var ef = effects("zeppelin")
 	var zcfg = vehicle_base("zeppelin").get("zeppelin", {})
 	zep.cfg.fuel_l = float(object_stats("zeppelin").tank)
-	zep.cfg.power_w = float(zcfg.get("power_w", 40000.0)) * float(ef.get("zep_power_multiplier", 1.0))
-	zep.cfg.wing_area_m2 = float(zcfg.get("wing_area_m2", 12.0)) * float(ef.get("zep_wing_multiplier", 1.0))
+	zep.cfg.power_w = float(zcfg.get("power_w", 40000.0)) * float(ef.get("zep_power_multiplier", 1.0)) * wear().factor("zeppelin", "power")   # the motor and the propeller
+	zep.cfg.wing_area_m2 = float(zcfg.get("wing_area_m2", 12.0)) * float(ef.get("zep_wing_multiplier", 1.0)) * wear().factor("zeppelin", "lift")   # a worn wing lifts less
 	zep.cfg.pad_brake_n = float(object_stats("zeppelin").brake)
 	zep.wagons = state.consist_ids.size()   # the wagons: weight, drag and an unsteady flight
 	zep.extra_mass_kg = maxf(0.0, train_mass() - float(zep.c("mass_kg")))
