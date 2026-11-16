@@ -75,4 +75,4 @@ func run() -> void:
 		var without = real_game.trip_forecast(far_mission)
 		check(float(without.need) > float(without.tank) and real_game.mission_error(far_mission) != "", "%s: with no fuel on the way a whole round trip does not fit the half tank (%.2f of %.2f)" % [kind, without.need, without.tank])
 	print("FORECAST LONG CHECKS ", checks, "; FAILURES ", failures)
-	get_tree().quit(0 if failures.is_empty() else 1)
+	preload("res://tests/qa_exit.gd").quit(self, 0 if failures.is_empty() else 1)

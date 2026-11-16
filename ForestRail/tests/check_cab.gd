@@ -361,4 +361,4 @@ func run() -> void:
 		game.model.state.s = float(game.model.route.station_s[index]) - 14.0
 		await shot("cab_station_" + game.model.data.stations[index].id)
 	print("CAB CHECKS ", checks, "; FAILURES ", failures)
-	get_tree().quit(0 if failures.is_empty() else 1)
+	preload("res://tests/qa_exit.gd").quit(self, 0 if failures.is_empty() else 1)

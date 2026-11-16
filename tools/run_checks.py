@@ -1,4 +1,5 @@
 """Run checks with a waited process and retain each log and exit status."""
+import re
 import argparse
 import json
 from pathlib import Path
@@ -28,12 +29,14 @@ results = []
 missing = [s for s in args.suite.split(',') if not (root/'ForestRail'/'tests'/f'{s}.gd').is_file()]
 if missing:
     parser.error('no such suite in ForestRail/tests: ' + ', '.join(missing))
+WINDOW_SUITES = ('check_settings', 'check_forecast_view', 'check_interaction', 'check_presentation', 'check_instruments', 'check_station_service', 'check_world_geometry', 'check_mechanism_bench', 'check_handcar_input', 'check_motor_controls', 'check_loading_selection', 'check_layout_p7', 'check_steam_view', 'check_depot_entry', 'check_pneumatic_view', 'check_pole_view', 'check_sail_view', 'check_petrol_view', 'check_perf', 'check_cab', 'check_live_view', 'check_wear_view', 'check_road_junk_view', 'check_receiving_view', 'check_casino_view', 'check_card_view', 'check_album_view', 'check_upgrade_text', 'check_soak_p8', 'check_wind_view', 'check_zeppelin_view', 'check_jet_view', 'check_records_view', 'check_auto_gearbox_view', 'check_grapnel_view', 'check_jet_fx_view', 'check_oars_view', 'check_gadget_art_view', 'check_perf_budget', 'check_yard', 'check_afford', 'check_gears_unlock')
 for suite in args.suite.split(','):
     if (root/'qa/autonomous_run/stop.json').exists() and not args.manual_run:
         raise SystemExit('Autonomous guard requested a saved stop; no further QA started')
     script = root/'ForestRail'/'tests'/f'{suite}.gd'
     command = [str(args.engine.resolve())]
-    if suite not in ('check_settings', 'check_forecast_view', 'check_interaction', 'check_presentation', 'check_instruments', 'check_station_service', 'check_world_geometry', 'check_mechanism_bench', 'check_handcar_input', 'check_motor_controls', 'check_loading_selection', 'check_layout_p7', 'check_steam_view', 'check_depot_entry', 'check_pneumatic_view', 'check_pole_view', 'check_sail_view', 'check_petrol_view', 'check_perf', 'check_cab', 'check_live_view', 'check_wear_view', 'check_road_junk_view', 'check_receiving_view', 'check_casino_view', 'check_card_view', 'check_album_view', 'check_upgrade_text', 'check_soak_p8', 'check_wind_view', 'check_zeppelin_view', 'check_jet_view', 'check_records_view', 'check_auto_gearbox_view', 'check_grapnel_view', 'check_jet_fx_view', 'check_oars_view', 'check_gadget_art_view', 'check_perf_budget', 'check_yard', 'check_afford', 'check_gears_unlock'):
+    group_parts = re.findall(r'"(check_[a-z0-9_]+)"', script.read_text(encoding='utf-8')) if 'group_runner.gd' in script.read_text(encoding='utf-8') else []
+    if not any(name in WINDOW_SUITES for name in ([suite] + group_parts)):
         command.append('--headless')
     if not args.exported:
         command += ['--path', str(root/'ForestRail')]
@@ -76,6 +79,8 @@ for suite in args.suite.split(','):
         command.append(str(reports/'wear_view'))
     if suite == 'check_road_junk_view':
         command.append(str(reports/'road_junk_view'))
+    if group_parts:
+        command.append(str(reports/suite.replace('check_', '')))
     if suite == 'check_gears_unlock':
         command.append(str(reports/'gears_unlock'))
     if suite == 'check_yard':
@@ -116,7 +121,7 @@ for suite in args.suite.split(','):
     start = time.monotonic()
     exit_code = 124
     timeout = {'check_forecast_long': 1500, 'drive_long': 1500, 'drive_campaign': 400,
-               'check_soak_p8': args.soak_duration + 120}.get(suite, 180)
+               'check_soak_p8': args.soak_duration + 120}.get(suite, 180 + 120 * len(group_parts))
     with log.open('w', encoding='utf-8') as output:
         try:
             process = subprocess.run(command, stdout=output, stderr=subprocess.STDOUT, timeout=timeout,
@@ -129,7 +134,7 @@ for suite in args.suite.split(','):
     # A script unavailable in an exported build must not be confused with a passed check.
     marker = {'check_model': 'MODEL CHECKS', 'check_physics': 'PHYSICS CHECKS', 'check_save_p8': 'SAVE P8 CHECKS', 'check_soak_p8': 'SOAK P8',
               'check_interaction': 'INTERACTION CHECKS', 'drive_campaign': 'DRIVE CAMPAIGN', 'check_handcar_revision': 'HANDCAR CHECKS', 'check_art_v3': 'ART V3 CHECKS', 'check_instruments': 'INSTRUMENT CHECKS', 'check_station_service': 'STATION SERVICE CHECKS', 'check_world_geometry':'WORLD GEOMETRY CHECKS','check_mechanism':'MECHANISM CHECKS','check_mechanism_bench':'MECHANISM BENCH CHECKS','check_handcar_drive':'HANDCAR DRIVE CHECKS','check_handcar_input':'HANDCAR INPUT CHECKS','check_motor_controls':'MOTOR CONTROL CHECKS','check_loading_selection':'LOADING SELECTION CHECKS','check_layout_p7':'LAYOUT P7 CHECKS','check_steam':'STEAM CHECKS','check_steam_view':'STEAM VIEW CHECKS','check_gearbox':'GEARBOX CHECKS','check_petrol_view':'PETROL VIEW CHECKS','check_skins':'SKIN CHECKS','check_perf':'PERF CHECKS','check_cab':'CAB CHECKS','check_sound':'SOUND CHECKS','check_forecast':'FORECAST CHECKS','check_line_v2':'LINE V2 CHECKS','check_line_spread':'LINE SPREAD CHECKS','check_thermal':'THERMAL CHECKS','check_upgrades_new':'NEW UPGRADES CHECKS','check_deadlines':'DEADLINE CHECKS','check_casino':'CASINO CHECKS','check_live':'LIVE CHECKS','check_live_view':'LIVE VIEW CHECKS','check_grip':'GRIP CHECKS','check_wear':'WEAR CHECKS','check_wear_view':'WEAR VIEW CHECKS','check_road_junk':'ROAD JUNK CHECKS','check_road_junk_view':'ROAD JUNK VIEW CHECKS','check_receiving':'RECEIVING CHECKS','check_receiving_view':'RECEIVING VIEW CHECKS','check_casino_view':'CASINO VIEW CHECKS','check_card_view':'CARD VIEW CHECKS','check_album_view':'ALBUM VIEW CHECKS','check_upgrade_text':'UPGRADE TEXT CHECKS','check_electric_gadgets':'ELECTRIC GADGETS CHECKS','check_pneumatic_controls':'PNEUMATIC CONTROLS CHECKS','check_wind_view':'WIND VIEW CHECKS','check_zeppelin':'ZEPPELIN CHECKS','check_jet':'JET CHECKS','check_jet_model':'JET MODEL CHECKS','check_jet_view':'JET VIEW CHECKS','check_oars':'OARS CHECKS','check_records':'RECORDS CHECKS','check_grapnel':'GRAPNEL CHECKS','check_grapnel_model':'GRAPNEL MODEL CHECKS','check_grapnel_view':'GRAPNEL VIEW CHECKS','check_jet_fx_view':'JET FX VIEW CHECKS','check_oars_view':'OARS VIEW CHECKS','check_gadget_art_view':'GADGET ART VIEW CHECKS','check_auto_gearbox':'AUTO GEARBOX CHECKS','check_auto_reducer':'AUTO REDUCER CHECKS','check_ratchet':'RATCHET CHECKS','check_nitro':'NITRO CHECKS','check_passive_gadgets':'PASSIVE GADGETS CHECKS','check_records_view':'RECORDS VIEW CHECKS','check_auto_gearbox_view':'AUTO GEARBOX VIEW CHECKS','check_zeppelin_model':'ZEPPELIN MODEL CHECKS','check_zeppelin_view':'ZEPPELIN VIEW CHECKS','check_speeds':'SPEED CHECKS','check_creative':'CREATIVE CHECKS','check_settings':'SETTINGS CHECKS','check_pneumatic':'PNEUMATIC CHECKS','check_pneumatic_view':'PNEUMATIC VIEW CHECKS','check_pole':'POLE CHECKS','check_air':'AIR CHECKS','check_sail':'SAIL CHECKS','check_sail_view':'SAIL VIEW CHECKS','check_loading_flow':'LOADING FLOW CHECKS','check_depot_entry':'DEPOT ENTRY CHECKS','check_pole_view':'POLE VIEW CHECKS','check_forecast_long':'FORECAST LONG CHECKS','drive_long':'DRIVE CAMPAIGN','check_forecast_view':'FORECAST VIEW CHECKS','check_lifecycle':'LIFECYCLE CHECKS','check_perf_budget':'PERF BUDGET CHECKS','check_yard':'YARD CHECKS','check_afford':'AFFORD CHECKS','check_fx':'FX CHECKS','check_gears_unlock':'GEARS UNLOCK CHECKS'}
-    success &= marker.get(suite, 'PRESENTATION') in content
+    success &= ('GROUP CHECKS' if group_parts else marker.get(suite, 'PRESENTATION')) in content
     result = {'suite': suite, 'exit_code': exit_code, 'success': success,
               'seconds': round(time.monotonic()-start, 3), 'log': log.name}
     results.append(result)

@@ -11,8 +11,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SETTINGS = ROOT / "tools" / "local_settings.json"
 TESTS = ROOT / "ForestRail" / "tests"
-# not in the usual run: the save check needs an old save, the soak runs for minutes, check_perf measures the screen rate
-SKIPPED = {"check_save_p8", "check_soak_p8", "check_perf"}
+# not in any automatic run: the soak plays for many minutes (tools/run_soak_p8.py)
+SKIPPED = {"check_soak_p8"}
+# only in the full run (before a build, once a day): the long line, the whole career, the frame budget
+SLOW = {"check_forecast_long", "drive_campaign", "check_perf_budget"}
 
 EXAMPLE = '{\n  "godot": "C:/путь/к/Godot_v4.7.2-stable_win64.exe"\n}'
 
@@ -122,11 +124,14 @@ def kill_godot() -> None:
     subprocess.run(["taskkill", "/F", "/IM", "Godot*"], capture_output=True)
 
 
-def list_suites() -> list:
+def list_suites(full: bool = True) -> list:
+    """The suites of a run. The parts of the groups (tests/parts/) are not suites by themselves."""
     names = sorted(p.stem for p in TESTS.glob("check_*.gd"))
     names = [n for n in names if n not in SKIPPED]
     if (TESTS / "drive_campaign.gd").is_file():
         names.append("drive_campaign")
+    if not full:
+        names = [n for n in names if n not in SLOW]
     return names
 
 

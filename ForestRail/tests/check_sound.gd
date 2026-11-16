@@ -210,4 +210,4 @@ func run() -> void:
 	for seg in pole_model.pole.segments: grounds[str(seg[2])] = true
 	check(grounds.size() >= 3, "the line has several grounds for the pole to knock on (%d)" % grounds.size())
 	print("SOUND CHECKS ", checks, "; FAILURES ", failures)
-	get_tree().quit(0 if failures.is_empty() else 1)
+	preload("res://tests/qa_exit.gd").quit(self, 0 if failures.is_empty() else 1)

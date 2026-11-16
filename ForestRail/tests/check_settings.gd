@@ -249,4 +249,4 @@ func run() -> void:
 	game.apply_settings()
 	if FileAccess.file_exists(game.settings_path): DirAccess.remove_absolute(game.settings_path)
 	print("SETTINGS CHECKS ", checks, "; FAILURES ", failures)
-	get_tree().quit(0 if failures.is_empty() else 1)
+	preload("res://tests/qa_exit.gd").quit(self, 0 if failures.is_empty() else 1)

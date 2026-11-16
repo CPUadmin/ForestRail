@@ -134,4 +134,4 @@ func run() -> void:
 	var file=FileAccess.open(out_dir.path_join("layout_results.json"),FileAccess.WRITE)
 	file.store_string(JSON.stringify({"checks":checks,"failures":failures,"cases":cases,"input":"Viewport.push_input; initial world states are fixtures; screenshot inspection required"},"\t"));file.close()
 	print("LAYOUT P7 CHECKS ",checks,"; FAILURES ",failures)
-	get_tree().quit(0 if failures.is_empty() else 1)
+	preload("res://tests/qa_exit.gd").quit(self, 0 if failures.is_empty() else 1)

@@ -89,4 +89,4 @@ func run() -> void:
 	check(mended >= 1 and fix.wear().condition(vid, first_node) >= 0.999 and not fix.wear().needs_repair(), "one click mends everything (%d parts)" % mended)
 	Model.wear_rules = keep_rules
 	print("CREATIVE CHECKS ", checks, "; FAILURES ", failures)
-	get_tree().quit(0 if failures.is_empty() else 1)
+	preload("res://tests/qa_exit.gd").quit(self, 0 if failures.is_empty() else 1)

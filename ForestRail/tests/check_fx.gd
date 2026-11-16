@@ -162,4 +162,4 @@ func run() -> void:
 	check(fx.count() <= 2, "the puffs are cleared when the screen changes (%d)" % fx.count())
 
 	print("FX CHECKS ", checks, "; FAILURES ", failures)
-	get_tree().quit(0 if failures.is_empty() else 1)
+	preload("res://tests/qa_exit.gd").quit(self, 0 if failures.is_empty() else 1)
