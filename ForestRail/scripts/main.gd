@@ -1102,8 +1102,9 @@ const RESULT_ART = {
 	"stamp_ok": preload("res://assets/art_result/stamp_ok.png"), "stamp_late": preload("res://assets/art_result/stamp_late.png"),
 	"coins_small": preload("res://assets/art_result/coins_small.png"), "coins_big": preload("res://assets/art_result/coins_big.png"),
 	"medal_on_time": preload("res://assets/art_result/medal_on_time.png"), "medal_night": preload("res://assets/art_result/medal_night.png"),
-	"medal_heavy": preload("res://assets/art_result/medal_heavy.png"), "medal_first": preload("res://assets/art_result/medal_first.png")}
-const MEDAL_NAMES = {"on_time": "Раньше срока", "night": "Ночной рейс", "heavy": "Тяжёлый груз", "first": "Первый основной рейс"}
+	"medal_heavy": preload("res://assets/art_result/medal_heavy.png"), "medal_first": preload("res://assets/art_result/medal_first.png"),
+	"medal_smooth": preload("res://assets/art_result/medal_brakes.png")}
+const MEDAL_NAMES = {"on_time": "Раньше срока", "night": "Ночной рейс", "heavy": "Тяжёлый груз", "first": "Первый основной рейс", "smooth": "Плавный рейс"}
 const SHEET_INK = Color("3a2a18")
 
 func sheet_label(parent: Control, text: String, at: Rect2, font_size: int, color: Color = SHEET_INK, align: int = HORIZONTAL_ALIGNMENT_LEFT) -> Label:
@@ -1765,6 +1766,7 @@ func cancel_drag() -> void:
 func _process(dt: float) -> void:
 	wp_valid = false
 	time += dt
+	if screen == "game" and not paused and model.wheel_slip: spin_s += dt * 9.0 * float(model.drive_direction())
 	whistle_pull = move_toward(whistle_pull, 0.0, dt * 3.0)
 	if wiper_on or wiper_phase > 0.0:
 		wiper_phase += dt * 0.75
@@ -1946,6 +1948,11 @@ func _process(dt: float) -> void:
 		elif event_name == "skid":
 			notify("Тормоз перетянут. Колёса проскальзывают")
 			sound.play("brake", 0.5, 1.3)
+		elif event_name == "slip":
+			# once a trip, only while the hints are on
+			if bool(model.state.get("tutorial", false)) and not model.state.active.is_empty() and not model.state.active.get("slip_told", false):
+				model.state.active.slip_told = true
+				notify("Колёса буксуют. Прибавляй газ плавнее")
 		elif event_name == "cargo_hit":
 			sound.play("cargo", clampf(0.3 + float(model.last_cargo_hit) * 0.4, 0.3, 0.9), randf_range(0.85, 1.0))
 		else: sound.play(event_name, 0.6)
@@ -2944,6 +2951,7 @@ func perf_add(counter: String, started_usec: int) -> void:
 
 var skid_active = false   # the wheels are locked: the angle they stopped at
 var skid_s = 0.0
+var spin_s = 0.0   # the spinning driving wheels: how far they ran ahead of the ground
 func control_art():
 	if control_art_cache == null: control_art_cache = ControlArt.new(self)
 	return control_art_cache

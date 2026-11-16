@@ -117,6 +117,7 @@ func run() -> void:
 						# Ease the regulator when the pressure runs down, as a driver does.
 						var pressure = float(m.boiler().pressure)
 						m.state.throttle = 0.95 if pressure > 0.7 else (0.5 if pressure > 0.45 else 0.15)
+					m.state.throttle = minf(float(m.state.throttle), m.throttle_safe())   # a driver opens no more than the rail holds, the wheels do not spin
 			m.physics_step(1.0 / 60)
 			timer += 1.0 / 60
 			steps += 1

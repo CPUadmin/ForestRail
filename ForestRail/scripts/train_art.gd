@@ -222,6 +222,8 @@ func draw_body(id: String, s: float, controls: bool) -> void:
 		wheel_s = canvas.skid_s
 	else:
 		canvas.skid_active = false
+		# the spin: the driving wheels run ahead of the ground
+		if canvas.screen == "game" and id == canvas.model.vehicle_id() and canvas.model.body_ids().find(id) == 0: wheel_s = s + canvas.spin_s
 	canvas.art.draw_vehicle(canvas, id, wheel_s, int(canvas.model.state.direction) if canvas.screen != "depot" else 1, outer, canvas.model, controls, {}, false, rail)
 	if skidding:
 		canvas.art.draw_skid_sparks(canvas, id, rail, outer, canvas.time)

@@ -1109,6 +1109,14 @@ func settle() -> bool:
 				bonus += heavy
 				medals.append("heavy")
 				notes.append("тяжёлый и большой груз +%d%%" % roundi(heavy * 100.0))
+			var smooth = smooth_mark()   # a smooth trip pays a little more, a harsh one a little less
+			if smooth > 0:
+				bonus += 0.05
+				notes.append("плавный рейс +5%")
+				medals.append("smooth")
+			elif smooth < 0:
+				bonus -= 0.05
+				notes.append("резкая езда −5%")
 			reward = roundi(float(reward) * (1.0 + bonus))
 	if late:
 		if story:
@@ -1143,7 +1151,7 @@ func settle() -> bool:
 	else:
 		events.append("coins")
 	if creative(): state.money = CREATIVE_MONEY
-	state.last_result = {"title": state.active.title, "reward": reward, "final": state.active.get("final", false) and not creative() and not late, "late": late, "notes": notes, "medals": medals, "finds": finds, "left_on_warehouse":state.active.get("warehouse_cargo",[]).size()}
+	state.last_result = {"title": state.active.title, "reward": reward, "final": state.active.get("final", false) and not creative() and not late, "late": late, "notes": notes, "medals": medals, "finds": finds, "left_on_warehouse":state.active.get("warehouse_cargo",[]).size(), "rough_km": float(state.active.get("rough", 0.0)) / maxf(1.0, float(state.active.get("smooth_m", 0.0)) / 1000.0)}
 	state.active = {}
 	state.cargo = []
 	drop_temporary_wagon()
@@ -1828,8 +1836,8 @@ func steam_step(dt: float, fleet: Dictionary) -> float:
 	var vmax = lerpf(float(stats.speeds[0]), float(stats.speeds[1]), smoothstep(low, 1.0, float(b.pressure)))
 	var pull = float(stats.traction[0]) * strong * valve * maxf(0.0, 1.0 - pow(absf(float(state.v)) / vmax, 2))
 	pull = minf(pull, power_limit_force(boiler_cap_scale()))
-	var adhesion = 0.35 * float(stats.mass) * G * cos(route.slope(float(state.s))) * grip_factor()
-	return float(drive_direction()) * minf(pull, adhesion)
+	pull_full = minf(float(stats.traction[0]) * strong * maxf(0.0, 1.0 - pow(absf(float(state.v)) / vmax, 2)), power_limit_force(boiler_cap_scale()))
+	return float(drive_direction()) * pull   # the rail decides how much of it goes through (driving_force)
 
 func grab_pump() -> void:
 	hand_drive.grab(handcar.pose().angle)
@@ -2303,6 +2311,69 @@ const SLIDE_RATIO = 0.7
 var wheel_lock = false   # the wheels are locked and slide (the brake is pulled harder than the rail holds)
 var wheel_slip = false   # the driving wheels spin (more pull than the rail holds)
 
+# The drive: the rail passes only as much pull as the weight on the driving wheels grips. Past it the
+# wheels spin and pull less, until the throttle is eased. Only the machines that drive their wheels.
+const DRIVE_MU = 0.33
+const DRIVE_WEIGHT = {"steam": 0.64, "motorcar": 1.0, "locomotive": 0.72}   # the share of the machine's weight on its driving wheels
+const SPIN_RATIO = 0.7
+const SPIN_SPEED = 3.0   # m/s: how much faster than the ground the spinning wheels run (the fuel they waste)
+var pull_full = 0.0   # the pull the drive would ask at a full throttle this moment (for throttle_safe)
+var brake_rise = -1.0   # seconds since the brake lever left 20%; -1 when it is low or the pull was already judged
+
+func spins(id: String = "") -> bool:
+	return DRIVE_WEIGHT.has(id if id != "" else vehicle_id())
+
+func drive_cap() -> float:
+	return DRIVE_MU * float(DRIVE_WEIGHT.get(vehicle_id(), 0.0)) * float(object_stats(vehicle_id()).mass) * G * cos(route.slope(float(state.s))) * grip_factor()
+
+# What the drive really delivers: up to the grip in full, past it the wheels spin and pull less.
+func driving_force(demand: float) -> float:
+	if not spins():
+		wheel_slip = false
+		return demand
+	var cap = drive_cap()
+	if wheel_slip:
+		if demand < 0.85 * cap: wheel_slip = false
+	elif demand > cap:
+		wheel_slip = true
+		events.append("slip")
+		wear_spin()
+	if wheel_slip: return minf(demand, cap * SPIN_RATIO)
+	return demand
+
+# The throttle (0..1) that pulls as hard as possible without spinning the wheels, at this speed.
+func throttle_safe() -> float:
+	if not spins() or pull_full <= 0.0: return 1.0
+	return clampf(0.95 * drive_cap() / pull_full, 0.0, 1.0)
+
+func wear_spin() -> void:
+	if wear_rules: wear().damage_effect(vehicle_id(), "roll", 0.015, "колёса буксовали")
+
+# The smoothness of the trip: seconds of spinning and locked wheels, and the brake jerked on at speed
+# (from below 20% to above 80% within 0.4 s, counts 1.5). Kept in the active trip, judged per km at the pay.
+const SMOOTH_GOOD = 0.5   # points per km: under this a trip is smooth (+5%)
+const SMOOTH_BAD = 3.0   # over this it is harsh (−5%)
+func track_smooth(dt: float, movement: float) -> void:
+	var a = state.active
+	a.smooth_m = float(a.get("smooth_m", 0.0)) + absf(movement)
+	if wheel_slip or wheel_lock: a.rough = float(a.get("rough", 0.0)) + dt
+	var lever = float(state.brake)
+	if lever < 0.2: brake_rise = 0.0
+	elif brake_rise >= 0.0:
+		brake_rise += dt
+		if lever > 0.8:
+			if brake_rise <= 0.4 and absf(float(state.v)) > 5.0: a.rough = float(a.get("rough", 0.0)) + 1.5
+			brake_rise = -1.0
+		elif brake_rise > 0.4: brake_rise = -1.0
+
+# 1: a smooth trip, -1: a harsh one, 0: neither (or shorter than a kilometre for the bonus).
+func smooth_mark() -> int:
+	var km = float(state.active.get("smooth_m", 0.0)) / 1000.0
+	var per_km = float(state.active.get("rough", 0.0)) / maxf(1.0, km)
+	if per_km > SMOOTH_BAD: return -1
+	if km >= 1.0 and per_km < SMOOTH_GOOD: return 1
+	return 0
+
 # The most that all the wheels of the train can brake (the brake works through the whole train).
 func brake_cap(total: float = -1.0) -> float:
 	if total < 0.0: total = train_mass()
@@ -2360,6 +2431,7 @@ func physics_step(dt: float) -> void:
 			pass
 		else:
 			reset_input()
+			wheel_slip = false
 			pole.reset()
 			if live.n != 0: live.reset()
 			if vehicle_id() == "sail": sail_trim = 0.0
@@ -2379,9 +2451,9 @@ func physics_step(dt: float) -> void:
 		rolling += mass * G * cos(slope) * float(stats.rolling)
 		max_brake += float(stats.brake)
 	var brake_applied = braking_force(max_brake, total)
-	wheel_slip = false
 	var stats = object_stats(vehicle_id())
 	var drive = 0.0
+	pull_full = 0.0
 	regen_kw = 0.0
 	var hand_result: Dictionary = {}
 	if vehicle_id() == "handcar":
@@ -2426,9 +2498,12 @@ func physics_step(dt: float) -> void:
 				var traction = float(stats.traction[gear]) * maxf(0, 1 - pow(absf(float(state.v)) / float(stats.speeds[gear]), 2)) * charge_traction_factor() * petrol_lug(gear, stats) * pneumatic_factor() * thermal_factor()
 				traction = minf(traction, power_limit_force(charge_traction_factor())) * burst_factor()
 				if shift_cut > 0.0: traction = 0.0
-				var adhesion = 0.35 * float(stats.mass) * G * cos(route.slope(float(state.s))) * grip_factor()
-				wheel_slip = float(state.throttle) * traction > adhesion * 1.02 and absf(float(state.v)) < 12.0
-				drive = float(drive_direction()) * (-1.0 if reverse_gear else 1.0) * float(state.throttle) * minf(traction, adhesion)
+				pull_full = traction
+				var pull = float(state.throttle) * traction
+				if not spins(): pull = minf(pull, 0.35 * float(stats.mass) * G * cos(route.slope(float(state.s))) * grip_factor())   # the others never spin
+				drive = float(drive_direction()) * (-1.0 if reverse_gear else 1.0) * pull
+	var asked = drive
+	drive = signf(drive) * driving_force(absf(drive))
 	if wear_rules and wear().cannot_drive(vehicle_id()): drive = 0.0   # a dead node or a stop on the road: the machine does not pull
 	var drag = drag_coefficient()
 	var brake = brake_applied + engine_brake_force()
@@ -2437,6 +2512,7 @@ func physics_step(dt: float) -> void:
 		drive = 0.0
 		brake = 0.0
 		rolling = 0.0
+		wheel_slip = false
 	var old_v = float(state.v)
 	var new_v = old_v
 	var movement=0.0
@@ -2466,6 +2542,7 @@ func physics_step(dt: float) -> void:
 		# Settle energy against the distance actually integrated, including
 		# the first accelerating step and the last stopping step.
 		var shaft_work=absf(drive*movement)
+		if wheel_slip: shaft_work=absf(asked)*(absf(movement)+SPIN_SPEED*dt)   # the spinning wheels eat the whole asked pull
 		var kinetic_change=0.5*total*(new_v*new_v-old_v*old_v)
 		var dissipated=maxf(0,drive*movement+grade*movement-kinetic_change)
 		var resist=rolling+brake+drag*old_v*old_v
@@ -2515,6 +2592,7 @@ func physics_step(dt: float) -> void:
 	track_records()
 	update_auto_hold()
 	state.stats.distance += absf(movement)
+	if state.phase == "route" and not state.active.is_empty(): track_smooth(dt, movement)
 	if wear_rules:
 		wear().wear_road(absf(movement))
 		wear().breakdown_step(dt)

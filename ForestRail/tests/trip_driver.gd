@@ -70,6 +70,7 @@ static func round_trip(m, station: String, count: int, cargo_type: String = "sac
 			if steam:
 				var pressure = float(m.boiler().pressure)
 				m.state.throttle = 0.95 if pressure > 0.7 else (0.5 if pressure > 0.45 else 0.15)
+			m.state.throttle = minf(float(m.state.throttle), m.throttle_safe())   # a driver opens no more than the rail holds, the wheels do not spin
 		m.physics_step(1.0 / 60)
 		timer += 1.0 / 60
 		if OS.get_environment("MEASURE_DEBUG") != "" and int(timer * 60.0) % 3600 == 0:
