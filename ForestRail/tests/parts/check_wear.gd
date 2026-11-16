@@ -90,6 +90,76 @@ func run() -> void:
 	var d = fresh()
 	d.wear_skid(25.0)
 	check(approx(d.wear().condition("motorcar", "brake"), 1.0 - 0.08), "a locked wheel at speed takes 8%% of the brake (%.3f)" % d.wear().condition("motorcar", "brake"))
+	# (1.4.4) C1: the skid hurts the axle boxes by the speed (2..6%) and the wheels of every wagon (1.5..4%)
+	check(approx(d.wear().condition("motorcar", "bearings"), 1.0 - 0.06), "a skid at 25 m/s takes 6%% of the axle boxes (%.3f)" % d.wear().condition("motorcar", "bearings"))
+	check(approx(d.wear().condition("W01", "wheels"), 1.0 - 0.04), "the skid slides the wheels of the wagon too (%.3f)" % d.wear().condition("W01", "wheels"))
+	# P2: one event at most 15%, one cause at most 30% of a node in a trip; a new trip starts the count again
+	var cap = fresh()
+	cap.wear().damage("motorcar", "engine", 0.5, "проба")
+	check(approx(cap.wear().condition("motorcar", "engine"), 0.85), "one event takes at most 15%% (%.3f)" % cap.wear().condition("motorcar", "engine"))
+	for k in range(4): cap.wear().damage("motorcar", "engine", 0.1, "проба")
+	check(approx(cap.wear().condition("motorcar", "engine"), 0.7), "one cause takes at most 30%% in a trip (%.3f)" % cap.wear().condition("motorcar", "engine"))
+	cap.wear().damage("motorcar", "engine", 0.05, "другая причина")
+	check(approx(cap.wear().condition("motorcar", "engine"), 0.65), "another cause still hurts")
+	cap.wear().new_trip()
+	cap.wear().damage("motorcar", "engine", 0.05, "проба")
+	check(approx(cap.wear().condition("motorcar", "engine"), 0.6) and cap.wear().journal.size() == 1, "a new trip: the cap and the journal start again")
+	var step = func(model, seconds: float) -> void:
+		for i in range(int(seconds * 60.0)): model.wear_causes_step(1.0 / 60.0)
+	# C2: gas against the brake wears both, every second; told once; a light brake is fine
+	var fight = fresh()
+	fight.state.v = 5.0
+	fight.state.throttle = 0.6
+	fight.state.brake = 0.6
+	step.call(fight, 10.0)
+	check(approx(fight.wear().condition("motorcar", "brake"), 0.95, 0.002) and approx(fight.wear().condition("motorcar", "engine"), 0.97, 0.002), "gas against the brake: −0.5%%/s of the brake, −0.3%%/s of the engine (%.3f, %.3f)" % [fight.wear().condition("motorcar", "brake"), fight.wear().condition("motorcar", "engine")])
+	check(fight.message.begins_with("Газ против тормоза") and fight.wear().journal_lines()[0].begins_with("Газ против тормоза"), "it is told and written (%s)" % fight.message)
+	check(fight.wear().journal.size() == 2, "a cause every second keeps two lines in the journal, not a flood (%d)" % fight.wear().journal.size())
+	var light = fresh()
+	light.state.v = 5.0
+	light.state.throttle = 0.6
+	light.state.brake = 0.2
+	step.call(light, 10.0)
+	check(light.wear().condition("motorcar", "brake") == 1.0, "a light brake with gas hurts nothing")
+	# C3: the spinning wheels grind the engine and the axle boxes
+	var spin = fresh()
+	spin.state.v = 2.0
+	spin.wheel_slip = true
+	step.call(spin, 10.0)
+	check(approx(spin.wear().condition("motorcar", "engine"), 0.97, 0.002) and approx(spin.wear().condition("motorcar", "bearings"), 0.98, 0.002), "spinning: −0.3%%/s engine, −0.2%%/s axle boxes (%.3f, %.3f)" % [spin.wear().condition("motorcar", "engine"), spin.wear().condition("motorcar", "bearings")])
+	# C5: full gas, slow, up a 6% hill: every pull node wears and the engine heats more; downhill or at 70% gas nothing
+	var hill = func(throttle: float, v: float):
+		var h = fresh()
+		for point in h.route.points: point[1] = float(point[0]) * 0.06
+		h.state.engine = true
+		h.state.gear = 1
+		h.state.throttle = throttle
+		h.state.v = v
+		return h
+	var heavy = hill.call(0.9, 1.0)
+	var heat_before = heavy.heat_rate(heavy.state.fleet_by_id.motorcar)
+	heavy.wear_causes_step(1.0 / 60.0)
+	check(heavy.heavy_work and heavy.heat_rate(heavy.state.fleet_by_id.motorcar) > heat_before * 1.15, "lugging uphill is heavy work and heats more")
+	step.call(heavy, 30.0)
+	check(heavy.wear().condition("motorcar", "engine") < 0.99 and heavy.wear().condition("motorcar", "gearbox") < 0.99, "heavy work wears the engine and the box (%.3f, %.3f)" % [heavy.wear().condition("motorcar", "engine"), heavy.wear().condition("motorcar", "gearbox")])
+	check(heavy.message.begins_with("Тянет в натяг"), "heavy work is told (%s)" % heavy.message)
+	var eased = hill.call(0.7, 1.0)
+	step.call(eased, 10.0)
+	var down = hill.call(0.9, -1.0)
+	step.call(down, 10.0)
+	check(not eased.heavy_work and not down.heavy_work and eased.wear().condition("motorcar", "engine") == 1.0 and down.wear().condition("motorcar", "engine") == 1.0, "at 70%% gas or downhill no heavy work")
+	# C10: a wagon heavier than 300 kg of cargo wears its wheels and springs half as fast again
+	var light_wagon = fresh()
+	light_wagon.state.cargo = []
+	light_wagon.wear().wear_road(1000.0)
+	var overloaded = fresh()
+	overloaded.state.cargo = []
+	for k in range(3): overloaded.state.cargo.append({"type": "logs", "slot": "W01:%d" % k, "delivered": false, "health": 1.0})
+	overloaded.wear().wear_road(1000.0)
+	var plain_loss = 1.0 - light_wagon.wear().condition("W01", "wheels")
+	var heavy_loss = 1.0 - overloaded.wear().condition("W01", "wheels")
+	check(approx(heavy_loss, plain_loss * 1.5, 0.0002) and overloaded.wear().condition("W01", "suspension") < light_wagon.wear().condition("W01", "suspension"), "an overloaded wagon wears 1.5 times faster (%.4f against %.4f)" % [heavy_loss, plain_loss])
+	check(overloaded.message.contains("перегружен") and light_wagon.message == "", "the overload is told (%s)" % overloaded.message)
 	var land = fresh()
 	land.wear_landing(4.0)
 	check(approx(land.wear().condition("W01", "suspension"), 1.0 - 0.09) and land.wear().condition("motorcar", "bearings") < 1.0, "a landing hurts the springs of the wagons (%.3f)" % land.wear().condition("W01", "suspension"))

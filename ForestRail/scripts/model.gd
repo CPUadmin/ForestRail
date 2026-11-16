@@ -538,8 +538,43 @@ func wear_hit(id: String, effect: String, amount: float, why: String = "", prefe
 
 func wear_skid(speed: float) -> void:
 	if not wear_rules: return
-	wear().damage(vehicle_id(), "brake", 0.03 + 0.05 * clampf(speed / 25.0, 0.0, 1.0), "колёса заблокированы")
-	wear().damage_effect(vehicle_id(), "roll", 0.02, "колёса заблокированы")
+	var fast = clampf(speed / 25.0, 0.0, 1.0)
+	wear().damage(vehicle_id(), "brake", 0.03 + 0.05 * fast, "колёса заблокированы")
+	wear().damage_effect(vehicle_id(), "roll", 0.02 + 0.04 * fast, "колёса заблокированы")   # 1.4.4: by the speed, 2..6%
+	for id in state.consist_ids: wear().damage(id, "wheels", 0.015 + 0.025 * fast, "юз")   # C1: the wagons' wheels slide too
+
+# --- 1.4.4: the causes of wear from the way the machine is driven. Each teaches one habit; P2 caps them (wear.gd).
+const FIGHT_LEVEL = 0.3        # C2: gas against the brake, both past 30% at more than 1 m/s
+const HEAVY_THROTTLE = 0.8     # C5: «тянет в натяг»: gas past 80%, uphill steeper than 4%, slower than 35% of the top
+const HEAVY_GRADE = 0.04
+const HEAVY_SPEED_SHARE = 0.35
+const HEAVY_WEAR_PER_S = 0.0004
+var heavy_work = false
+
+func wear_causes_step(dt: float) -> void:
+	heavy_work = false
+	if not wear_rules or air_fly: return
+	var id = vehicle_id()
+	var speed = absf(float(state.v))
+	var throttle = float(state.throttle)
+	if throttle > FIGHT_LEVEL and float(state.brake) > FIGHT_LEVEL and speed > 1.0:
+		wear().damage_effect(id, "brake", 0.005 * dt, "газ против тормоза")
+		wear().damage_effect(id, "power", 0.003 * dt, "газ против тормоза")
+		wear().tell("fight", "Газ против тормоза: изнашиваются и тормоз, и мотор. Отпусти одно из двух")
+	if wheel_slip:   # C3: the spinning wheels grind the drive and the axle boxes every second
+		wear().damage_effect(id, "power", 0.003 * dt, "колёса буксовали")
+		wear().damage_effect(id, "roll", 0.002 * dt, "колёса буксовали")
+	if human_powered() or throttle <= HEAVY_THROTTLE: return
+	var top = top_speed_kmh() / 3.6
+	var stats = object_stats(id)
+	if id == "motorcar" and int(state.gear) >= 1 and int(state.gear) - 1 < stats.speeds.size(): top = float(stats.speeds[int(state.gear) - 1])
+	if top <= 0.0 or speed >= HEAVY_SPEED_SHARE * top: return
+	var way = signf(float(state.v)) if speed > 0.1 else float(drive_direction())
+	if tan(route.slope(float(state.s))) * way <= HEAVY_GRADE: return
+	heavy_work = true
+	for def in wear().nodes_of(id):
+		if str(def.effect) == "power": wear().damage(id, str(def.id), HEAVY_WEAR_PER_S * dt, "тянет в натяг")
+	wear().tell("heavy", "Тянет в натяг на подъёме: мотор греется и изнашивается. Сбавь газ ниже 80% или возьми меньше груза")
 
 func wear_landing(impact: float) -> void:
 	if not wear_rules: return
@@ -1006,7 +1041,7 @@ func loading_preview() -> Dictionary:
 	return loading_cache
 
 func depart() -> bool:
-	wear().journal.clear()   # a new trip: a new journal of what went wrong
+	wear().new_trip()   # a new trip: a new journal of what went wrong, the damage caps start again
 	if vehicle_id() == "jet":
 		jet.double_chute_gadget = bool(effects("jet").get("jet_double_chute", false))
 		jet.new_trip()   # the chutes are packed, the afterburner is refilled
@@ -1559,10 +1594,10 @@ func heat_rate(fleet: Dictionary) -> float:
 		if not state.engine: return 0.0
 		var gear = int(state.gear)
 		var low_gear = 1.0 + 0.1 * maxf(0.0, float(4 - gear)) if gear >= 1 and gear <= 5 else (1.3 if gear == 6 else 1.0)
-		return 0.035 * (0.1 + 0.9 * throttle) * low_gear
+		return 0.035 * (0.1 + 0.9 * throttle) * low_gear * (1.2 if heavy_work else 1.0)   # 1.4.4: lugging uphill heats more
 	# electric: the current heats it (squared), regeneration heats it too
 	var cfg = vehicle_base()
-	return float(cfg.get("heat_per_s", 0.07)) * throttle * throttle + (0.02 if regen_kw > 0.01 else 0.0)
+	return (float(cfg.get("heat_per_s", 0.07)) * throttle * throttle + (0.02 if regen_kw > 0.01 else 0.0)) * (1.2 if heavy_work else 1.0)
 
 func thermal_step(dt: float, fleet: Dictionary) -> void:
 	if not has_temperature(): return
@@ -2466,7 +2501,7 @@ func throttle_safe() -> float:
 	return clampf((0.8 if wheel_slip else 0.95) * drive_cap() / pull_full, 0.0, 1.0)   # spinning: ease off until they grip
 
 func wear_spin() -> void:
-	if wear_rules: wear().damage_effect(vehicle_id(), "roll", 0.015, "колёса буксовали")
+	if wear_rules: wear().damage_effect(vehicle_id(), "roll", 0.015, "колёса буксовали")   # the jolt of the start; more every second (wear_causes_step)
 
 # The smoothness of the trip: seconds of spinning and locked wheels, and the brake jerked on at speed
 # (from below 20% to above 80% within 0.4 s, counts 1.5). Kept in the active trip, judged per km at the pay.
@@ -2715,6 +2750,7 @@ func physics_step(dt: float) -> void:
 	if state.phase == "route" and not state.active.is_empty(): track_smooth(dt, movement)
 	if wear_rules:
 		wear().wear_road(absf(movement))
+		wear_causes_step(dt)
 		wear().breakdown_step(dt)
 	var travelled = state.fleet_by_id[vehicle_id()]
 	travelled.km = float(travelled.get("km", 0.0)) + absf(movement) / 1000.0   # for the wheel, which favours the machine driven most

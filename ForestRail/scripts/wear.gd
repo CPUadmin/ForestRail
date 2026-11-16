@@ -22,6 +22,26 @@ var last_damage = ""            # последняя причина повреж
 var omen = {}                  # предвестник остановки: {"id", "node", "t" секунд до остановки}; не сохраняется
 var journal: Array = []         # журнал рейса: последние причины урона [{why, node, name, amount}], новые в конце (не сохраняется)
 const JOURNAL_MAX = 5
+# P2 (1.4.4): плохая езда дорога, но не катастрофа. Одно событие снимает с узла не больше 15%,
+# одна причина за рейс не больше 30% одного узла. Дорога (километры) под потолок не попадает.
+const EVENT_CAP = 0.15
+const CAUSE_TRIP_CAP = 0.3
+var trip_loss = {}              # «машина|узел|причина» → сколько уже снято за рейс (не сохраняется)
+var told = {}                   # подсказки о причинах, уже сказанные в этом рейсе
+const OVERLOAD_KG = 300.0       # C10: груз вагона тяжелее этого: колёса и подвеска изнашиваются в полтора раза быстрее
+const OVERLOAD_WEAR = 1.5
+
+# A new trip: a new journal, the caps start again, the hints may be told again.
+func new_trip() -> void:
+	journal.clear()
+	trip_loss.clear()
+	told.clear()
+
+# One hint per cause and trip, only when the line is free (else it waits for the next frame).
+func tell(key: String, text: String) -> void:
+	if told.has(key) or m.message != "" or m.state.phase != "route": return
+	told[key] = true
+	m.message = text
 
 func _init(model) -> void:
 	m = model
@@ -131,10 +151,28 @@ func wear_road(meters: float) -> void:
 			if per_km <= 0.0: continue
 			var weather = harsh if str(def.effect) in ["roll", "brake"] else 1.0
 			set_condition(id, str(def.id), condition(id, str(def.id)) - per_km * km * weather)
+		# C10: an overloaded wagon wears its wheels and springs half as fast again (the extra goes to the journal)
+		var load = wagon_load(id)
+		if load > OVERLOAD_KG:
+			for node in ["wheels", "suspension"]:
+				damage(id, node, float(node_def(id, node).get("per_km", 0.0)) * km * (OVERLOAD_WEAR - 1.0), "перегруз вагона")
+			tell("overload_" + id, "Вагон %s перегружен: %d кг. Колёса и подвеска изнашиваются в полтора раза быстрее" % [id, roundi(load)])
+
+# The cargo on a wagon (kg); 0 for the machine itself.
+func wagon_load(id: String) -> float:
+	if not id.begins_with("W"): return 0.0
+	return m.body_mass(id) - float(m.object_stats(id).mass)
 
 # --- damage: from mistakes. Fractions of the node (0.05 = 5%). Returns the new state.
+# A named cause is capped (P2): one event at most 15%, one cause at most 30% of a node in a trip.
 func damage(id: String, node: String, amount: float, why: String = "") -> float:
 	if node_def(id, node).is_empty() or amount <= 0.0: return 1.0
+	amount = minf(amount, EVENT_CAP)
+	if why != "":
+		var key = "%s|%s|%s" % [id, node, why]
+		amount = minf(amount, CAUSE_TRIP_CAP - float(trip_loss.get(key, 0.0)))
+		if amount <= 0.0: return condition(id, node)
+		trip_loss[key] = float(trip_loss.get(key, 0.0)) + amount
 	var value = condition(id, node) - amount
 	set_condition(id, node, value)
 	if why != "":
@@ -143,13 +181,17 @@ func damage(id: String, node: String, amount: float, why: String = "") -> float:
 	if m.junk_rules: m.casino().trip_damage(id, amount)
 	return clampf(value, 0.0, 1.0)
 
-# The journal of the trip: the same cause on the same node adds up, the last five are kept.
+# The journal of the trip: the same cause on the same node adds up (and moves to the newest place, so the
+# causes that hurt every second, like gas against the brake, do not fill it), the last five are kept.
 func note_journal(id: String, node: String, amount: float, why: String) -> void:
 	var name = str(node_def(id, node).get("name", node))
-	if not journal.is_empty():
-		var last = journal[journal.size() - 1]
-		if str(last.why) == why and str(last.id) == id and str(last.node) == node:
-			last.amount = float(last.amount) + amount
+	for i in range(journal.size()):
+		var e = journal[i]
+		if str(e.why) == why and str(e.id) == id and str(e.node) == node:
+			e.amount = float(e.amount) + amount
+			if i != journal.size() - 1:
+				journal.remove_at(i)
+				journal.append(e)
 			return
 	journal.append({"why": why, "id": id, "node": node, "name": name, "amount": amount})
 	while journal.size() > JOURNAL_MAX: journal.pop_front()
