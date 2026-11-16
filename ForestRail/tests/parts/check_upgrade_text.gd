@@ -57,7 +57,11 @@ func run() -> void:
 			if branch.target_type != kind or not game.model.branch_endless(branch): continue
 			var line = game.depot_ui().upgrade_line(kind, branch)
 			if line in texts: seen += 1
-			check(line != "" and not line.contains("%") and not line.contains("→") and line.split("\n").size() <= 2, "%s: a short plain line (%s)" % [branch.id, line])
+			var percent_ok = true
+			for row in line.split("\n"):
+				if row.begins_with("Открывает"): continue
+				percent_ok = percent_ok and RegEx.create_from_string("· [+−]\\d+,\\d\\d%$").search(row) != null
+			check(line != "" and percent_ok and not line.contains("→") and line.split("\n").size() <= 3, "%s: a short line with the percent to hundredths (%s)" % [branch.id, line])
 		check(seen > 0, "%s: the cards show what gets better" % kind)
 		if kind == "motorcar": check("Двигатель · ур. 3" in texts, "the title shows the level (%s)" % str(texts.filter(func(t): return t.contains("ур."))))
 		for k in range(6): await get_tree().process_frame

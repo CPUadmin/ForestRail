@@ -1039,16 +1039,22 @@ func upgrade_line(id: String, branch: Dictionary) -> String:
 	if branch.id == "motorcar_gearbox" and lv < 2 and not model.creative():
 		parts.append("Открывает %d-ю передачу" % (4 + lv))
 	# the relative gain of the next level (an added brake force counts against the level before)
-	var gain = 0.0
+	# owner 16.11: the phrase and the change of the next level in percent, to hundredths («Тянет сильнее · +15,00%»)
+	var seen: Array = []
 	for key in branch.effects_at_level:
 		var now = float(model.level_value(branch, key, lv)) if lv > 0 else 1.0
 		var next = float(model.level_value(branch, key, lv + 1))
-		gain = maxf(gain, absf(next - now) / maxf(0.0001, absf(now)))
+		var change = (next - now) / maxf(0.0001, absf(now)) * 100.0
 		var phrase = str(UPGRADE_PHRASES.get(key, "Работает лучше"))
 		if key == "fuel_capacity_multiplier": phrase = "Батарея держит дольше" if id == "locomotive" else ("Больше запас угля" if id == "steam" else phrase)
-		if not phrase in parts: parts.append(phrase)
-	if lv >= 2 and gain < 0.005: return "Уже почти ничего не даст"
+		if phrase in seen: continue
+		seen.append(phrase)
+		parts.append("%s · %s" % [phrase, percent_text(change)])
 	return "\n".join(parts.slice(0, 2))
+
+# a change in percent to hundredths with the Russian comma and a real minus: +15,00%, −0,35%
+func percent_text(change: float) -> String:
+	return ("%+.2f%%" % change).replace(".", ",").replace("-", "−")
 
 # ui-v2 (owner 14.11): one short line per change, «Места 2 → 3»; no units in the name, a gadget is not named
 # twice (its name is the title of the card); owner 16.11: at most two lines
