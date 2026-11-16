@@ -36,6 +36,7 @@ func run() -> void:
 	game.model.state.money = 5000
 	game.model.state.chapter = 4
 	Fixtures.equip(game.model, "motorcar")
+	Fixtures.open_gears(game.model)   # the 4th and the 5th gear are opened by the gearbox upgrade
 	game.model.accept_mission(game.model.current_mission())
 	for i in range(mini(game.model.state.cargo.size(), game.model.slots().size())): game.model.transfer(game.model.state.cargo[i].id, game.model.slots()[i].key)
 	game.screen = "game"

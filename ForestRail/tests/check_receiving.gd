@@ -107,7 +107,7 @@ func run() -> void:
 			g.state.phase = "depot"
 			g.state.brake = 1.0
 			g.state.v = 0.0
-			check(not g.upgrade(target if target != "wagon" else "W01", gadget_branch, false, true) and g.message.begins_with("Гаджеты болтами"), "a gadget cannot be paid with bolts (%s)" % g.message)
+			check(not g.upgrade(target if target != "wagon" else "W01", gadget_branch, false, true) and g.message.begins_with("Гаджет не продаётся"), "a gadget cannot be paid with bolts (%s)" % g.message)
 			break
 	check(gadget_branch != "", "there is a gadget in the catalog to check")
 	# saving: the bag stays

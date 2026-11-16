@@ -522,7 +522,7 @@ func wear_buffer(speed: float) -> void:
 		else:
 			wear().damage_effect(id, "roll", a * 0.4, "удар об упор")
 
-func upgrade(id: String, branch_id: String, via_card: bool = false, with_bolts: bool = false) -> bool:
+func upgrade(id: String, branch_id: String, _via_card: bool = false, with_bolts: bool = false) -> bool:
 	if not depot_editable() or object_state(id).is_empty():
 		return fail("Улучшения доступны в депо до погрузки")
 	for branch in data.upgrade_catalog:
@@ -530,8 +530,9 @@ func upgrade(id: String, branch_id: String, via_card: bool = false, with_bolts: 
 			continue
 		if branch.target_type != ("wagon" if id.begins_with("W") else id):
 			return fail("Это улучшение другой машины")
-		if branch.get("gadget", false) and bool(data.casino.cards_only) and not via_card:
-			return fail("Гаджет выбивается только в лудке: найди карточку в казике")
+		# a gadget is never sold for coins in the career: only its Tarot card installs it (the creative mode is a sandbox)
+		if branch.get("gadget", false) and not creative():
+			return fail("Гаджет не продаётся: его выбивают в лудке и ставят по карте")
 		var object = object_state(id)
 		var lv = int(object.levels.get(branch_id, 0))
 		if lv >= int(branch.get("levels", 2)):
@@ -1217,15 +1218,32 @@ func selector_gear() -> int:
 func auto_pick_gear() -> int:
 	var speeds = object_stats("motorcar").speeds
 	var v = absf(float(state.v))
-	for g in range(1, 6):
+	var top = gears_open()
+	for g in range(1, top + 1):
 		if g - 1 >= speeds.size() or v < AUTO_UPSHIFT * float(speeds[g - 1]): return g
-	return 5
+	return top
+
+# The petrol car opens its forward gears through the «Коробка передач» upgrade: 3 when new,
+# the 4th at level 1, the 5th at level 2; the creative mode has all five. N and R are always there.
+func gears_open() -> int:
+	if creative(): return 5
+	var car = state.get("fleet_by_id", {}).get("motorcar", {})
+	var level = int(car.get("levels", {}).get("motorcar_gearbox", 0))
+	return clampi(3 + level, 3, 5)
+
+func gear_is_open(gear: int) -> bool:
+	return gear == 0 or gear == 6 or gear <= gears_open()
+
+func closed_gear_text(gear: int) -> String:
+	return "%d-я передача закрыта. Открой её улучшением «Коробка передач» в мастерской." % gear
 
 func set_gear(value: int) -> bool:
 	if vehicle_id() in ["locomotive", "steam"]: return true
 	if auto_gearbox() and value >= 1 and value <= 5:
 		value = 1   # D: the box chooses the gear itself
 		if int(state.gear) >= 1 and int(state.gear) <= 5: return true
+	if vehicle_id() == "motorcar" and not gear_is_open(value):
+		return fail(closed_gear_text(value))
 	if float(state.throttle) >= 0.15:
 		return fail("Сначала убавь подачу ниже 15%")
 	var wanted = clampi(value, 0, 6 if vehicle_id() == "motorcar" else 2)
@@ -1625,6 +1643,8 @@ func fuel_service_mult(services: Dictionary) -> float:
 # hold the model to it.
 func top_speed_kmh(id: String = "") -> float:
 	var base = vehicle_base(id) if id != "" else vehicle_base()
+	# the petrol car with closed gears: the top of the highest open one (gears_top_kmh by the number of open gears 3..5)
+	if base.has("gears_top_kmh"): return float(base.gears_top_kmh[gears_open() - 3])
 	return float(base.get("top_speed_kmh", 0.0))
 
 func drag_coefficient() -> float:
@@ -2772,6 +2792,9 @@ func restore(saved: Dictionary) -> bool:
 			if box == 4: state.gear = 6 if int(state.gear) == 5 else int(state.gear)
 			else: state.gear = {0: 0, 1: 1, 2: 4}.get(int(state.gear), 0)
 		state.gearbox = 5
+	# Since the gears are opened by the upgrade, a save in a closed gear goes down to the highest open one.
+	if vehicle_id() == "motorcar" and int(state.gear) >= 1 and int(state.gear) <= 5 and not gear_is_open(int(state.gear)):
+		state.gear = gears_open()
 	migrate_boiler()
 	migrate_deck_cargo()
 	drop_temporary_wagon()

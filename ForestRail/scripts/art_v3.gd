@@ -2,7 +2,7 @@ extends RefCounted
 
 const ROOT = "res://assets/art_v3/"
 # The steam engine body is drawn by tools/make_steam_art.py; the fire glow,
-# needle, smoke and rods are drawn live in draw_steam_overlay / draw_steam_motion.
+# needle and rods are drawn live in draw_steam_overlay / draw_steam_motion; the smoke and steam live in scripts/fx.gd.
 const BODY = {"handcar": "vehicles/handcar_body", "pole": "vehicles/pole_body", "sail": "vehicles/sail_body", "steam": "vehicles/steam_locomotive_body", "motorcar": "vehicles/petrol_motorcar_body", "locomotive": "vehicles/battery_locomotive_body", "pneumatic": "vehicles/pneumatic_body", "zeppelin": "vehicles/zeppelin_body", "jet": "vehicles/jet_body"}
 const LARGE_WHEELS = ["locomotive", "steam", "pneumatic"]
 # Opaque tread diameters measured horizontally and vertically in the painted sprites.
@@ -713,18 +713,15 @@ func petrol_point(x: float, rail_y: float) -> Vector2:
 
 func draw_petrol_overlay(canvas: Node2D, model) -> void:
 	if model == null or model.state.is_empty() or not model.state.get("engine", false): return
-	var t = Time.get_ticks_msec() / 1000.0
-	var load = clampf(float(model.state.get("throttle", 0)), 0.0, 1.0)
 	var lamp = headlamp_point("motorcar")
 	for i in range(5 if (not is_skinned("motorcar") or skin_config.get("motorcar", {}).has("lamp_m")) else 0):
 		canvas.draw_circle(lamp, (0.13 + 0.07 * i) * PX, Color(1.0, 0.85, 0.45, 0.11 - 0.018 * i))
-	var drift = smoke_drift(model) * 0.65
-	for i in range(5):
-		var age = fposmod(t * (0.8 + 0.6 * load) + i / 5.0, 1.0)
-		var origin = skin_point("motorcar", "stack_m", Vector2(0.701, 1.97))
-		var stack = petrol_point(origin.x, origin.y) if is_skinned("motorcar") else stock_body_point("motorcar", Vector2(1324, 155))
-		var puff = stack + Vector2(age * drift, -age * smoke_rise(drift) * 0.8) * PX
-		canvas.draw_circle(puff, (0.05 + age * 0.16) * PX, Color(0.82, 0.82, 0.8, (0.25 + 0.35 * load) * (1.0 - age)))
+	# the exhaust smoke lives in the world now (scripts/fx.gd)
+
+# The mouth of the exhaust pipe in body pixels (fx.gd turns it into metres of the world).
+func petrol_stack_local() -> Vector2:
+	var origin = skin_point("motorcar", "stack_m", Vector2(0.701, 1.97))
+	return petrol_point(origin.x, origin.y) if is_skinned("motorcar") else stock_body_point("motorcar", Vector2(1324, 155))
 
 func draw_side_rod(canvas: Node2D, id: String, distance: float, facing: int, outer: Transform2D) -> void:
 	var radius = PX * float(Geometry.body(id).wheel_diameter_m) * 0.5
@@ -777,34 +774,18 @@ func draw_steam_overlay(canvas: Node2D, model) -> void:
 			canvas.draw_circle(center, 7.5, Color("dfd3ad"))
 		canvas.draw_line(center, center + Vector2.from_angle(needle) * 0.075 * PX, Color("a8231c"), 2.0, true)
 		canvas.draw_circle(center, 2.0, Color("2a2a2a"))
-	var t = Time.get_ticks_msec() / 1000.0
-	if plain and bool(boiler.get("venting", false)):
-		for i in range(4):
-			var age = fposmod(t * 1.6 + i / 4.0, 1.0)
-			canvas.draw_circle(steam_point(-0.106 + age * 0.12, 2.0 + age * 0.55), (0.04 + age * 0.12) * PX, Color(1, 1, 1, 0.5 * (1.0 - age)))
-	if not model.state.get("engine", false): return
-	# Smoke thickens with the regulator and trails backwards.
-	var throttle = float(model.state.get("throttle", 0))
+	# the safety valve, the chimney smoke and the cylinder cloud live in the world now (scripts/fx.gd)
+
+# Where fx.gd takes the steam from, in body pixels.
+func steam_plain() -> bool:
+	return not is_skinned("steam") or bool(skin_config.get("steam", {}).get("overlay", false))
+
+func steam_stack_local() -> Vector2:
 	var origin = skin_point("steam", "stack_m", Vector2(1.168, 2.30))
-	var stack = steam_point(origin.x, origin.y) if is_skinned("steam") else stock_body_point("steam", Vector2(706, 34))
-	var drift = smoke_drift(model)
-	for i in range(6):
-		var age = fposmod(t * 0.9 + i / 6.0, 1.0)
-		var puff = stack + Vector2(age * drift, -age * smoke_rise(drift)) * PX
-		canvas.draw_circle(puff, (0.10 + age * 0.22) * PX, Color(0.86, 0.86, 0.82, (0.35 + 0.35 * throttle) * (1.0 - age)))
-	var travelled = float(model.state.stats.distance)
-	var cycle = fposmod(travelled, 85.0)
-	if travelled < 85.0 or absf(float(model.state.v)) < 1.0 or cycle >= 4.0: return
-	var age = cycle / 4.0
-	var cloud = stack + Vector2(-0.28 - age * 1.3, -0.25 - age * 0.85) * PX
-	var radius = lerpf(0.10, 0.27, age) * PX
-	var ring = PackedVector2Array()
-	for i in range(49):
-		var phase = float(i) * TAU / 48.0
-		ring.append(cloud + Vector2(sin(phase) * 1.65, sin(phase * 2.0) * 0.75) * radius)
-	var alpha = smoothstep(0.0, 0.15, age) * (1.0 - smoothstep(0.40, 1.0, age))
-	canvas.draw_polyline(ring, Color(0.70, 0.75, 0.72, alpha * 0.28), radius * 0.34, true)
-	canvas.draw_polyline(ring, Color(0.90, 0.91, 0.85, alpha * 0.82), radius * 0.17, true)
+	return steam_point(origin.x, origin.y) if is_skinned("steam") else stock_body_point("steam", Vector2(706, 34))
+
+func steam_valve_local() -> Vector2:
+	return steam_point(-0.106, 2.0)
 
 # The sail car's mast, rigging, sail and sailor, drawn live over the painted platform
 # (tools/make_sail_art.py). The mast stands at the front end in the direction of travel, the boom runs

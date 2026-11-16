@@ -17,7 +17,7 @@ func check(ok: bool,label: String) -> void:
 
 func fixture(id: String):
 	var m=Model.new()
-	m.new_game(42);m.state.money=10000;Fixtures.equip(m,"motorcar")
+	m.new_game(42);m.state.money=10000;Fixtures.equip(m,"motorcar");Fixtures.open_gears(m)
 	if id=="locomotive": Fixtures.equip(m,id)
 	m.select_vehicle(id)
 	m.state.phase="route";m.state.s=100;m.state.brake=0

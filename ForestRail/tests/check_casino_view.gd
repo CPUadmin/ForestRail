@@ -47,14 +47,16 @@ func run() -> void:
 	game.screen = "depot"
 	game.tab = "Казик"
 	game.rebuild()
-	# the tab shows the way in and the honest odds
+	# the tab shows the way in and the sign
 	var enter = false
+	var sign_seen = false
 	var odds = false
 	for button in game.find_children("*", "Button", true, false):
 		if str(button.tooltip_text).begins_with("Войти в казик"): enter = true
 	for label in game.find_children("*", "Label", true, false):
-		if str(label.text).contains("Честные шансы"): odds = true
-	check(enter and odds, "the tab of the casino has the way in and the honest odds")
+		if str(label.text) == "ПРАВИЛА КАЗИКА": sign_seen = true
+		if str(label.text).contains("Честные шансы") or str(label.text).contains("%"): odds = true
+	check(enter and sign_seen and not odds, "the tab of the casino has the way in and the sign of the rules, no list of odds")
 	game.show_modal("casino")
 	await get_tree().process_frame
 	var view = game.overlay.get_child(game.overlay.get_child_count() - 1)

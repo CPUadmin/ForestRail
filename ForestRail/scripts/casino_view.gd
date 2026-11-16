@@ -22,12 +22,20 @@ var dep_button: Button
 var back_button: Button
 var tex = {}
 var drop: Control              # the found card on the screen (nothing while no card is shown)
+var intro_t = -1.0             # seconds since the entrance (-1: no entrance to show); the wheel turns lazily, the greeting appears
 var mood = "calm"              # calm, happy, sad, surprised, pouring: which picture of Mikhalych is shown
 
 const SECTOR_COLOR = {"empty": Color("5a4a38"), "tokens1": Color("b08a3c"), "tokens2": Color("d1a846"), "junk": Color("6b4a2e"), "coins": Color("c8b04a"), "repair": Color("3e7d78"), "golden": Color("f0c640"), "bonus": Color("7a4d8c"), "card": Color("d03a2e")}
 # какая картинка листа шлака ближе всего к виду хлама (для строки в мешке)
 const JUNK_PICTURE = {"rusty_bolt": 1, "bearing_cover": 2, "tie_plate": 4, "brake_shoe": 6, "rail_clip": 7, "cracked_lantern": 8, "stationmaster_watch": 9, "track_spike": 1, "fishplate": 5}
 const BONUS_NAME = {"spin": "халявная крутка", "x2": "иксы на ставку", "junk": "шлак в мешок", "tea": "чайку!"}
+
+# the notice on the wall (owner 16.11): the casino does not write out its rules or odds, it honestly says that it cheats
+const SIGN_TITLE = "ПРАВИЛА КАЗИКА"
+const SIGN_RULES = ["1. Казик всегда в плюсе.", "2. Ты — нет.", "3. Отыграться нельзя. Никогда.", "4. Михалыч улыбается не тебе, а твоим жетонам."]
+const SIGN_NOTE = "Мы тут честные обманщики. Лучший выигрыш — не играть."
+const INTRO_S = 1.3            # the lazy turn of the wheel and the greeting
+const INTRO_TURN = -1.6        # radians the wheel is turned back at the start of the entrance; it eases out to zero
 
 var plaque_cache = {}
 
@@ -79,6 +87,11 @@ func _ready() -> void:
 		tex[name] = load("res://assets/art_kazik/%s.png" % name)
 	for id in SECTOR_COLOR.keys(): tex["sector_" + str(id)] = load("res://assets/art_kazik/sector_%s.png" % str(id))
 	for i in range(1, 10): tex["junk_%d" % i] = load("res://assets/art_kazik/junk_%d.png" % i)
+	if ResourceLoader.exists("res://assets/art_kazik/counter.png"): tex["counter"] = load("res://assets/art_kazik/counter.png")
+	if game.casino_intro:
+		game.casino_intro = false
+		intro_t = 0.0
+		game.sound.play("coins", 0.25, 1.6)
 	shown_tokens = float(cas().tokens())
 	tokens_target = cas().tokens()
 	var row = HBoxContainer.new()
@@ -86,12 +99,13 @@ func _ready() -> void:
 	row.position = Vector2(size.x * 0.30, size.y - 74.0)
 	row.size = Vector2(size.x * 0.66, 56)
 	add_child(row)
+	button_row = row
 	spin_button = game.add_button(row, "Крутануть", Callable(self, "on_spin"))
 	dep_button = game.add_button(row, "Деп", Callable(self, "on_deposit"))
 	# Узловая Лесная: the album and the bolts desk live here, with Mikhalych; the way out leads to the yard
 	var album_button = game.add_button(row, "Альбом", func(): game.show_modal("album"))
 	var desk_button = game.add_button(row, "Сдать болты", func(): game.show_modal("receiving"))
-	back_button = game.add_button(row, "На узловую", game.close_modal)
+	back_button = game.add_button(row, "На узловую", game.leave_casino)
 	brass_button(spin_button, true)
 	brass_button(dep_button, false)
 	brass_button(album_button, false)
@@ -140,8 +154,19 @@ func refresh_buttons() -> void:
 	spin_button.text = "Крутануть · %d %s" % [cost, plural(cost, "жетон", "жетона", "жетонов")]
 	spin_button.disabled = spin_t >= 0.0 or cas().tokens() < cost
 	var v = common_junk_value()
-	dep_button.text = "Деп: сдать шлак · %d шт → %d %s" % [v.count, v.tokens, plural(int(v.tokens), "жетон", "жетона", "жетонов")] if v.count > 0 else "Деп: шлака нет"
+	# short words on the buttons, the details in the tooltip: five buttons must fit in one row from 1280 px on
+	dep_button.text = "Деп · +%d %s" % [v.tokens, plural(int(v.tokens), "жетон", "жетона", "жетонов")] if v.count > 0 else "Деп: шлака нет"
+	dep_button.tooltip_text = "Сдать шлак Михалычу: %d шт → %d %s" % [v.count, v.tokens, plural(int(v.tokens), "жетон", "жетона", "жетонов")] if v.count > 0 else "Шлак находят на дороге"
 	dep_button.disabled = spin_t >= 0.0 or v.count <= 0
+	fit_button_row()
+
+# the row of buttons stands at the right edge, never past it (it was cut on the right at 1600×900)
+var button_row: HBoxContainer = null
+func fit_button_row() -> void:
+	if button_row == null: return
+	var wide = button_row.get_combined_minimum_size().x
+	button_row.size = Vector2(wide, 56)
+	button_row.position.x = maxf(16.0, size.x - 24.0 - wide)
 
 func on_deposit() -> void:
 	var got = 0
@@ -176,6 +201,7 @@ func on_spin() -> void:
 	spin_to = spin_from + 4.0 * TAU + base
 	spin_seconds = 1.2 if bool(game.settings.reduce_motion) else 4.2
 	spin_t = 0.0
+	intro_t = -1.0
 	last_sector = -1
 	glow = 0.0
 	mood = "calm"
@@ -235,6 +261,9 @@ func finish_spin() -> void:
 	refresh_buttons()
 
 func _process(dt: float) -> void:
+	if intro_t >= 0.0:
+		intro_t += dt
+		if intro_t >= INTRO_S: intro_t = -1.0
 	if spin_t >= 0.0:
 		spin_t += dt
 		var p = clampf(spin_t / spin_seconds, 0.0, 1.0)
@@ -310,6 +339,14 @@ func _draw() -> void:
 	var mw = mh * float(m.get_width()) / float(m.get_height())
 	var mpos = Vector2(size.x * 0.015, size.y - mh - 8.0 + (2.0 * sin(Time.get_ticks_msec() / 900.0)))
 	draw_texture_rect(m, Rect2(mpos, Vector2(mw, mh)), false)
+	# the counter stands in front of him: the figure is cut at the hips, the counter hides it (owner 16.11)
+	if tex.has("counter"):
+		var ct: Texture2D = tex.counter
+		var top = mpos.y + mh * 0.75
+		var right = maxf(mpos.x + mw + 14.0, size.x * 0.20)
+		var cw = right + 6.0   # the left end of the counter is cut by the screen edge; the foot of it goes below the screen
+		var ch = cw * float(ct.get_height()) / float(ct.get_width())
+		draw_texture_rect(ct, Rect2(Vector2(right - cw, top), Vector2(cw, ch)), false, Color(0.66, 0.61, 0.54))
 	# колесо
 	var center = Vector2(size.x * 0.635, size.y * 0.43)
 	var diameter = minf(size.y * 0.70, size.x * 0.40)
@@ -320,7 +357,10 @@ func _draw() -> void:
 		draw_texture_rect(tex.glow, Rect2(center - Vector2(g, g) * 0.5, Vector2(g, g)), false, Color(1, 1, 1, clampf(glow, 0.0, 1.0)))
 	# a soft shadow of the wheel on the wall
 	draw_circle(center + Vector2(10, 14), radius * 1.02, Color(0, 0, 0, 0.35))
-	draw_set_transform(center, angle, Vector2.ONE)
+	# the lazy turn of the entrance is only a look: the logical angle (and so the result of a spin) is not touched
+	var shown_angle = angle
+	if intro_t >= 0.0: shown_angle += INTRO_TURN * pow(1.0 - clampf(intro_t / INTRO_S, 0.0, 1.0), 3.0)
+	draw_set_transform(center, shown_angle, Vector2.ONE)
 	var wh = diameter * float(wheel.get_height()) / float(wheel.get_width())
 	draw_texture_rect(wheel, Rect2(-Vector2(diameter, wh) * 0.5, Vector2(diameter, wh)), false)
 	var r0 = radius * 0.19
@@ -345,9 +385,9 @@ func _draw() -> void:
 			# the painted icon of the sector, its top pointing to the rim
 			var icon: Texture2D = tex["sector_" + str(s.id)]
 			var icon_size = clampf(width * radius * 0.46, 40.0, radius * 0.40)
-			draw_set_transform(center, angle + mid + PI * 0.5, Vector2.ONE)
+			draw_set_transform(center, shown_angle + mid + PI * 0.5, Vector2.ONE)
 			draw_texture_rect(icon, Rect2(Vector2(-icon_size * 0.5, -radius * 0.50 - icon_size * 0.5), Vector2(icon_size, icon_size)), false)
-			draw_set_transform(center, angle, Vector2.ONE)
+			draw_set_transform(center, shown_angle, Vector2.ONE)
 		elif width > 0.0:
 			draw_line(Vector2.from_angle(mid) * (r0 + 6.0), Vector2.from_angle(mid) * (r1 - 4.0), Color("ffe08a"), 3.0, true)
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
@@ -373,7 +413,8 @@ func _draw() -> void:
 		draw_text(rp.position + Vector2(16, rp.size.y * 0.42), result_text(), 22, Color("ffe08a"), rp.size.x - 32.0, HORIZONTAL_ALIGNMENT_CENTER)
 		draw_text(rp.position + Vector2(16, rp.size.y * 0.80), line, 17, Color("fff2c8"), rp.size.x - 32.0, HORIZONTAL_ALIGNMENT_CENTER)
 	else:
-		draw_text(rp.position + Vector2(16, rp.size.y * 0.62), line, 20, Color("fff2c8"), rp.size.x - 32.0, HORIZONTAL_ALIGNMENT_CENTER)
+		var hello = 1.0 if intro_t < 0.0 else smoothstep(0.25, 0.75, intro_t / INTRO_S)   # the greeting appears with the casino
+		draw_text(rp.position + Vector2(16, rp.size.y * 0.62), line, 20, Color(1.0, 0.95, 0.78, hello), rp.size.x - 32.0, HORIZONTAL_ALIGNMENT_CENTER)
 	# the bag of junk on a plaque at the right
 	var bag = cas().bag()
 	var rows = maxi(1, mini(bag.size(), 8))
@@ -392,3 +433,30 @@ func _draw() -> void:
 		draw_text(bp.position + Vector2(44, 60.0 + 28.0 * float(row)), "%s ×%d" % [entry.name, int(entry.count)], 14, Color("e8dcc0"))
 		row += 1
 	if bag.is_empty(): draw_text(bp.position + Vector2(14, 66), "пусто: ищи у рельса", 15, Color("c9bda0"))
+
+	draw_rules_sign()
+
+# the brass-framed notice on the wall, over Mikhalych's head: the title, four rules, a small line under them
+func draw_rules_sign() -> void:
+	var k = clampf(size.y / 720.0, 1.0, 1.5)
+	var box = Rect2(Vector2(size.x * 0.015, 14.0), Vector2(clampf(size.x * 0.27, 300.0, 460.0 * k), 10.0))
+	var inner = box.size.x - 28.0
+	var f_title = int(20 * k)
+	var f_rule = int(15 * k)
+	var f_note = int(13 * k)
+	var h_rules = 0.0
+	for r in SIGN_RULES: h_rules += game.font.get_multiline_string_size(r, HORIZONTAL_ALIGNMENT_LEFT, inner, f_rule).y + 3.0
+	var h_note = game.font.get_multiline_string_size(SIGN_NOTE, HORIZONTAL_ALIGNMENT_CENTER, inner, f_note).y
+	box.size.y = 14.0 + f_title + 14.0 + h_rules + 8.0 + h_note + 12.0
+	plaque(box, 0.95)
+	for corner in [Vector2(10, 10), Vector2(box.size.x - 10, 10), Vector2(10, box.size.y - 10), Vector2(box.size.x - 10, box.size.y - 10)]:
+		draw_circle(box.position + corner, 3.2, Color("2a1a08"))
+		draw_circle(box.position + corner, 2.2, Color("e8c66a"))
+	var y = box.position.y + 14.0 + f_title
+	draw_text(Vector2(box.position.x + 14.0, y), SIGN_TITLE, f_title, Color("ffe08a"), inner, HORIZONTAL_ALIGNMENT_CENTER)
+	draw_line(Vector2(box.position.x + 22.0, y + 7.0), Vector2(box.end.x - 22.0, y + 7.0), Color("c9a24e", 0.7), 1.5)
+	y += 14.0 + float(f_rule) * 0.8
+	for r in SIGN_RULES:
+		draw_text(Vector2(box.position.x + 14.0, y), r, f_rule, Color("fff2c8"), inner)
+		y += game.font.get_multiline_string_size(r, HORIZONTAL_ALIGNMENT_LEFT, inner, f_rule).y + 3.0
+	draw_text(Vector2(box.position.x + 14.0, y + 4.0 + float(f_note) * 0.8), SIGN_NOTE, f_note, Color("d9b878"), inner, HORIZONTAL_ALIGNMENT_CENTER)

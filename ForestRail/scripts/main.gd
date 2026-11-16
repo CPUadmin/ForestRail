@@ -12,6 +12,7 @@ const TrainArt = preload("res://scripts/train_art.gd")
 const MenuUi = preload("res://scripts/menu_ui.gd")
 const DepotUi = preload("res://scripts/depot_ui.gd")
 const YardUi = preload("res://scripts/yard_ui.gd")
+const Fx = preload("res://scripts/fx.gd")
 const ArtWorld = preload("res://scripts/art_world.gd")
 const Geometry = preload("res://scripts/world_geometry.gd")
 const Instruments = preload("res://scripts/instruments.gd")
@@ -106,6 +107,14 @@ var depot_anim_t = 0.0
 var depot_anim_from = 0.0
 var depot_anim_zoom = 1.0
 var depot_exit_action = Callable()
+# the casino doors: "casino_in" (the camera flies to the door, warm light floods the screen), "casino_out" (a short warm fade back)
+const CASINO_IN_S = 0.6        # the flight to the door and the flood of light
+const CASINO_OUT_S = 0.4       # the casino coming out of the warm light
+const CASINO_LEAVE_S = 0.17    # each half of the way back to the yard
+const CASINO_DEEP = Color("d98a1e")
+var place_style = ""
+var fade_tint = Color(0, 0, 0)
+var casino_intro = false       # the next casino screen shows its greeting (the wheel turns lazily, the line appears)
 var animate_in_tests = false
 var fade_rect: ColorRect = null
 # Cab view (E): the camera closes in on the cab and every control of the machine is
@@ -629,6 +638,7 @@ func begin_new(seed_number: int = -1, creative_mode: bool = false) -> void:
 	if seed_number < 0:
 		seed_number = int(Time.get_unix_time_from_system()) % 100000
 	model.new_game(seed_number, 2, "creative" if creative_mode else "career", true, "pole")
+	fx().clear()
 	selected_object = model.vehicle_id()
 	screen = "depot"
 	place = "yard"
@@ -657,6 +667,7 @@ func load_career(saved: Dictionary) -> void:
 		notify("Сохранение несовместимо или повреждено")
 		return
 	screen = "depot" if model.state.phase == "depot" else "game"
+	fx().clear()
 	place = "yard"
 	selected_object = model.vehicle_id()
 	camera_s = float(model.state.s)
@@ -712,7 +723,23 @@ func yard_ui():
 # a walk across the yard: the screen darkens (the camera comes closer to the building), the place opens, the light comes back
 func go_place(id: String) -> void:
 	if id == "casino":
-		show_modal("casino")
+		var open = func():
+			casino_intro = true
+			show_modal("casino")
+		if test_mode and not animate_in_tests:
+			open.call()
+			return
+		if depot_anim != "": return
+		cancel_drag()
+		if place == "yard" and not bool(settings.reduce_motion): yard_ui().entering = "casino"
+		place_style = "casino_in" if not bool(settings.reduce_motion) else ""
+		fade_tint = UiKit.GLOW if place_style != "" else Color(0, 0, 0)
+		place_change = true
+		depot_exit_action = open
+		depot_anim = "leave"
+		depot_anim_t = 0.0
+		ensure_fade_rect()
+		sound.play("gear", 0.3, 1.5)
 		return
 	var change = func():
 		place = id
@@ -732,7 +759,32 @@ func go_place(id: String) -> void:
 	ensure_fade_rect()
 
 func place_fade_s() -> float:
+	if place_style == "casino_in": return CASINO_OUT_S if depot_anim == "out" else CASINO_IN_S
+	if place_style == "casino_out": return CASINO_LEAVE_S
 	return 0.25 if place_change else DEPOT_FADE_S
+
+# the way out of the casino: a short warm fade back to the yard
+func leave_casino() -> void:
+	if (test_mode and not animate_in_tests) or depot_anim != "":
+		close_modal()
+		return
+	cancel_drag()
+	place_style = "casino_out"
+	fade_tint = UiKit.GLOW
+	place_change = true
+	depot_exit_action = close_modal
+	depot_anim = "leave"
+	depot_anim_t = 0.0
+	ensure_fade_rect()
+
+# the cover of the fade: black for the usual walks, warm light for the casino doors
+func set_fade(alpha: float) -> void:
+	if fade_rect != null: fade_rect.color = Color(fade_tint.r, fade_tint.g, fade_tint.b, alpha)
+
+# how far the casino flood has come (0 to 1) while the camera flies to the door
+func casino_flight() -> float:
+	if place_style != "casino_in" or depot_anim != "leave": return 0.0
+	return clampf(depot_anim_t / place_fade_s(), 0.0, 1.0)
 
 func draw_depot_interior(size: Vector2) -> void:
 	depot_ui().draw_depot_interior(size)
@@ -1823,6 +1875,7 @@ func _process(dt: float) -> void:
 		delivery_ghost.time+=dt
 		if delivery_ghost.time>0.45: delivery_ghost={}
 	toast_seconds = maxf(0, toast_seconds - dt)
+	if (screen == "game" or screen == "depot") and not paused: fx().update(dt)   # the smoke and steam live in the world (scripts/fx.gd)
 	if screen != "menu" and not model.state.is_empty():
 		var target_s = model.render_s()
 		if screen == "depot": target_s = 0
@@ -2002,6 +2055,11 @@ func skip_depot_anim() -> void:
 	if depot_anim == "in": depot_anim_t = maxf(depot_anim_t, DEPOT_MOVE_S)
 	elif depot_anim == "leave": depot_anim_t = place_fade_s()
 	elif depot_anim == "out": depot_anim_t = place_fade_s()
+	if place_style != "":   # the casino doors: a click goes straight to the end
+		advance_depot_anim(0.0)
+		if depot_anim == "out":
+			depot_anim_t = place_fade_s()
+			advance_depot_anim(0.0)
 
 func advance_depot_anim(dt: float) -> void:
 	depot_anim_t += dt
@@ -2027,7 +2085,11 @@ func advance_depot_anim(dt: float) -> void:
 				depot_anim = ""
 				if fade_rect != null: fade_rect.color.a = 0.0
 	elif depot_anim == "leave":
-		if fade_rect != null: fade_rect.color.a = clampf(depot_anim_t / place_fade_s(), 0.0, 1.0)
+		var p = clampf(depot_anim_t / place_fade_s(), 0.0, 1.0)
+		if place_style == "casino_in":
+			fade_tint = UiKit.GLOW.lerp(CASINO_DEEP, smoothstep(0.4, 1.0, p))
+			set_fade(smoothstep(0.35, 1.0, p))   # the light floods in at the end of the flight, not from the start
+		else: set_fade(p)
 		if screen == "depot" and place == "yard": queue_redraw()   # the camera comes closer to the building
 		if depot_anim_t >= place_fade_s():
 			if depot_exit_action.is_valid(): depot_exit_action.call()
@@ -2035,11 +2097,15 @@ func advance_depot_anim(dt: float) -> void:
 			depot_anim = "out"
 			depot_anim_t = 0.0
 	elif depot_anim == "out":
-		if fade_rect != null: fade_rect.color.a = 1.0 - clampf(depot_anim_t / place_fade_s(), 0.0, 1.0)
+		var q = clampf(depot_anim_t / place_fade_s(), 0.0, 1.0)
+		if place_style != "": fade_tint = CASINO_DEEP.lerp(UiKit.LAMP, q)
+		set_fade(1.0 - smoothstep(0.0, 1.0, q) if place_style != "" else 1.0 - q)
 		if depot_anim_t >= place_fade_s():
 			depot_anim = ""
 			place_change = false
-			if fade_rect != null: fade_rect.color.a = 0.0
+			place_style = ""
+			fade_tint = Color(0, 0, 0)
+			set_fade(0.0)
 
 func _input(event: InputEvent) -> void:
 	if depot_anim != "" and ((event is InputEventKey and event.pressed and not event.echo) or (event is InputEventMouseButton and event.pressed)):
@@ -2173,7 +2239,14 @@ func _input(event: InputEvent) -> void:
 						lever_pending_gear=selector_gear_of(gate_pos.y)
 					else:
 						gate_pos=gate_move(gate_pos,local_move/Vector2(gate.size.x*0.35,gate.size.y*0.38))
-						lever_pending_gear=gate_gear(gate_pos,lever_pending_gear)
+						var closed=closed_gate_gear(gate_pos)
+						if closed>0:
+							# the knob hits the brass plate of a closed gear and springs back to the gear it was in
+							gate_pos=gate_slot_pos(int(model.state.gear))
+							lever_pending_gear=model.selector_gear()
+							gate_bump(closed)
+						else:
+							lever_pending_gear=gate_gear(gate_pos,lever_pending_gear)
 				elif kind=="slider":
 					var level=clampf((geo.pivot.y-lever_target_point.y)/float(geo.length),0.0,1.0)
 					if level<0.001: level=0.0
@@ -2536,7 +2609,10 @@ func update_cargo_actions(interaction: Dictionary) -> void:
 		if model.fuel_service_mult(offer.services)>=0.0: label=({"locomotive":"Зарядить","pneumatic":"Накачать"}.get(model.vehicle_id(),"Заправить"))+(" · %d монет" % cost if cost>0 else (" · бесплатно" if room else " · полон"))
 		if water_short: label+=(" + " if label!="" else "")+"вода"
 		if label!="":
-			var service_button=add_button(cargo_actions,label,use_station_service,not room and not water_short)
+			# the fuel is filled as far as the money goes, so one coin is enough to start; the water is free
+			var broke=room and cost>0 and int(model.state.money)<1 and not water_short and not model.creative()
+			var service_button=add_button(cargo_actions,label,use_station_service,(not room and not water_short) or broke)
+			if broke: service_button.tooltip_text="Не хватает %d монет" % (1-int(model.state.money))
 			service_button.add_theme_font_size_override("font_size",int(18*float(settings.text_scale)))
 	if interaction.can_transfer and model.casino().receiving_possible() and model.casino().bolt_total() > 0:
 		var desk_button=add_button(cargo_actions,"Приёмка болтов (%d)" % model.casino().bolt_total(),use_station_receiving_button)
@@ -2669,6 +2745,7 @@ func _draw_scene() -> void:
 			if place == "yard": yard_ui().draw_yard(size)
 			else: draw_depot_interior(size)
 		draw_train()
+		fx().draw()
 		if screen == "depot" and not clean_frame:
 			# ui-v2: no box under the header; a soft shade keeps the station name readable over the rafters
 			ArtWorld.vertical_gradient(self, Rect2(0, 0, size.x, 120), Color(0.05, 0.035, 0.02, 0.85), Color(0.05, 0.035, 0.02, 0.0))
@@ -2887,6 +2964,11 @@ func advance_shunting(dt: float) -> void:
 	save_game()
 	rebuild()
 
+var fx_cache = null
+func fx():
+	if fx_cache == null: fx_cache = Fx.new(self)
+	return fx_cache
+
 var train_art_cache = null
 func train_art():
 	if train_art_cache == null: train_art_cache = TrainArt.new(self)
@@ -2989,6 +3071,21 @@ func gate_gear(pos: Vector2, previous: int) -> int:
 	if pos.y <= -0.85: return {0: 1, 1: 3, 2: 5}.get(column, 0)
 	if pos.y >= 0.85: return {0: 2, 1: 4, 2: 6}.get(column, 0)
 	return previous
+
+# The forward gear whose slot the knob has entered when that gear is closed (under a brass plate), else 0.
+const GATE_PLATE_FROM = 0.3   # the plate starts this far from the neutral channel, in gate units
+func closed_gate_gear(pos: Vector2) -> int:
+	if model.auto_gearbox() or absf(pos.y) < GATE_PLATE_FROM: return 0
+	var gear = ({0: 1, 1: 3, 2: 5} if pos.y < 0.0 else {0: 2, 1: 4, 2: 6}).get(roundi(pos.x), 0)
+	return gear if gear > 0 and not model.gear_is_open(gear) else 0
+
+var gate_bump_time = -10.0
+# A short low clack and the notice, not more often than once a second.
+func gate_bump(gear: int) -> void:
+	if time - gate_bump_time < 1.0: return
+	gate_bump_time = time
+	sound.play("gear", 0.6, 0.55)
+	notify(model.closed_gear_text(gear))
 
 func draw_gate(rect: Rect2, knob: Vector2, active: bool) -> void:
 	control_art().draw_gate(rect, knob, active)

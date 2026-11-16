@@ -119,10 +119,11 @@ func run() -> void:
 	var shop = game("sail")
 	shop.state.phase = "depot"
 	shop.state.money = 1000
-	check(not shop.upgrade("sail", "sail_spinnaker") and shop.message.contains("Не хватает"), "a gadget is out of reach without the money")
+	check(not shop.upgrade("sail", "sail_spinnaker") and shop.message.contains("не продаётся"), "a gadget is not sold for coins")
 	shop.state.money = 5000
-	check(shop.upgrade("sail", "sail_spinnaker") and not shop.upgrade("sail", "sail_spinnaker"), "the spinnaker is bought once")
-	check(shop.upgrade("sail", "sail_autopilot"), "and the autopilot too")
+	check(not shop.upgrade("sail", "sail_spinnaker"), "not even with the money")
+	check(Fixtures.gadget(shop, "sail", "sail_spinnaker") and not Fixtures.gadget(shop, "sail", "sail_spinnaker"), "the spinnaker is installed once, by its card")
+	check(Fixtures.gadget(shop, "sail", "sail_autopilot"), "and the autopilot too")
 	check(not shop.upgrade("pole", "sail_spinnaker") and not shop.upgrade("steam", "sail_spinnaker"), "a gadget belongs to its own type only")
 	var pull: Array = []
 	for spinnaker in [false, true]:
@@ -155,7 +156,7 @@ func run() -> void:
 	var steam_shop = game("steam", 2)
 	steam_shop.state.phase = "depot"
 	steam_shop.state.money = 10000
-	check(steam_shop.upgrade("steam", "steam_superheater") and steam_shop.upgrade("steam", "steam_stoker") and not steam_shop.upgrade("steam", "steam_stoker"), "the steam gadgets are bought once")
+	check(Fixtures.gadget(steam_shop, "steam", "steam_superheater") and Fixtures.gadget(steam_shop, "steam", "steam_stoker") and not Fixtures.gadget(steam_shop, "steam", "steam_stoker"), "the steam gadgets are installed once, by their cards")
 	check(not steam_shop.upgrade("sail", "steam_stoker"), "a steam gadget belongs to the steam engine only")
 	var coal: Array = []
 	var box: Array = []
