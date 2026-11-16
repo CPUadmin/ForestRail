@@ -245,18 +245,26 @@ func object_state(id: String) -> Dictionary:
 		return state.wagons_by_id[id]
 	return state.fleet_by_id.get(id, {})
 
+# 1.3.3: the effects are counted ~30 times a frame and depend only on the levels of the object (and the catalog); they are
+# kept per object and counted again as soon as a level changes. A copy goes out, so no caller can spoil the kept one.
+var effects_cache = {}   # id -> {"key": int, "result": Dictionary}
+
 func effects(id: String) -> Dictionary:
-	var result: Dictionary = {}
 	var object = object_state(id)
 	if object.is_empty():
-		return result
+		return {}
+	var key = hash([object.levels, data.upgrade_catalog.size(), endless_decay()])
+	var kept = effects_cache.get(id)
+	if kept != null and int(kept.key) == key: return kept.result.duplicate()
+	var result: Dictionary = {}
 	for branch in data.upgrade_catalog:
 		var lv = int(object.levels.get(branch.id, 0))
 		if lv == 0:
 			continue
-		for key in branch.effects_at_level:
-			result[key] = level_value(branch, key, lv)
-	return result
+		for key_name in branch.effects_at_level:
+			result[key_name] = level_value(branch, key_name, lv)
+	effects_cache[id] = {"key": key, "result": result}
+	return result.duplicate()
 
 # Owner 16.11: the simple upgrades are endless, as in tycoon games. Levels 1 and 2 keep the numbers of the
 # data; from level 3 on a level adds (v2 - v1) * decay^(n - 2) on top of the previous one (the total
@@ -297,7 +305,9 @@ static func tidy_price(price: float) -> int:
 	var step = 5.0 if price < 500.0 else (10.0 if price < 5000.0 else 100.0)
 	return int(roundf(price / step) * step)
 
+static var stats_calls = 0   # how many times the stats were counted (tests/probe_stats_cost.gd)
 func object_stats(id: String) -> Dictionary:
+	stats_calls += 1
 	var wagon = id.begins_with("W")
 	var base = data.wagon if wagon else vehicle_base(id)
 	var ef = effects(id)
