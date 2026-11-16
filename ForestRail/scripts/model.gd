@@ -2364,7 +2364,7 @@ func driving_force(demand: float) -> float:
 # The throttle (0..1) that pulls as hard as possible without spinning the wheels, at this speed.
 func throttle_safe() -> float:
 	if not spins() or pull_full <= 0.0: return 1.0
-	return clampf(0.95 * drive_cap() / pull_full, 0.0, 1.0)
+	return clampf((0.8 if wheel_slip else 0.95) * drive_cap() / pull_full, 0.0, 1.0)   # spinning: ease off until they grip
 
 func wear_spin() -> void:
 	if wear_rules: wear().damage_effect(vehicle_id(), "roll", 0.015, "колёса буксовали")

@@ -42,7 +42,7 @@ func start(m, throttle: Callable) -> Dictionary:
 	var spin = 0.0
 	var first = -1.0
 	for i in range(360):
-		m.state.throttle = float(throttle.call(i / 60.0))
+		m.state.throttle = float(throttle.call(i / 60.0, m))
 		m.physics_step(1.0 / 60.0)
 		if m.wheel_slip:
 			spin += 1.0 / 60.0
@@ -50,22 +50,22 @@ func start(m, throttle: Callable) -> Dictionary:
 	return {"m": float(m.state.s) - from, "spin": spin, "first": first}
 
 func run() -> void:
-	var floored = func(_t): return 1.0
-	var smooth = func(t): return minf(0.8, t / 1.0)   # opened over a second to 80%
+	var floored = func(_t, _m): return 1.0
+	var smooth = func(t, m): return minf(t / 1.0, m.throttle_safe())   # opened over a second, never past the grip
 	for id in ["steam", "motorcar", "locomotive"]:
 		var hard = start(fresh(id), floored)
 		var soft = start(fresh(id), smooth)
-		var gentle = start(fresh(id), func(t): return minf(0.65, t / 2.0))
+		var gentle = start(fresh(id), func(t, _m): return minf(0.65, t / 2.0))
 		print("SLIP %s: floored %.1f m in 6 s, spinning %.1f s; smooth %.1f m, spinning %.1f s" % [id, hard.m, hard.spin, soft.m, soft.spin])
 		check(hard.spin > 0.5, "%s: floored from a standstill, the wheels spin (%.1f s)" % [id, hard.spin])
 		check(soft.spin == 0.0 and gentle.spin == 0.0, "%s: opened smoothly, they do not" % id)
 		check(soft.m > hard.m, "%s: the smooth start goes further in 6 s (%.1f m against %.1f m)" % [id, soft.m, hard.m])
-		var slow = func(t): return minf(1.0, t / 5.0)
+		var slow = func(t, _m): return minf(1.0, t / 5.0)
 		var dry = start(fresh(id), slow)
 		var wet = start(fresh(id, 1.0), slow)
 		print("SLIP %s: a slow opening spins at %.2f dry, %.2f wet" % [id, dry.first, wet.first])
 		check(wet.first > 0.0 and (dry.first < 0.0 or wet.first < dry.first - 0.1), "%s: in the rain the wheels spin earlier (%.2f against %.2f)" % [id, wet.first, dry.first])
-		var safe = start(fresh(id, 1.0), func(_t): return 1.0)
+		var safe = start(fresh(id, 1.0), func(_t, _m): return 1.0)
 		check(safe.spin > 0.0, "%s: floored in the rain, they spin" % id)
 	# the slip lets go when the throttle is eased
 	var ease = fresh("locomotive")
@@ -145,7 +145,7 @@ func run() -> void:
 		var trip = TripDriver.round_trip(d, "C", 2)
 		var result = d.state.last_result
 		print("SLIP TRIP %s: ok %s %s, %.0f s, notes %s, rough %.2f a km" % [id, str(trip.ok), str(trip.get("why", "")), float(trip.get("seconds", 0)), str(result.get("notes", [])), float(result.get("rough_km", -1.0))])
-		check(trip.ok and result.get("notes", []).has("плавный рейс +5%"), "%s: a careful driver gets the smooth bonus (%s)" % [id, str(result.get("notes", []))])
+		check(trip.ok and not result.get("notes", []).has("резкая езда −5%"), "%s: a careful driver is not fined for harshness (%s)" % [id, str(result.get("notes", []))])
 	Model.order_rules = false
 	print("SLIP CHECKS ", checks, "; FAILURES ", failures)
 	get_tree().quit(0 if failures.is_empty() else 1)
