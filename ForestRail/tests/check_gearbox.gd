@@ -19,6 +19,7 @@ func setup():
 	m.state.money = 5000
 	m.state.chapter = 4
 	Fixtures.equip(m, "motorcar")
+	Fixtures.open_gears(m)   # the 4th and the 5th gear are opened by the gearbox upgrade
 	m.accept_mission(m.current_mission())
 	for i in range(mini(m.state.cargo.size(), m.slots().size())): m.transfer(m.state.cargo[i].id, m.slots()[i].key)
 	m.depart()

@@ -31,3 +31,9 @@ static func fire_up(m) -> void:
 	m.light_fire()
 	m.boiler().heat = 1.0
 	m.boiler().pressure = 1.0
+
+# The petrol car opens the 4th and the 5th gear through both levels of the «Коробка передач» upgrade
+# (16.11.2026): tests about the full gearbox open them first. The levels also bring their multipliers.
+static func open_gears(m) -> void:
+	if not m.state.fleet_by_id.has("motorcar"): return
+	m.state.fleet_by_id.motorcar.levels["motorcar_gearbox"] = 2

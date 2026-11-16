@@ -57,6 +57,7 @@ func run() -> void:
 	check(crawl.start_engine(true), "and starts again when cool")
 	var fast = setup("motorcar")
 	fast.start_engine(true)
+	Fixtures.open_gears(fast)   # the 4th gear is opened by the gearbox upgrade
 	fast.set_gear(4)
 	fast.state.s = 100.0
 	fast.state.v = 10.0

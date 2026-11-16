@@ -1023,6 +1023,9 @@ func upgrade_preview(id: String, branch: Dictionary) -> String:
 	var after = canvas.model.object_stats(id)
 	object.levels[branch.id] = lv
 	var parts: Array = []
+	# the gearbox of the petrol car opens a gear at each level: say it first, in plain words
+	if branch.id == "motorcar_gearbox" and lv < 2 and not canvas.model.creative():
+		parts.append("Открывает %d-ю передачу: до %d км/ч" % [4 + lv, int(canvas.model.vehicle_base("motorcar").gears_top_kmh[lv + 1])])
 	var battery = id == "locomotive"
 	var names = {"slots": ["Места", ""], "mass": ["Масса", " кг"], "brake": ["Тормоз", " Н"], "tank": ["Батарея" if battery else ("Запас угля" if id == "steam" else "Бак"), " кВт·ч" if battery else ("" if id == "steam" else " л")], "power": ["Мощность", " Вт"], "rolling": ["Сопротивление качению", ""], "shock": ["Битьё посуды", ""], "traction": ["Тяга", ""], "speeds": ["Скорость на передачах", ""]}
 	for key in ["slots", "mass", "brake", "tank", "power", "rolling", "shock", "traction", "speeds"]:

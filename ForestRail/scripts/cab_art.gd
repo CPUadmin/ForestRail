@@ -825,6 +825,12 @@ func draw_petrol_cab_extras(size: Vector2, layout: Dictionary) -> void:
 		canvas.draw_circle(at, 9, Color("0c100e"))
 		canvas.draw_circle(at, 7, lamp_colour if lit else lamp_colour.darkened(0.78))
 		if lit: canvas.draw_circle(at, 15, Color(lamp_colour, 0.2))
+		if not canvas.model.gear_is_open(gears[lamp]):
+			# a closed gear: a dead lamp with a small brass padlock instead of the number
+			canvas.draw_circle(at, 7, Color("1a1d1b"))
+			canvas.draw_arc(at + Vector2(0, -1.5), 2.6, PI, TAU, 8, Color("bb964f"), 1.4, true)
+			canvas.draw_rect(Rect2(at + Vector2(-3.5, -1.5), Vector2(7, 5.5)), Color("bb964f"))
+			continue
 		canvas.draw_string(canvas.font, at + Vector2(-8, 4), labels[lamp], HORIZONTAL_ALIGNMENT_CENTER, 16, 10, Color("0c100e") if lit else Color("8a8466"))
 	# rear-view mirror on a stalk over the glass: the track and train behind, receding
 	var mirror = Rect2(cx + 150, size.y * 0.075 + 40, 118, 46)
