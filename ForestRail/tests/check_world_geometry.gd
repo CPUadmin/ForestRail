@@ -329,4 +329,4 @@ func run() -> void:
 	var file = FileAccess.open(out_dir.path_join("geometry_results.json"),FileAccess.WRITE)
 	file.store_string(JSON.stringify(report,"\t"));file.close()
 	print("WORLD GEOMETRY CHECKS ",checks,"; FAILURES ",failures)
-	get_tree().quit(0 if failures.is_empty() else 1)
+	preload("res://tests/qa_exit.gd").quit(self, 0 if failures.is_empty() else 1)

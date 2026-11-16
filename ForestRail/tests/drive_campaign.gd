@@ -4,7 +4,7 @@ var root: Window:
 	get: return get_tree().root
 
 func quit(code: int = 0) -> void:
-	get_tree().quit(code)
+	preload("res://tests/qa_exit.gd").quit(self, code)
 
 
 

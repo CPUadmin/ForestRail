@@ -297,4 +297,4 @@ func run() -> void:
 	print("STATION SERVICE CHECKS ",checks,"; FAILURES ",failures)
 	game.queue_free()
 	await get_tree().process_frame
-	get_tree().quit(0 if failures.is_empty() else 1)
+	preload("res://tests/qa_exit.gd").quit(self, 0 if failures.is_empty() else 1)

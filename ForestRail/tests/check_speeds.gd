@@ -87,4 +87,4 @@ func run() -> void:
 	check(pneumatic_t > electric_t and pneumatic_t < steam_t, "the pneumatic train accelerates between the electric and the steam locomotive (%.1f s)" % pneumatic_t)
 	check(petrol_t > electric_t, "the electric locomotive pulls away fastest (%.1f s against petrol %.1f s)" % [electric_t, petrol_t])
 	print("SPEED CHECKS ", checks, "; FAILURES ", failures)
-	get_tree().quit(0 if failures.is_empty() else 1)
+	preload("res://tests/qa_exit.gd").quit(self, 0 if failures.is_empty() else 1)

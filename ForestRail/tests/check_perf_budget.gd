@@ -176,4 +176,4 @@ func run() -> void:
 				check(float(now.median) <= float(was.median) * MEDIAN_K * slow + SLACK_MS, "%s %s: median %.2f ms against the base %.2f" % [scene, counter, float(now.median), float(was.median)])
 				check(float(now.p95) <= float(was.p95) * P95_K * slow + SLACK_MS * 2.0, "%s %s: p95 %.2f ms against the base %.2f" % [scene, counter, float(now.p95), float(was.p95)])
 	print("PERF BUDGET CHECKS ", checks, "; FAILURES ", failures)
-	get_tree().quit(0 if failures.is_empty() else 1)
+	preload("res://tests/qa_exit.gd").quit(self, 0 if failures.is_empty() else 1)

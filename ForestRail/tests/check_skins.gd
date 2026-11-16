@@ -65,4 +65,4 @@ func run() -> void:
 	var with_wheel = Art.new(dir)
 	check(with_wheel.skin_wheel.has("motorcar") and not with_wheel.skin_wheel.has("steam"), "wheel.png applies to its own class only")
 	print("SKIN CHECKS ", checks, "; FAILURES ", failures)
-	get_tree().quit(0 if failures.is_empty() else 1)
+	preload("res://tests/qa_exit.gd").quit(self, 0 if failures.is_empty() else 1)

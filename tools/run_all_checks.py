@@ -1,6 +1,7 @@
 """Run the test suites of the game one by one and print one summary.
 
-  python tools/run_all_checks.py                      all suites (about 40 minutes)
+  python tools/run_all_checks.py                      all suites (the full run, before a build)
+  python tools/run_all_checks.py --quick              without the slow ones (after every change)
   python tools/run_all_checks.py --only check_model,check_cab
   python tools/run_all_checks.py --skip drive_campaign
 
@@ -21,10 +22,11 @@ devenv.console_utf8()
 parser = argparse.ArgumentParser(description="Все наборы тестов по одному")
 parser.add_argument("--only", default="", help="наборы через запятую")
 parser.add_argument("--skip", default="", help="наборы через запятую, которые пропустить")
+parser.add_argument("--quick", action="store_true", help="без медленных наборов (длинная линия, вся карьера, бюджет кадра)")
 parser.add_argument("--report-dir", type=Path, default=devenv.ROOT / "qa" / "last_run")
 args = parser.parse_args()
 
-suites = [s for s in args.only.split(",") if s] or devenv.list_suites()
+suites = [s for s in args.only.split(",") if s] or devenv.list_suites(full=not args.quick)
 bad = devenv.unknown_suites(suites + [s for s in args.skip.split(",") if s])
 if bad:
     raise SystemExit("Таких наборов нет в ForestRail/tests: " + ", ".join(bad))

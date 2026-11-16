@@ -194,4 +194,4 @@ func run() -> void:
 	wind_wet.weather_force = {"cloud": 1.0, "rain": 1.0, "fog": 0.0}
 	check(wind_wet.wind_here(500.0).length() > wind_dry.wind_here(500.0).length() + 1.0, "a rain squall blows harder")
 	print("THERMAL CHECKS ", checks, "; FAILURES ", failures)
-	get_tree().quit(0 if failures.is_empty() else 1)
+	preload("res://tests/qa_exit.gd").quit(self, 0 if failures.is_empty() else 1)

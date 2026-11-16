@@ -1,4 +1,4 @@
-extends "res://tests/check_handcar_input.gd"
+extends "res://tests/parts/check_handcar_input.gd"
 
 var started_ms=0
 var duration_s=1200.0

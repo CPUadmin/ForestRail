@@ -29,9 +29,9 @@ class DevenvTest(unittest.TestCase):
         suites = devenv.list_suites()
         self.assertIn("check_model", suites)
         self.assertIn("drive_campaign", suites)
-        self.assertNotIn("check_save_p8", suites)
         self.assertNotIn("check_soak_p8", suites)
-        self.assertNotIn("check_perf", suites)
+        self.assertNotIn("drive_campaign", devenv.list_suites(full=False))
+        self.assertNotIn("check_casino", suites)   # a part of the group check_kazik, not a suite
         self.assertFalse([s for s in suites if s.startswith("probe_")])
 
     def test_unknown_suites(self):

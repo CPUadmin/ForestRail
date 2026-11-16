@@ -163,6 +163,10 @@ func run() -> void:
 	game.model.accept_mission(game.model.current_mission())
 	game.screen="game"
 	game.rebuild()
+	# 16.11: a new petrol car has 3 gears (up to 71 km/h): the dial ends at 80; with both gearbox levels at 140
+	check(game.instruments.dial_maximum()==80,"petrol dial of a new car (3 gears) ends at 80 (%d)" % game.instruments.dial_maximum())
+	Fixtures.open_gears(game.model)
+	game.rebuild()
 	check(game.instruments.dial_maximum()==140,"petrol dial adapts to 120 km/h")
 	game.model.state.fleet_by_id.motorcar.fuel=0.12
 	await shot("petrol_low_fuel")
@@ -216,4 +220,4 @@ func run() -> void:
 	print("INSTRUMENT CHECKS ",checks,"; FAILURES ",failures)
 	game.queue_free()
 	await get_tree().process_frame
-	get_tree().quit(0 if failures.is_empty() else 1)
+	preload("res://tests/qa_exit.gd").quit(self, 0 if failures.is_empty() else 1)

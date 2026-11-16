@@ -68,4 +68,4 @@ func run() -> void:
 			run_seconds(chutes, 0.2)
 		check(chutes.jet.chutes_left >= 1, "jet/%s: the chutes come back" % mode)
 	print("LIFECYCLE CHECKS ", checks, "; FAILURES ", failures)
-	get_tree().quit(0 if failures.is_empty() else 1)
+	preload("res://tests/qa_exit.gd").quit(self, 0 if failures.is_empty() else 1)
