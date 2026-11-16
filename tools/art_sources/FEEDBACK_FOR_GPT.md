@@ -38,5 +38,5 @@ What to change: cell 3: clear glass with a soot smear inside and a visibly BROKE
 Keep: all other cells unchanged (redraw the whole sheet, but only these two cells may differ).
 GPT: done 14.11.2026, files: contactor_parts_v2.png
 
-## P29 / key_end_on.png  [open]
+## P29 / key_end_on.png  [closed 16.11: redone in place, all three keys whole]
 The third cell (65°) is broken: the key is longer than its cell, its lower end is cut off and a piece of it lies in the second cell (around x 855–880, y 575–610). Please redo the sheet as key_end_on_v2.png: the same three keys (0°, 35°, 65°), each WHOLE inside its own 512×512 cell with at least 40 px free on every side (make the key a little shorter if needed, the same length in all three), axis at the cell centre, nothing crossing into a neighbour cell. Canvas exactly 1536×512.
