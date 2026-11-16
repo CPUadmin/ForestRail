@@ -456,7 +456,8 @@ func apply_window_size(at_start: bool = false) -> void:
 	DisplayServer.window_set_position(usable.position + (usable.size - size) / 2)
 
 func key_name(action: String) -> String:
-	return OS.get_keycode_string(int(settings.keys[action]))
+	var name = OS.get_keycode_string(int(settings.keys[action]))
+	return {"Space": "Пробел", "Enter": "Ввод", "Escape": "Esc"}.get(name, name)
 
 # Frost on the pipes of the pneumatic train: one press knocks a quarter off every frosted spot.
 func chip_all_ice() -> void:
@@ -1014,6 +1015,9 @@ func update_hud() -> void:
 		else: hint = "Сохранённый заказ: размести весь принятый груз. Его прежние условия сохранены."
 	elif returning and model.stopped() and stop_index > 0:
 		hint = "Груз доставлен. Разверни состав и возвращайся домой за оплатой."
+	elif stop_index == 0 and model.stopped() and not returning and float(state.brake) > 0.5:
+		# the start of a trip (player journal 16.11): the brake is on and nothing said so; the old line asked to unload here
+		hint = "Тормоз затянут. Отпусти его: красный рычаг к 0%% или клавиша %s. Потом трогай." % key_name("brake")
 	elif stop_index >= 0 and model.stopped():
 		hint = "Станция «%s». Перетащи груз для этой станции на площадку внизу." % at_station
 	elif model.vehicle_id() == "sail":
@@ -1127,7 +1131,7 @@ func vehicle_display_name() -> String:
 
 # What each machine is for, in a few words (the court of the five vehicles and the speed table).
 const VEHICLE_ROLE = {
-	"handcar": "Бесплатная, качай рычаг.",
+	"handcar": "Без топлива: качай рычаг.",
 	"pole": "Идёт шестом, медленно и точно.",
 	"sail": "Ходит по ветру, в штиль стоит.",
 	"steam": "Тянет много, разгоняется медленно.",
@@ -1487,6 +1491,10 @@ func draw_steam_panel(rect: Rect2) -> void:
 	var heat=float(b.heat)
 	if cab_active(): draw_steam_cab_props(bucket,fire,door_button,b,fleet)
 	else: draw_style_box(style(Color("3b2c1f"),GOLD if drag=="coal" else Color("66796b"),6),bucket)
+	# in the cab the words lie over painted props: a small dark plate under each keeps them readable (designer journal 16.11)
+	if cab_active():
+		for plate in [Rect2(bucket.position+Vector2(22,8),Vector2(68,22)),Rect2(bucket.position+Vector2(26,34),Vector2(60,22)),Rect2(fire.position+Vector2(30,8),Vector2(70,22)),Rect2(fire.position+Vector2(14,34),Vector2(102,22))]:
+			draw_style_box(style(Color(0.06,0.07,0.06,0.82),Color(0,0,0,0),5),plate)
 	draw_string(font,bucket.position+Vector2(0,24),"ВЕДРО",HORIZONTAL_ALIGNMENT_CENTER,112,16,PAPER)
 	draw_string(font,bucket.position+Vector2(0,50),"%.0f кг" % float(fleet.fuel),HORIZONTAL_ALIGNMENT_CENTER,112,18,GOLD)
 	draw_string(font,bucket.position+Vector2(0,82),"тащи в топку",HORIZONTAL_ALIGNMENT_CENTER,112,13,dim)
@@ -1514,7 +1522,7 @@ func draw_steam_panel(rect: Rect2) -> void:
 	draw_line(center,center+needle*34,RED if bool(b.venting) else PAPER,2.5,true)
 	draw_circle(center,3,PAPER)
 	draw_string(font,center+Vector2(-50,58),"%.1f бар" % model.pressure_bar(),HORIZONTAL_ALIGNMENT_CENTER,100,16,GOLD if model.steam_ready() else dim)
-	draw_string(font,center+Vector2(-50,-48),"ДАВЛЕНИЕ",HORIZONTAL_ALIGNMENT_CENTER,100,13,dim)
+	draw_string(font,center+Vector2(-50,-66),"ДАВЛЕНИЕ",HORIZONTAL_ALIGNMENT_CENTER,100,13,dim)   # above the work mark of the scale
 	steam_hits.append({"id":"bucket","rect":Rect2(pult_t*bucket.position,bucket.size*pult_t.get_scale())})
 	steam_hits.append({"id":"door","rect":Rect2(pult_t*door_button.position,door_button.size*pult_t.get_scale())})
 	if drag=="coal":

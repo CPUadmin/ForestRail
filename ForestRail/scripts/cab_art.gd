@@ -71,7 +71,11 @@ func draw_cab_scene(size: Vector2) -> void:
 		if perf: canvas.perf_add("cab_gauges", t0); t0 = Time.get_ticks_usec()
 		canvas.draw_control_zoom()
 	canvas.draw_set_transform_matrix(Transform2D.IDENTITY)
-	canvas.cab_exit_rect = Rect2(size.x - 206, 14, 190, 40)
+	# left of the row with ☰ (it covered the exit before: designer journal 16.11)
+	var right_edge = size.x - 16.0
+	if canvas.menu_hud_button != null and is_instance_valid(canvas.menu_hud_button) and canvas.menu_hud_button.get_parent() != null:
+		right_edge = canvas.menu_hud_button.get_parent().position.x - 10.0
+	canvas.cab_exit_rect = Rect2(right_edge - 190.0, 14, 190, 40)
 	canvas.draw_style_box(canvas.style(Color(0.08, 0.12, 0.10, 0.86), canvas.GOLD, 8), canvas.cab_exit_rect)
 	canvas.draw_string(canvas.font, canvas.cab_exit_rect.position + Vector2(0, 27), "Выйти [E]", HORIZONTAL_ALIGNMENT_CENTER, canvas.cab_exit_rect.size.x, 19, canvas.PAPER)
 	var ahead = canvas.instruments.climb_ahead(canvas.model.sight_m()) if canvas.instruments != null else {}
@@ -903,7 +907,10 @@ func draw_round_gauge(center: Vector2, radius: float, fraction: float, title: St
 	canvas.draw_circle(center, radius * 0.04, Color("1a1612"))
 	# glare on the glass
 	canvas.draw_arc(center, radius - 2, PI * 1.12, PI * 1.45, 10, Color(1, 1, 1, 0.14), radius * 0.16, true)
-	canvas.draw_string(canvas.font, center + Vector2(-radius, radius * (0.34 if v2 else 0.38)), title, HORIZONTAL_ALIGNMENT_CENTER, radius * 2, clampi(roundi(radius * 0.15), 9, 14), Color("c7c3a0"))
+	# the title stays between the end numbers of the scale (they stand at about ±0.6 of the radius): designer journal 16.11
+	var title_size = clampi(roundi(radius * 0.14), 9, 13)
+	while title_size > 8 and canvas.font.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, title_size).x > radius * 0.92: title_size -= 1
+	canvas.draw_string(canvas.font, center + Vector2(-radius * 0.5, radius * (0.28 if v2 else 0.32)), title, HORIZONTAL_ALIGNMENT_CENTER, radius, title_size, Color("c7c3a0"))
 	if v2:
 		# the readout stands in its own box, as on the reference dashboard
 		var box = Rect2(center + Vector2(-radius * 0.6, radius * 0.45), Vector2(radius * 1.2, radius * 0.42))
