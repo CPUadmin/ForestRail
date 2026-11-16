@@ -9,6 +9,7 @@ const BREAKDOWN_BELOW = 0.2     # ниже этого состояния узе�
 const BREAKDOWN_PER_MINUTE = 0.03
 const WARN_BELOW = 0.4          # лампа «АВАРИЯ»
 const FREE_TOUCH_UP = 0.2       # депо бесплатно подправляет узел до этого состояния
+const WORN_BELOW = 0.7          # ступень «износ»: тихие признаки (дым потемнел, тормоз дымит)
 
 const EFFECT_HINT = {"brake": "тормозной путь длиннее", "roll": "ход тяжелее", "power": "тяга слабее", "capacity": "запас меньше", "rig": "рвётся раньше", "shock": "груз бьётся"}
 
@@ -61,6 +62,25 @@ func factor(id: String, effect: String) -> float:
 		if str(def.effect) != effect: continue
 		var floor_value = float(def.get("floor", 0.6))
 		result *= floor_value + (1.0 - floor_value) * condition(id, str(def.id))
+	return result
+
+# Ступени узла (docs/DAMAGE_SYSTEM_PROPOSAL_RU.md): хорошо 100–70, износ 69–40 (тихие признаки),
+# критично 39–20 (лампа, значок, искры, чих), отказ 19–1 (громко, может встать), стоп 0.
+static func stage_of(value: float) -> String:
+	if value <= 0.0: return "stop"
+	if value < BREAKDOWN_BELOW: return "failure"
+	if value < WARN_BELOW: return "critical"
+	if value < WORN_BELOW: return "worn"
+	return "good"
+
+func stage(id: String, node: String) -> String:
+	return stage_of(condition(id, node))
+
+# The weakest node of one action on a body (1.0 when the body has no such node).
+func effect_condition(id: String, effect: String) -> float:
+	var result = 1.0
+	for def in nodes_of(id):
+		if str(def.effect) == effect: result = minf(result, condition(id, str(def.id)))
 	return result
 
 # The weakest node of a machine: {"node", "name", "cond"}.

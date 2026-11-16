@@ -2047,6 +2047,8 @@ func _process(dt: float) -> void:
 			if bool(model.state.get("tutorial", false)) and not model.state.active.is_empty() and not model.state.active.get("slip_told", false):
 				model.state.active.slip_told = true
 				notify("Колёса буксуют. Прибавляй газ плавнее")
+		elif event_name in ["cough", "catch"]:
+			pass   # the key in the cab plays these itself ("coughed", "caught" in ignition.gd)
 		elif event_name == "cargo_hit":
 			sound.play("cargo", clampf(0.3 + float(model.last_cargo_hit) * 0.4, 0.3, 0.9), randf_range(0.85, 1.0))
 		else: sound.play(event_name, 0.6)

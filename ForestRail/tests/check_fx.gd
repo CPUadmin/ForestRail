@@ -152,6 +152,66 @@ func run() -> void:
 	drive(10.0, 2.0)
 	check(fx.count() == 0, "the petrol engine off makes no exhaust (%d)" % fx.count())
 
+	# wear signs (step 1.4.2): the stages and what each one shows
+	var wear = game.model.wear()
+	check(wear.stage_of(0.85) == "good" and wear.stage_of(0.55) == "worn" and wear.stage_of(0.3) == "critical" and wear.stage_of(0.1) == "failure" and wear.stage_of(0.0) == "stop", "the five wear stages")
+	# the brake: good is quiet, worn smokes at the wheels, critical throws sparks; let go, nothing
+	for pads in [1.0, 0.55, 0.3]:
+		start("steam", 1)
+		wear.set_condition("steam", "brake", pads)
+		game.model.state.brake = 0.8
+		drive(10.0, 1.0)
+		var smoke = int(fx.signs.get("brake_smoke", 0))
+		var sparks = int(fx.signs.get("sparks", 0))
+		if pads >= 0.7: check(smoke == 0 and sparks == 0, "a good brake neither smokes nor sparks (%d, %d)" % [smoke, sparks])
+		elif pads >= 0.4: check(smoke > 0 and sparks == 0, "a worn brake smokes at the wheels, no sparks yet (%d, %d)" % [smoke, sparks])
+		else:
+			check(smoke > 0 and sparks > 10, "a critical brake throws sparks (%d sparks)" % sparks)
+			check(fx.p_kind.has(1), "the sparks are drawn as sparks, not puffs")
+		game.model.state.brake = 1.0   # the machine is changed only with the brake on (model.stopped)
+	start("steam", 1)
+	game.model.state.brake = 0.0
+	drive(10.0, 1.0)
+	check(int(fx.signs.get("sparks", 0)) == 0, "the brake let go: no sparks even on a bad brake")
+	game.model.state.brake = 1.0
+	wear.set_condition("steam", "brake", 1.0)
+	# the engine: worn smokes darker, critical coughs, failing bangs
+	var grey_of = func() -> float:
+		var total = 0.0
+		for i in range(fx.count()): total += fx.p_col[i].get_luminance()
+		return total / maxf(1.0, float(fx.count()))
+	start("motorcar", 1)
+	drive(5.0, 2.0)
+	var fresh_grey = grey_of.call()
+	start("motorcar", 1)
+	wear.set_condition("motorcar", "engine", 0.3)
+	drive(5.0, 2.0)
+	check(grey_of.call() < fresh_grey - 0.08, "a tired engine smokes darker (%.2f against %.2f)" % [grey_of.call(), fresh_grey])
+	start("motorcar", 1)
+	wear.set_condition("motorcar", "engine", 0.3)
+	drive(5.0, 12.0)
+	check(int(fx.signs.get("cough", 0)) >= 1 and int(fx.signs.get("bang", 0)) == 0, "a critical engine coughs now and then, no bangs (%s)" % str(fx.signs))
+	start("motorcar", 1)
+	wear.set_condition("motorcar", "engine", 0.1)
+	drive(5.0, 12.0)
+	check(int(fx.signs.get("bang", 0)) >= 1, "a failing engine bangs (%s)" % str(fx.signs))
+	game.model.state.throttle = 0.0
+	fx.clear()
+	drive(5.0, 8.0)
+	check(int(fx.signs.get("cough", 0)) + int(fx.signs.get("bang", 0)) == 0, "the throttle shut: the engine is quiet")
+	wear.set_condition("motorcar", "engine", 1.0)
+	# the bearings: critical knock once a wheel turn
+	start("steam", 1)
+	wear.set_condition("steam", "bearings", 0.3)
+	drive(10.0, 3.0)
+	var turns = 10.0 * 3.0 / (PI * float(game.Geometry.body("steam").wheel_diameter_m))
+	var knocks = int(fx.signs.get("knock", 0))
+	check(absf(float(knocks) - turns) <= 2.0, "worn bearings knock once a wheel turn (%d knocks, %.1f turns)" % [knocks, turns])
+	wear.set_condition("steam", "bearings", 1.0)
+	start("steam", 1)
+	drive(10.0, 3.0)
+	check(int(fx.signs.get("knock", 0)) == 0, "good bearings are quiet")
+
 	# a new screen starts clean
 	start("steam", 1)
 	drive(0.0, 1.0)
