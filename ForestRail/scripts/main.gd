@@ -2529,7 +2529,10 @@ func update_cargo_actions(interaction: Dictionary) -> void:
 		if model.fuel_service_mult(offer.services)>=0.0: label=({"locomotive":"Зарядить","pneumatic":"Накачать"}.get(model.vehicle_id(),"Заправить"))+(" · %d монет" % cost if cost>0 else (" · бесплатно" if room else " · полон"))
 		if water_short: label+=(" + " if label!="" else "")+"вода"
 		if label!="":
-			var service_button=add_button(cargo_actions,label,use_station_service,not room and not water_short)
+			# the fuel is filled as far as the money goes, so one coin is enough to start; the water is free
+			var broke=room and cost>0 and int(model.state.money)<1 and not water_short and not model.creative()
+			var service_button=add_button(cargo_actions,label,use_station_service,(not room and not water_short) or broke)
+			if broke: service_button.tooltip_text="Не хватает %d монет" % (1-int(model.state.money))
 			service_button.add_theme_font_size_override("font_size",int(18*float(settings.text_scale)))
 	if interaction.can_transfer and model.casino().receiving_possible() and model.casino().bolt_total() > 0:
 		var desk_button=add_button(cargo_actions,"Приёмка болтов (%d)" % model.casino().bolt_total(),use_station_receiving_button)

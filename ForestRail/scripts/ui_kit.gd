@@ -93,9 +93,9 @@ static func box(kind: String, state: String) -> StyleBoxFlat:
 			bottom = 2
 		"disabled":
 			match kind:
-				"primary": fill = Color("5a4a2e"); edge = Color("2f2414")
-				"danger": fill = Color("3a2a24"); edge = Color("2a1d18")
-				_: fill = WOOD_DARK; edge = Color("4a3a22")
+				"primary": fill = Color("4a453b"); edge = Color("2a2721")
+				"danger": fill = Color("3a302d"); edge = Color("2a2220")
+				_: fill = Color("1f1c17"); edge = Color("3a362d")
 			top = 2
 			bottom = 2
 			shadow = Color(0, 0, 0, 0)
@@ -193,13 +193,13 @@ static func on_dark(c: Color, ink: Color, muted_ink: Color, gold: Color, red: Co
 static func text_color(kind: String, state: String) -> Color:
 	match kind:
 		"primary":
-			if state == "disabled": return Color("9c8f72")
+			if state == "disabled": return Color("8c887c")
 			return Color("1d1208") if state == "hover" else INK1
 		"danger":
-			if state == "disabled": return T3
+			if state == "disabled": return Color("7d7468")
 			return Color("fff6e0") if state == "hover" else Color("fff0d0")
 		_:
-			if state == "disabled": return OFF
+			if state == "disabled": return Color("6e695d")
 			if state == "selected": return LAMP
 			return Color("fff4d6") if state == "hover" else T1
 
