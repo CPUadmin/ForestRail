@@ -177,7 +177,7 @@ func build_place_room(size: Vector2) -> void:
 	var room = model.tank_missing() > 0.0001
 	if canvas.place == "depot" and not model.human_powered() and room:
 		var refill_text = ({"locomotive": "Зарядить", "pneumatic": "Накачать"}.get(model.vehicle_id(), "Заправить")) + (" · %d" % refill if refill > 0 else "")
-		var refill_button = canvas.add_button(places, refill_text, func():
+		var refill_button = buy_button(places, refill_text, mini(refill, 1), func():   # the tank is filled as far as the money goes: one coin is enough to start
 			if model.refuel(): canvas.save_game(); canvas.rebuild(); canvas.notify(model.message if model.message != "" else "Запас пополнен"); model.message = ""
 			else: canvas.notify(model.message))
 		refill_button.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
@@ -405,7 +405,7 @@ func build_depot_tab(right: VBoxContainer) -> void:
 						canvas.rebuild()
 					else: canvas.notify(canvas.model.message))
 			else:
-				canvas.add_button(c, "Купить · %d монет" % base.cost, func():
+				buy_button(c, "Купить · %d монет" % base.cost, int(base.cost), func():
 					canvas.confirm("Купить %s за %d? Останется %d монет. Предыдущая машина останется в гараже." % [label, base.cost, maxi(0, int(canvas.model.state.money) - int(base.cost))], func():
 						if canvas.model.buy_vehicle(id):
 							canvas.selected_object = id
@@ -433,7 +433,7 @@ func build_depot_tab(right: VBoxContainer) -> void:
 		var next_wagon = canvas.model.next_wagon_id()
 		if next_wagon != "":
 			var price = canvas.model.wagon_price(next_wagon)
-			canvas.add_button(right, "Купить %s · %d монет" % [next_wagon, price], func(): canvas.confirm("Купить вагон %s за %d? Останется %d монет." % [next_wagon, price, maxi(0, int(canvas.model.state.money) - price)], func():
+			buy_button(right, "Купить %s · %d монет" % [next_wagon, price], price, func(): canvas.confirm("Купить вагон %s за %d? Останется %d монет." % [next_wagon, price, maxi(0, int(canvas.model.state.money) - price)], func():
 				if canvas.model.buy_wagon(): canvas.save_game(); canvas.rebuild()
 				else: canvas.notify(canvas.model.message)))
 		canvas.add_label(right, "Мест в составе: %d. Для финала нужно шесть." % canvas.model.capacity(), 21)
@@ -463,10 +463,10 @@ func build_shop(right: VBoxContainer) -> void:
 				if model.buy_vehicle(id): canvas.selected_object = id; canvas.save_game(); canvas.rebuild()
 				else: canvas.notify(model.message))
 		else:
-			canvas.add_button(c, "Купить · %d монет" % cost, func():
+			buy_button(c, "Купить · %d монет" % cost, cost, func():
 				canvas.confirm("Купить %s за %d? Останется %d монет. Машина встанет в депо." % [label, cost, maxi(0, int(model.state.money) - cost)], func():
 					if model.buy_vehicle(id): canvas.selected_object = id; canvas.save_game(); canvas.rebuild()
-					else: canvas.notify(model.message)), cost > int(model.state.money) and not model.creative(), false, &"PrimaryAction")
+					else: canvas.notify(model.message)), &"PrimaryAction")
 	if not owned_names.is_empty(): canvas.add_label(right, "Уже в депо: " + ", ".join(owned_names), 17, canvas.MUTED_INK)
 	canvas.add_label(right, "Вагоны", 26)
 	var next_wagon = model.next_wagon_id()
@@ -476,9 +476,9 @@ func build_shop(right: VBoxContainer) -> void:
 		var price = model.wagon_price(next_wagon)
 		var w = canvas.picture_card(right, next_wagon, false, canvas.CARD_EDGE)
 		canvas.add_label(w, "Вагон %s · %s" % [next_wagon, places(int(model.object_stats(next_wagon).slots)) if model.state.wagons_by_id.has(next_wagon) else "платформа"], 21)
-		canvas.add_button(w, "Купить %s · %d монет" % [next_wagon, price], func(): canvas.confirm("Купить вагон %s за %d? Останется %d монет." % [next_wagon, price, maxi(0, int(model.state.money) - price)], func():
+		buy_button(w, "Купить %s · %d монет" % [next_wagon, price], price, func(): canvas.confirm("Купить вагон %s за %d? Останется %d монет." % [next_wagon, price, maxi(0, int(model.state.money) - price)], func():
 			if model.buy_wagon(): canvas.save_game(); canvas.rebuild()
-			else: canvas.notify(model.message)), price > int(model.state.money) and not model.creative())
+			else: canvas.notify(model.message)))
 
 # A big picture button for one place of the depot: the picture and its name are drawn on top of an
 # ordinary button, which keeps the click, the hover and the keyboard focus.
@@ -715,8 +715,10 @@ func build_upgrades(right: VBoxContainer) -> void:
 		var name = upgrade_branch_name(canvas.selected_object, branch)
 		var levels = int(branch.get("levels", 2))
 		var gadget = bool(branch.get("gadget", false))
-		var c = canvas.card(right, canvas.GOLD if str(branch.id) == canvas.workshop_branch else (canvas.GREEN if lv >= levels else (Color("c9a24e") if gadget else canvas.CARD_EDGE)))
 		var tarot = canvas.model.casino().card_for_upgrade(str(branch.id)) if gadget else {}
+		# a gadget is never sold: it is shown only when its Tarot card is owned or it already stands on the machine (the creative mode shows all)
+		if gadget and lv < 1 and not canvas.model.creative() and (tarot.is_empty() or not canvas.model.casino().card_owned(str(tarot.id))): continue
+		var c = canvas.card(right, canvas.GOLD if str(branch.id) == canvas.workshop_branch else (canvas.GREEN if lv >= levels else (Color("c9a24e") if gadget else canvas.CARD_EDGE)))
 		if not tarot.is_empty(): gadget_icon(c, str(tarot.id))
 		canvas.add_label(c, ("ГАДЖЕТ  ·  %s  ·  %s" % [name, "● установлен" if lv >= 1 else "○"]) if gadget else ("%s  ·  %s" % [name, ["○ ○", "● ○", "● ●"][lv]]), 22)
 		if lv < levels:
@@ -732,17 +734,16 @@ func build_upgrades(right: VBoxContainer) -> void:
 						else:
 							canvas.notify("Гаджет можно установить в депо до погрузки"), not canvas.model.depot_editable())
 					continue
-				canvas.add_label(c, "Карты пока нет: её дают в казике, или поставь за монеты", 16, canvas.MUTED_INK)
-			if gadget and bool(canvas.model.data.casino.cards_only): continue
+			# only the creative mode gets here with a gadget and no card: there it is installed for free
 			var cost = int(branch.level_costs[lv])
-			canvas.add_button(c, ("Установить гаджет · %d монет" % cost) if gadget else ("Улучшить до %s · %d монет" % ["I" if lv == 0 else "II", cost]), func():
+			buy_button(c, ("Установить гаджет · %d монет" % cost) if gadget else ("Улучшить до %s · %d монет" % ["I" if lv == 0 else "II", cost]), cost, func():
 				var id = canvas.selected_object
 				canvas.confirm("%s: %s\nЦена %d. Останется %d монет." % [id, preview, cost, maxi(0, int(canvas.model.state.money) - cost)], func():
 					if canvas.model.upgrade(id, branch.id): canvas.save_game(); canvas.rebuild()
 					else: canvas.notify(canvas.model.message)))
 			var plan = canvas.model.casino().bolt_plan(cost)
 			if not gadget and int(plan.count) > 0:
-				canvas.add_button(c, "Доплатить болтами · %d монет + %d болтов" % [cost - int(plan.coins), int(plan.count)], func():
+				buy_button(c, "Доплатить болтами · %d монет + %d болтов" % [cost - int(plan.coins), int(plan.count)], cost - int(plan.coins), func():
 					var id = canvas.selected_object
 					canvas.confirm("%s: %s\nПлатишь %d монет и %d болтов вместо %d монет." % [id, preview, cost - int(plan.coins), int(plan.count), cost], func():
 						if canvas.model.upgrade(id, branch.id, false, true): canvas.save_game(); canvas.rebuild()
@@ -885,11 +886,11 @@ func build_wear_card(right: VBoxContainer) -> void:
 				canvas.save_game()
 				canvas.rebuild(), gain <= 0.0)
 			var price = wear.money_price(id, node, 1.0 - value)
-			canvas.add_button(line, "За %d монет" % price, func():
+			buy_button(line, "За %d монет" % price, mini(price, 3), func():
 				var got = canvas.model.wear().repair_with_money(id, node, 1.0 - float(canvas.model.wear().condition(id, node)))
 				canvas.notify("Починено за монеты: +%d%%" % roundi(got * 100.0) if got > 0.0 else "Не хватает монет")
 				canvas.save_game()
-				canvas.rebuild(), int(canvas.model.state.money) < 3 and not canvas.model.creative())
+				canvas.rebuild())
 	if canvas.model.creative():
 		canvas.add_label(c, "Творческий режим: узлы изнашиваются, «Починить всё» чинит бесплатно, в рейсе тоже (пауза).", 15, canvas.MUTED_INK)
 		return
@@ -899,7 +900,7 @@ func build_wear_card(right: VBoxContainer) -> void:
 	c.add_child(footer)
 	var total = wear.full_repair_price(id)
 	if total > 0:
-		canvas.add_button(footer, "Починить всё · %d монет" % total, func():
+		buy_button(footer, "Починить всё · %d монет" % total, mini(total, 3), func():
 			for def in canvas.model.wear().nodes_of(id): canvas.model.wear().repair_with_money(id, str(def.id), 1.0)
 			canvas.notify("Всё починено, что хватило денег")
 			canvas.save_game()
@@ -911,6 +912,14 @@ func build_wear_card(right: VBoxContainer) -> void:
 			canvas.save_game()
 			canvas.rebuild())
 	canvas.add_label(c, "Узлы изнашиваются от езды и ошибок. 1% стоит 3 монеты; болты: свои +5%, общие +2%, редкие +4%. На линии чинит только мастерская станции (до 50%)." , 15, canvas.MUTED_INK)
+
+# A button that spends coins: grey and inert with a tooltip when the player cannot pay (the creative mode has unlimited money).
+func buy_button(parent: Node, text: String, price: int, action: Callable, appearance: StringName = &"Button") -> Button:
+	var short = price - int(canvas.model.state.money)
+	var locked = short > 0 and not canvas.model.creative()
+	var button = canvas.add_button(parent, text, action, locked, false, appearance)
+	if locked: button.tooltip_text = "Не хватает %d монет" % short
+	return button
 
 func upgrade_branch_name(id: String, branch: Dictionary) -> String:
 	if id == "locomotive":

@@ -522,7 +522,7 @@ func wear_buffer(speed: float) -> void:
 		else:
 			wear().damage_effect(id, "roll", a * 0.4, "удар об упор")
 
-func upgrade(id: String, branch_id: String, via_card: bool = false, with_bolts: bool = false) -> bool:
+func upgrade(id: String, branch_id: String, _via_card: bool = false, with_bolts: bool = false) -> bool:
 	if not depot_editable() or object_state(id).is_empty():
 		return fail("Улучшения доступны в депо до погрузки")
 	for branch in data.upgrade_catalog:
@@ -530,8 +530,9 @@ func upgrade(id: String, branch_id: String, via_card: bool = false, with_bolts: 
 			continue
 		if branch.target_type != ("wagon" if id.begins_with("W") else id):
 			return fail("Это улучшение другой машины")
-		if branch.get("gadget", false) and bool(data.casino.cards_only) and not via_card:
-			return fail("Гаджет выбивается только в лудке: найди карточку в казике")
+		# a gadget is never sold for coins in the career: only its Tarot card installs it (the creative mode is a sandbox)
+		if branch.get("gadget", false) and not creative():
+			return fail("Гаджет не продаётся: его выбивают в лудке и ставят по карте")
 		var object = object_state(id)
 		var lv = int(object.levels.get(branch_id, 0))
 		if lv >= int(branch.get("levels", 2)):

@@ -20,6 +20,17 @@ static func equip(m, id: String) -> void:
 		if spare == "" or not m.toggle_wagon(spare): break
 	m.state.money = money
 
+# Puts a gadget on a machine the legitimate way: the Tarot card is owned, then installed by it
+# (a gadget is never sold for coins; Model.upgrade refuses it in the career). Returns false if it stands already.
+static func gadget(m, id: String, branch: String) -> bool:
+	var card = m.casino().card_for_upgrade(branch)
+	if card.is_empty():
+		if int(m.object_state(id).levels.get(branch, 0)) > 0: return false
+		m.object_state(id).levels[branch] = 1
+		return true
+	if not m.casino().card_owned(str(card.id)): m.casino().st().cards.append(str(card.id))
+	return m.casino().install(str(card.id))
+
 # Prepares the steam boiler through the same actions a player uses (door,
 # coal from the bucket, spark), then fast-forwards the heat-up so a scripted
 # drive starts with working pressure.

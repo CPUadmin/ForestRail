@@ -146,11 +146,10 @@ func run() -> void:
 	var no_machine = fresh()
 	no_machine.casino().st().cards.append("priestess")
 	check(not no_machine.casino().install("priestess"), "a card needs its machine in the garage")
-	shop.data.casino.cards_only = true
 	shop.state.money = 100000
-	check(not shop.upgrade("steam", "steam_superheater") and shop.message.contains("лудке"), "with the casino rule on, a gadget is not for sale in the workshop")
-	check(shop.upgrade("steam", "steam_superheater", true), "only through a card")
-	shop.data.casino.cards_only = false
+	check(not shop.upgrade("steam", "steam_superheater") and shop.message.contains("не продаётся"), "a gadget is not for sale in the workshop")
+	check(not shop.upgrade("steam", "steam_superheater", true), "not even with the old card flag")
+	check(bool(shop.data.casino.cards_only), "the data says: gadgets come from cards only")
 	# an old save: gadgets bought earlier turn into cards that are already on the machines
 	var old = fresh()
 	Fixtures.equip(old, "sail")

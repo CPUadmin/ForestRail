@@ -1598,7 +1598,7 @@
     "W04": 900
   },
   "casino": {
-    "cards_only": false,
+    "cards_only": true,
     "spin_cost": 5,
     "pity_max": 500,
     "pity_per_spin": 1,
