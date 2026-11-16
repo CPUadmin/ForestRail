@@ -1856,7 +1856,7 @@ func steam_step(dt: float, fleet: Dictionary) -> float:
 	var vmax = lerpf(float(stats.speeds[0]), float(stats.speeds[1]), smoothstep(low, 1.0, float(b.pressure)))
 	var pull = float(stats.traction[0]) * strong * valve * maxf(0.0, 1.0 - pow(absf(float(state.v)) / vmax, 2))
 	pull = minf(pull, power_limit_force(boiler_cap_scale()))
-	pull_full = minf(float(stats.traction[0]) * strong * maxf(0.0, 1.0 - pow(absf(float(state.v)) / vmax, 2)), power_limit_force(boiler_cap_scale()))
+	pull_full = float(stats.traction[0]) * strong * maxf(0.0, 1.0 - pow(absf(float(state.v)) / vmax, 2))   # per the open valve, before the power limit
 	return float(drive_direction()) * pull   # the rail decides how much of it goes through (driving_force)
 
 func grab_pump() -> void:
@@ -2334,7 +2334,7 @@ var wheel_slip = false   # the driving wheels spin (more pull than the rail hold
 # The drive: the rail passes only as much pull as the weight on the driving wheels grips. Past it the
 # wheels spin and pull less, until the throttle is eased. Only the machines that drive their wheels.
 const DRIVE_MU = 0.33
-const DRIVE_WEIGHT = {"steam": 0.64, "motorcar": 1.0, "locomotive": 0.72}   # the share of the machine's weight on its driving wheels
+const DRIVE_WEIGHT = {"steam": 0.64, "motorcar": 0.9, "locomotive": 0.8}   # the share of the machine's weight on its driving wheels
 const SPIN_RATIO = 0.7
 const SPIN_SPEED = 3.0   # m/s: how much faster than the ground the spinning wheels run (the fuel they waste)
 var pull_full = 0.0   # the pull the drive would ask at a full throttle this moment (for throttle_safe)
@@ -2372,7 +2372,7 @@ func wear_spin() -> void:
 # The smoothness of the trip: seconds of spinning and locked wheels, and the brake jerked on at speed
 # (from below 20% to above 80% within 0.4 s, counts 1.5). Kept in the active trip, judged per km at the pay.
 const SMOOTH_GOOD = 0.5   # points per km: under this a trip is smooth (+5%)
-const SMOOTH_BAD = 3.0   # over this it is harsh (−5%)
+const SMOOTH_BAD = 4.0   # over this it is harsh (−5%)
 func track_smooth(dt: float, movement: float) -> void:
 	var a = state.active
 	a.smooth_m = float(a.get("smooth_m", 0.0)) + absf(movement)

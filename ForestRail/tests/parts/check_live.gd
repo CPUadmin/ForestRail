@@ -100,6 +100,7 @@ func run() -> void:
 	var nose_up = 0.0
 	var worst_lift = 0.0
 	for i in range(60 * 4):
+		r.state.throttle = minf(1.0, r.throttle_safe())   # full, as far as the rail holds (the wheels must not spin)
 		r.physics_step(1.0 / 60.0)
 		nose_up = maxf(nose_up, r.live.rock_rad(0))
 		worst_lift = maxf(worst_lift, absf(r.live.lift_m(0)))

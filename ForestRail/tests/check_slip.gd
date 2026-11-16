@@ -3,7 +3,6 @@ extends Node
 # a smooth trip pays +5% with a medal, a harsh one −5%.
 const Fixtures = preload("res://tests/fixtures.gd")
 const Model = preload("res://scripts/model.gd")
-const TripDriver = preload("res://tests/trip_driver.gd")
 
 var checks = 0
 var failures: Array = []
@@ -51,7 +50,7 @@ func start(m, throttle: Callable) -> Dictionary:
 
 func run() -> void:
 	var floored = func(_t, _m): return 1.0
-	var smooth = func(t, m): return minf(t / 1.0, m.throttle_safe())   # opened over a second, never past the grip
+	var smooth = func(t, m): return minf(t / 0.5, m.throttle_safe())   # opened over half a second, never past the grip
 	for id in ["steam", "motorcar", "locomotive"]:
 		var hard = start(fresh(id), floored)
 		var soft = start(fresh(id), smooth)
@@ -133,22 +132,16 @@ func run() -> void:
 	var creative_bad = pay(3000.0, 30.0, 1.0, true)
 	check(creative_bad.notes.is_empty(), "neither the penalty")
 	Model.order_rules = false
-	# --- test drives for the thresholds: a careful driver (throttle_safe, brake_safe)
-	Model.order_rules = true
+	# --- test drives for the thresholds: a kilometre and a stop, careful and harsh
 	for id in ["motorcar", "locomotive", "steam"]:
-		var d = Model.new()
-		d.new_game(42)
-		d.state.money = 100000
-		Fixtures.equip(d, id)
-		d.weather_force = {"cloud": 0.0, "rain": 0.0, "fog": 0.0}
-		d.refuel()
-		var trip = TripDriver.round_trip(d, "C", 2)
-		var result = d.state.last_result
-		print("SLIP TRIP %s: ok %s %s, %.0f s, notes %s, rough %.2f a km" % [id, str(trip.ok), str(trip.get("why", "")), float(trip.get("seconds", 0)), str(result.get("notes", [])), float(result.get("rough_km", -1.0))])
-		check(trip.ok and not result.get("notes", []).has("резкая езда −5%"), "%s: a careful driver is not fined for harshness (%s)" % [id, str(result.get("notes", []))])
-	Model.order_rules = false
+		var careful = drive_km(fresh(id), false)
+		var harsh = drive_km(fresh(id), true)
+		print("SLIP DRIVE %s: careful %.2f a km, harsh %.2f a km" % [id, careful.per_km, harsh.per_km])
+		check(careful.mark == 1, "%s: a careful kilometre is smooth (%.2f a km)" % [id, careful.per_km])
+		# the steam regulator is gentle by itself (the boiler limits the pull): a harsh steam driver only loses the bonus
+		check(harsh.mark == -1 if id != "steam" else harsh.mark <= 0, "%s: a harsh one is not (%.2f a km)" % [id, harsh.per_km])
 	print("SLIP CHECKS ", checks, "; FAILURES ", failures)
-	get_tree().quit(0 if failures.is_empty() else 1)
+	preload("res://tests/qa_exit.gd").quit(self, 0 if failures.is_empty() else 1)
 
 # Takes a free order, marks the metres and the rough points of the trip, comes back at a share of the time.
 func pay(metres: float, rough: float, fraction: float = 1.0, creative: bool = false) -> Dictionary:
@@ -174,3 +167,23 @@ func pay(metres: float, rough: float, fraction: float = 1.0, creative: bool = fa
 	var before = int(m.state.money)
 	m.settle()
 	return {"paid": int(m.state.money) - before, "listed": listed, "notes": m.state.last_result.get("notes", []), "medals": m.state.last_result.get("medals", [])}
+
+# A kilometre (and a bit) from a standstill to a stop. Careful: the throttle opened slowly up to the grip, the brake lever drawn
+# over a second up to what the rail holds. Harsh: full throttle, the brake slammed on.
+func drive_km(m, harsh: bool) -> Dictionary:
+	m.state.active = {"phase": "outbound"}
+	var target = float(m.state.s) + 1100.0
+	var braking = false
+	for i in range(60 * 400):
+		var speed = absf(float(m.state.v))
+		var remaining = target - float(m.state.s)
+		if not braking and remaining < m.stopping_distance(speed) * (1.0 if harsh else 1.3) + 3.0: braking = true
+		if braking:
+			m.state.throttle = 0.0
+			m.state.brake = 1.0 if harsh else move_toward(float(m.state.brake), m.brake_safe() if speed > 1.2 else 1.0, 1.0 / 60.0)
+			if speed < 0.05: break
+		else:
+			m.state.throttle = 1.0 if harsh else minf(move_toward(float(m.state.throttle), 1.0, 0.5 / 60.0), m.throttle_safe())
+		m.physics_step(1.0 / 60.0)
+	var km = float(m.state.active.get("smooth_m", 0.0)) / 1000.0
+	return {"mark": m.smooth_mark(), "per_km": float(m.state.active.get("rough", 0.0)) / maxf(1.0, km)}

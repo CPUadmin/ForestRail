@@ -62,6 +62,7 @@ func run_class(kind: String, seconds: float, marks: Array) -> Dictionary:
 				m.set_door(false)
 		else:
 			m.state.throttle = 1.0
+		if kind != "handcar": m.state.throttle = minf(float(m.state.throttle), m.throttle_safe())   # a driver opens no more than the rail holds
 		m.physics_step(1.0 / 60.0)
 		t += 1.0 / 60.0
 		peak = maxf(peak, float(m.state.v))
