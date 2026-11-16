@@ -12,6 +12,7 @@ const TrainArt = preload("res://scripts/train_art.gd")
 const MenuUi = preload("res://scripts/menu_ui.gd")
 const DepotUi = preload("res://scripts/depot_ui.gd")
 const YardUi = preload("res://scripts/yard_ui.gd")
+const Fx = preload("res://scripts/fx.gd")
 const ArtWorld = preload("res://scripts/art_world.gd")
 const Geometry = preload("res://scripts/world_geometry.gd")
 const Instruments = preload("res://scripts/instruments.gd")
@@ -637,6 +638,7 @@ func begin_new(seed_number: int = -1, creative_mode: bool = false) -> void:
 	if seed_number < 0:
 		seed_number = int(Time.get_unix_time_from_system()) % 100000
 	model.new_game(seed_number, 2, "creative" if creative_mode else "career", true, "pole")
+	fx().clear()
 	selected_object = model.vehicle_id()
 	screen = "depot"
 	place = "yard"
@@ -665,6 +667,7 @@ func load_career(saved: Dictionary) -> void:
 		notify("Сохранение несовместимо или повреждено")
 		return
 	screen = "depot" if model.state.phase == "depot" else "game"
+	fx().clear()
 	place = "yard"
 	selected_object = model.vehicle_id()
 	camera_s = float(model.state.s)
@@ -1870,6 +1873,7 @@ func _process(dt: float) -> void:
 		delivery_ghost.time+=dt
 		if delivery_ghost.time>0.45: delivery_ghost={}
 	toast_seconds = maxf(0, toast_seconds - dt)
+	if (screen == "game" or screen == "depot") and not paused: fx().update(dt)   # the smoke and steam live in the world (scripts/fx.gd)
 	if screen != "menu" and not model.state.is_empty():
 		var target_s = model.render_s()
 		if screen == "depot": target_s = 0
@@ -2727,6 +2731,7 @@ func _draw_scene() -> void:
 			if place == "yard": yard_ui().draw_yard(size)
 			else: draw_depot_interior(size)
 		draw_train()
+		fx().draw()
 		if screen == "depot" and not clean_frame:
 			# ui-v2: no box under the header; a soft shade keeps the station name readable over the rafters
 			ArtWorld.vertical_gradient(self, Rect2(0, 0, size.x, 120), Color(0.05, 0.035, 0.02, 0.85), Color(0.05, 0.035, 0.02, 0.0))
@@ -2944,6 +2949,11 @@ func advance_shunting(dt: float) -> void:
 	notify(("%s прицеплен" if attach else "%s отцеплен") % id)
 	save_game()
 	rebuild()
+
+var fx_cache = null
+func fx():
+	if fx_cache == null: fx_cache = Fx.new(self)
+	return fx_cache
 
 var train_art_cache = null
 func train_art():
