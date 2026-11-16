@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://co8vbnkjh6ksu"
-path="res://.godot/imported/ignition_lock_core.png-113281469f15123c4c114307e236c540.ctex"
+uid="uid://ct7mxcpvfy4kh"
+path="res://.godot/imported/ignition_panel.png-74f5e0533dacea35c6485bb9c2433ee2.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/art_cab/ignition_lock_core.png"
-dest_files=["res://.godot/imported/ignition_lock_core.png-113281469f15123c4c114307e236c540.ctex"]
+source_file="res://assets/art_cab/ignition_panel.png"
+dest_files=["res://.godot/imported/ignition_panel.png-74f5e0533dacea35c6485bb9c2433ee2.ctex"]
 
 [params]
 

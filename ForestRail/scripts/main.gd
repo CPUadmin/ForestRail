@@ -1586,7 +1586,8 @@ func draw_zeppelin_pult(origin: Vector2, scale: float) -> void:
 
 func control_zoom_rect() -> Rect2:
 	if has_own_pult(): return Rect2(36, 90, own_pult().W, own_pult().H)
-	return Rect2(36,90,430,456 if model.vehicle_id()=="steam" else 320)
+	# the petrol pult has three columns: its key is in the dashboard (16.11)
+	return Rect2(36,90,330 if model.vehicle_id()=="motorcar" else 430,456 if model.vehicle_id()=="steam" else 320)
 
 func draw_control_zoom() -> void:
 	var rect = control_zoom_rect()
@@ -1624,12 +1625,13 @@ func draw_control_zoom() -> void:
 			draw_set_transform_matrix(pult_t*Transform2D(angle,pivot))
 			sprite("control_"+id,Rect2(-Vector2(128,224)*factor,Vector2.ONE*256*factor))
 			draw_set_transform_matrix(pult_t)
-		grip_hits.append({"id":id,"position":pult_t*point,"closeup":true,"radius":float(geo.get("side",0.0))*0.5*pult_t.get_scale().x})
+		# the key lives in the dashboard outside the pult: its hit counts wherever the mouse is in the cab
+		grip_hits.append({"id":id,"position":pult_t*point,"closeup":true,"dash":kind=="key","radius":float(geo.get("side",0.0))*0.4*pult_t.get_scale().x})
 		var steam=model.vehicle_id()=="steam"
 		var title={"brake":"Тормоз","throttle":{"locomotive":"Тяга","steam":"Вентиль","pneumatic":"Вентиль"}.get(model.vehicle_id(),"Газ"),"gear":"Вода" if steam else ("Редуктор" if model.vehicle_id()=="pneumatic" else "Передача"),"start":"Розжиг" if steam else ("Обогрев" if model.vehicle_id()=="pneumatic" else "Пуск")}[id]
 		var shown_gear=lever_pending_gear if drag=="gear" else int(model.state.gear)
 		var label={"brake":"%d%%" % (model.state.brake*100),"throttle":"%d%%" % (model.state.throttle*100),"gear":("%d%%" % (float(model.boiler().feed)*100)) if steam else (("%.0f бар" % model.working_pressure()) if model.vehicle_id()=="pneumatic" else GEAR_LABELS[shown_gear]),"start":("Горит" if model.state.engine else "Разжечь") if steam else (("Греет" if model.heating_on() else "Выкл.") if model.vehicle_id()=="pneumatic" else key_label())}[id]
-		draw_string(font,rect.position+Vector2(15+100*i,78),title,HORIZONTAL_ALIGNMENT_CENTER,100,16,PAPER)
+		if kind!="key": draw_string(font,rect.position+Vector2(15+100*i,78),title,HORIZONTAL_ALIGNMENT_CENTER,100,16,PAPER)
 		# the key has no label under it: the lock, its marks and the lamps say where it stands
 		if kind!="key": draw_string(font,rect.position+Vector2(15+100*i,168 if id=="start" else (268 if kind=="slider" else 253)),label,HORIZONTAL_ALIGNMENT_CENTER,100,16,GOLD)
 		if kind=="lever":
@@ -2382,7 +2384,7 @@ func _unhandled_input(event: InputEvent) -> void:
 				get_viewport().set_input_as_handled()
 				return
 		for hit in grip_hits:
-			if in_closeup!=bool(hit.get("closeup",false)): continue
+			if in_closeup!=bool(hit.get("closeup",false)) and not (cab_active() and bool(hit.get("dash",false))): continue
 			var d = mouse.distance_to(hit.position)
 			if d < distance or d < float(hit.get("radius",0.0)):
 				distance = d
@@ -3020,13 +3022,10 @@ func draw_ignition(geo: Dictionary, xform: Transform2D, closeup: bool) -> void:
 	var mouse = get_global_mouse_position()
 	var centre: Vector2 = geo.pivot
 	var side = float(geo.side)
-	key.draw(self, centre, side, xform, drag == "start" or mouse.distance_to(xform * centre) < side * 0.5 * xform.get_scale().x + 4.0)
-	var at = centre + (Vector2(-34, 96) if closeup else Vector2(side * 0.62, side * 0.05))
-	var height = 30.0 if closeup else side * 0.42
 	var local_mouse = xform.affine_inverse() * mouse
-	var rect = key.choke_rect(at, height)
-	key.draw_choke(self, at, height, rect.has_point(local_mouse))
-	if closeup: draw_string(font, at + Vector2(-12, 30), "ПОДСОС", HORIZONTAL_ALIGNMENT_LEFT, 90, 11, Color("a9a589"))
+	var rect = key.choke_rect(geo.choke, float(geo.choke_side))
+	key.draw_choke(self, geo.choke, float(geo.choke_side), rect.has_point(local_mouse))
+	key.draw(self, centre, side, xform, drag == "start" or mouse.distance_to(xform * centre) < side * 0.4 * xform.get_scale().x + 4.0)
 	var screen_rect: Rect2 = xform * rect
 	ignition_hits.append({"id": "choke", "rect": screen_rect.grow(maxf(0.0, 12.0 - minf(screen_rect.size.x, screen_rect.size.y) * 0.5))})
 
@@ -3215,10 +3214,19 @@ func control_geometry(id: String, closeup: bool = false) -> Dictionary:
 	if kind=="key":
 		var centre=control_anchor(id)*ArtV3.PX
 		var side=KEY_LOCK_M*ArtV3.PX
+		var choke_side=side*Ignition.CHOKE_RATIO
+		var choke=centre-Vector2(side*0.56+choke_side*0.5,0)
 		if closeup:
-			centre=control_zoom_rect().position+Vector2(365,126)
-			side=76.0
-		return {"pivot":centre,"grip":centre,"angle":ignition().angle,"side":side}
+			# 16.11: the lock is set into the dashboard right under the gauges, no longer in the pult; pult coordinates
+			var size=get_viewport_rect().size
+			var right=cab_art().petrol_right(size,cab_layout(size))
+			var back=pult_t.affine_inverse()
+			var k=pult_t.get_scale().x
+			centre=back*Vector2(right.lock)
+			side=float(right.side)/k
+			choke=back*Vector2(right.choke)
+			choke_side=float(right.choke_side)/k
+		return {"pivot":centre,"grip":centre,"angle":ignition().angle,"side":side,"choke":choke,"choke_side":choke_side}
 	if kind=="wheel":
 		var radius=34.0 if closeup else 0.17*ArtV3.PX
 		var center=control_anchor(id)*ArtV3.PX

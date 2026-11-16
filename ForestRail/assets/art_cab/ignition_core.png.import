@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://d1647sv5qtdj8"
-path="res://.godot/imported/ignition_key_head.png-f8f4960ebd1ed6a572a73b19b6054b56.ctex"
+uid="uid://k55ylmp5y0rg"
+path="res://.godot/imported/ignition_core.png-c021f6f05a6c7f4c12611b9a198806c6.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/art_cab/ignition_key_head.png"
-dest_files=["res://.godot/imported/ignition_key_head.png-f8f4960ebd1ed6a572a73b19b6054b56.ctex"]
+source_file="res://assets/art_cab/ignition_core.png"
+dest_files=["res://.godot/imported/ignition_core.png-c021f6f05a6c7f4c12611b9a198806c6.ctex"]
 
 [params]
 

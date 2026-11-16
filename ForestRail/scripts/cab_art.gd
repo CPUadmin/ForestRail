@@ -783,8 +783,8 @@ func draw_petrol_cab_extras(size: Vector2, layout: Dictionary) -> void:
 	var small = Color("c7c3a0")
 	var radius = clampf((pult.position.x - 70.0) * 0.22, 46.0, 92.0)
 	var gauge_y = top + (size.y - top) * 0.46
-	# the top strip, right of the nameplate: the fuses. The ignition lock with its key and the choke knob are painted and
-	# live in the pult, in the column «Пуск» (main.draw_ignition, scripts/ignition.gd)
+	# the top strip, right of the nameplate: the fuses. The ignition lock with its key and the choke knob are set into the
+	# dashboard on the right under the small gauges (petrol_right(), main.draw_ignition, scripts/ignition.gd)
 	var strip_x = cx + 190.0
 	var box = Rect2(strip_x + 20, top + 20, 124, 44)
 	canvas.draw_style_box(canvas.style(Color("20261f"), Color("6c6f66"), 4), box)
@@ -794,15 +794,13 @@ func draw_petrol_cab_extras(size: Vector2, layout: Dictionary) -> void:
 		canvas.draw_rect(Rect2(fx, box.position.y + 6, 12, 18), colour.darkened(0.55) if fuse == 2 else colour)
 		canvas.draw_line(Vector2(fx + 6, box.position.y + 9), Vector2(fx + 6, box.position.y + 21), Color("101412"), 1.5)
 	canvas.draw_string(canvas.font, box.position + Vector2(0, 38), "ПРЕДОХРАНИТЕЛИ", HORIZONTAL_ALIGNMENT_CENTER, box.size.x, 9, small)
-	# the fuel gauge and the two small live ones stand in one row on the right
+	# the fuel gauge and the two small live ones on the right; the small ones stand a little higher, the lock is under them
 	var running = bool(canvas.model.state.engine)
-	var small_r = radius * 0.42
-	var fuel_x = pult.end.x + 36.0 + radius + 8.0
-	var oil_x = fuel_x + radius + 8.0 + 22.0 + small_r
-	var temp_x = oil_x + small_r * 2.0 + 16.0
+	var right = petrol_right(size, layout)
+	var small_r = float(right.small_r)
 	var oil = clampf(0.12 + canvas.model.engine_rpm_fraction() * 0.75, 0.0, 1.0) if running else 0.0
-	draw_round_gauge(Vector2(oil_x, gauge_y), small_r, oil, "МАСЛО", "%.1f" % (oil * 5.0), [[0.2, Color("e0564a")], [0.9, Color("5cc17f")], [1.0, Color("e6b34a")]], 4)
-	draw_round_gauge(Vector2(temp_x, gauge_y), small_r, canvas.cab_temp, "ТЕМП.", "%d°" % roundi(20.0 + canvas.cab_temp * 100.0), [[0.7, Color("5cc17f")], [0.85, Color("e6b34a")], [1.0, Color("e0564a")]], 4)
+	draw_round_gauge(right.oil, small_r, oil, "МАСЛО", "%.1f" % (oil * 5.0), [[0.2, Color("e0564a")], [0.9, Color("5cc17f")], [1.0, Color("e6b34a")]], 4)
+	draw_round_gauge(right.temp, small_r, canvas.cab_temp, "ТЕМП.", "%d°" % roundi(20.0 + canvas.cab_temp * 100.0), [[0.7, Color("5cc17f")], [0.85, Color("e6b34a")], [1.0, Color("e0564a")]], 4)
 	# gear lamps under the nameplate: the engaged gear is lit
 	var labels = ["1", "2", "3", "4", "5", "N", "R"]
 	var gears = [1, 2, 3, 4, 5, 0, 6]
@@ -845,6 +843,30 @@ func draw_petrol_cab_extras(size: Vector2, layout: Dictionary) -> void:
 			var ty = py + tilt + 8 + tread * 11
 			canvas.draw_line(Vector2(px + 3, ty), Vector2(px + 37, ty), Color(1, 1, 1, 0.12), 2.0)
 		canvas.draw_line(Vector2(px, py + tilt), Vector2(px + 40, py + tilt), brass, 2.0)
+
+# The right of the petrol dashboard, screen pixels: the two small gauges and, under them, the ignition lock with the
+# choke plate on its left, sized to the room left above the bottom strip of the screen.
+func petrol_right(size: Vector2, layout: Dictionary) -> Dictionary:
+	var pult: Rect2 = layout.rect
+	var top = float(layout.dash_top)
+	var radius = clampf((pult.position.x - 70.0) * 0.22, 46.0, 92.0)
+	var gauge_y = top + (size.y - top) * 0.46
+	var small_r = radius * 0.42
+	var fuel_x = pult.end.x + 36.0 + radius + 8.0
+	var oil_x = fuel_x + radius + 8.0 + 22.0 + small_r
+	var temp_x = oil_x + small_r * 2.0 + 16.0
+	var small_y = gauge_y - radius * 0.3
+	var hud_top = canvas.instruments.hud_top() if canvas.instruments != null else size.y - 122.0
+	var room_top = small_y + small_r + 14.0
+	var room_bottom = hud_top - 6.0
+	var side = clampf(room_bottom - room_top, 40.0, small_r * 2.3)
+	var choke_side = side * canvas.Ignition.CHOKE_RATIO
+	var gap = side * 0.06
+	var group = choke_side + gap + side
+	var middle = (oil_x + temp_x) * 0.5
+	var y = (room_top + room_bottom) * 0.5
+	return {"small_r": small_r, "oil": Vector2(oil_x, small_y), "temp": Vector2(temp_x, small_y), "side": side,
+		"lock": Vector2(middle + group * 0.5 - side * 0.5, y), "choke": Vector2(middle - group * 0.5 + choke_side * 0.5, y), "choke_side": choke_side}
 
 func draw_round_gauge(center: Vector2, radius: float, fraction: float, title: String, readout: String, zones: Array, ticks: int = 10, scale_text: Array = []) -> void:
 	fraction = canvas.cab_needle(title, fraction)
