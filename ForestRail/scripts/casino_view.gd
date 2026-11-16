@@ -99,6 +99,7 @@ func _ready() -> void:
 	row.position = Vector2(size.x * 0.30, size.y - 74.0)
 	row.size = Vector2(size.x * 0.66, 56)
 	add_child(row)
+	button_row = row
 	spin_button = game.add_button(row, "Крутануть", Callable(self, "on_spin"))
 	dep_button = game.add_button(row, "Деп", Callable(self, "on_deposit"))
 	# Узловая Лесная: the album and the bolts desk live here, with Mikhalych; the way out leads to the yard
@@ -153,8 +154,19 @@ func refresh_buttons() -> void:
 	spin_button.text = "Крутануть · %d %s" % [cost, plural(cost, "жетон", "жетона", "жетонов")]
 	spin_button.disabled = spin_t >= 0.0 or cas().tokens() < cost
 	var v = common_junk_value()
-	dep_button.text = "Деп: сдать шлак · %d шт → %d %s" % [v.count, v.tokens, plural(int(v.tokens), "жетон", "жетона", "жетонов")] if v.count > 0 else "Деп: шлака нет"
+	# short words on the buttons, the details in the tooltip: five buttons must fit in one row from 1280 px on
+	dep_button.text = "Деп · +%d %s" % [v.tokens, plural(int(v.tokens), "жетон", "жетона", "жетонов")] if v.count > 0 else "Деп: шлака нет"
+	dep_button.tooltip_text = "Сдать шлак Михалычу: %d шт → %d %s" % [v.count, v.tokens, plural(int(v.tokens), "жетон", "жетона", "жетонов")] if v.count > 0 else "Шлак находят на дороге"
 	dep_button.disabled = spin_t >= 0.0 or v.count <= 0
+	fit_button_row()
+
+# the row of buttons stands at the right edge, never past it (it was cut on the right at 1600×900)
+var button_row: HBoxContainer = null
+func fit_button_row() -> void:
+	if button_row == null: return
+	var wide = button_row.get_combined_minimum_size().x
+	button_row.size = Vector2(wide, 56)
+	button_row.position.x = maxf(16.0, size.x - 24.0 - wide)
 
 func on_deposit() -> void:
 	var got = 0
