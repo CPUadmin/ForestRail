@@ -11,6 +11,9 @@ const CabArt = preload("res://scripts/cab_art.gd")
 const TrainArt = preload("res://scripts/train_art.gd")
 const MenuUi = preload("res://scripts/menu_ui.gd")
 const DepotUi = preload("res://scripts/depot_ui.gd")
+const StationUi = preload("res://scripts/station_ui.gd")
+const HudUi = preload("res://scripts/hud_ui.gd")
+const ResultSheet = preload("res://scripts/result_sheet.gd")
 const YardUi = preload("res://scripts/yard_ui.gd")
 const Fx = preload("res://scripts/fx.gd")
 const ArtWorld = preload("res://scripts/art_world.gd")
@@ -896,238 +899,34 @@ func fit_train_zoom() -> float:
 	if model.grapnel_installed(): fit = minf(fit, 0.7)   # the posts to throw at stand up to 15 m ahead: the view goes out to show them
 	return fit
 
+# надписи поверх дороги: заказ, подсказки, энергия, кнопки действий (hud_ui.gd, 1.3.7)
+var hud_ui_cache = null
+func hud_ui():
+	if hud_ui_cache == null: hud_ui_cache = HudUi.new(self)
+	return hud_ui_cache
 func build_hud(size: Vector2) -> void:
-	instruments = Instruments.new()
-	instruments.game = self
-	instruments.size = size
-	ui.add_child(instruments)
-	mini_button = Button.new()
-	mini_button.position = instruments.mini_rect().position
-	mini_button.size = instruments.mini_rect().size
-	mini_button.flat = true
-	mini_button.tooltip_text = "Открыть карту линии [M]"
-	for state in ["normal","hover","pressed","focus"]: mini_button.add_theme_stylebox_override(state,StyleBoxEmpty.new())
-	mini_button.pressed.connect(toggle_map)
-	ui.add_child(mini_button)
-	var buttons_width = ((210 if model.grapnel_installed() else 70) if model.human_powered() else (210 if model.burst_gadget() != "" else 70))*float(settings.text_scale)   # the row holds the menu button and the gadget buttons
-	hud = positioned_label("", Rect2(34, 12, size.x - buttons_width - 90, 42), 20)
-	hud.autowrap_mode=TextServer.AUTOWRAP_OFF
-	hud.text_overrun_behavior=TextServer.OVERRUN_TRIM_ELLIPSIS
-	var pause_row = HBoxContainer.new()
-	pause_row.position = Vector2(size.x - buttons_width - 34, 10)
-	pause_row.size = Vector2(buttons_width, 46)
-	pause_row.add_theme_constant_override("separation",10)
-	ui.add_child(pause_row)
-	map_button = mini_button
-	burst_button = null
-	if model.burst_gadget() != "": burst_button = add_button(pause_row, burst_button_text(), try_burst)
-	grapnel_button = null
-	if model.grapnel_installed(): grapnel_button = add_button(pause_row, grapnel_button_text(), try_grapnel)
-	# the cab is entered by the key E or by a click on the machine, the map by the key M or by a click on the strip of the route, the pause by Esc
-	menu_hud_button = add_button(pause_row, "☰", pause_game, false, false, &"QuietAction")
-	menu_hud_button.tooltip_text = "Меню и пауза [Esc]"
-	menu_hud_button.custom_minimum_size.x = 52
-	for button in pause_row.get_children():
-		for state_name in ["normal","hover","pressed","disabled","focus"]:
-			var padding=button.get_theme_stylebox(state_name).duplicate()
-			padding.content_margin_top=2;padding.content_margin_bottom=2
-			button.add_theme_stylebox_override(state_name,padding)
-	order_label=positioned_label("",Rect2(34,64,size.x-68,28),16,Color("c7c3a0"))
-	order_label.autowrap_mode=TextServer.AUTOWRAP_OFF
-	order_label.text_overrun_behavior=TextServer.OVERRUN_TRIM_ELLIPSIS
-	hint_label = positioned_label("", Rect2(34, 96, size.x - 68, 64), 17)
-	hint_label.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
-	hint_label.max_lines_visible=2
-	hint_label.text_overrun_behavior=TextServer.OVERRUN_TRIM_ELLIPSIS
-	action_bar = HBoxContainer.new()
-	action_bar.position = Vector2(34, 168)
-	action_bar.size = Vector2(size.x - 68, 48)
-	action_bar.add_theme_constant_override("separation", 12)
-	ui.add_child(action_bar)
-	cargo_actions=HBoxContainer.new()
-	cargo_actions.position=Vector2(size.x-720,dock_rect().position.y+84)
-	cargo_actions.size=Vector2(664,44)
-	cargo_actions.alignment=BoxContainer.ALIGNMENT_END
-	cargo_actions.mouse_filter=Control.MOUSE_FILTER_IGNORE
-	ui.add_child(cargo_actions)
-	cargo_action_key=""
-	last_action_key = ""
-	update_hud()
+	hud_ui().build_hud(size)
 
-# Lowest edge of the visible top HUD; world signs are kept below it.
 func hud_top_clearance() -> float:
-	var bottom=56.0
-	for label in [order_label,hint_label]:
-		if label!=null and label.visible: bottom=maxf(bottom,label.get_rect().end.y+7)
-	if action_bar!=null and action_bar.visible: bottom=maxf(bottom,action_bar.position.y+action_bar.size.y)
-	return bottom+8
+	return hud_ui().hud_top_clearance()
 
 func draw_zone_label() -> void:
-	var info=art_world.zone_label() if art_world!=null else {}
-	if info.is_empty(): return
-	var width=minf(font.get_string_size(info.text,HORIZONTAL_ALIGNMENT_LEFT,-1,16).x+28,maxf(120,info.width))
-	var box=Rect2(info.anchor+Vector2(-12,-24),Vector2(width,32))
-	if instruments!=null and is_instance_valid(instruments) and box.end.y>instruments.hud_top()-40: return
-	draw_style_box(style(Color(INK,0.86),info.color,10),box)
-	draw_string(font,box.position+Vector2(14,22),info.text,HORIZONTAL_ALIGNMENT_LEFT,width-20,16,info.color)
+	hud_ui().draw_zone_label()
 
-# B5.4: how far the train still rolls with the best braking, a warning when the stop is near, and the state of the wheels.
 func brake_hint_text(target_s: float) -> String:
-	var text = ""
-	var speed = absf(float(model.state.v))
-	if speed >= 3.0:
-		var stop_m = model.stopping_distance()
-		text = " · торм. путь %d м" % roundi(minf(stop_m, 999.0))
-		var ahead = (target_s - float(model.state.s)) * int(model.state.direction)
-		if ahead > 0.0 and float(model.state.v) * int(model.state.direction) > 0.0 and stop_m * 1.1 >= ahead: text += " — ТОРМОЗИ"
-	# the wear warning is the lamp in the speed panel now (instruments.gd), the weak node is named in the pause window
-	if model.wheel_slip and not model.wheel_lock and float(model.state.throttle) > 0.05: text += " · колёса буксуют"
-	return text
+	return hud_ui().brake_hint_text(target_s)
 
 func update_hud() -> void:
-	if screen != "game" or hud == null:
-		return
-	update_charge_warning()
-	var state = model.state
-	var destination = model.next_destination()
-	var target_s = float(model.route.station_s[station_number(destination)])
-	var order = "Свободное движение" if state.active.is_empty() else str(state.active.title)
-	var returning = not state.active.is_empty() and state.active.phase == "return"
-	var stop_index = model.station_index()
-	var at_station = model.station_name(model.data.stations[stop_index].id) if stop_index >= 0 else ""
-	# ui-v2: the time and the weather only; the target and the distance are on the minimap (the owner: no doubles)
-	hud.text = "%s · %s" % [model.clock_text(), model.weather_name() if int(settings.weather) != 2 else "ясно"] + deadline_text() + brake_hint_text(target_s) + keys_hint_text()
-	if burst_button != null and is_instance_valid(burst_button):
-		burst_button.text = burst_button_text()
-		burst_button.disabled = not model.burst_ready()
-	if grapnel_button != null and is_instance_valid(grapnel_button):
-		grapnel_button.text = grapnel_button_text()
-		grapnel_button.disabled = model.state.phase != "route" or model.grapnel.mode in ["flying", "dropped", "torn"]
-	order_label.text=order
-	if state.phase=="loading" and model.selectable_loading():
-		var plan_line=model.loading_preview()
-		order_label.text="Заказ · %s · погружено %d из %d" % [order, plan_line.loaded, plan_line.offered]
-	var hint = ""
-	if state.phase == "loading":
-		if model.selectable_loading():
-			var plan=model.loading_preview()
-			hint="Выбери груз. Подъём через %d м, до +%.1f%% · %s. Лишнее можно снять." % [maxf(0,plan.first_hill_m),plan.max_grade*100,plan.difficulty]
-		else: hint = "Сохранённый заказ: размести весь принятый груз. Его прежние условия сохранены."
-	elif returning and model.stopped() and stop_index > 0:
-		hint = "Груз доставлен. Разверни состав и возвращайся домой за оплатой."
-	elif stop_index == 0 and model.stopped() and not returning and float(state.brake) > 0.5:
-		# the start of a trip (player journal 16.11): the brake is on and nothing said so; the old line asked to unload here
-		hint = "Тормоз затянут. Отпусти его: красный рычаг к 0%% или клавиша %s. Потом трогай." % key_name("brake")
-	elif stop_index >= 0 and model.stopped():
-		hint = "Станция «%s». Перетащи груз для этой станции на площадку внизу." % at_station
-	elif model.vehicle_id() == "sail":
-		hint = "Зажми нижний угол паруса мышью и держи: к мачте — парус раскрыт, назад — ребром; вверх или вниз — угол приподнимается или опускается (высоко держишь — полотно закручивается и ветер уходит). Клавиша F (по умолчанию) переводит гик на другой борт: боковой ветер наполняет парус на подветренном борту. Отпустил — парус полощет и не тянет; отпусти над утёй у кормы (медная скоба) — шкот закреплён в ближайшей из трёх засечек (с гаджетом — в любом положении). Попутный ветер — раскрой, боковой — наполовину. Тормоз — красный рычаг у носа или клавиша %s."  % key_name("brake")
-	elif model.vehicle_id() == "pole":
-		hint = "Веди мышью — шест следует за ней. Щелчок втыкает его; держи и тяни мышь назад — едешь, вперёд — встаёшь на шест. Отпустил — шест поднят. Красный рычаг — тормоз."
-	elif model.vehicle_id() == "handcar":
-		hint = "Зажми деревянный хват и веди его по дуге рычага. Ровные полные ходы разгоняют лучше. Красный рычаг — тормоз."
-	elif model.vehicle_id() == "steam":
-		if not state.engine: hint = "Кабина [E]: открой дверцу, перетащи уголь из ведра в топку, закрой дверцу и нажми «Розжиг»."
-		elif not model.steam_ready(): hint = "Давление растёт: жди %d бар. Вода в кране должна быть открыта." % int(model.boiler_cfg().work_pressure_bar)
-		else: hint = "Вентиль — колесо: крути по кругу, отпустишь — закроется сам. Тормоз — красный рычаг."
-	elif model.vehicle_id() == "pneumatic":
-		hint = "Вентиль — зелёный рычаг, тормоз — красный. Трубки обмерзают: кликай по белому инею на трубках (или клавиша %s сбивает всё сразу). Воздух набирается у компрессора станции." % key_name("ice")
-	elif model.vehicle_id() == "locomotive":
-		hint = "Тяга — зелёный рычаг, тормоз — красный. Направление выбирается на стоянке кнопками «Тяга ←» и «Тяга →»."
-	elif not state.engine:
-		hint = "Запуск: газ 0%, передача N. Поверни ключ и держи, пока мотор не схватит."
-	else:
-		hint = "Подача — зелёный рычаг, тормоз — красный. Передача меняется при подаче ниже 15%."
-	if float(state.brake) > 0.95 and not model.stopped():
-		hint = "Торможение."
-	if model.stopped() and state.phase == "route" and not returning and stop_index == 0:
-		hint = "Переведи красную рукоять к 0%, затем начинай движение."
-	if model.vehicle_id() == "locomotive" and model.regen_kw > 0.01:
-		hint = "Рекуперация: +%.1f кВт. Часть энергии торможения возвращается в аккумулятор." % model.regen_kw
-	var interaction=station_state()
-	if mini_button != null and is_instance_valid(mini_button): mini_button.visible = not cab_active()
-	order_label.visible=not cab_active() and state.phase=="loading"
-	hint_label.visible=not cab_active() and state.tutorial and (state.phase=="loading" or (drag!="" and not interaction.visible))
-	# ui-v2: the loading actions stand at the bottom right above the instruments, the main one last (nearest the corner)
-	if state.phase=="loading":
-		var bottom_y=(instruments.hud_top() if instruments!=null and is_instance_valid(instruments) else get_viewport_rect().size.y-174)-70
-		action_bar.position=Vector2(get_viewport_rect().size.x-720, bottom_y)
-		action_bar.size=Vector2(686, 64)
-		action_bar.alignment=BoxContainer.ALIGNMENT_END
-		if cargo_actions!=null and is_instance_valid(cargo_actions): cargo_actions.position.y=bottom_y-58   # above the main button, never over it
-	else:
-		action_bar.position=Vector2(34, 70)
-		action_bar.size=Vector2(get_viewport_rect().size.x-68, 48)
-		action_bar.alignment=BoxContainer.ALIGNMENT_BEGIN
-		if cargo_actions!=null and is_instance_valid(cargo_actions): cargo_actions.position.y=dock_rect().position.y+84
-	hint_label.text = hint if state.phase=="loading" else (interaction.reason if interaction.visible else (hint if state.tutorial else ""))
-	var max_w = get_viewport_rect().size.x - 68
-	order_label.size.x = minf(max_w, font.get_string_size(order_label.text, HORIZONTAL_ALIGNMENT_LEFT, -1, int(16 * float(settings.text_scale))).x + 12)
-	hint_label.size.x = minf(minf(max_w, 900.0), font.get_string_size(hint_label.text, HORIZONTAL_ALIGNMENT_LEFT, -1, int(17 * float(settings.text_scale))).x + 12)
-	update_cargo_actions(interaction)
-	var key = "%s_%d_%s_%s_%s_%d" % [state.phase, stop_index, str(model.stopped()), str(model.all_loaded()), str(returning), model.drive_direction()]
-	if state.phase=="loading": key+=str(model.loading_preview().signature)
-	key += "_" + str(model.oars_out()) + "_" + str(model.can_turn() == "")
-	if key != last_action_key:
-		last_action_key = key
-		clear_children(action_bar)
-		if state.phase == "loading":
-			add_button(action_bar, "В депо", start_depot_entry, false, false, &"QuietAction")
-			var plan=model.loading_preview()
-			var go_text="Отправиться →" if int(plan.loaded)>=int(plan.offered) or not model.selectable_loading() else "Отправиться · %d из %d →" % [plan.loaded, plan.offered]
-			var go=add_button(action_bar, go_text, func():
-				if model.depart(): save_game(); rebuild()
-				else: notify(model.message), not model.all_loaded(), false, &"PrimaryAction")
-			go.custom_minimum_size=Vector2(320, 60)
-			go.tooltip_text="%d кг · награда %d" % [plan.mass_kg, plan.reward]
-		elif model.stopped():
-			if model.vehicle_id() == "sail" and (model.oars_owned() or model.oars_out()):
-				add_button(action_bar, "Убрать вёсла" if model.oars_out() else "Вёсла", func():
-					if model.set_oars(not model.oars_out()): last_action_key = ""
-					else: notify(model.message))
-			# one switch for the direction of the pull instead of two buttons: it shows where the machine pulls now and flips it
-			if model.vehicle_id() not in ["handcar","pole","sail","motorcar"]:
-				var forward = model.drive_direction() > 0
-				add_button(action_bar, "Тяга →" if forward else "Тяга ←", func():
-					var wanted = -int(state.direction) if forward else int(state.direction)
-					if model.set_reverser(wanted): save_game(); last_action_key = ""
-					else: notify(model.message))
-			# what cannot be done now is not shown (no grey button without a reason): the turn is offered only when it is possible
-			if stop_index >= 0 and model.can_turn() == "":
-				add_button(action_bar, "Развернуть", func():
-					if model.turn(): save_game(); notify("Состав развёрнут"); last_action_key = ""
-					else: notify(model.message))
-			if stop_index == 0:
-				add_button(action_bar, "Заехать в депо →", start_depot_entry)
-			# the frost of the pneumatic train is knocked off by the key I or by a click on the white spots; the manual save is in the pause menu only
-		for child in action_bar.get_children():
-			if child is Button: child.size_flags_horizontal=Control.SIZE_SHRINK_BEGIN
-	action_bar.visible=not cab_active() and action_bar.get_child_count()>0 and (state.phase=="loading" or model.stopped())
+	hud_ui().update_hud()
 
-# The first three deliveries the header reminds where the removed buttons went.
 func keys_hint_text() -> String:
-	if int(model.state.stats.get("deliveries", 99)) >= 3 or cab_active(): return ""
-	var cab_part = "" if model.human_powered() else " · %s кабина" % key_name("cab")
-	return "   [%s карта%s · Esc меню]" % [key_name("map"), cab_part]
+	return hud_ui().keys_hint_text()
 
 func energy_text() -> String:
-	if model.vehicle_id() == "handcar": return "Ручной привод · %d Вт" % roundi(model.output_power)
-	if model.vehicle_id() == "sail": return "Парус · ветер %.1f м/с" % model.wind_here().length()
-	if model.vehicle_id() == "pole": return "Шест · опора: %s" % (str(model.pole_ground_at(float(model.pole.tip_s)).name) if model.pole.planted() else "в руках")
-	var amount = float(model.state.fleet_by_id[model.vehicle_id()].fuel)
-	var cap = float(model.object_stats(model.vehicle_id()).tank)
-	if model.vehicle_id() == "locomotive":
-		return "Заряд %d%% · %.2f / %.2f кВт·ч" % [roundi(amount / cap * 100), amount, cap]
-	if model.vehicle_id() == "steam":
-		var fleet = model.state.fleet_by_id.steam
-		return "Давление %.1f бар · топка %.1f кг · ведро %.0f / %.0f кг · вода %.0f / %.0f л" % [model.pressure_bar(), float(model.boiler().firebox), amount, cap, float(fleet.get("water", 0)), float(model.object_stats("steam").water)]
-	if model.vehicle_id() == "pneumatic":
-		return "Давление %.0f / %.0f бар · иней %d%%" % [amount, cap, roundi(model.frost() * 100.0)]
-	if model.vehicle_id() == "jet": return "Керосин %.0f / %.0f л" % [amount, cap]
-	return "Бензин %.2f / %.1f л" % [amount, cap]
+	return hud_ui().energy_text()
 
 func vehicle_display_name() -> String:
-	return str(model.vehicle_base().name)
+	return hud_ui().vehicle_display_name()
 
 # What each machine is for, in a few words (the court of the five vehicles and the speed table).
 const VEHICLE_ROLE = {
@@ -1141,204 +940,32 @@ const VEHICLE_ROLE = {
 	"zeppelin": "Летает, если ловко управлять.",
 	"jet": "Самый мощный, ракетный запуск."}
 
-# A card with the picture of the machine or wagon on its left; returns the box for the text and buttons.
+# лист результата рейса: картинки, медали, состав (result_sheet.gd, 1.3.7)
+var result_sheet_cache = null
+func result_sheet():
+	if result_sheet_cache == null: result_sheet_cache = ResultSheet.new(self)
+	return result_sheet_cache
 func picture_card(parent: Node, id: String, bright: bool, edge: Color) -> VBoxContainer:
-	var outer = card(parent, edge)
-	var row = HBoxContainer.new()
-	row.add_theme_constant_override("separation", 12)
-	outer.add_child(row)
-	var picture = TextureRect.new()
-	picture.texture = art.textures[art.body_key(id)]
-	picture.custom_minimum_size = Vector2(150.0, 78.0) * float(settings.text_scale)
-	picture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	picture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	picture.modulate = Color.WHITE if bright else Color(1, 1, 1, 0.55)
-	row.add_child(picture)
-	var info = VBoxContainer.new()
-	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(info)
-	return info
+	return result_sheet().picture_card(parent, id, bright, edge)
 
-# The train as it stands on the rails: the machine and its coupled wagons, then the wagons standing aside.
-# ui-v2 (owner 14.11: «для экрана результата нужны специальные ассеты»; P22 painted by GPT): the evening platform
-# with the greeting, the waybill with the trip written on its lines, the stamp (on time or late), the coins and the medals
-const RESULT_ART = {
-	"banner": preload("res://assets/art_result/banner.png"), "waybill": preload("res://assets/art_result/waybill.png"),
-	"stamp_ok": preload("res://assets/art_result/stamp_ok.png"), "stamp_late": preload("res://assets/art_result/stamp_late.png"),
-	"coins_small": preload("res://assets/art_result/coins_small.png"), "coins_big": preload("res://assets/art_result/coins_big.png"),
-	"medal_on_time": preload("res://assets/art_result/medal_on_time.png"), "medal_night": preload("res://assets/art_result/medal_night.png"),
-	"medal_heavy": preload("res://assets/art_result/medal_heavy.png"), "medal_first": preload("res://assets/art_result/medal_first.png"),
-	"medal_smooth": preload("res://assets/art_result/medal_brakes.png")}
-const MEDAL_NAMES = {"on_time": "Раньше срока", "night": "Ночной рейс", "heavy": "Тяжёлый груз", "first": "Первый основной рейс", "smooth": "Плавный рейс"}
-const SHEET_INK = Color("3a2a18")
 
-func sheet_label(parent: Control, text: String, at: Rect2, font_size: int, color: Color = SHEET_INK, align: int = HORIZONTAL_ALIGNMENT_LEFT) -> Label:
-	var label = Label.new()
-	label.text = text
-	label.position = at.position
-	label.size = at.size
-	label.horizontal_alignment = align
-	label.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
-	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	label.clip_text = true
-	label.add_theme_font_size_override("font_size", int(font_size * float(settings.text_scale)))
-	label.add_theme_color_override("font_color", color)
-	label.mouse_filter = Control.MOUSE_FILTER_PASS
-	parent.add_child(label)
-	return label
+func sheet_label(parent: Control, text: String, at: Rect2, font_size: int, color: Color = Color("3a2a18"), align: int = HORIZONTAL_ALIGNMENT_LEFT) -> Label:
+	return result_sheet().sheet_label(parent, text, at, font_size, color, align)
 
 func sheet_picture(parent: Control, texture: Texture2D, at: Rect2, tint: Color = Color.WHITE) -> TextureRect:
-	var picture = TextureRect.new()
-	picture.texture = texture
-	picture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE   # first: otherwise the size is held at the size of the texture
-	picture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	picture.position = at.position
-	picture.size = at.size
-	picture.modulate = tint
-	picture.mouse_filter = Control.MOUSE_FILTER_PASS
-	parent.add_child(picture)
-	return picture
+	return result_sheet().sheet_picture(parent, texture, at, tint)
 
 func build_result_sheet(box: VBoxContainer, result: Dictionary, screen: Vector2, width: float) -> void:
-	var final = bool(result.get("final", false))
-	var late = bool(result.get("late", false))
-	var reward = int(result.get("reward", 0))
-	var greeting = "Линия работает" if final else ("Рейс сорван" if late else "С возвращением")
-	# the banner only when the screen is tall enough; on a small one the greeting is a plain title
-	var sheet_w = minf(width - 48.0, 820.0)
-	var tall = screen.y >= 860.0
-	# the sheet takes what is left of the height: the panel, the greeting, the medals, the finds, the button
-	var reserved = 160.0 + 40.0 + 80.0 * float(settings.text_scale) + (150.0 if tall else 50.0 * float(settings.text_scale))
-	if not tall and not result.get("medals", []).is_empty(): reserved += 90.0
-	if not result.get("finds", []).is_empty(): reserved += 40.0 * float(settings.text_scale)
-	sheet_w = maxf(360.0, minf(sheet_w, (screen.y - reserved) * 1263.0 / 767.0))
-	if tall:
-		var banner = Control.new()
-		banner.custom_minimum_size = Vector2(0, 150)
-		banner.clip_contents = true
-		box.add_child(banner)
-		var picture = TextureRect.new()
-		picture.texture = RESULT_ART.banner
-		picture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		picture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-		picture.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		picture.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		banner.add_child(picture)
-		var shade = ColorRect.new()
-		shade.color = Color(0.03, 0.02, 0.01, 0.35)
-		shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		banner.add_child(shade)
-		var title = Label.new()
-		title.text = greeting
-		title.add_theme_font_size_override("font_size", int(40 * float(settings.text_scale)))
-		title.add_theme_color_override("font_color", Color("f5e2b0"))
-		title.add_theme_color_override("font_outline_color", Color(0.05, 0.03, 0.01, 0.9))
-		title.add_theme_constant_override("outline_size", 8)
-		title.position = Vector2(24, 12)
-		banner.add_child(title)
-		# the medals of the trip hang from the top edge of the banner, on the right
-		var hanging = HBoxContainer.new()
-		hanging.add_theme_constant_override("separation", 12)
-		banner.add_child(hanging)
-		medal_row(hanging, result.get("medals", []), Vector2(62, 86))
-		var hang_w = hanging.get_combined_minimum_size().x
-		hanging.anchor_left = 1.0
-		hanging.anchor_right = 1.0
-		hanging.offset_left = -hang_w - 22.0
-		hanging.offset_right = -22.0
-		hanging.offset_top = 0.0
-		hanging.offset_bottom = 86.0
-	else:
-		add_label(box, greeting, 34)
-	var holder = CenterContainer.new()
-	box.add_child(holder)
-	var sheet = Control.new()
-	var w = sheet_w
-	var h = w * 767.0 / 1263.0
-	sheet.custom_minimum_size = Vector2(w, h)
-	holder.add_child(sheet)
-	sheet_picture(sheet, RESULT_ART.waybill, Rect2(0, 0, w, h))
-	# the lines of the waybill (fractions of the picture): x 0.125..0.493, y 0.302, 0.394, 0.482, 0.570, 0.652, 0.735
-	var lx = w * 0.125
-	var lw = w * 0.37
-	var line_y = [0.302, 0.394, 0.482, 0.570, 0.652, 0.735]
-	var title_text = "До Дальнего бора снова ходят поезда" if final else str(result.get("title", "Рейс окончен"))
-	var title_label = sheet_label(sheet, title_text, Rect2(lx, h * 0.13, w * 0.74, h * 0.15), 22)
-	title_label.autowrap_mode = TextServer.AUTOWRAP_OFF
-	title_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	title_label.tooltip_text = title_text
-	var notes: Array = result.get("notes", [])
-	var row = 0
-	for note in notes.slice(0, 3):
-		sheet_label(sheet, str(note), Rect2(lx, h * line_y[row] + 2.0, lw, h * (line_y[row + 1] - line_y[row]) - 4.0), 17, Color("7a2a1a") if late else SHEET_INK)
-		row += 1
-	var totals: Dictionary = model.state.get("stats", {})
-	var stats = ["доставлено всего: %d" % int(totals.get("deliveries", 0)), "пройдено: %.1f км" % (float(totals.get("distance", 0.0)) / 1000.0), "основные рейсы: %d из 10" % int(model.state.get("chapter", 0))]
-	for line in stats:
-		if row >= line_y.size() - 1: break
-		sheet_label(sheet, line, Rect2(lx, h * line_y[row] + 2.0, lw, h * (line_y[row + 1] - line_y[row]) - 4.0), 16, Color("5a4a34"))
-		row += 1
-	# the pay: the coins and the sum in the free right half
-	var coins = RESULT_ART.coins_big if reward >= 300 else RESULT_ART.coins_small
-	if reward > 0: sheet_picture(sheet, coins, Rect2(w * 0.52, h * 0.29, w * 0.17, h * 0.27))
-	var pay_x = w * 0.68 if reward > 0 else w * 0.55
-	var pay_w = w * 0.22 if reward > 0 else w * 0.35
-	var pay = sheet_label(sheet, ("+%d" % reward) if reward >= 0 else ("−%d" % -reward), Rect2(pay_x, h * 0.29, pay_w, h * 0.18), 44, Color("8a5a12") if reward >= 0 else Color("8a2a1a"), HORIZONTAL_ALIGNMENT_CENTER)
-	pay.clip_text = false
-	pay.autowrap_mode = TextServer.AUTOWRAP_OFF
-	pay.tooltip_text = "Оплата за рейс, монет"
-	sheet_label(sheet, "монет", Rect2(pay_x, h * 0.47, pay_w, h * 0.07), 16, Color("5a4a34"), HORIZONTAL_ALIGNMENT_CENTER).vertical_alignment = VERTICAL_ALIGNMENT_TOP
-	# the stamp sits in its circle, a little turned
-	var stamp = sheet_picture(sheet, RESULT_ART.stamp_late if late else RESULT_ART.stamp_ok, Rect2(w * 0.81 - h * 0.14, h * 0.698 - h * 0.14, h * 0.28, h * 0.28), Color(1, 1, 1, 0.88))
-	stamp.pivot_offset = stamp.size * 0.5
-	stamp.rotation = deg_to_rad(-12.0 if late else 9.0)
-	stamp.tooltip_text = "Опоздание" if late else "Доставлено"
-	# on a small screen (no banner) the medals stand in a row under the sheet
-	if not tall and not result.get("medals", []).is_empty():
-		var shelf = HBoxContainer.new()
-		shelf.alignment = BoxContainer.ALIGNMENT_CENTER
-		shelf.add_theme_constant_override("separation", 18)
-		box.add_child(shelf)
-		medal_row(shelf, result.get("medals", []), Vector2(56, 76))
+	result_sheet().build_result_sheet(box, result, screen, width)
 
 func medal_row(row: HBoxContainer, medals: Array, each: Vector2) -> void:
-	for id in medals:
-		if not RESULT_ART.has("medal_" + str(id)): continue
-		var medal = TextureRect.new()
-		medal.texture = RESULT_ART["medal_" + str(id)]
-		medal.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		medal.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		medal.custom_minimum_size = each
-		medal.tooltip_text = str(MEDAL_NAMES.get(str(id), ""))
-		row.add_child(medal)
+	result_sheet().medal_row(row, medals, each)
 
 func consist_strip(parent: Node) -> void:
-	var strip = HBoxContainer.new()
-	strip.add_theme_constant_override("separation", 6)
-	parent.add_child(strip)
-	var coupled: Array = [model.vehicle_id()] + model.state.consist_ids
-	# ui-v2 (owner 14.11): drawn as on the rails of the room: the wagons on the left, the machine on the right
-	var drawn = coupled.duplicate()
-	drawn.reverse()
-	for id in drawn:
-		var tile = TextureRect.new()
-		tile.texture = art.textures[art.body_key(id)]
-		tile.custom_minimum_size = Vector2(0, 54.0 * float(settings.text_scale))
-		tile.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		tile.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		tile.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		tile.tooltip_text = vehicle_display_name() if id == model.vehicle_id() else str(id)
-		strip.add_child(tile)
-	add_label(parent, "В составе: %s. Сцепки на рельсах слева тоже нажимаются мышью." % ", ".join(coupled.map(func(id): return vehicle_display_name() if id == model.vehicle_id() else str(id))), 15, MUTED_INK)
+	result_sheet().consist_strip(parent)
 
 func vehicle_summary(id: String) -> String:
-	var base = model.vehicle_base(id)
-	var on_deck = int(base.deck_slots) > 0
-	var wagons = int(base.get("max_wagons", 0)) > 0
-	var cargo = "платформа и вагоны" if on_deck and wagons else ("платформа" if on_deck else ("вагоны" if wagons else "нет"))
-	var energy = {"handcar": "без топлива", "steam": "уголь и вода", "motorcar": "бензин", "pneumatic": "сжатый воздух", "pole": "мускулы", "sail": "ветер", "locomotive": "аккумулятор", "zeppelin": "бензин", "jet": "керосин"}.get(id, "")
-	return "Груз: %s  ·  Ход: %s" % [cargo, energy]
+	return result_sheet().vehicle_summary(id)
 
 func station_number(id: String) -> int:
 	for i in range(model.data.stations.size()):
@@ -2617,139 +2244,46 @@ func world_point(s: float) -> Vector2:
 	var p = model.route.sample(s)
 	return Vector2(wp_head + (p.x - wp_cam.x) * wp_scale, wp_base - (p.y - camera_y) * wp_scale)
 
+# станция: платформа, перекладка груза, обслуживание, прогноз (station_ui.gd, 1.3.7)
+var station_ui_cache = null
+func station_ui():
+	if station_ui_cache == null: station_ui_cache = StationUi.new(self)
+	return station_ui_cache
 func dock_visible() -> bool:
-	if screen!="game" or cab_active(): return false
-	if drag=="cargo": return true
-	var interaction=station_state()
-	if not interaction.visible: return false
-	# ui-v2: an empty station adds nothing (the old panel said «nothing to unload» on half of the screen)
-	if model.state.phase=="loading": return shelf_count()>0
-	return not interaction.eligible.is_empty()
+	return station_ui().dock_visible()
 
-# things that still wait on the shelf of the home station
 func shelf_count() -> int:
-	var n=0
-	for item in model.state.cargo:
-		if not item.delivered and item.slot=="": n+=1
-	return n
+	return station_ui().shelf_count()
 
 func station_state() -> Dictionary:
-	var result=model.station_interaction()
-	if drag=="cargo" and drag_item in result.eligible and result.can_transfer:
-		result.phase="dragging"
-		result.reason="Отпусти груз на подсвеченную платформу или в панель «Разгрузка»"
-	return result
+	return station_ui().station_state()
 
 func world_platform_rect(index: int = -1) -> Rect2:
-	if index<0: index=int(station_state().station_index)
-	var center=float(model.route.station_s[index])
-	var half=Model.StationInteraction.SERVICE_LENGTH*0.5
-	var left=world_point(center-half)
-	var right=world_point(center+half)
-	var height = float(Geometry.data().reference.platform_height_m)*ArtV3.PX*view_scale()
-	return Rect2(Vector2(left.x,left.y-height),Vector2(right.x-left.x,height))
+	return station_ui().world_platform_rect(index)
 
 func update_cargo_actions(interaction: Dictionary) -> void:
-	if not is_instance_valid(cargo_actions): return
-	cargo_actions.visible=dock_visible()
-	var item={}
-	for cargo in model.state.cargo:
-		if cargo.id==selected_cargo and not cargo.delivered and cargo.slot!="": item=cargo
-	var available=not item.is_empty() and interaction.can_transfer and (interaction.station_id=="A" or selected_cargo in interaction.eligible)
-	var offer=model.service_offer()
-	var key=selected_cargo+str(available)+str(item.is_empty())+str(offer.get("station",""))+str(model.refill_cost())+str(roundi(float(model.state.money)))+str(model.casino().bolt_total())
-	if key==cargo_action_key: return
-	cargo_action_key=key
-	clear_children(cargo_actions)
-	unload_selected_button=null
-	if not item.is_empty():
-		unload_selected_button=add_button(cargo_actions,"Выгрузить выбранный",func(): transfer_cargo(selected_cargo,"",world_platform_rect().get_center()),not available)
-		unload_selected_button.add_theme_font_size_override("font_size",int(18*float(settings.text_scale)))
-		unload_selected_button.tooltip_text="Этот груз ждут в "+model.station_name(item.destination) if selected_cargo not in interaction.eligible and interaction.station_id!="A" else interaction.reason
-	# Fuel and water on the road: only where the station really has the service.
-	if not offer.is_empty() and offer.station!="A":
-		var cost=model.refill_cost()
-		var water_short=float(model.object_stats(model.vehicle_id()).water)>0 and offer.services.has("water") and float(model.state.fleet_by_id[model.vehicle_id()].get("water",0))<float(model.object_stats(model.vehicle_id()).water)-0.0001
-		var label=""
-		var room=model.tank_missing()>0.0001
-		if model.fuel_service_mult(offer.services)>=0.0: label=({"locomotive":"Зарядить","pneumatic":"Накачать"}.get(model.vehicle_id(),"Заправить"))+(" · %d монет" % cost if cost>0 else (" · бесплатно" if room else " · полон"))
-		if water_short: label+=(" + " if label!="" else "")+"вода"
-		if label!="":
-			# the fuel is filled as far as the money goes, so one coin is enough to start; the water is free
-			var broke=room and cost>0 and int(model.state.money)<1 and not water_short and not model.creative()
-			var service_button=add_button(cargo_actions,label,use_station_service,(not room and not water_short) or broke)
-			if broke: service_button.tooltip_text="Не хватает %d монет" % (1-int(model.state.money))
-			service_button.add_theme_font_size_override("font_size",int(18*float(settings.text_scale)))
-	if interaction.can_transfer and model.casino().receiving_possible() and model.casino().bolt_total() > 0:
-		var desk_button=add_button(cargo_actions,"Приёмка болтов (%d)" % model.casino().bolt_total(),use_station_receiving_button)
-		desk_button.add_theme_font_size_override("font_size",int(18*float(settings.text_scale)))
+	station_ui().update_cargo_actions(interaction)
 
 func use_station_receiving_button() -> void:
-	show_modal("receiving")
+	station_ui().use_station_receiving_button()
 
 func use_station_service() -> void:
-	if model.refuel():
-		save_game()
-		cargo_action_key=""
-		notify(model.message if model.message!="" else "Запас пополнен")
-		model.message=""
-		update_hud()
-	else: notify(model.message)
+	station_ui().use_station_service()
 
-# One line for the depot panel and the map: what the next trip needs against what is on board.
-# B6.4: the steady wind of the line at the stations (without gusts), for the sail car in the depot: where the ride will be easy
 func wind_route_line() -> String:
-	model.wind_ready()
-	var parts: Array = []
-	for i in range(model.data.stations.size()):
-		parts.append("%s %.1f" % [str(model.data.stations[i].name), model.wind.strength_at(float(model.route.station_s[i]))])
-	return "Ветер по линии, м/с: " + " · ".join(parts)
+	return station_ui().wind_route_line()
 
 func forecast_line(mission: Dictionary = {}) -> String:
-	var f=model.trip_forecast(mission)
-	if f.is_empty(): return ""
-	var text="Рейс: нужно ~%.2f из %.2f %s" % [f.need,f.have,f.unit]
-	if float(f.water_tank)>0: text+=" · вода ~%.0f из %.0f л" % [f.water_need,f.water_have]
-	var enough=float(f.have)>=float(f.need) and (float(f.water_tank)<=0 or float(f.water_have)>=float(f.water_need))
-	return text+(" · хватит" if enough else " · НЕ ХВАТИТ")
+	return station_ui().forecast_line(mission)
 
 func service_text(id: String) -> String:
-	var services=model.station_services(id)
-	var parts: Array = []
-	if services.has("fuel"): parts.append("заправка" + (" ×%s" % str(services.fuel).replace(".",",") if float(services.fuel)!=1.0 else ""))
-	if services.has("water"): parts.append("вода")
-	return " · ".join(parts)
+	return station_ui().service_text(id)
 
 func transfer_cargo(id: String, target: String, from: Vector2) -> bool:
-	var interaction=station_state()
-	if not interaction.can_transfer:
-		notify(interaction.reason)
-		return false
-	var item={}
-	for cargo in model.state.cargo:
-		if cargo.id==id: item=cargo
-	if item.is_empty() or item.delivered: return false
-	var delivered_here=target=="" and item.destination==interaction.station_id
-	var sprite_id=str(model.cargo_base(item.type).sprite)
-	if not model.transfer(id,target):
-		notify(model.message)
-		return false
-	if delivered_here:
-		var platform=world_platform_rect()
-		var landing=Vector2(clampf(from.x,platform.position.x+20,platform.end.x-20),platform.position.y)
-		delivery_ghost={"sprite":sprite_id,"from":from,"to":landing,"time":0.0}
-		selected_cargo=""
-		notify("Доставлено в «%s». Выгружено %d из %d" % [interaction.station_name,interaction.delivered+1,interaction.total])
-	model.message=""
-	cargo_action_key=""
-	save_game()
-	update_hud()
-	return true
+	return station_ui().transfer_cargo(id, target, from)
 
 func dock_rect() -> Rect2:
-	var size = get_viewport_rect().size
-	var hud = instruments.hud_top() if instruments != null and is_instance_valid(instruments) else size.y-174
-	return Rect2(36,hud-156,size.x-72,144)
+	return station_ui().dock_rect()
 
 func rail_baseline() -> float:
 	var height = get_viewport_rect().size.y
