@@ -34,6 +34,17 @@ const LASH_OMEGA = 6.0      # крепление груза упругое: ре
 const LASH_ZETA = 0.4
 const CARGO_PLAY = 0.2      # груз упирается в борт или соседа, м
 const CARGO_BOUNCE = 0.35
+# 1.4.7 (живой состав и износ): стёртая сцепка даёт больший свободный ход (вагон дольше разгоняется в зазоре и бьёт
+# сильнее), убитая подвеска хуже гасит качание и сильнее получает от стыков. Ход и расход это не меняет.
+const WORN_PLAY = 1.5        # при полном износе сцепки люфт ×2,5
+const WORN_DAMPING = 0.5     # при полном износе подвески гашение вдвое слабее
+const WORN_KICK = 0.8        # и удар стыка на 80% сильнее
+
+static func play_for(coupler_condition: float) -> float:
+	return PLAY * (1.0 + WORN_PLAY * (1.0 - clampf(coupler_condition, 0.0, 1.0)))
+
+static func node_condition(m, id: String, node: String) -> float:
+	return float(m.wear().condition(id, node)) if m.has_method("wear") else 1.0
 
 var n = 0
 var q: Array = []        # смещение кузова от жёсткого положения
@@ -115,6 +126,12 @@ func step(m, dt: float) -> void:
 		var slope = m.route.slope(m.body_s(i))
 		var roll = 0.004 * G * signf(heading_v) if absf(heading_v) > 0.03 else 0.0
 		a_free.append(-G * sin(slope) * dirn - roll)
+	# 1.4.7: the play of each coupler (between body i-1 and i belongs to body i) and the wear of each suspension
+	var play: Array = []
+	var worn_s: Array = []
+	for i in range(n):
+		play.append(play_for(node_condition(m, str(ids[i]), "coupler")) if i > 0 else PLAY)
+		worn_s.append(1.0 - node_condition(m, str(ids[i]), "suspension"))
 	# --- couplers: bodies on springs with free play, the head fixed by the main model
 	var h = dt / float(SUBSTEPS)
 	var a_abs: Array = []
@@ -127,13 +144,14 @@ func step(m, dt: float) -> void:
 			var x = float(q[i - 1]) - float(q[i])
 			var vx = float(qd[i - 1]) - float(qd[i])
 			var t = 0.0
-			if x > PLAY:
-				t = maxf(0.0, K_COUPLER * (x - PLAY) + C_COUPLER * vx)
-			elif x < -PLAY:
-				t = minf(0.0, K_COUPLER * (x + PLAY) + C_COUPLER * vx)
+			var pl = float(play[i])
+			if x > pl:
+				t = maxf(0.0, K_COUPLER * (x - pl) + C_COUPLER * vx)
+			elif x < -pl:
+				t = minf(0.0, K_COUPLER * (x + pl) + C_COUPLER * vx)
 			# an impact: the play has just been used up
 			var was = float(ext[i])
-			if (absf(x) > PLAY) != (absf(was) > PLAY) and absf(x) > absf(was):
+			if (absf(x) > pl) != (absf(was) > pl) and absf(x) > absf(was):
 				clank = maxf(clank, absf(vx))
 				if absf(vx) > 0.15: hits.append({"kind": "coupler", "body": i, "speed": absf(vx)})
 			ext[i] = x
@@ -170,16 +188,17 @@ func step(m, dt: float) -> void:
 			elif j != int(marks[axle_index]):
 				marks[axle_index] = j
 				if speed > 0.25:
-					var strength = 0.45 + 1.0 * hash01(float(j), 1.0 + float(axle_index))   # the joint is worn more or less
+					var strength = (0.45 + 1.0 * hash01(float(j), 1.0 + float(axle_index))) * (1.0 + WORN_KICK * float(worn_s[i]))   # the joint is worn more or less; worn springs feel it more
 					var sp = minf(speed, 25.0)
 					lift_v[i] = float(lift_v[i]) - JOINT_KICK * sp * strength
 					rock_v[i] = float(rock_v[i]) + (JOINT_ROCK_KICK if axle_index == 0 else -JOINT_ROCK_KICK) * sp * strength
-		lift_v[i] = float(lift_v[i]) + (force_up - 2.0 * BODY_ZETA * omega * float(lift_v[i]) - omega * omega * float(lift[i])) * dt
+		var zeta = BODY_ZETA * (1.0 - WORN_DAMPING * float(worn_s[i]))
+		lift_v[i] = float(lift_v[i]) + (force_up - 2.0 * zeta * omega * float(lift_v[i]) - omega * omega * float(lift[i])) * dt
 		lift[i] = clampf(float(lift[i]) + float(lift_v[i]) * dt, -3.0 * LIFT_LIMIT, 3.0 * LIFT_LIMIT)
 		var drive_a = a_head if i == 0 else float(a_abs[i])
 		var target_rock = ROCK_GAIN * drive_a
 		var r_omega = ROCK_OMEGA * k
-		rock_v[i] = float(rock_v[i]) + (r_omega * r_omega * (target_rock - float(rock[i])) - 2.0 * ROCK_ZETA * r_omega * float(rock_v[i])) * dt
+		rock_v[i] = float(rock_v[i]) + (r_omega * r_omega * (target_rock - float(rock[i])) - 2.0 * ROCK_ZETA * (1.0 - WORN_DAMPING * float(worn_s[i])) * r_omega * float(rock_v[i])) * dt
 		rock[i] = clampf(float(rock[i]) + float(rock_v[i]) * dt, -3.0 * ROCK_LIMIT, 3.0 * ROCK_LIMIT)
 	# --- cargo on its straps
 	for item in m.state.cargo:

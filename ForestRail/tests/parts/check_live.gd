@@ -99,7 +99,7 @@ func run() -> void:
 	r.state.throttle = 1.0
 	var nose_up = 0.0
 	var worst_lift = 0.0
-	for i in range(60 * 4):
+	for i in range(60 * 6):   # 1.4.12: from a standstill the safe throttle is lower, the train takes a little longer to speed up
 		r.state.throttle = minf(1.0, r.throttle_safe())   # full, as far as the rail holds (the wheels must not spin)
 		r.physics_step(1.0 / 60.0)
 		nose_up = maxf(nose_up, r.live.rock_rad(0))
@@ -163,6 +163,54 @@ func run() -> void:
 	soft.state.throttle = 0.2
 	run_steps(soft, 6.0)
 	check(float(soft.state.cargo[0].health) >= 0.999, "a gentle start does not hurt the fragile load (%.3f)" % float(soft.state.cargo[0].health))
+	# --- 1.4.7: a worn coupler has more play (harder jerks), a worn suspension damps worse (the body bobs more)
+	var pulls = {}
+	for worn in [false, true]:
+		var w = fresh(true)
+		if worn:
+			for k in range(1, w.body_ids().size()): w.wear().set_condition(w.body_ids()[k], "coupler", 0.0)
+		w.state.throttle = 1.0
+		var top_clank = 0.0
+		var top_stretch = 0.0
+		for i in range(60 * 5):
+			w.physics_step(1.0 / 60.0)
+			top_clank = maxf(top_clank, w.live.clank)
+			top_stretch = maxf(top_stretch, w.live.extension(1))
+		w.state.throttle = 0.0
+		w.state.brake = 1.0
+		for i in range(60 * 4):
+			w.physics_step(1.0 / 60.0)
+			top_clank = maxf(top_clank, w.live.clank)
+		pulls[worn] = [top_clank, top_stretch]
+	check(float(pulls[true][1]) > float(pulls[false][1]) + 0.03, "a worn coupler stretches further: more play (%.3f against %.3f m)" % [float(pulls[true][1]), float(pulls[false][1])])
+	check(float(pulls[true][0]) > float(pulls[false][0]) * 1.15, "and jerks harder (knock %.2f against %.2f m/s)" % [float(pulls[true][0]), float(pulls[false][0])])
+	check(Live.play_for(1.0) == Live.PLAY and is_equal_approx(Live.play_for(0.0), Live.PLAY * 2.5), "the play is %.2f m new, %.2f m worn out" % [Live.play_for(1.0), Live.play_for(0.0)])
+	var bobs = {}
+	for worn in [false, true]:
+		var b = fresh(true)
+		if worn:
+			for k in range(1, b.body_ids().size()): b.wear().set_condition(b.body_ids()[k], "suspension", 0.0)
+		b.state.v = 12.0
+		var top_lift = 0.0
+		for i in range(60 * 4):
+			b.state.v = 12.0   # an even run over the joints
+			b.state.throttle = 0.0
+			b.state.brake = 0.0
+			b.physics_step(1.0 / 60.0)
+			for k in range(1, b.body_ids().size()): top_lift = maxf(top_lift, absf(b.live.lift_m(k)))
+		bobs[worn] = top_lift
+	check(float(bobs[true]) > float(bobs[false]) * 1.2, "a worn suspension bobs the wagons more on the joints (%.4f against %.4f m)" % [float(bobs[true]), float(bobs[false])])
+	check(float(bobs[true]) <= Live.LIFT_LIMIT, "but still within the soft limit (%.4f m)" % float(bobs[true]))
+	# the worn train keeps the same way: the live layer still does not change the run
+	var way_new = fresh(true)
+	var way_worn = fresh(true)
+	for k in range(1, way_worn.body_ids().size()):
+		way_worn.wear().set_condition(way_worn.body_ids()[k], "coupler", 0.0)
+		way_worn.wear().set_condition(way_worn.body_ids()[k], "suspension", 0.0)
+	for wm in [way_new, way_worn]: wm.state.throttle = 1.0
+	run_steps(way_new, 5.0)
+	run_steps(way_worn, 5.0)
+	check(is_equal_approx(float(way_new.state.s), float(way_worn.state.s)), "worn couplers and springs do not change the way itself (%.3f vs %.3f)" % [float(way_new.state.s), float(way_worn.state.s)])
 	# --- the rest of the checks of the model: reset when the train changes
 	var t = fresh(true)
 	run_steps(t, 1.0)
