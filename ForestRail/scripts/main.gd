@@ -11,6 +11,9 @@ const CabArt = preload("res://scripts/cab_art.gd")
 const TrainArt = preload("res://scripts/train_art.gd")
 const MenuUi = preload("res://scripts/menu_ui.gd")
 const DepotUi = preload("res://scripts/depot_ui.gd")
+const ControlsView = preload("res://scripts/controls_view.gd")
+const ModalUi = preload("res://scripts/modal_ui.gd")
+const SteamCab = preload("res://scripts/steam_cab.gd")
 const StationUi = preload("res://scripts/station_ui.gd")
 const HudUi = preload("res://scripts/hud_ui.gd")
 const ResultSheet = preload("res://scripts/result_sheet.gd")
@@ -1053,144 +1056,22 @@ func control_ids() -> Array:
 	if model.auto_reducer(): return ["brake", "throttle", "start"]   # the automatic reducer has no wheel
 	return ["brake", "throttle", "gear", "start"]   # the pneumatic train: gear is the wheel of the reducer, start is the tap of the heating (B6.2)
 
+# кабина паровоза: топка, ведро, дверца, панель котла, кнопки кабины (steam_cab.gd, 1.3.7)
+var steam_cab_cache = null
+func steam_cab():
+	if steam_cab_cache == null: steam_cab_cache = SteamCab.new(self)
+	return steam_cab_cache
 func steam_fire_rect(rect: Rect2) -> Rect2:
-	return Rect2(rect.position+Vector2(150,282),Vector2(130,64))
+	return steam_cab().steam_fire_rect(rect)
 
-# In the cab the steam corner of the dashboard has real props: an iron plate, a bucket
-# with coal in it and a firebox door that glows and flickers with the fire.
 func draw_steam_cab_props(bucket: Rect2, fire: Rect2, door_button: Rect2, boiler: Dictionary, fleet: Dictionary) -> void:
-	var plate = Rect2(bucket.position - Vector2(14, 14), Vector2(fire.end.x - bucket.position.x + 28, door_button.end.y - bucket.position.y + 30))
-	draw_style_box(style(Color("232a28"), Color("6c6f66"), 6), plate)
-	for rivet in [plate.position + Vector2(7, 7), Vector2(plate.end.x - 7, plate.position.y + 7), Vector2(plate.position.x + 7, plate.end.y - 7), plate.end - Vector2(7, 7)]:
-		draw_circle(rivet, 3.0, Color("a98a4a"))
-	# bucket: tapered, hooped, a handle and a heap of coal that shrinks with the stock
-	var body = PackedVector2Array([bucket.position + Vector2(16, 26), Vector2(bucket.end.x - 16, bucket.position.y + 26), Vector2(bucket.end.x - 24, bucket.end.y - 4), bucket.position + Vector2(24, bucket.size.y - 4)])
-	draw_colored_polygon(body, Color("2a2f2c"))
-	draw_polyline(PackedVector2Array([bucket.position + Vector2(18, 28), bucket.position + Vector2(56, 4), Vector2(bucket.end.x - 18, bucket.position.y + 28)]), Color("8a8a7a"), 2.5, true)
-	draw_line(bucket.position + Vector2(20, 40), Vector2(bucket.end.x - 20, bucket.position.y + 40), Color("6c6f66"), 3.0)
-	var stock = clampf(float(fleet.fuel) / float(model.object_stats("steam").tank), 0.0, 1.0)
-	for lump in range(int(8 + 10 * stock)):
-		var lx = bucket.position.x + 24 + fposmod(lump * 23.0, bucket.size.x - 48)
-		draw_circle(Vector2(lx, bucket.position.y + 26 - 2.0 * stock * (lump % 3)), 4.0 + (lump % 3), Color("141517") if lump % 2 == 0 else Color("2c2e33"))
-	if drag == "coal": draw_arc(bucket.get_center(), 54, 0, TAU, 28, GOLD, 2.0, true)
-	# firebox door: an iron arch with the fire behind it; the fire lights the dashboard
-	var heat = float(boiler.heat)
-	if heat > 0.05:
-		var flicker = 0.7 + 0.3 * sin(time * 9.0) * sin(time * 3.7) if light_flicker_enabled() else 1.0
-		for ring in range(5): draw_circle(fire.get_center(), 60.0 + ring * 38.0, Color(1.0, 0.5, 0.12, 0.05 * heat * flicker))
-	var door_open = bool(boiler.door)
-	draw_rect(fire, Color("0a0b0b"))
-	if heat > 0.02:
-		var inner = fire.grow(-6)
-		draw_polygon(PackedVector2Array([inner.position, Vector2(inner.end.x, inner.position.y), Vector2(inner.end.x, inner.end.y), Vector2(inner.position.x, inner.end.y)]), PackedColorArray([Color(0.35 + 0.3 * heat, 0.1, 0.02), Color(0.35 + 0.3 * heat, 0.1, 0.02), Color(1.0, 0.55 + 0.3 * heat, 0.1), Color(1.0, 0.55 + 0.3 * heat, 0.1)]))
-		for flame in range(6):
-			var fx = inner.position.x + inner.size.x * (flame + 0.5) / 6.0
-			var flick = 0.55 + 0.45 * sin(time * 8.0 + flame * 1.9)
-			var fh = (6.0 + 26.0 * heat) * flick
-			draw_colored_polygon(PackedVector2Array([Vector2(fx - 9, inner.end.y), Vector2(fx + 9, inner.end.y), Vector2(fx + sin(time * 5.0 + flame) * 4.0, inner.end.y - fh)]), Color(1.0, 0.8 - 0.2 * flick, 0.2, 0.85))
-	if not door_open:
-		# closed leaf with slits the glow shows through
-		var leaf = fire.grow(-3)
-		draw_rect(leaf, Color("2d3230"))
-		for slit in range(4):
-			var sy = leaf.position.y + 9 + slit * 11
-			draw_line(Vector2(leaf.position.x + 12, sy), Vector2(leaf.end.x - 12, sy), Color(1.0, 0.6, 0.15, 0.2 + 0.7 * heat) if heat > 0.02 else Color("0a0b0b"), 3.0)
-		draw_circle(Vector2(leaf.end.x - 14, leaf.get_center().y), 5.0, Color("c9a85a"))
-		draw_rect(leaf, Color("5c615a"), false, 2.0)
-	else:
-		draw_polygon(PackedVector2Array([fire.position + Vector2(-26, -4), fire.position + Vector2(-2, 6), fire.position + Vector2(-2, fire.size.y - 6), fire.position + Vector2(-26, fire.size.y + 4)]), PackedColorArray([Color("3a403d"), Color("2d3230"), Color("2d3230"), Color("3a403d")]))
-		draw_rect(fire, GOLD if drag == "coal" else Color("a98a4a"), false, 2.5)
-	var lintel := PackedVector2Array()
-	for segment in range(13):
-		var angle = PI * float(segment) / 12.0
-		lintel.append(Vector2(fire.get_center().x - cos(angle) * fire.size.x * 0.5, fire.position.y - sin(angle) * 9.0))
-	draw_polyline(lintel, Color("5c615a"), 3.0, true)
+	steam_cab().draw_steam_cab_props(bucket, fire, door_button, boiler, fleet)
 
-# Boiler corner of the steam pult: coal bucket, firebox with door, manometer.
 func draw_steam_panel(rect: Rect2) -> void:
-	var b=model.boiler()
-	var cfg=model.boiler_cfg()
-	var fleet=model.state.fleet_by_id.steam
-	var dim=Color("c7c3a0")
-	var bucket=Rect2(rect.position+Vector2(16,282),Vector2(112,64))
-	var fire=steam_fire_rect(rect)
-	var door_button=Rect2(rect.position+Vector2(150,352),Vector2(130,28))
-	var heat=float(b.heat)
-	if cab_active(): draw_steam_cab_props(bucket,fire,door_button,b,fleet)
-	else: draw_style_box(style(Color("3b2c1f"),GOLD if drag=="coal" else Color("66796b"),6),bucket)
-	# in the cab the words lie over painted props: a small dark plate under each keeps them readable (designer journal 16.11)
-	if cab_active():
-		for plate in [Rect2(bucket.position+Vector2(22,8),Vector2(68,22)),Rect2(bucket.position+Vector2(26,34),Vector2(60,22)),Rect2(fire.position+Vector2(30,8),Vector2(70,22)),Rect2(fire.position+Vector2(14,34),Vector2(102,22))]:
-			draw_style_box(style(Color(0.06,0.07,0.06,0.82),Color(0,0,0,0),5),plate)
-	draw_string(font,bucket.position+Vector2(0,24),"ВЕДРО",HORIZONTAL_ALIGNMENT_CENTER,112,16,PAPER)
-	draw_string(font,bucket.position+Vector2(0,50),"%.0f кг" % float(fleet.fuel),HORIZONTAL_ALIGNMENT_CENTER,112,18,GOLD)
-	draw_string(font,bucket.position+Vector2(0,82),"тащи в топку",HORIZONTAL_ALIGNMENT_CENTER,112,13,dim)
-	var fire_edge=GOLD if (bool(b.door) and drag=="coal") else (PAPER if bool(b.door) else Color("66796b"))
-	var glow=roundf(heat*12.0)/12.0
-	if not cab_active(): draw_style_box(style(Color(0.12+0.5*glow,0.07+0.2*glow,0.05),fire_edge,6),fire)
-	draw_string(font,fire.position+Vector2(0,24),"ТОПКА",HORIZONTAL_ALIGNMENT_CENTER,130,16,PAPER)
-	draw_string(font,fire.position+Vector2(0,50),"%.1f / %d кг" % [float(b.firebox),int(cfg.firebox_kg)],HORIZONTAL_ALIGNMENT_CENTER,130,17,GOLD)
-	# B3.4: the fire is good between a third and 85% of the grate: thinner burns out, fuller chokes
-	var fill=clampf(float(b.firebox)/float(cfg.firebox_kg),0.0,1.0)
-	var bar=Rect2(fire.position+Vector2(12,56),Vector2(106,6))
-	draw_rect(bar,Color("141a17"))
-	draw_rect(Rect2(bar.position+Vector2(bar.size.x*float(cfg.thin_fire),0),Vector2(bar.size.x*(float(cfg.choke_from)-float(cfg.thin_fire)),bar.size.y)),Color("27402f"))
-	draw_rect(Rect2(bar.position,Vector2(bar.size.x*fill,bar.size.y)),Color("5cc17f") if fill>=float(cfg.thin_fire) and fill<=float(cfg.choke_from) else Color("e0564a"))
-	draw_style_box(style(INK,GOLD if bool(b.door) else Color("66796b"),6),door_button)
-	draw_string(font,door_button.position+Vector2(0,20),"Дверца: открыта" if bool(b.door) else "Дверца: закрыта",HORIZONTAL_ALIGNMENT_CENTER,130,14,PAPER)
-	var center=rect.position+Vector2(360,322)
-	var first=deg_to_rad(150)
-	var sweep=deg_to_rad(240)
-	draw_arc(center,40,first,first+sweep,40,Color("66796b"),3,true)
-	var work=float(cfg.work_pressure_bar)/float(cfg.max_pressure_bar)
-	var mark=Vector2.from_angle(first+sweep*work)
-	draw_line(center+mark*34,center+mark*46,GREEN,3,true)
-	var needle=Vector2.from_angle(first+sweep*float(b.pressure))
-	draw_line(center,center+needle*34,RED if bool(b.venting) else PAPER,2.5,true)
-	draw_circle(center,3,PAPER)
-	draw_string(font,center+Vector2(-50,58),"%.1f бар" % model.pressure_bar(),HORIZONTAL_ALIGNMENT_CENTER,100,16,GOLD if model.steam_ready() else dim)
-	draw_string(font,center+Vector2(-50,-66),"ДАВЛЕНИЕ",HORIZONTAL_ALIGNMENT_CENTER,100,13,dim)   # above the work mark of the scale
-	steam_hits.append({"id":"bucket","rect":Rect2(pult_t*bucket.position,bucket.size*pult_t.get_scale())})
-	steam_hits.append({"id":"door","rect":Rect2(pult_t*door_button.position,door_button.size*pult_t.get_scale())})
-	if drag=="coal":
-		var piece=Rect2(pult_t.affine_inverse()*drag_cursor-Vector2(9,9),Vector2(18,18))
-		draw_rect(piece,Color("1b1713"))
-		draw_rect(piece,GOLD,false,2)
+	steam_cab().draw_steam_panel(rect)
 
-# Clicks on the dashboard buttons: the direction switch (steam, electric) and the
-# emergency stop (electric). The direction rules are the same as the buttons outside.
 func cab_button(id: String) -> void:
-	if id.begins_with("drain"):
-		var spot = int(id.trim_prefix("drain"))
-		var was_plugged = model.plugged(spot)
-		if model.drain(spot):
-			sound.play("steam_blow", 0.4, 1.6)
-			notify("Клапан %d: конденсат сброшен%s" % [spot + 1, ", ледяная пробка растаяла" if was_plugged else ""])
-		return
-	if id == "light":
-		lamp_manual = 0 if lights_lit() else 1
-		notify("Фара включена" if lamp_manual == 1 else "Фара выключена")
-		sound.play("gear", 0.5, 1.2)
-		return
-	if id == "wiper":
-		wiper_on = not wiper_on
-		notify("Дворники включены" if wiper_on else "Дворники выключены")
-		sound.play("gear", 0.5, 0.8)
-		return
-	if id == "whistle":
-		if model.vehicle_id() == "steam":
-			whistle_pull = 1.0
-			sound.play("whistle", 0.9)
-		else:
-			sound.play("horn", 0.9)
-		return
-	if id == "forward" or id == "back":
-		if model.set_reverser(1 if id == "forward" else -1): save_game()
-		else: notify(model.message)
-	elif id == "emergency":
-		model.state.throttle = 0.0
-		model.state.brake = 1.0
-		notify("Аварийное торможение: тяга снята, тормоз затянут")
+	steam_cab().cab_button(id)
 
 # What is drawn and grabbed on the machine itself: the main organs only. The
 # rest (gearbox, tap, ignition, fire door, coal) live in the pult on C.
@@ -1308,157 +1189,13 @@ func confirm(text: String, action: Callable) -> void:
 	pending_action = action
 	show_modal("confirm")
 
+# окна поверх игры: карта, пауза, настройки, подтверждения (modal_ui.gd, 1.3.7)
+var modal_ui_cache = null
+func modal_ui():
+	if modal_ui_cache == null: modal_ui_cache = ModalUi.new(self)
+	return modal_ui_cache
 func build_modal(size: Vector2) -> void:
-	if modal_kind == "map":
-		var map_view = Instruments.new()
-		map_view.game = self
-		map_view.full_map = true
-		map_view.size = size
-		overlay.add_child(map_view)
-		var close_row = HBoxContainer.new()
-		var close_width = 230*float(settings.text_scale)
-		close_row.position = Vector2(size.x-close_width-50,38)
-		close_row.size = Vector2(close_width,48)
-		overlay.add_child(close_row)
-		add_button(close_row,"Закрыть [%s / Esc]" % key_name("map"),close_modal)
-		return
-	if modal_kind == "album":
-		var album_screen = AlbumView.new()
-		album_screen.game = self
-		album_screen.size = size
-		overlay.add_child(album_screen)
-		return
-	if modal_kind == "casino":
-		var casino_screen = CasinoView.new()
-		casino_screen.game = self
-		casino_screen.size = size
-		overlay.add_child(casino_screen)
-		return
-
-	var shade = ColorRect.new()
-	shade.color = Color(0.08, 0.13, 0.11, 0.76)
-	shade.size = size
-	overlay.add_child(shade)
-	var width = minf(940, size.x - 100)
-	var box = panel_at(overlay, Rect2((size.x - width) / 2, 80, width, size.y - 160), true)
-	if modal_kind == "confirm":
-		add_label(box, "Подтверждение", 30)
-		add_label(box, toast, 23)
-		add_button(box, "Подтвердить", func():
-			var action = pending_action
-			modal_kind = ""
-			paused = false
-			toast = ""
-			action.call()
-			rebuild(), false, false, &"PrimaryAction")
-		add_button(box, "Отмена", close_modal, false, false, &"QuietAction")
-	elif modal_kind == "pause":
-		add_label(box, "Пауза", 34)
-		if resume_prompt: add_label(box, "Готов продолжить поездку?", 23)
-		if Model.wear_rules and model.wear().warning():
-			var weak_node = model.wear().train_worst()
-			add_label(box, "Слабое место: %s %d%%" % [str(weak_node.name).to_lower(), roundi(float(weak_node.cond) * 100.0)], 22)
-		if Model.wear_rules and not model.wear().journal.is_empty():
-			add_label(box, "Что случилось в рейсе", 22)
-			for line in model.wear().journal_lines(): add_label(box, str(line), 19)
-		add_button(box, "Продолжить", close_modal, false, false, &"PrimaryAction")
-		if Model.wear_rules and model.creative() and model.wear().needs_repair():
-			add_button(box, "Починить всё", func():
-				var mended = model.wear().repair_all()
-				notify("Починено узлов: %d" % mended)
-				save_game()
-				show_modal("pause"))
-		add_button(box, "Сохранить", func(): save_game(); notify("Сохранено"))
-		add_button(box, "Настройки", func(): show_modal("settings"))
-		# the rare actions are folded under one line: the pause menu shows three things at first sight
-		add_button(box, "Сохранить в слот ▴" if pause_slots_open else "Сохранить в слот ▾", func(): pause_slots_open = not pause_slots_open; show_modal("pause"), false, false, &"QuietAction")
-		if pause_slots_open:
-			for n in range(1, saves.SLOTS + 1):
-				var line = saves.summary(saves.slot_name(n))
-				add_button(box, "Слот %d · %s" % [n, line if line != "" else "пусто"], func():
-					if saves.write_slot(model, n): notify("Сохранено в слот %d" % n); show_modal("pause")
-					else: notify(saves.error), false, false, &"QuietAction")
-		add_button(box, "Застрял? ▴" if pause_stuck_open else "Застрял? ▾", func(): pause_stuck_open = not pause_stuck_open; show_modal("pause"), false, false, &"QuietAction")
-		if pause_stuck_open and Model.wear_rules and model.wear().emergency_possible() and float(model.wear().train_worst().cond) < 0.5:
-			add_button(box, "Аварийный ремонт (до 50%)", func():
-				var done = model.wear().emergency_all()
-				notify("Мастерская станции: +%d%% износа, %d монет" % [roundi(float(done.gained) * 100.0), int(done.price)])
-				save_game()
-				close_modal())
-		if pause_stuck_open: add_button(box, "Помощь депо", func(): confirm("Вернуть состав домой%s? Груз, отметки доставки и покупки сохранятся. Запас энергии пополнится.%s" % [(" за %d монет" % model.rescue_fee()) if model.rescue_fee() > 0 else "", (" Не хватает монет: остаток уйдёт в долг и вычтется из следующей награды. Узлы тяги депо починит сразу.") if model.rescue_fee() > int(model.state.money) else (" Узлы тяги депо починит сразу." if model.rescue_fee() > 0 else "")], func():
-			model.rescue()
-			screen = "depot"
-			camera_s = 0
-			save_game()
-			if model.state.paid_ids.size() > last_paid_count:
-				last_paid_count = model.state.paid_ids.size()
-				show_modal("result")
-			else: rebuild()))
-		add_button(box, "В главное меню", func(): save_game(); screen = "menu"; close_modal())
-	elif modal_kind == "receiving":
-		build_receiving(box)
-	elif modal_kind == "settings":
-		build_settings(box)
-	elif modal_kind == "help":
-		var help_head = HBoxContainer.new()
-		box.add_child(help_head)
-		var help_title = add_label(help_head, "Как играть", 32)
-		help_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		var help_close = add_button(help_head, "Понятно ✕", close_modal, false, false, &"QuietAction")
-		help_close.size_flags_horizontal = Control.SIZE_SHRINK_END
-		# designer journal 16.11: the help was a wall of ~3000 letters; now short parts with a title each
-		var help_parts = [
-			["Как начать", "Узловая Лесная → Депо → «К погрузке». Перетащи груз на машину и трогай."],
-			["Ехать и тормозить", "Отпусти тормоз: красный рычаг к 0%% или %s. Газ дай плавно: резкий газ срывает колёса в буксование. Перед станцией тормози заранее." % key_name("brake")],
-			["На станции", "Встань у платформы и перетащи груз этой станции на площадку. Потом разверни состав и вернись домой: деньги платят в депо."],
-			["Плавность", "Плавный рейс +5% к оплате, резкая езда −5%."],
-			["Машины", "Ручная и шестовая едут силой рук. Паровоз: уголь в топку, розжиг, жди давление. Бензиновая: ключ на стартер и держи, холодной поможет подсос. Электровоз: заряд."],
-			["Топливо", "Заправка в депо и на Дальнем бору (там дороже), вода ещё на Тихой заводи."],
-			["Клавиши", "Esc пауза · %s карта · %s кабина · колесо мыши — ближе. Застрял — «Помощь депо» в паузе." % [key_name("map"), key_name("cab")]],
-		]
-		for part in help_parts:
-			add_label(box, str(part[0]), 22, GOLD)
-			add_label(box, str(part[1]), 18)
-		var fleet_speeds: PackedStringArray = []
-		for id in Model.VEHICLE_IDS:
-			fleet_speeds.append("%s %d" % [model.vehicle_base(id).name, roundi(model.top_speed_kmh(id))])
-		add_label(box, "Скорости, км/ч: " + " · ".join(fleet_speeds), 15, MUTED_INK)
-		if model.state.get("fleet_by_id", {}).has("zeppelin"):
-			add_label(box, "Цеппелин: газ даёт ход, ползунок «Шаг» надо менять по ходу (мелкий на старте, крупнее с разгоном, держи его у зелёной метки: в красной зоне мотор изнашивается, на тяжёлом винте глохнет). На 130 км/ч потяни «Ручку» до зелёной черты (+3,5°), и он взлетит. В воздухе винт слабее: скорость держи ручкой вниз. Садись плавно: газ меньше, ручку чуть на себя (около +3°), тогда касание мягкое. Рычаги держат положение, их не надо удерживать. Грубая посадка стоит половины монет.", 18, MUTED_INK)
-		if screen != "menu":
-			add_button(box, "Подсказки: " + ("вкл." if model.state.tutorial else "выкл."), func(): model.state.tutorial = not model.state.tutorial; save_game(); rebuild())
-		# «Об игре» lives here now (owner 14.11: not in the settings)
-		add_label(box, "Об игре", 26)
-		add_label(box, "Небольшая игра о работе лесной железной дороги. Разработка: владелец проекта вместе с Claude и GPT, 2026. Godot Engine 4.7.2, лицензия MIT.\nВерсия %s" % ProjectSettings.get_setting("application/config/version"), 18, MUTED_INK)
-		add_button(box, "Открыть папку сохранений", func(): OS.shell_open(ProjectSettings.globalize_path(saves.directory)), false, false, &"QuietAction")
-		add_button(box, "Понятно", close_modal)
-	elif modal_kind == "result":
-		var result = model.state.get("last_result", {})
-		build_result_sheet(box, result, size, width)
-		var finds: Array = result.get("finds", [])
-		if not finds.is_empty():
-			var parts: Array = []
-			var total = 0
-			for entry in finds:
-				total += int(entry.count)
-				parts.append("%s%s" % [str(entry.name).to_lower(), (" ×%d" % int(entry.count)) if int(entry.count) > 1 else ""])
-			add_label(box, "Принесли с дороги: %d шт. · %s" % [total, ", ".join(parts)], 18)
-		if Model.wear_rules and not model.wear().journal.is_empty():
-			add_label(box, "Что случилось в рейсе:\n%s" % "\n".join(model.wear().journal_lines()), 20)
-		add_button(box, "Продолжить перевозки", close_modal, false, false, &"PrimaryAction")
-	else:
-		add_label(box, "Лесная колея", 36)
-		add_label(box, "Небольшая игра о работе лесной железной дороги.\nРазработка: Codex совместно с владельцем проекта, 2026.\nГрафика: предоставленный комплект ForestRail, созданный с image_gen. Звуки синтезированы для этого комплекта.\nGodot Engine 4.7.2, лицензия MIT. Полные лицензии движка и его компонентов включены в поставку.\n\nВерсия игры %s · ТЗ 3.0 · проверка P8." % ProjectSettings.get_setting("application/config/version"), 22)
-		add_button(box, "Назад", close_modal)
-	var scroll := box.get_parent() as ScrollContainer
-	var panel := scroll.get_parent() as PanelContainer
-	var fit_panel := func():
-		if not is_instance_valid(panel) or panel.get_parent() != overlay: return
-		var padding = panel.get_theme_stylebox("panel").get_minimum_size().y
-		panel.size.y = minf(size.y - 160, ceilf(box.get_combined_minimum_size().y + padding))
-		panel.position.y = (size.y - panel.size.y) * 0.5
-	box.minimum_size_changed.connect(fit_panel, CONNECT_DEFERRED)
-	fit_panel.call_deferred()
+	modal_ui().build_modal(size)
 
 func save_game() -> bool:
 	cancel_drag()
@@ -2741,219 +2478,44 @@ func draw_handwheel(center: Vector2, radius: float, angle: float, color: Color, 
 func draw_slider(base: Transform2D, pivot: Vector2, length: float, value: float, color: Color, active: bool) -> void:
 	control_art().draw_slider(base, pivot, length, value, color, active)
 
+# органы управления на машине: где рычаги, как их рисовать и ловить мышью, полоска заряда (controls_view.gd, 1.3.7)
+var controls_view_cache = null
+func controls_view():
+	if controls_view_cache == null: controls_view_cache = ControlsView.new(self)
+	return controls_view_cache
 func lever_geometry(id: String) -> Dictionary:
-	if id == "pump":
-		var pose = art.mechanism_pose(model)
-		return {"pivot":pose.rocker*ArtV3.PX,"grip":pose.grip_right*ArtV3.PX,"angle":pose.angle}
-	return control_geometry(id)
+	return controls_view().lever_geometry(id)
 
-# Where a control stands on the machine, metres. The sail car's brake stands at the bow, the end the
-# sail never reaches (the boom always runs aft of the mast), so that it cannot be mistaken for the sail.
 func control_anchor(id: String) -> Vector2:
-	var anchor = art.vec(Geometry.body(model.vehicle_id()).control_anchors_m[id])
-	if model.vehicle_id() == "sail" and id == "brake": return Vector2(1.0 * float(int(model.state.direction)), anchor.y)
-	return anchor
+	return controls_view().control_anchor(id)
 
 func control_geometry(id: String, closeup: bool = false) -> Dictionary:
-	var kind=control_kind(id)
-	if kind=="slider":
-		var slot_pivot=control_anchor(id)*ArtV3.PX
-		var slot_length=0.40*ArtV3.PX
-		if closeup:
-			slot_pivot=control_zoom_rect().position+Vector2(65+100*["brake","throttle","gear","start"].find(id),230)
-			slot_length=124.0
-		elif not art.is_skinned("locomotive"):
-			# The factory cab has two clear panels between the window and steps.
-			slot_pivot = art.stock_body_point("locomotive", Vector2(200 if id == "brake" else 310, 562))
-			slot_length = 0.32 * ArtV3.PX
-		var amount=float(model.state.get(id,0))
-		return {"pivot":slot_pivot,"grip":slot_pivot+Vector2(0,-slot_length*amount),"angle":0.0,"length":slot_length}
-	if kind=="gate":
-		var rect=gate_rect(closeup)
-		var knob=gate_pos if drag=="gear" else gate_slot_pos(int(model.state.gear))
-		return {"pivot":rect.get_center(),"grip":gate_local(rect,knob),"angle":0.0}
-	if kind=="key":
-		var centre=control_anchor(id)*ArtV3.PX
-		var side=KEY_LOCK_M*ArtV3.PX
-		var choke_side=side*Ignition.CHOKE_RATIO
-		var choke=centre-Vector2(side*0.56+choke_side*0.5,0)
-		if closeup:
-			# 16.11: the lock is set into the dashboard right under the gauges, no longer in the pult; pult coordinates
-			var size=get_viewport_rect().size
-			var right=cab_art().petrol_right(size,cab_layout(size))
-			var back=pult_t.affine_inverse()
-			var k=pult_t.get_scale().x
-			centre=back*Vector2(right.lock)
-			side=float(right.side)/k
-			choke=back*Vector2(right.choke)
-			choke_side=float(right.choke_side)/k
-		return {"pivot":centre,"grip":centre,"angle":ignition().angle,"side":side,"choke":choke,"choke_side":choke_side}
-	if kind=="wheel":
-		var radius=34.0 if closeup else 0.17*ArtV3.PX
-		var center=control_anchor(id)*ArtV3.PX
-		if closeup: center=control_zoom_rect().position+Vector2(65+100*["brake","throttle","gear","start"].find(id),188)
-		var turn=((model.reducer_position() if model.vehicle_id()=="pneumatic" else float(model.boiler().feed)) if id=="gear" else float(model.state.throttle))*wheel_sweep()
-		return {"pivot":center,"grip":center+Vector2(0,-radius).rotated(turn),"angle":turn,"radius":radius}
-	var pivot=control_anchor(id)*ArtV3.PX
-	var length_key = id + "_length_m"
-	var body_spec = Geometry.body(model.vehicle_id())
-	var length = float(body_spec.get(length_key, Geometry.data().controls[length_key])) * ArtV3.PX
-	if closeup:
-		pivot=control_zoom_rect().position+Vector2(65+100*["brake","throttle","gear","start"].find(id),225)
-		length=42.0 if id=="start" else 78.0
-	var value=float(model.state.get(id,0))
-	if id=="gear": value=float(model.boiler().feed) if model.vehicle_id()=="steam" else float(GEAR_ORDER.find(lever_pending_gear if drag=="gear" else int(model.state.gear)))/6.0
-	var angle=lerpf(-0.55,0.55,value)
-	if id=="start": angle=0.0 if (model.heating_on() if model.vehicle_id()=="pneumatic" else model.state.engine) else PI
-	return {"pivot":pivot,"grip":pivot+Vector2(0,-length).rotated(angle),"angle":angle}
+	return controls_view().control_geometry(id, closeup)
 
 func draw_controls(body_transform: Transform2D, show_labels: bool = true) -> void:
 	# owner 14.11: no names and no rings on the levers during the trip (the ui-v2 marks are taken away); the ring shows on hover only
 	draw_controls_inner(body_transform, show_labels)
 
 func draw_controls_inner(body_transform: Transform2D, show_labels: bool = true) -> void:
-	var ids = world_control_ids()
-	var hover = get_global_mouse_position()
-	if model.vehicle_id()=="handcar":
-		var left_grip=model.handcar.pose().grip_left*ArtV3.PX
-		if drag=="pump" and pump_grip_side<0 or hover.distance_to(body_transform*left_grip)<24:
-			draw_arc(left_grip,9,0,TAU,28,PAPER,1.5,true)
-		if model.can_push_handcar():
-			draw_string(font,Vector2(-118,20),"Подтолкни край платформы ↔",HORIZONTAL_ALIGNMENT_LEFT,320,16,PAPER)
-		if drag=="pump":
-			var pose=model.handcar.pose()
-			var target=(pose.rocker+Vector2(cos(model.hand_drive.target_angle),sin(model.hand_drive.target_angle))*float(model.handcar.config.grip_radius)*pump_grip_side)*ArtV3.PX
-			var grip=pose.rocker+(pose.grip_right-pose.rocker)*pump_grip_side
-			draw_line(grip*ArtV3.PX,target,Color("c5a76b"),1.0,true)
-			draw_arc(target,7,0,TAU,24,Color("e1c989"),1.2,true)
-	for id in ids:
-		var geo = lever_geometry(id)
-		var color = {"pump": Color("a16b38"), "brake": RED, "throttle": GREEN, "gear": GOLD, "start": Color("708574")}[id]
-		var factor = geo.pivot.distance_to(geo.grip)/float({"pump":116,"brake":166,"throttle":165,"gear":166,"start":138}[id])
-		var angle = float(geo.angle)
-		var kind = control_kind(id) if id != "pump" else "pump"
-		if kind == "gate":
-			if model.auto_gearbox(): draw_selector(gate_rect(false), gate_pos if drag == "gear" else gate_slot_pos(int(model.state.gear)), drag == id)
-			else: draw_gate(gate_rect(false), gate_pos if drag == "gear" else gate_slot_pos(int(model.state.gear)), drag == id)
-		elif kind == "key":
-			draw_ignition(geo, body_transform, false)
-			continue
-		elif kind == "wheel":
-			draw_handwheel(geo.pivot, float(geo.radius), angle, GOLD if id == "gear" else GREEN, drag == id)
-		elif kind == "slider":
-			draw_slider(body_transform, geo.pivot, float(geo.length), float(model.state.get(id, 0)), Color("c23b2e") if id == "brake" else Color("4f9a5f"), drag == id)
-			if id == "brake": draw_brake_safe_mark(geo, true)
-		elif id in ["brake","throttle"]:
-			draw_arc(geo.pivot,geo.pivot.distance_to(geo.grip),-PI/2-0.55,-PI/2+0.55,24,Color("918363"),1.0,true)
-			if id == "brake": draw_brake_safe_mark(geo, false)
-			draw_lever(body_transform,geo.pivot,geo.pivot.distance_to(geo.grip),angle,Color("c23b2e") if id=="brake" else Color("4f9a5f"),drag==id)
-		else:
-			if id not in ["pump","start"]:
-				draw_arc(geo.pivot,geo.pivot.distance_to(geo.grip),-PI/2-0.55,-PI/2+0.55,24,Color("918363"),1.0,true)
-			if id == "start": angle = 0.0 if (model.heating_on() if model.vehicle_id() == "pneumatic" else model.state.engine) else PI
-			var pivot = Vector2(128, 128 if id == "pump" else 224)
-			# The base stays fixed; only the independent supplied SVG part rotates.
-			if id != "pump": sprite("control_mount", Rect2(geo.pivot - Vector2(0.065,0.065)*ArtV3.PX, Vector2.ONE*0.13*ArtV3.PX))
-			draw_set_transform_matrix(body_transform * Transform2D(angle, geo.pivot))
-			if id != "pump":
-				sprite("control_" + id, Rect2(-pivot * factor, Vector2.ONE * 256 * factor))
-			draw_set_transform_matrix(body_transform)
-		var highlighted = drag==id or hover.distance_to(body_transform*geo.grip)<24
-		if not highlighted or not show_labels: continue
-		draw_arc(geo.grip, 9, 0, TAU, 28, PAPER, 1.5, true)
-		if kind == "lever" and id in ["brake","throttle"]:
-			for endpoint in range(2):
-				var mark=geo.pivot+Vector2(0,-geo.pivot.distance_to(geo.grip)).rotated(lerpf(-0.55,0.55,float(endpoint)))
-				draw_string(font,mark+Vector2(-8,-12),["0","100"][endpoint],HORIZONTAL_ALIGNMENT_LEFT,30,12,PAPER)
-		var label = {"pump": "КАЧАЙ ↕", "brake": "%d%%" % (float(model.state.brake) * 100), "throttle": "%d%%" % (float(model.state.throttle) * 100), "gear": ("%d%%" % (float(model.boiler().feed) * 100)) if model.vehicle_id() == "steam" else GEAR_LABELS[int(model.state.gear)], "start": "ВКЛ" if model.state.engine else "ПУСК"}[id]
-		draw_string(font, geo.grip + Vector2(-25, -25), label, HORIZONTAL_ALIGNMENT_CENTER, 80, 16, PAPER)
+	controls_view().draw_controls_inner(body_transform, show_labels)
 
-# 1.4.1: the green mark on the brake: the strongest braking that does not lock the wheels (Model.brake_safe, it moves by
-# itself with the load, the rain and the wear); past it the way of the lever is red. Without a skid risk there is no mark.
 func draw_brake_safe_mark(geo: Dictionary, slider: bool) -> void:
-	var safe = model.brake_safe()
-	if safe >= 0.999: return
-	var safe_green = Color("5cc17f")
-	var danger = Color(0.86, 0.25, 0.18, 0.75)
-	if slider:
-		var length = float(geo.length)
-		var at = geo.pivot + Vector2(0, -length * safe)
-		draw_line(at, geo.pivot + Vector2(0, -length), danger, 3.0, true)
-		draw_line(at + Vector2(-9, 0), at + Vector2(9, 0), safe_green, 3.0, true)
-		return
-	var radius = geo.pivot.distance_to(geo.grip)
-	var angle = lerpf(-0.55, 0.55, safe)
-	draw_arc(geo.pivot, radius, -PI / 2 + angle, -PI / 2 + 0.55, 16, danger, 2.5, true)
-	var dir = Vector2(0, -1).rotated(angle)
-	draw_line(geo.pivot + dir * (radius - 7.0), geo.pivot + dir * (radius + 7.0), safe_green, 3.0, true)
+	controls_view().draw_brake_safe_mark(geo, slider)
 
 func add_world_hits(id: String, index: int, transform: Transform2D) -> void:
-	if index == 0:
-		var ids = world_control_ids()
-		for control_id in ids:
-			var control_geo = lever_geometry(control_id)
-			grip_hits.append({"id": control_id, "position": transform * control_geo.grip, "radius": float(control_geo.get("side", 0.0)) * 0.5 * transform.get_scale().x})
-		if id=="handcar":
-			grip_hits.append({"id":"pump","side":-1.0,"position":transform*(model.handcar.pose().grip_left*ArtV3.PX)})
-		if id=="sail":
-			var geo = art.sail_geometry(model)
-			var a = transform * art.sail_point(float(geo.mast_x) + 0.2 * float(geo.fwd), 1.0)
-			var b = transform * art.sail_point(float(geo.mast_x) - 1.8 * float(geo.fwd), 3.8)
-			sail_rect = Rect2(a, Vector2.ZERO).expand(b).grow(10.0)
-			sail_cleat_point = transform * art.sail_point(-0.14 * float(geo.fwd), 0.66)
-		if id=="pneumatic":
-			for i in range(ArtV3.FROST_SPOTS.size()):
-				ice_hits.append({"spot": i, "position": transform * art.steam_point(ArtV3.FROST_SPOTS[i].x, ArtV3.FROST_SPOTS[i].y)})
-				valve_hits.append({"spot": i, "position": transform * (art.steam_point(ArtV3.FROST_SPOTS[i].x, ArtV3.FROST_SPOTS[i].y) + Vector2(0, ArtV3.VALVE_DROP * ArtV3.PX))})
-	var boxes = cargo_layout(id)
-	for i in range(boxes.size()):
-		var key = id + ":" + str(i)
-		var rect = (transform * boxes[i]).grow(5)
-		slot_hits.append({"key": key, "rect": rect})
-		var item = find_slot_cargo(key)
-		if not item.is_empty(): cargo_hits.append({"id": item.id, "rect": cargo_visuals.get(item.id, rect)})
+	controls_view().add_world_hits(id, index, transform)
 
-# Short battery strip on the locomotive body (TZ 3.1, N6): readable at any
-# zoom, colour only, exact numbers on hover.
 func draw_charge_strip(body_transform: Transform2D) -> void:
-	var fraction=charge_fraction()
-	draw_set_transform_matrix(body_transform)
-	var anchor = Vector2(0.70 * ArtV3.PX, art.deck_y("locomotive") - 0.37 * ArtV3.PX)
-	if not art.is_skinned("locomotive"):
-		anchor = art.stock_body_point("locomotive", Vector2(803, 586))
-	var rect = Rect2(anchor - Vector2(20, 3), Vector2(40, 6))
-	draw_style_box(style(Color("242b24"), Color("897658"), 2), rect.grow(3))
-	if fraction > 0: draw_rect(Rect2(rect.position, Vector2(rect.size.x * fraction, rect.size.y)), charge_color(fraction))
-	charge_strip_rect = (body_transform * rect).grow(10)
+	controls_view().draw_charge_strip(body_transform)
 
 func charge_fraction() -> float:
-	return clampf(float(model.state.fleet_by_id.locomotive.fuel)/maxf(0.000001,float(model.object_stats("locomotive").tank)),0,1)
+	return controls_view().charge_fraction()
 
 func charge_color(fraction: float) -> Color:
-	var green=Color("7fab85")
-	var amber=Color("e2a33c")
-	var red=Color("d9533c")
-	if fraction>=0.5: return green
-	if fraction>=0.25: return green.lerp(amber,(0.5-fraction)/0.25)
-	if fraction>=0.15: return amber
-	return red
+	return controls_view().charge_color(fraction)
 
-# Warn once per threshold crossed downward; regeneration must lift the charge
-# 2% above a threshold before it re-arms, so braking does not cause flicker.
 func update_charge_warning() -> void:
-	if model.vehicle_id()!="locomotive":
-		charge_band=0
-		return
-	var fraction=charge_fraction()
-	var thresholds=[0.5,0.25,0.15]
-	var band=0
-	for i in range(thresholds.size()):
-		if fraction<thresholds[i]: band=i+1
-	if band>charge_band:
-		notify(["Заряд ниже 50%: тяга слабеет","Заряд 25%: тяги мало для подъёмов","Заряд 15%: тяга почти исчерпана. Зарядка в депо"][band-1])
-		charge_band=band
-	elif band<charge_band and fraction>thresholds[charge_band-1]+0.02:
-		charge_band=band
+	controls_view().update_charge_warning()
 
 func draw_tooltip() -> void:
 	if drag != "": return
