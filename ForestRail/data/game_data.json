@@ -2300,6 +2300,7 @@
     },
     "repair": {
       "coins_per_pct": 3,
+      "coins_per_pct_by_class": {"handcar": 1, "pole": 1, "sail": 1.5, "steam": 2.5, "motorcar": 3, "pneumatic": 3, "locomotive": 4.5, "zeppelin": 7, "jet": 10, "W01": 1, "W02": 1.75, "W03": 3, "W04": 4.5, "WT": 1},
       "kit_pct": 0.25,
       "emergency_limit": 0.5
     }

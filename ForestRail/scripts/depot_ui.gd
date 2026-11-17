@@ -882,7 +882,7 @@ func build_wear_card(right: VBoxContainer) -> void:
 				canvas.save_game()
 				canvas.rebuild(), gain <= 0.0)
 			var price = wear.money_price(id, node, 1.0 - value)
-			buy_button(line, "За %d монет" % price, mini(price, 3), func():
+			buy_button(line, "За %d монет" % price, mini(price, wear.money_price(id, node, 0.01)), func():   # grey when not even 1% is affordable
 				var got = canvas.model.wear().repair_with_money(id, node, 1.0 - float(canvas.model.wear().condition(id, node)))
 				canvas.notify("Починено за монеты: +%d%%" % roundi(got * 100.0) if got > 0.0 else "Не хватает монет")
 				canvas.save_game()
@@ -896,7 +896,7 @@ func build_wear_card(right: VBoxContainer) -> void:
 	c.add_child(footer)
 	var total = wear.full_repair_price(id)
 	if total > 0:
-		buy_button(footer, "Починить всё · %d монет" % total, mini(total, 3), func():
+		buy_button(footer, "Починить всё · %d монет" % total, mini(total, wear.money_price(id, str(wear.worst(id).node), 0.01)), func():
 			for def in canvas.model.wear().nodes_of(id): canvas.model.wear().repair_with_money(id, str(def.id), 1.0)
 			canvas.notify("Всё починено, что хватило денег")
 			canvas.save_game()
@@ -907,9 +907,17 @@ func build_wear_card(right: VBoxContainer) -> void:
 			canvas.notify("Ремнабор: +%d%%" % roundi(got * 100.0))
 			canvas.save_game()
 			canvas.rebuild())
-	canvas.add_label(c, "Узлы изнашиваются от езды и ошибок. 1% стоит 3 монеты; болты: свои +5%, общие +2%, редкие +4%. На линии чинит только мастерская станции (до 50%)." , 15, canvas.MUTED_INK)
+	canvas.add_label(c, "Узлы изнашиваются от езды и ошибок. 1% стоит " + price_word(wear.coins_per_pct(id)) + "; болты: свои +5%, общие +2%, редкие +4%. На линии чинит только мастерская станции (до 50%)." , 15, canvas.MUTED_INK)
 
 # A button that spends coins: grey and inert with a tooltip when the player cannot pay (the creative mode has unlimited money).
+# 1.4.5: «1 монета», «4,5 монеты», «10 монет» (the price of 1% by the class of the machine)
+func price_word(coins: float) -> String:
+	if not is_equal_approx(coins, roundf(coins)): return ("%.2f" % coins).rstrip("0").replace(".", ",") + " монеты"
+	var n = int(roundf(coins))
+	if n % 10 == 1 and n % 100 != 11: return "%d монета" % n
+	if n % 10 in [2, 3, 4] and not (n % 100 in [12, 13, 14]): return "%d монеты" % n
+	return "%d монет" % n
+
 func buy_button(parent: Node, text: String, price: int, action: Callable, appearance: StringName = &"Button") -> Button:
 	var short = price - int(canvas.model.state.money)
 	var locked = short > 0 and not canvas.model.creative()

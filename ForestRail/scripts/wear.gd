@@ -8,7 +8,7 @@ extends RefCounted
 const BREAKDOWN_BELOW = 0.2     # ниже этого состояния узел может «встать» на ходу
 const BREAKDOWN_PER_MINUTE = 0.03
 const WARN_BELOW = 0.4          # лампа «АВАРИЯ»
-const FREE_TOUCH_UP = 0.2       # депо бесплатно подправляет узел до этого состояния
+const FREE_TOUCH_UP = 0.25      # депо бесплатно подправляет узел до этого состояния (1.4.5: 20 → 25%)
 const WORN_BELOW = 0.7          # ступень «износ»: тихие признаки (дым потемнел, тормоз дымит)
 const LIMP_POWER = 0.5          # «ковыляние»: узел тяги на отказе (ниже 20%) тянет вполовину
 const LIMP_HUMAN_FLOOR = 0.25   # ручные машины при ковылянии не слабее четверти
@@ -310,8 +310,13 @@ func repair_bolts_auto(id: String, node: String) -> float:
 		total += repair_with_bolts(id, node, str(entry[1]), 99)
 	return total
 
+# 1.4.5 (owner 08.11, «средне»): 1% of a node costs by the class of the machine, from 1 coin (handcar) to 10 (jet);
+# a machine or wagon not in the table pays the old flat price.
+func coins_per_pct(id: String) -> float:
+	return float(cfg().repair.get("coins_per_pct_by_class", {}).get(id, cfg().repair.coins_per_pct))
+
 func money_price(id: String, node: String, fraction: float) -> int:
-	return int(ceil(fraction * 100.0 * float(cfg().repair.coins_per_pct)))
+	return int(ceil(fraction * 100.0 * coins_per_pct(id) - 0.0001))
 
 func repair_with_money(id: String, node: String, fraction: float = 1.0) -> float:
 	var value = condition(id, node)
@@ -321,7 +326,7 @@ func repair_with_money(id: String, node: String, fraction: float = 1.0) -> float
 	if not m.creative():
 		if int(m.state.money) < price:
 			# as much as the money buys
-			want = float(int(m.state.money)) / (100.0 * float(cfg().repair.coins_per_pct))
+			want = float(int(m.state.money)) / (100.0 * coins_per_pct(id))
 			price = money_price(id, node, want)
 			if want <= 0.0: return 0.0
 		m.state.money -= price

@@ -294,9 +294,22 @@ func run() -> void:
 	depot.wear().set_condition("motorcar", "brake", 0.5)
 	depot.object_state("motorcar").broken = "engine"
 	depot.wear().free_touch_up()
-	check(approx(depot.wear().condition("motorcar", "engine"), 0.2) and approx(depot.wear().condition("motorcar", "brake"), 0.5), "the depot lifts a node to 20%% and leaves the others (%.2f)" % depot.wear().condition("motorcar", "engine"))
+	check(approx(depot.wear().condition("motorcar", "engine"), 0.25) and approx(depot.wear().condition("motorcar", "brake"), 0.5), "the depot lifts a node to 25%% and leaves the others (%.2f)" % depot.wear().condition("motorcar", "engine"))
 	check(depot.wear().broken("motorcar") == "" and not depot.wear().cannot_drive("motorcar"), "and the machine goes again")
 	check(depot.wear().full_repair_price("motorcar") > 0, "the full repair has a price (%d)" % depot.wear().full_repair_price("motorcar"))
+	# 1.4.5: the price of 1% by the class of the machine (owner 08.11: «средне»): handcar 1 ... jet 10, wagons 1 to 4.5
+	var classes = {"handcar": 1.0, "pole": 1.0, "sail": 1.5, "steam": 2.5, "motorcar": 3.0, "pneumatic": 3.0, "locomotive": 4.5, "zeppelin": 7.0, "jet": 10.0, "W01": 1.0, "W02": 1.75, "W03": 3.0, "W04": 4.5}
+	var wear_cfg = fresh("motorcar").wear()
+	for cls in classes:
+		check(approx(wear_cfg.coins_per_pct(cls), float(classes[cls])), "%s: 1%% costs %.2f coins (%.2f)" % [cls, float(classes[cls]), wear_cfg.coins_per_pct(cls)])
+	check(wear_cfg.money_price("handcar", "lever", 0.2) == 20 and wear_cfg.money_price("jet", "engine", 0.2) == 200, "20%% of a node: 20 coins on the handcar, 200 on the jet")
+	check(wear_cfg.money_price("W02", "coupler", 0.1) == 18, "a part of a coin is rounded up (17.5 -> %d)" % wear_cfg.money_price("W02", "coupler", 0.1))
+	var loco = fresh("locomotive")
+	var loco_node = str(loco.wear().nodes_of("locomotive")[0].id)
+	loco.wear().set_condition("locomotive", loco_node, 0.4)
+	loco.state.money = 45
+	var loco_got = loco.wear().repair_with_money("locomotive", loco_node, 0.5)
+	check(approx(loco_got, 0.1) and int(loco.state.money) == 0, "45 coins mend 10%% of the electric locomotive (%.2f)" % loco_got)
 	# --- saving
 	var keep = fresh("motorcar")
 	keep.wear().set_condition("motorcar", "engine", 0.37)
