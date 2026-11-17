@@ -718,6 +718,7 @@ func draw_electric_cab_extras(size: Vector2, layout: Dictionary) -> void:
 	canvas.draw_circle(pilot, 5.5, Color("382819"))
 	canvas.draw_circle(pilot, 3.5, canvas.GOLD if energized else Color("695732"))
 	canvas.draw_string(canvas.font, hatch.end + Vector2(-105, 15), "КОНТАКТОР", HORIZONTAL_ALIGNMENT_CENTER, 130, 12, Color("c7c3a0"))
+	if canvas.model.contactor_rules: canvas.cab_hits.append({"id": "contactor", "rect": hatch})   # 1.4.10: a click opens the box «Скрутка»
 	# warning plate with a lightning bolt
 	var tri = Vector2(400, top + 38)
 	canvas.draw_colored_polygon(PackedVector2Array([tri + Vector2(0, -22), tri + Vector2(25, 22), tri + Vector2(-25, 22)]), Color("e6c13a"))

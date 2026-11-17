@@ -95,6 +95,7 @@ static var order_rules = false
 static var live_effects = false
 # B5.6: wear and damage of the nodes. The tests of the older numbers leave it off (every node stays new).
 static var wear_rules = false
+static var contactor_rules = false   # 1.4.10: the electric locomotive starts in the contactor box («Скрутка»); off in most tests, like wear_rules
 # B6.11 b: bolts from the road (the log of a trip, drops at the end, glints by the rail). The old tests leave it off.
 static var junk_rules = false
 var _wear = null
@@ -541,6 +542,12 @@ func casino() -> Object:
 func wear() -> Object:
 	if _wear == null: _wear = Wear.new(self)
 	return _wear
+
+const Contactor = preload("res://scripts/contactor.gd")
+var _contactor = null
+func contactor() -> Object:
+	if _contactor == null: _contactor = Contactor.new(self)
+	return _contactor
 
 # A hit to the node of a machine that makes the given action; only when the wear rules are on.
 func wear_hit(id: String, effect: String, amount: float, why: String = "", preferred: String = "") -> void:
@@ -1052,6 +1059,7 @@ func loading_preview() -> Dictionary:
 
 func depart() -> bool:
 	wear().new_trip()   # a new trip: a new journal of what went wrong, the damage caps start again
+	if contactor_rules and vehicle_id() == "locomotive": contactor().stop()   # 1.4.10: every trip starts with the wires apart
 	if vehicle_id() == "jet":
 		jet.double_chute_gadget = bool(effects("jet").get("jet_double_chute", false))
 		jet.new_trip()   # the chutes are packed, the afterburner is refilled
@@ -2676,6 +2684,11 @@ func physics_step(dt: float) -> void:
 			# engaged and only the battery charge or the air pressure limits it.
 			state.gear = 1
 			state.engine = float(fleet.fuel) > 0
+			if vehicle_id() == "locomotive" and contactor_rules:   # 1.4.10: it pulls only with the contactor on and no wire loose
+				contactor().step(dt)
+				state.engine = float(fleet.fuel) > 0 and contactor().live()
+				if not contactor().live() and float(state.throttle) > 0.1 and float(fleet.fuel) > 0:
+					wear().tell("contactor_off", "Электровоз не тянет: контактор выключен. Зайди в кабину (E) и собери провода в ящике КОНТАКТОР")
 		thermal_step(dt, fleet)
 		if vehicle_id() == "motorcar": choke_step(dt)
 		burst_step(dt)

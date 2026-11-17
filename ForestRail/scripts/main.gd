@@ -11,6 +11,7 @@ const CabArt = preload("res://scripts/cab_art.gd")
 const TrainArt = preload("res://scripts/train_art.gd")
 const MenuUi = preload("res://scripts/menu_ui.gd")
 const DepotUi = preload("res://scripts/depot_ui.gd")
+const ContactorView = preload("res://scripts/contactor_view.gd")
 const ControlsView = preload("res://scripts/controls_view.gd")
 const ModalUi = preload("res://scripts/modal_ui.gd")
 const SteamCab = preload("res://scripts/steam_cab.gd")
@@ -226,6 +227,7 @@ var test_mode = false
 var land_dust: Dictionary = {}   # B5.5: the puff of dust where the train came down {t, s, power}
 var live_in_tests = false   # the view test of the live train looks at it in test mode
 var junk_in_tests = false   # and the view test of the road finds
+var contactor_in_tests = false   # 1.4.10: a test of the box «Скрутка» turns the contactor rule on
 var glint_hits: Array = []   # B6.11 b: the glints by the rail on the screen {index, position}
 var smoke_frames = -1
 var screenshot_path = ""
@@ -1040,6 +1042,7 @@ func burst_button_text() -> String:
 	return "Рывок [%s]" % key_name("burst")
 
 func toggle_cab_view() -> void:
+	if contactor_view_cache != null: contactor_view_cache.close()   # 1.4.10: the box closes when the cab is left or entered
 	if screen != "game" or paused or model.human_powered(): return
 	cancel_drag()
 	cab_view = not cab_view
@@ -1237,6 +1240,7 @@ func _process(dt: float) -> void:
 		electric_was_powered = electric_powered
 	model.weather_effect = [1.0, 0.5, 0.0][clampi(int(settings.weather), 0, 2)]
 	Model.wear_rules = not test_mode or live_in_tests   # wear and damage of the nodes (B5.6)
+	Model.contactor_rules = not test_mode or contactor_in_tests   # 1.4.10: the electric locomotive starts in the contactor box (in tests only by its own flag)
 	Model.junk_rules = not test_mode or junk_in_tests   # bolts from the road (B6.11 b)
 	Model.live_effects = not test_mode or live_in_tests   # the live train: couplers, rocking, shifting cargo (B5); the tests keep the rigid numbers
 	Model.order_rules = not test_mode   # deadlines and bonuses of the orders only in the real game (tests keep the old numbers)
@@ -1518,6 +1522,9 @@ func advance_depot_anim(dt: float) -> void:
 			set_fade(0.0)
 
 func _input(event: InputEvent) -> void:
+	if event is InputEventKey and screen == "game" and not paused and contactor_view_cache != null and contactor_view_cache.key(event):
+		get_viewport().set_input_as_handled()
+		return
 	if depot_anim != "" and ((event is InputEventKey and event.pressed and not event.echo) or (event is InputEventMouseButton and event.pressed)):
 		skip_depot_anim()
 		get_viewport().set_input_as_handled()
@@ -1595,6 +1602,10 @@ func _input(event: InputEvent) -> void:
 			return
 		if drag == "zpult":
 			own_pult().motion(event.position)
+			get_viewport().set_input_as_handled()
+			return
+		if drag == "contactor":
+			contactor_view().motion(event.position)
 			get_viewport().set_input_as_handled()
 			return
 		if drag == "sail":
@@ -1730,6 +1741,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		var distance = float(Geometry.data().controls.hit_diameter_px)*0.5
 		if cab_active() and cab_exit_rect.has_point(mouse):
 			toggle_cab_view()
+			get_viewport().set_input_as_handled()
+			return
+		if cab_active() and contactor_view_cache != null and contactor_view_cache.press(mouse):
+			drag = "contactor" if contactor_view_cache.mode != "" else ""
 			get_viewport().set_input_as_handled()
 			return
 		if cab_active():
@@ -1881,7 +1896,9 @@ func pole_mouse_rel(mouse: Vector2) -> float:
 	return (outer.affine_inverse() * mouse).x / ArtV3.PX * float(int(model.state.direction))
 
 func finish_drag(mouse: Vector2) -> void:
-	if drag == "zpult":
+	if drag == "contactor":
+		contactor_view().release(mouse)
+	elif drag == "zpult":
 		zpult.release()
 		jpult.release()
 	elif drag == "cargo":
@@ -2205,6 +2222,13 @@ func cab_art():
 
 func draw_cab_scene(size: Vector2) -> void:
 	cab_art().draw_cab_scene(size)
+	if contactor_view_cache != null: contactor_view_cache.draw(get_process_delta_time())   # 1.4.10: the open box lies over the cab
+
+# 1.4.10 «Скрутка»: the contactor box of the electric locomotive (contactor_view.gd)
+var contactor_view_cache = null
+func contactor_view():
+	if contactor_view_cache == null: contactor_view_cache = ContactorView.new(self)
+	return contactor_view_cache
 
 
 func draw_background(size: Vector2) -> void:

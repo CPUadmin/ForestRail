@@ -114,6 +114,9 @@ func draw_steam_panel(rect: Rect2) -> void:
 # Clicks on the dashboard buttons: the direction switch (steam, electric) and the
 # emergency stop (electric). The direction rules are the same as the buttons outside.
 func cab_button(id: String) -> void:
+	if id == "contactor":
+		canvas.contactor_view().toggle()
+		return
 	if id.begins_with("drain"):
 		var spot = int(id.trim_prefix("drain"))
 		var was_plugged = canvas.model.plugged(spot)
