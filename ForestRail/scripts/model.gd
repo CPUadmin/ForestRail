@@ -2986,7 +2986,7 @@ func drop_temporary_wagon() -> void:
 	state.consist_ids.erase(TEMP_WAGON)
 	for id in state.fleet_by_id: state.fleet_by_id[id].get("consist", []).erase(TEMP_WAGON)
 
-func validate_save(saved: Dictionary) -> bool:
+func validate_save(saved: Dictionary, points_checked: bool = false) -> bool:   # points_checked: save_game.gd checked these very points before (1.3.9)
 	var required = ["version", "route", "fleet_by_id", "wagons_by_id", "selected_vehicle_id", "consist_ids", "money", "chapter", "s", "v", "direction", "brake", "throttle", "gear", "engine", "phase", "cargo", "active", "paid_ids", "completed_ids", "stats", "finale", "visited_stations", "offer_serial", "tutorial"]
 	for key in required:
 		if not saved.has(key):
@@ -3012,7 +3012,7 @@ func validate_save(saved: Dictionary) -> bool:
 		for x in saved.route.station_x:
 			if not numeric(x): return false
 	var previous_s = -INF
-	for point in saved.route.points:
+	for point in ([] if points_checked else saved.route.points):
 		if not point is Array or point.size() != 3: return false
 		for coordinate in point:
 			if not numeric(coordinate): return false
