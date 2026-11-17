@@ -77,6 +77,48 @@ func run() -> void:
 	ease.state.throttle = ease.throttle_safe()
 	for i in range(60): ease.physics_step(1.0 / 60.0)
 	check(not ease.wheel_slip and ease.throttle_safe() > 0.7, "the safe throttle does not spin (%.2f)" % ease.throttle_safe())
+	# --- 1.4.12: the smarter grip
+	var g = fresh("locomotive")
+	var at_rest = g.grip_cap()
+	g.state.v = 8.0
+	var on_the_move = g.grip_cap()
+	check(at_rest < on_the_move * 0.95 and at_rest > on_the_move * 0.8, "from a standstill the wheels hold less than on the move (%.0f against %.0f N)" % [at_rest, on_the_move])
+	g.state.v = 0.0
+	var hill: Array = []
+	for x in range(-40, 3001): hill.append([float(x), float(maxi(0, x)) * 0.03, float(x)])
+	var flat_grip = g.grip_cap()
+	g.route.points = hill
+	g.route.length_m = 3000.0
+	g.state.s = 300.0
+	var hill_grip = g.grip_cap()
+	check(hill_grip < flat_grip * 0.97, "a heavy train starting up a 3%% hill grips less (%.0f against %.0f N)" % [hill_grip, flat_grip])
+	g.state.direction = -1
+	check(g.grip_cap() > hill_grip, "going down the same hill it does not (%.0f N)" % g.grip_cap())
+	Model.wear_rules = true
+	var wg = fresh("locomotive")
+	var new_grip = wg.grip_cap()
+	for def in wg.wear().nodes_of("locomotive"):
+		if str(def.effect) == "roll": wg.wear().set_condition("locomotive", str(def.id), 0.0)
+	check(wg.grip_cap() < new_grip * 0.97, "a worn running gear grips a little less (%.0f against %.0f N)" % [wg.grip_cap(), new_grip])
+	Model.wear_rules = false
+	# the edge: near the grip the wheels warn before they let go; far from it nothing
+	var e = fresh("locomotive")
+	e.driving_force(e.grip_cap() * 0.95)
+	check(not e.wheel_slip and e.slip_edge > 0.5, "at 95%% of the grip the wheels are on the edge (%.2f) but still hold" % e.slip_edge)
+	e.driving_force(e.grip_cap() * 0.5)
+	check(e.slip_edge == 0.0, "at half the grip: no warning")
+	# a smooth way out: the pull comes back over SLIP_RECOVER_S, not at once
+	var r = fresh("locomotive")
+	r.state.v = 8.0   # on the move, where the full grip is back and the spinning wheels pull only SPIN_RATIO of it
+	var big = r.grip_cap() * 1.5
+	r.driving_force(big)
+	check(r.wheel_slip, "pulled past the grip, the wheels spin")
+	var ask = r.grip_cap() * 0.8
+	var first_out = r.driving_force(ask, 1.0 / 60.0)
+	check(not r.wheel_slip and first_out < ask * 0.95, "eased, they grip at once, but the pull comes back smoothly (%.0f of %.0f N)" % [first_out, ask])
+	var later = 0.0
+	for i in range(30): later = r.driving_force(ask, 1.0 / 60.0)
+	check(is_equal_approx(later, ask), "after half a second the full pull is back (%.0f of %.0f N)" % [later, ask])
 	# the pole and the jet never spin
 	for id in ["pole", "jet", "pneumatic", "handcar"]:
 		var other = fresh(id)

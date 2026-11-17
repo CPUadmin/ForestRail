@@ -269,6 +269,9 @@ func draw_speedometer() -> void:
 		var major=i%2==0
 		draw_line(center+radial*(radius-(10 if major else 6)),center+radial*(radius-4),PAPER if major else MUTED,2 if major else 1,true)
 	var needle=start+span*clampf(current/maximum,0,1)
+	# 1.4.12: the needle trembles when the driving wheels are on the edge of the grip, and jumps when they spin
+	var shiver=float(game.model.slip_edge)*0.035+(0.07 if bool(game.model.wheel_slip) and not bool(game.model.wheel_lock) else 0.0)
+	if shiver>0.0: needle+=shiver*sin(float(game.time)*47.0)*(0.3 if bool(game.settings.reduce_motion) else 1.0)
 	var direction=Vector2(cos(needle),sin(needle))
 	draw_line(center+Vector2(1,1.5),center+direction*(radius-3)+Vector2(1,1.5),Color(0,0,0,0.45),3,true)
 	draw_line(center-direction*7,center+direction*(radius-3),Color("f3ead2"),3,true)

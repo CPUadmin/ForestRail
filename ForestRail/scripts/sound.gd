@@ -197,7 +197,12 @@ func update(model, paused: bool, in_menu: bool, dt: float, in_cab: bool = false)
 				play(["rail_tick_a", "rail_tick_b", "rail_tick_c"][(joint + k) % 3], level, (0.9 + minf(speed, 10.0) * 0.02) * randf_range(0.95, 1.05))
 				clack_gap = 0.03
 	var spinning = model.wheel_slip and not model.wheel_lock   # the spinning wheels squeal on the rail like a brake, higher
-	run_loop("brake", machine * 0.3 if spinning else machine * 0.3 * brake * minf(1.0, speed / 5.0) * (1.8 if model.wheel_lock else 1.0), spinning or (brake > 0.1 and speed > 0.8), 1.5 if spinning else (0.9 + speed * 0.03) * (1.2 if model.wheel_lock else 1.0))
+	# 1.4.12: on the edge of the grip the wheels already whine faintly, higher still, before they let go
+	var edge = float(model.slip_edge) if brake <= 0.1 else 0.0
+	var squeal_on = spinning or (brake > 0.1 and speed > 0.8) or edge > 0.05
+	var squeal_level = machine * 0.3 if spinning else (machine * 0.3 * brake * minf(1.0, speed / 5.0) * (1.8 if model.wheel_lock else 1.0) if brake > 0.1 else machine * 0.3 * 0.35 * edge)
+	var squeal_pitch = 1.5 if spinning else ((0.9 + speed * 0.03) * (1.2 if model.wheel_lock else 1.0) if brake > 0.1 else 1.7)
+	run_loop("brake", squeal_level, squeal_on, squeal_pitch)
 	last_pump -= dt
 	if kind == "handcar":
 		var half_turn = floori(model.handcar.phase / PI)

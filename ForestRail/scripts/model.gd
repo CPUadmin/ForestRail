@@ -2486,29 +2486,70 @@ func spins(id: String = "") -> bool:
 func drive_cap() -> float:
 	return DRIVE_MU * float(DRIVE_WEIGHT.get(vehicle_id(), 0.0)) * float(object_stats(vehicle_id()).mass) * G * cos(route.slope(float(state.s))) * grip_factor()
 
+# 1.4.12 (owner 16.11): the grip is smarter than weight × friction. From a standstill the wheels let go easier and by
+# GRIP_SPEED they hold in full; a heavy train on a hill takes a little more off at a start; the cold of the night and a
+# worn running gear take a little; the rain (grip_factor) as before. After a spin the pull comes back smoothly, and
+# slip_edge (0..1) says the wheels are near the edge (a faint squeal, a trembling needle) before they let go.
+const GRIP_START = 0.88
+const GRIP_SPEED = 6.0
+const GRIP_LOAD = 0.12
+const GRIP_COLD = 0.08
+const GRIP_WEAR = 0.1
+const SLIP_EDGE_FROM = 0.85
+const SLIP_RECOVER_S = 0.4
+var slip_edge = 0.0
+var slip_recover = 0.0
+
+# What the rail holds once the wheels bite or spin: the weight on the driving wheels, the rain and the worn running gear.
+func grip_hold() -> float:
+	var wear_grip = lerpf(1.0 - GRIP_WEAR, 1.0, wear().factor(vehicle_id(), "roll")) if wear_rules else 1.0
+	return drive_cap() * wear_grip
+
+# Where the wheels let go: lower than what they hold, from a standstill, with a heavy train up a hill and in the cold.
+# It only moves the moment of the slip (and the warning, and the safe throttle); a spinning or gripping wheel still pulls
+# as much as grip_hold, so a floored start on the steepest hill still crawls up as before.
+func grip_cap() -> float:
+	var hold = grip_hold()
+	var speed_share = smoothstep(0.0, GRIP_SPEED, absf(float(state.v)))
+	var climb = maxf(0.0, sin(route.slope(float(state.s))) * float(state.direction))
+	var resistance = train_mass() * G * (climb + 0.004)
+	var load_grip = 1.0 - GRIP_LOAD * clampf(2.0 * resistance / maxf(1.0, hold), 0.0, 1.0) * (1.0 - speed_share)   # a half of the grip in resistance already takes the whole GRIP_LOAD
+	return hold * lerpf(GRIP_START, 1.0, speed_share) * load_grip * (1.0 - GRIP_COLD * cold())
+
 # What the drive really delivers: up to the grip in full, past it the wheels spin and pull less.
-func driving_force(demand: float) -> float:
+func driving_force(demand: float, dt: float = 1.0 / 60.0) -> float:
+	slip_edge = 0.0
 	if not spins():
 		wheel_slip = false
+		slip_recover = 0.0
 		return demand
-	var cap = drive_cap()
+	var cap = grip_cap()
+	var hold = grip_hold()
 	# 16.11: a boost (the supercapacitor, the nitro) holds the wheels at the edge of the grip by itself: below the grip it
 	# adds its pull in full, above it the train gets all the rail holds and never spins (else the gadget only hurt at low speed)
 	if burst_left() > 0.0 and not wheel_slip:
-		return minf(demand, cap)
+		return minf(demand, hold)
 	if wheel_slip:
-		if demand < 0.85 * cap: wheel_slip = false
+		if demand < 0.85 * cap:
+			wheel_slip = false
+			slip_recover = 1.0   # the wheels grip again; the pull comes back over SLIP_RECOVER_S
 	elif demand > cap:
 		wheel_slip = true
 		events.append("slip")
 		wear_spin()
-	if wheel_slip: return minf(demand, cap * SPIN_RATIO)
+	if wheel_slip: return minf(demand, hold * SPIN_RATIO)
+	slip_edge = clampf((demand / maxf(1.0, cap) - SLIP_EDGE_FROM) / (1.0 - SLIP_EDGE_FROM), 0.0, 1.0)
+	if slip_recover > 0.0:
+		var held = minf(demand, hold * SPIN_RATIO)
+		var out = lerpf(demand, held, slip_recover)
+		slip_recover = maxf(0.0, slip_recover - dt / SLIP_RECOVER_S)
+		return out
 	return demand
 
 # The throttle (0..1) that pulls as hard as possible without spinning the wheels, at this speed.
 func throttle_safe() -> float:
 	if not spins() or pull_full <= 0.0: return 1.0
-	return clampf((0.8 if wheel_slip else 0.95) * drive_cap() / pull_full, 0.0, 1.0)   # spinning: ease off until they grip
+	return clampf((0.8 if wheel_slip else 0.95) * grip_cap() / pull_full, 0.0, 1.0)   # spinning: ease off until they grip
 
 func wear_spin() -> void:
 	if wear_rules: wear().damage_effect(vehicle_id(), "roll", 0.015, "колёса буксовали")   # the jolt of the start; more every second (wear_causes_step)
@@ -2668,7 +2709,7 @@ func physics_step(dt: float) -> void:
 				if not spins(): pull = minf(pull, 0.35 * float(stats.mass) * G * cos(route.slope(float(state.s))) * grip_factor())   # the others never spin
 				drive = float(drive_direction()) * (-1.0 if reverse_gear else 1.0) * pull
 	var asked = drive
-	drive = signf(drive) * driving_force(absf(drive))
+	drive = signf(drive) * driving_force(absf(drive), dt)
 	if wear_rules and wear().cannot_drive(vehicle_id()): drive = 0.0   # a dead node or a stop on the road: the machine does not pull
 	var drag = drag_coefficient()
 	var brake = brake_applied + engine_brake_force()
