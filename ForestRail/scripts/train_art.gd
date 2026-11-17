@@ -40,6 +40,7 @@ func draw_train() -> void:
 			canvas.add_world_hits(ids[i], i, transform)
 	if canvas.screen == "game":
 		canvas.draw_land_dust()
+		canvas.draw_sand_puff()
 		canvas.draw_glints()
 		draw_wear_badges(ids, bounds_by_id)
 	for pair in [[0,1],[ids.size()-1,-1]]:

@@ -58,15 +58,26 @@ func take_fresh() -> void:
 		if game.model.matches().hand == "fresh": return
 		key(KEY_ESCAPE)
 
-# a stroke along the striker over `frames` frames of 1/60 s, covering `share` of it
+# a pass of the match along the striker (nothing held: the cursor just moves) over `frames` frames of 1/60 s
 func stroke(share: float, frames: int) -> void:
 	var v = game.match_view()
 	var s = v.striker_rect()
 	var from = Vector2(s.position.x + s.size.x * 0.08, s.get_center().y)
 	var to = from + Vector2(s.size.x * share, 0)
-	await button(from, true)
-	for i in range(1, frames + 1): v.motion(from.lerp(to, float(i) / float(frames)), DT)
-	await button(to, false)
+	v.hover(from)
+	v.process(DT)
+	for i in range(1, frames + 1):
+		v.hover(from.lerp(to, float(i) / float(frames)))
+		v.process(DT)
+	await frame()
+
+func double_click(point: Vector2) -> void:
+	var e = InputEventMouseButton.new()
+	e.position = point; e.global_position = point; e.button_index = MOUSE_BUTTON_LEFT; e.pressed = true; e.double_click = true
+	e.button_mask = MOUSE_BUTTON_MASK_LEFT
+	get_tree().root.push_input(e, true)
+	await frame()
+	await button(point, false)
 
 # carry the hand smoothly to a point, a frame at a time
 func carry(to: Vector2, frames: int) -> void:
@@ -129,7 +140,7 @@ func run() -> void:
 		check(view.encloses(v.striker_rect()) and view.encloses(v.open_box_rect()), "the striker and the open box fit in the window " + tag)
 		await shot("striker_" + tag)
 		# slow: it only scratches
-		await stroke(0.8, 90)
+		await stroke(0.8, 120)
 		check(f.hand == "fresh" and game.toast.contains("царапает"), "a slow stroke only scratches " + tag)
 		# too sharp: it breaks, and soon leaves the hand
 		await stroke(0.8, 6)
@@ -142,12 +153,12 @@ func run() -> void:
 		await stroke(0.8, 24)
 		check(f.lit(), "a stroke in measure lights it " + tag)
 		await shot("lit_" + tag)
-		# to the firebox with the door closed: no fire, the match still burns
+		# over the firebox with the door closed: no fire, the match still burns
 		var fire = v.fire_rect()
 		await carry(fire.get_center(), 50)
-		check(f.lit(), "carried gently, it still burns " + tag)
+		check(f.lit() and not bool(game.model.boiler().lit), "over the firebox without a click nothing happens " + tag)
 		await click(fire.get_center())
-		check(f.lit() and not bool(game.model.boiler().lit) and game.toast.contains("Дверца"), "the door is closed: no fire yet " + tag)
+		check(f.lit() and not bool(game.model.boiler().lit) and game.toast.contains("Дверца"), "a click with the door closed: no fire, the match still burns " + tag)
 		await shot("door_closed_" + tag)
 		# open the door, then the match to the fire
 		var door = Rect2()
@@ -157,8 +168,9 @@ func run() -> void:
 		await click(door.get_center())
 		check(bool(game.model.boiler().door), "the door opens with the match in hand " + tag)
 		await carry(fire.get_center(), 20)
+		check(f.lit() and not bool(game.model.boiler().lit), "over the open firebox it waits for the click " + tag)
 		await click(fire.get_center())
-		check(bool(game.model.boiler().lit) and not f.in_hand(), "to the open firebox: the fire is lit " + tag)
+		check(bool(game.model.boiler().lit) and not f.in_hand(), "a click with the burning match on the open firebox lights the fire " + tag)
 		await shot("fire_lit_" + tag)
 		# a jerk blows it out
 		game.model.boiler().lit = false
@@ -169,6 +181,18 @@ func run() -> void:
 		v.process(DT)
 		check(f.hand == "burnt" and game.toast.contains("задуло"), "a jerk blows it out " + tag)
 		for i in range(90): v.process(DT)
+		# throwing a match away: a double click, or Esc; a click on the box gives a new one in place of the one in hand
+		await take_fresh()
+		await double_click(v.pos)
+		check(f.hand == "", "a double click throws the match away " + tag)
+		await take_fresh()
+		key(KEY_ESCAPE)
+		check(f.hand == "", "Esc throws it away too " + tag)
+		await take_fresh()
+		var before = f.count()
+		await click(box_point())
+		check(f.in_hand() and f.count() == before - 1, "a click on the box with a match in hand gives a new one " + tag)
+		key(KEY_ESCAPE)
 		game.cab_view = false
 		game.update_pult_transform()
 	Model.match_rules = false

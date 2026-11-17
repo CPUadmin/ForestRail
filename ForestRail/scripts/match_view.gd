@@ -1,8 +1,9 @@
 extends RefCounted
-# 1.4.14 Спичка у паровоза в кабине: коробок на месте «Розжига» (картинки П31), клик даёт спичку; крупно поверх доски
-# тёрка: зажми мышь на ней и проведи спичкой — скорость решает (медленно царапает, в меру вспыхивает, резко ломает).
-# Горящая спичка идёт за курсором (пламя — код) к открытой топке; рывок задувает. Esc или правая кнопка — убрать
-# незажжённую спичку в коробок. Работает через canvas (main.gd), как contactor_view.gd.
+# 1.4.14 Спичка у паровоза в кабине: коробок на месте «Розжига» (картинки П31), клик даёт спичку, и она ходит за
+# курсором; крупно поверх доски тёрка: проведи по ней спичкой — скорость прохода решает (медленно царапает, в меру
+# вспыхивает, рывком ломается). Горящей (пламя — код) щёлкни левой кнопкой по открытой топке с углём; рывок задувает.
+# Двойной щелчок или Esc выбрасывают спичку, клик по коробку даёт новую. Ничего зажимать не нужно (тачпад, 17.11).
+# Работает через canvas (main.gd), как contactor_view.gd.
 
 const BOX_CLOSED = preload("res://assets/art_cab/matches/box_closed.png")
 const BOX_OPEN = preload("res://assets/art_cab/matches/box_open.png")
@@ -10,14 +11,16 @@ const STRIKER = preload("res://assets/art_cab/matches/striker.png")
 const MATCH = {"fresh": preload("res://assets/art_cab/matches/match_fresh.png"), "damp": preload("res://assets/art_cab/matches/match_damp.png"),
 	"lit": preload("res://assets/art_cab/matches/match_fresh.png"), "broken": preload("res://assets/art_cab/matches/match_broken.png"),
 	"burnt": preload("res://assets/art_cab/matches/match_burnt.png"), "rubbed": preload("res://assets/art_cab/matches/match_rubbed.png")}
-const STROKE_MIN = 0.4    # a stroke counts once it covers this share of the striker
+const STROKE_LEN = 0.6    # a pass counts once it covers this share of the striker
 const SPENT_S = 1.2       # a spent match stays in the hand this long, to be seen
 
 var canvas = null
 var pos = Vector2.ZERO    # the hand (the head of the match)
 var last_pos = Vector2.ZERO
 var speed = 0.0           # screen heights per second, smoothed
-var stroking = false
+var stroking = false      # kept for main.gd: nothing is held any more
+var in_strip = false
+var stroke_dir = 0
 var stroke_from = Vector2.ZERO
 var stroke_t = 0.0
 var spent_t = 0.0
@@ -43,9 +46,7 @@ func take(mouse: Vector2) -> void:
 	if bool(canvas.model.boiler().lit):
 		canvas.notify("Огонь уже горит")
 		return
-	if f().in_hand():
-		f().put_back()
-		return
+	if f().in_hand(): f().drop()   # a new one instead of the one in hand
 	if f().take():
 		pos = mouse
 		last_pos = mouse
@@ -73,15 +74,20 @@ func fire_rect() -> Rect2:
 	return Rect2(canvas.pult_t * local.position, local.size * canvas.pult_t.get_scale())
 
 # --- every frame (main._process)
+# 17.11 (owner, tested on a touchpad): nothing is held down. The match follows the cursor; drawn across the striker it is
+# struck by itself (the speed of the pass decides); a click on the open firebox with the burning match lights the fire.
 func process(dt: float) -> void:
 	if not active():
-		if f() != null and canvas.model.vehicle_id() == "steam" and f().in_hand() and not canvas.cab_active(): f().put_back()
+		if f() != null and canvas.model.vehicle_id() == "steam" and f().in_hand() and not canvas.cab_active(): f().drop()
+		in_strip = false
 		return
 	var h = maxf(1.0, canvas.get_viewport_rect().size.y)
 	var v = pos.distance_to(last_pos) / maxf(dt, 0.001) / h
 	speed = lerpf(speed, v, clampf(dt * 20.0, 0.0, 1.0))
-	last_pos = pos
 	flare_t = maxf(0.0, flare_t - dt)
+	if f().hand in ["fresh", "damp"]: track_stroke(dt)
+	else: in_strip = false
+	last_pos = pos
 	if f().lit():
 		f().step(dt)
 		if f().jerk(speed): canvas.notify(canvas.model.message)
@@ -92,17 +98,54 @@ func process(dt: float) -> void:
 			f().drop()
 			spent_t = 0.0
 
-# --- the mouse; true when the event was the match's
+# A pass of the head along the striker: from where it came in (or turned back) until it has covered STROKE_LEN of it.
+func track_stroke(dt: float) -> void:
+	var s = striker_rect().grow(14.0)
+	if not s.has_point(pos):
+		in_strip = false
+		return
+	if not in_strip:
+		in_strip = true
+		stroke_from = pos
+		stroke_t = 0.0
+		stroke_dir = 0
+		return
+	stroke_t += dt
+	var dx = pos.x - last_pos.x
+	if absf(dx) > 0.5:
+		var dir = 1 if dx > 0.0 else -1
+		if stroke_dir != 0 and dir != stroke_dir:   # turned back: a new pass starts here
+			stroke_from = last_pos
+			stroke_t = dt
+		stroke_dir = dir
+	var covered = absf(pos.x - stroke_from.x) / striker_rect().size.x
+	if covered < STROKE_LEN: return
+	var result = f().strike(covered / maxf(stroke_t, 0.016))
+	stroke_from = pos
+	stroke_t = 0.0
+	match result:
+		"lit":
+			flare_t = 0.35
+			speed = 0.0   # the stroke itself is not a jerk: the flame is judged from here on
+			canvas.sound.play("jet_ignite", 0.35, 2.2)
+		"broken":
+			canvas.sound.play("rail_tick_c", 0.5, 0.7)
+		"scratch", "rubbed":
+			canvas.sound.play("rail_tick_b", 0.35, 0.6)
+	if result != "": canvas.notify(canvas.model.message)
+
+# --- the mouse
 func hover(mouse: Vector2) -> void:
 	pos = mouse
 
-func press(mouse: Vector2) -> bool:
+# A double click (a double tap on a touchpad) throws the match away, whatever it is. A click of the left button on the
+# firebox with a burning match lights it (owner 17.11): the door must be open and there must be coal. Any other single
+# click passes on (the door, the bucket), so nothing is held and nothing is lost by a stray tap.
+func press(mouse: Vector2, double: bool = false) -> bool:
 	if not active(): return false
 	pos = mouse
-	if f().hand in ["fresh", "damp"] and striker_rect().grow(10.0).has_point(mouse):
-		stroking = true
-		stroke_from = mouse
-		stroke_t = 0.0
+	if double:
+		discard()
 		return true
 	if f().lit() and fire_rect().has_point(mouse):
 		if f().to_fire():
@@ -113,36 +156,22 @@ func press(mouse: Vector2) -> bool:
 		return true
 	return false
 
-func motion(mouse: Vector2, dt: float) -> void:
+# kept for the hooks in main.gd (nothing is dragged now): they only move the hand
+func motion(mouse: Vector2, _dt: float) -> void:
 	pos = mouse
-	if stroking: stroke_t += dt
 
 func release(mouse: Vector2) -> void:
 	pos = mouse
-	if not stroking: return
-	stroking = false
-	var s = striker_rect()
-	var covered = absf(mouse.x - stroke_from.x) / s.size.x
-	if covered < STROKE_MIN: return   # a dab, not a stroke
-	var stroke_speed = covered / maxf(stroke_t, 0.016)
-	var result = f().strike(stroke_speed)
-	match result:
-		"lit":
-			flare_t = 0.35
-			last_pos = pos   # the stroke itself is not a jerk: the flame is judged from here on
-			speed = 0.0
-			canvas.sound.play("jet_ignite", 0.35, 2.2)
-		"broken":
-			canvas.sound.play("rail_tick_c", 0.5, 0.7)
-		"scratch", "rubbed":
-			canvas.sound.play("rail_tick_b", 0.35, 0.6)
-	if result != "": canvas.notify(canvas.model.message)
+
+func discard() -> void:
+	f().drop()
+	spent_t = 0.0
+	in_strip = false
 
 func key(event: InputEventKey) -> bool:
 	if not active() or not event.pressed: return false
 	if event.keycode == KEY_ESCAPE:
-		if f().in_hand() and not f().lit(): f().put_back()
-		else: f().drop()
+		discard()
 		return true
 	return false
 
@@ -156,19 +185,19 @@ func draw() -> void:
 		canvas.draw_texture_rect(BOX_OPEN, open_box_rect(), false)
 		var s = striker_rect()
 		canvas.draw_texture_rect(STRIKER, s, false)
-		var line = "Зажми мышь на тёрке и проведи спичкой: не медленно и не рывком"
+		var line = "Проведи спичкой по тёрке: не медленно и не рывком. Двойной щелчок или Esc — выбросить"
 		var width = canvas.font.get_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, -1, 15).x + 28.0
 		var plate = Rect2(Vector2(s.get_center().x - width * 0.5, s.end.y + 14.0), Vector2(width, 28.0))
 		canvas.draw_style_box(canvas.style(Color(0.08, 0.07, 0.05, 0.92), Color("8a6a3a"), 6), plate)
 		canvas.draw_string(canvas.font, plate.position + Vector2(0, 19), line, HORIZONTAL_ALIGNMENT_CENTER, plate.size.x, 15, Color("e8dcb4"))
-		if stroking:   # the scratch the head leaves on the striker
+		if in_strip:   # the scratch the head leaves on the striker
 			canvas.draw_line(stroke_from, Vector2(pos.x, clampf(pos.y, s.position.y, s.end.y)), Color(1.0, 0.85, 0.55, 0.5), 2.0)
 	if f().lit():
 		# the open firebox glows as the target
 		var fire = fire_rect()
 		var pulse = 0.5 if reduce else 0.5 + 0.5 * sin(float(canvas.time) * 6.0)
 		canvas.draw_rect(fire.grow(4.0), Color(1.0, 0.6, 0.2, 0.25 + 0.25 * pulse), false, 3.0)
-		var hint = "Неси спичку к топке" if bool(canvas.model.boiler().door) else "Сначала открой дверцу топки"
+		var hint = "Щёлкни спичкой по топке" if bool(canvas.model.boiler().door) else "Сначала открой дверцу топки"
 		var hint_w = canvas.font.get_string_size(hint, HORIZONTAL_ALIGNMENT_LEFT, -1, 15).x + 24.0
 		var hint_plate = Rect2(Vector2(fire.get_center().x - hint_w * 0.5, fire.position.y - 40.0), Vector2(hint_w, 26.0))
 		canvas.draw_style_box(canvas.style(Color(0.08, 0.07, 0.05, 0.92), Color("8a6a3a"), 6), hint_plate)

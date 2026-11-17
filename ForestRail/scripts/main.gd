@@ -226,6 +226,7 @@ var pending_action: Callable
 var time = 0.0
 var test_mode = false
 var land_dust: Dictionary = {}   # B5.5: the puff of dust where the train came down {t, s, power}
+var sand_puff: Dictionary = {}   # 1.4.15: the puff of the air sander under the wheels of the pneumatic train {t}
 var live_in_tests = false   # the view test of the live train looks at it in test mode
 var junk_in_tests = false   # and the view test of the road finds
 var contactor_in_tests = false   # 1.4.10: a test of the box «Скрутка» turns the contactor rule on
@@ -1164,6 +1165,7 @@ func draw_control_zoom() -> void:
 		if kind!="key": draw_string(font,rect.position+Vector2(15+100*i,78),title,HORIZONTAL_ALIGNMENT_CENTER,100,16,PAPER)
 		# the key has no label under it: the lock, its marks and the lamps say where it stands
 		if kind!="key": draw_string(font,rect.position+Vector2(15+100*i,168 if id=="start" else (268 if kind=="slider" else 253)),label,HORIZONTAL_ALIGNMENT_CENTER,100,16,GOLD)
+		if id=="start" and model.vehicle_id()=="pneumatic": draw_string(font,rect.position+Vector2(15+100*i,188),"песок: %d" % model.sand_left(),HORIZONTAL_ALIGNMENT_CENTER,100,13,PAPER if model.sand_left()>0 else RED)   # 1.4.15
 		if kind=="lever":
 			for endpoint in range(2):
 				var mark=pivot+Vector2(0,-length).rotated(lerpf(-0.55,0.55,float(endpoint)))
@@ -1424,6 +1426,9 @@ func _process(dt: float) -> void:
 		elif event_name == "skid":
 			notify("Тормоз перетянут. Колёса проскальзывают")
 			sound.play("brake", 0.5, 1.3)
+		elif event_name == "sand":
+			sand_puff = {"t": 0.0}
+			sound.play("steam_blow", 0.35, 1.9)   # a short hiss of the sander
 		elif event_name == "slip":
 			# once a trip, only while the hints are on
 			if bool(model.state.get("tutorial", false)) and not model.state.active.is_empty() and not model.state.active.get("slip_told", false):
@@ -1435,6 +1440,7 @@ func _process(dt: float) -> void:
 			sound.play("cargo", clampf(0.3 + float(model.last_cargo_hit) * 0.4, 0.3, 0.9), randf_range(0.85, 1.0))
 		else: sound.play(event_name, 0.6)
 	if not land_dust.is_empty(): land_dust.t = float(land_dust.t) + dt
+	if not sand_puff.is_empty(): sand_puff.t = float(sand_puff.t) + dt
 	sound.update(model, paused, screen == "menu", dt, cab_active())
 	var view_started = Time.get_ticks_usec() if perf_on else 0
 	if art_world != null: art_world.update_view()
@@ -1762,8 +1768,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			toggle_cab_view()
 			get_viewport().set_input_as_handled()
 			return
-		if cab_active() and match_view_cache != null and match_view_cache.press(mouse):
-			drag = "match" if match_view_cache.stroking else ""
+		if cab_active() and match_view_cache != null and match_view_cache.press(mouse, event is InputEventMouseButton and event.double_click):
+			drag = ""
 			get_viewport().set_input_as_handled()
 			return
 		if cab_active() and contactor_view_cache != null and contactor_view_cache.press(mouse):
@@ -2313,6 +2319,23 @@ func draw_glints() -> void:
 		glint_hits.append({"index": i, "position": p})
 
 # B5.5: a landing kicks up the dust of the track bed: a few soft puffs that spread and fade.
+# 1.4.15: the sander blows sand under both driving wheels: a small sandy cloud at each, low on the rail, gone in 0.7 s
+func draw_sand_puff() -> void:
+	if sand_puff.is_empty(): return
+	var age = float(sand_puff.t)
+	if age > 0.7:
+		sand_puff = {}
+		return
+	var sc = view_scale()
+	var s0 = model.body_s_render(0)
+	for axle in [-0.75, 0.75]:
+		var at = world_point(s0 + axle) + Vector2(0, 4 * sc)
+		for k in range(4):
+			var side = (float(k) - 1.5) / 1.5
+			var p = at + Vector2(side * (10.0 + 40.0 * age) * sc, -(6.0 + 18.0 * age * (1.0 - absf(side) * 0.4)) * sc)
+			var r = (10.0 + 24.0 * age) * sc * (0.8 + 0.2 * absf(sin(float(k) * 1.7)))
+			ellipse(p, Vector2(r * 1.3, r * 0.7), Color(0.80, 0.68, 0.44, 0.78 * (1.0 - age / 0.7)))
+
 func draw_land_dust() -> void:
 	if land_dust.is_empty(): return
 	var age = float(land_dust.t)

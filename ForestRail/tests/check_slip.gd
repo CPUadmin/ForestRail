@@ -119,8 +119,59 @@ func run() -> void:
 	var later = 0.0
 	for i in range(30): later = r.driving_force(ask, 1.0 / 60.0)
 	check(is_equal_approx(later, ask), "after half a second the full pull is back (%.0f of %.0f N)" % [later, ask])
-	# the pole and the jet never spin
-	for id in ["pole", "jet", "pneumatic", "handcar"]:
+	# --- 1.4.15: the pneumatic train «мягкий воздух» and the air sander
+	var pn = fresh("pneumatic")
+	var pn_floor = start(pn, func(_t, _m): return 1.0)
+	check(pn.spins() and pn_floor.spin == 0.0, "the pneumatic train floored from a standstill on the flat does not spin (soft air)")
+	var pn_hill = fresh("pneumatic")
+	var steep: Array = []
+	for x in range(-40, 3001): steep.append([float(x), float(maxi(0, x)) * 0.06, float(x)])
+	pn_hill.route.points = steep
+	pn_hill.route.length_m = 3000.0
+	pn_hill.state.s = 400.0
+	var up = start(pn_hill, func(_t, _m): return 1.0)
+	check(up.spin == 0.0, "nor up a 6%% hill, as long as it does not roll back (%.1f s)" % up.spin)
+	# the extreme: up a steep hill, already rolling back, a full valve -> it spins, the sander puffs and the wheels catch
+	var ex = fresh("pneumatic")
+	ex.route.points = steep
+	ex.route.length_m = 3000.0
+	ex.state.s = 400.0
+	ex.state.v = -2.0
+	ex.state.throttle = 1.0
+	var sand_before = ex.sand_left()
+	var air_before = float(ex.state.fleet_by_id.pneumatic.fuel)
+	var spun_ex = false
+	var sanded = false
+	var caught = false
+	for i in range(60 * 3):
+		ex.physics_step(1.0 / 60.0)
+		spun_ex = spun_ex or ex.wheel_slip
+		sanded = sanded or ex.events.has("sand")
+		if spun_ex and sanded and not ex.wheel_slip: caught = true
+	check(spun_ex, "rolling back up a steep hill with the valve full, the wheels spin")
+	check(sanded and ex.sand_left() == sand_before - 1, "the sander puffs by itself (sand %d -> %d)" % [sand_before, ex.sand_left()])
+	check(caught, "and the wheels catch on the sand")
+	check(float(ex.state.fleet_by_id.pneumatic.fuel) < air_before, "a puff takes some air")
+	# no sand: it spins on until the valve is eased
+	var dry = fresh("pneumatic")
+	dry.route.points = steep
+	dry.route.length_m = 3000.0
+	dry.state.s = 400.0
+	dry.state.fleet_by_id.pneumatic.sand = 0
+	dry.state.v = -2.0
+	dry.state.throttle = 1.0
+	var dry_spin = 0
+	for i in range(60 * 2):
+		dry.physics_step(1.0 / 60.0)
+		if dry.wheel_slip: dry_spin += 1
+	check(dry_spin > 60 and not dry.events.has("sand"), "with no sand it keeps spinning (%d frames)" % dry_spin)
+	dry.state.throttle = 0.3
+	for i in range(20): dry.physics_step(1.0 / 60.0)
+	check(not dry.wheel_slip, "eased, the wheels catch without sand")
+	dry.refill_sand()
+	check(dry.sand_left() == 20, "the depot fills the sander (20)")
+	# the pole, the jet and the handcar never spin
+	for id in ["pole", "jet", "handcar"]:
 		var other = fresh(id)
 		var spun = false
 		for i in range(120):

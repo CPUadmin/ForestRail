@@ -1263,6 +1263,7 @@ func settle() -> bool:
 	cool_boiler()
 	if wear_rules: wear().free_touch_up()
 	matches().refill()   # 1.4.14: the depot gives a new box of matches for nothing
+	refill_sand()   # 1.4.15: and fills the sander of the pneumatic train
 	message = ("Рейс окончен. Заработано %d монет" % reward if reward >= 0 else "Рейс окончен с штрафом: %d монет" % -reward) + (" · " + ", ".join(notes) if not notes.is_empty() else "")
 	return true
 
@@ -1300,6 +1301,7 @@ func rescue() -> void:
 		wear().free_touch_up()
 		wear().rescue_repair()   # the depot puts the traction nodes in order at once
 	matches().refill()   # 1.4.14: and a new box of matches
+	refill_sand()   # 1.4.15: and the sand
 	refuel()
 	message = "Помощь доставила состав в депо за %d монет%s. Груз и покупки сохранены" % [fee, (", долг %d" % (fee - paid)) if fee > paid else ""] if fee > 0 else "Помощь доставила состав в депо. Груз и покупки сохранены"
 
@@ -2491,7 +2493,7 @@ var wheel_slip = false   # the driving wheels spin (more pull than the rail hold
 # The drive: the rail passes only as much pull as the weight on the driving wheels grips. Past it the
 # wheels spin and pull less, until the throttle is eased. Only the machines that drive their wheels.
 const DRIVE_MU = 0.33
-const DRIVE_WEIGHT = {"steam": 0.64, "motorcar": 0.9, "locomotive": 0.8}   # the share of the machine's weight on its driving wheels
+const DRIVE_WEIGHT = {"steam": 0.64, "motorcar": 0.9, "locomotive": 0.8, "pneumatic": 0.9}   # the share of the machine's weight on its driving wheels (1.4.15: the receivers of the pneumatic hang low over its axles)
 const SPIN_RATIO = 0.7
 const SPIN_SPEED = 3.0   # m/s: how much faster than the ground the spinning wheels run (the fuel they waste)
 var pull_full = 0.0   # the pull the drive would ask at a full throttle this moment (for throttle_safe)
@@ -2520,7 +2522,38 @@ var slip_recover = 0.0
 # What the rail holds once the wheels bite or spin: the weight on the driving wheels, the rain and the worn running gear.
 func grip_hold() -> float:
 	var wear_grip = lerpf(1.0 - GRIP_WEAR, 1.0, wear().factor(vehicle_id(), "roll")) if wear_rules else 1.0
-	return drive_cap() * wear_grip
+	var hold = drive_cap() * wear_grip
+	if vehicle_id() == "pneumatic":
+		# 1.4.15 «мягкий воздух»: the air drives the wheels like a spring and a slipping wheel catches itself (about three
+		# times the grip), except when the train already rolls back and the air hits wheels that turn the other way
+		if not rolling_back(): hold *= SOFT_AIR
+		if sand_boost > 0.0: hold *= SAND_BONUS   # the sand under the wheels
+	return hold
+
+# 1.4.15: the pneumatic train «мягкий воздух» and the air sander (owner's choice 17.11)
+const SOFT_AIR = 3.0          # how much better a pneumatic wheel holds while the train is not rolling back
+const PNEU_CEILING = 0.55     # the ceiling of its pull, a share of its weight (was 0.35 for all that never spin)
+const SAND_PORTIONS = 20      # puffs of sand in a full sander; the depot refills it for nothing
+const SAND_DELAY = 0.5        # s: the sand reaches the rail after this
+const SAND_HOLD_S = 4.0       # s: a puff helps the wheels this long
+const SAND_BONUS = 1.35       # the grip on sand
+const SAND_AIR = 0.3          # bar of air a puff takes
+const SAND_LOW = 0.1          # below this share of a full tank the sander has nothing to blow with
+var sand_delay = -1.0
+var sand_boost = 0.0
+
+func rolling_back() -> bool:
+	return float(state.v) * float(drive_direction()) < -0.3
+
+func sand_left() -> int:
+	return int(state.fleet_by_id.get("pneumatic", {}).get("sand", SAND_PORTIONS))
+
+func can_sand() -> bool:
+	if vehicle_id() != "pneumatic" or sand_left() <= 0: return false
+	return float(state.fleet_by_id.pneumatic.fuel) > SAND_LOW * float(object_stats("pneumatic").tank)
+
+func refill_sand() -> void:
+	if state.fleet_by_id.has("pneumatic"): state.fleet_by_id.pneumatic.sand = SAND_PORTIONS
 
 # Where the wheels let go: lower than what they hold, from a standstill, with a heavy train up a hill and in the cold.
 # It only moves the moment of the slip (and the warning, and the safe throttle); a spinning or gripping wheel still pulls
@@ -2540,6 +2573,20 @@ func driving_force(demand: float, dt: float = 1.0 / 60.0) -> float:
 		wheel_slip = false
 		slip_recover = 0.0
 		return demand
+	if vehicle_id() == "pneumatic":   # 1.4.15: the sander keeps its own time
+		if sand_boost > 0.0: sand_boost = maxf(0.0, sand_boost - dt)
+		if sand_delay >= 0.0:
+			sand_delay -= dt
+			if sand_delay <= 0.0:
+				sand_delay = -1.0
+				var fleet_p = state.fleet_by_id.pneumatic
+				fleet_p.sand = sand_left() - 1
+				fleet_p.fuel = maxf(0.0, float(fleet_p.fuel) - SAND_AIR)
+				sand_boost = SAND_HOLD_S
+				events.append("sand")
+				if wheel_slip:   # the wheels catch on the sand
+					wheel_slip = false
+					slip_recover = 1.0
 	var cap = grip_cap()
 	var hold = grip_hold()
 	# 16.11: a boost (the supercapacitor, the nitro) holds the wheels at the edge of the grip by itself: below the grip it
@@ -2554,6 +2601,9 @@ func driving_force(demand: float, dt: float = 1.0 / 60.0) -> float:
 		wheel_slip = true
 		events.append("slip")
 		wear_spin()
+		if vehicle_id() == "pneumatic":
+			if can_sand(): sand_delay = SAND_DELAY if sand_delay < 0.0 else sand_delay
+			else: wear().tell("no_sand", "Песок кончился: убавь вентиль, пока колёса не схватят" if sand_left() <= 0 else "Давление низкое: песочнице нечем дуть. Убавь вентиль")
 	if wheel_slip: return minf(demand, hold * SPIN_RATIO)
 	slip_edge = clampf((demand / maxf(1.0, cap) - SLIP_EDGE_FROM) / (1.0 - SLIP_EDGE_FROM), 0.0, 1.0)
 	if slip_recover > 0.0:
@@ -2729,6 +2779,7 @@ func physics_step(dt: float) -> void:
 				pull_full = traction
 				var pull = float(state.throttle) * traction
 				if not spins(): pull = minf(pull, 0.35 * float(stats.mass) * G * cos(route.slope(float(state.s))) * grip_factor())   # the others never spin
+				if vehicle_id() == "pneumatic": pull = minf(pull, PNEU_CEILING * float(stats.mass) * G * cos(route.slope(float(state.s))) * grip_factor())   # 1.4.15: its ceiling 35% -> 55% of the weight
 				drive = float(drive_direction()) * (-1.0 if reverse_gear else 1.0) * pull
 	var asked = drive
 	drive = signf(drive) * driving_force(absf(drive), dt)
