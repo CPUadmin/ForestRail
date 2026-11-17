@@ -1,4 +1,5 @@
 """Run checks with a waited process and retain each log and exit status."""
+import os
 import re
 import argparse
 import json
@@ -40,6 +41,8 @@ for suite in args.suite.split(','):
         command.append('--headless')
     if not args.exported:
         command += ['--path', str(root/'ForestRail')]
+    if os.environ.get('FR_VERBOSE'):
+        command.append('--verbose')   # 1.3.2: the log then names every loaded resource (which pictures the game really uses)
     command += ['--', '--qa-suite='+suite]
     if suite == 'drive_campaign' and args.partial_first:
         command.append('--partial-first')
