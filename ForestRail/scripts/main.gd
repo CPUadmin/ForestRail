@@ -1855,6 +1855,7 @@ func cancel_drag() -> void:
 
 func _process(dt: float) -> void:
 	wp_valid = false
+	if model != null and not model.state.is_empty(): saves.warm(model)   # 1.3.11: the route's save text is made ahead on a worker thread
 	time += dt
 	if screen == "game" and not paused and model.wheel_slip: spin_s += dt * 9.0 * float(model.drive_direction())
 	whistle_pull = move_toward(whistle_pull, 0.0, dt * 3.0)

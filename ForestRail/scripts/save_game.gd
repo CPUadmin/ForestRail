@@ -22,6 +22,7 @@ func read_valid(name: String) -> Dictionary:
 	if validator==null: validator=Model.new()
 	if not validator.validate_save(parsed):
 		return {}
+	if name == "save_v2.json": written[directory] = disk_mark(name)   # 1.3.11: checked now, the next save need not parse it again
 	return parsed
 
 # 1.3.9: a save used to cost ~42 ms (a torn frame on «Отправиться»): 98% of it is the route's points, which were turned into text,
@@ -33,6 +34,49 @@ var points_size = -1
 var points_text = ""
 var written = {}   # directory -> [length, modified time] of the save_v2.json this object wrote and checked
 
+# 1.3.11: the first save on a new or just loaded route still made the points' text (~28 ms, a torn frame at the first autosave).
+# warm() makes it on a worker thread as soon as the route is there; the points are never changed after the route is built.
+var warm_task = -1
+var warm_points = null
+var warm_box = {}
+
+static func points_ok(points: Array) -> bool:   # the same check as Model.validate_save makes of every point
+	var previous_s = -INF
+	for point in points:
+		if not point is Array or point.size() != 3: return false
+		for coordinate in point:
+			if not ((coordinate is int or coordinate is float) and is_finite(float(coordinate))): return false
+		if float(point[2]) <= previous_s: return false
+		previous_s = float(point[2])
+	return true
+
+func cached(points) -> bool:
+	return is_same(points, points_ref) and points.size() == points_size
+
+func collect_warm(wait: bool) -> void:
+	if warm_task == -1: return
+	if not wait and not WorkerThreadPool.is_task_completed(warm_task): return
+	WorkerThreadPool.wait_for_task_completion(warm_task)
+	warm_task = -1
+	if bool(warm_box.get("ok", false)) and warm_points.size() == int(warm_box.size):
+		points_ref = warm_points
+		points_size = int(warm_box.size)
+		points_text = str(warm_box.text)
+	warm_points = null
+
+# Called every frame by main.gd: cheap when the text is ready.
+func warm(model) -> void:
+	collect_warm(false)
+	if model == null or model.route == null or warm_task != -1: return
+	var points: Array = model.route.points
+	if points.is_empty() or cached(points): return
+	var box = {"size": points.size()}
+	warm_box = box
+	warm_points = points
+	warm_task = WorkerThreadPool.add_task(func():
+		box.text = JSON.stringify(points)
+		box.ok = points_ok(points))
+
 # The whole text of a save, or "" when the model's state does not pass the check of a save.
 func save_text(model) -> String:
 	var data = model.serialize()
@@ -43,20 +87,15 @@ func save_text(model) -> String:
 	var text = JSON.stringify(data)
 	var parsed = JSON.parse_string(text)   # small without the points: the check sees what a later read will see
 	if not parsed is Dictionary or not text.contains('"' + POINTS_MARK + '"'): return ""
-	var fresh = not (is_same(points, points_ref) and points.size() == points_size)
-	if fresh:
+	if is_same(points, warm_points): collect_warm(true)
+	if not cached(points):
+		if not points_ok(points): return ""
 		points_text = JSON.stringify(points)
-		var parsed_points = JSON.parse_string(points_text)
-		parsed.route.points = parsed_points if parsed_points is Array else []
-	else:
-		parsed.route.points = points   # the text of these very points was checked when it was made
-	if validator == null: validator = Model.new()
-	if not validator.validate_save(parsed, not fresh):
-		points_ref = null
-		return ""
-	if fresh:
 		points_ref = points
 		points_size = points.size()
+	parsed.route.points = points   # these very points passed points_ok when their text was made
+	if validator == null: validator = Model.new()
+	if not validator.validate_save(parsed, true): return ""
 	return text.replace('"' + POINTS_MARK + '"', points_text)
 
 func disk_mark(name: String) -> Array:
