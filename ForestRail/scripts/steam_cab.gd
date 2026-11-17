@@ -92,18 +92,7 @@ func draw_steam_panel(rect: Rect2) -> void:
 	canvas.draw_rect(Rect2(bar.position,Vector2(bar.size.x*fill,bar.size.y)),Color("5cc17f") if fill>=float(cfg.thin_fire) and fill<=float(cfg.choke_from) else Color("e0564a"))
 	canvas.draw_style_box(canvas.style(canvas.INK,canvas.GOLD if bool(b.door) else Color("66796b"),6),door_button)
 	canvas.draw_string(canvas.font,door_button.position+Vector2(0,20),"Дверца: открыта" if bool(b.door) else "Дверца: закрыта",HORIZONTAL_ALIGNMENT_CENTER,130,14,canvas.PAPER)
-	var center=rect.position+Vector2(360,322)
-	var first=deg_to_rad(150)
-	var sweep=deg_to_rad(240)
-	canvas.draw_arc(center,40,first,first+sweep,40,Color("66796b"),3,true)
-	var work=float(cfg.work_pressure_bar)/float(cfg.max_pressure_bar)
-	var mark=Vector2.from_angle(first+sweep*work)
-	canvas.draw_line(center+mark*34,center+mark*46,canvas.GREEN,3,true)
-	var needle=Vector2.from_angle(first+sweep*float(b.pressure))
-	canvas.draw_line(center,center+needle*34,canvas.RED if bool(b.venting) else canvas.PAPER,2.5,true)
-	canvas.draw_circle(center,3,canvas.PAPER)
-	canvas.draw_string(canvas.font,center+Vector2(-50,58),"%.1f бар" % canvas.model.pressure_bar(),HORIZONTAL_ALIGNMENT_CENTER,100,16,canvas.GOLD if canvas.model.steam_ready() else dim)
-	canvas.draw_string(canvas.font,center+Vector2(-50,-66),"ДАВЛЕНИЕ",HORIZONTAL_ALIGNMENT_CENTER,100,13,dim)   # above the work mark of the scale
+	# 17.11 (owner): the small pressure gauge of the pult is gone: the big «ДАВЛЕНИЕ» on the dash shows the same, nothing doubles
 	canvas.steam_hits.append({"id":"bucket","rect":Rect2(canvas.pult_t*bucket.position,bucket.size*canvas.pult_t.get_scale())})
 	canvas.steam_hits.append({"id":"door","rect":Rect2(canvas.pult_t*door_button.position,door_button.size*canvas.pult_t.get_scale())})
 	if canvas.drag=="coal":
