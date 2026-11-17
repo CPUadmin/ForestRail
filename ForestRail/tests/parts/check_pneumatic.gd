@@ -34,7 +34,7 @@ func run() -> void:
 	var stats = m.object_stats("pneumatic")
 	check(m.vehicle_id() == "pneumatic" and is_equal_approx(float(stats.tank), 50.0), "a pneumatic train of 50 bar")
 	check("pneumatic" in Model.VEHICLE_IDS and not bool(m.vehicle_base("pneumatic").get("hidden", false)), "it is in the garage list of the game")
-	check(is_equal_approx(float(m.state.fleet_by_id.pneumatic.fuel), 50.0) and m.max_wagons("pneumatic") == 2 and m.rank("pneumatic") == 2, "bought with a full tank, two wagons, the rank of the petrol one")
+	check(is_equal_approx(float(m.state.fleet_by_id.pneumatic.fuel), 50.0) and m.max_wagons("pneumatic") == 3 and m.rank("pneumatic") == 2, "bought with a full tank, three wagons (1.4.13: +50% load), the rank of the petrol one")
 	check(m.top_speed_kmh("pneumatic") == 60.0, "stated top speed 60 km/h")
 	# pressure and frost shape the pull
 	check(is_equal_approx(m.pneumatic_factor(), 1.0), "a full tank, no frost: full pull")
@@ -87,6 +87,31 @@ func run() -> void:
 	# legs: with a compressor halfway the pneumatic train needs a shorter stretch
 	var mission = {"dropoffs": [{"station": "F", "cargo": [["sack", 1]]}]}
 	check(float(m.trip_forecast(mission).leg_m) <= float(steam.trip_forecast(mission).leg_m) and float(m.trip_forecast(mission).leg_m) < 3600.0, "the compressors keep the longest stretch of the pneumatic train short")
+	# 1.4.13: a third wagon (+50% load) is not free: the heavier train spends more air on the same hill
+	var air_by_wagons = {}
+	for count in [2, 3]:
+		var p = Model.new()
+		p.new_game(42, 1)
+		p.state.money = 100000
+		Fixtures.equip(p, "pneumatic")
+		while p.state.consist_ids.size() > count: p.toggle_wagon(str(p.state.consist_ids[-1]))
+		for id in p.state.consist_ids:
+			for k in range(2): p.state.cargo.append({"id": "%s_%d" % [id, k], "type": "logs", "destination": "F", "slot": "%s:%d" % [id, k], "delivered": false, "health": 1.0, "weight_kg": 120})
+		var hill: Array = []
+		for x in range(-40, 4001): hill.append([float(x), float(maxi(0, x)) * 0.02, float(x)])
+		p.route.points = hill
+		p.route.length_m = 4000.0
+		p.state.phase = "route"
+		p.state.s = 100.0
+		p.state.brake = 0.0
+		p.state.throttle = 1.0
+		var air_before = float(p.state.fleet_by_id.pneumatic.fuel)
+		for i in range(60 * 30): p.physics_step(1.0 / 60.0)
+		air_by_wagons[count] = [(air_before - float(p.state.fleet_by_id.pneumatic.fuel)) / maxf(1.0, float(p.state.s) - 100.0) * 1000.0, p.state.consist_ids.size(), float(p.state.s) - 100.0]
+	check(int(air_by_wagons[3][1]) == 3 and int(air_by_wagons[2][1]) == 2, "the test train has three and two wagons")
+	check(float(air_by_wagons[3][0]) > float(air_by_wagons[2][0]) * 1.1, "three loaded wagons spend more air per km up a 2%% hill than two (%.1f against %.1f bar/km)" % [float(air_by_wagons[3][0]), float(air_by_wagons[2][0])])
+	check(float(air_by_wagons[3][2]) < float(air_by_wagons[2][2]), "and climb slower (%.0f against %.0f m in 30 s)" % [float(air_by_wagons[3][2]), float(air_by_wagons[2][2])])
+	check(int(m.vehicle_base("pneumatic").cost) == 2400 and int(m.vehicle_base("pneumatic").cost) < int(m.vehicle_base("locomotive").cost), "it costs more than before (2400) but less than the electric locomotive")
 	# work on the shaft pays for the air; it never goes below zero
 	var flat = Model.new()
 	flat.new_game(42, 1)

@@ -346,7 +346,7 @@
     {
       "id": "pneumatic",
       "name": "Пневматический поезд",
-      "cost": 1800,
+      "cost": 2400,
       "mass_kg": 900,
       "deck_slots": 0,
       "default_wagons": 0,
@@ -363,7 +363,7 @@
       "top_speed_kmh": 60,
       "power_cap_w": 14000,
       "rank": 2,
-      "max_wagons": 2,
+      "max_wagons": 3,
       "brake_n": 3500,
       "refill_price": 4.5,
       "energy_per_m": 0.0158,
