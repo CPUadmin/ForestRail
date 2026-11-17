@@ -303,6 +303,23 @@ func bolts_gain(id: String, node: String) -> float:
 	for entry in bolt_order(id, node): gain += float(entry[2]) * float(m.casino().junk_count(str(entry[1])))
 	return minf(gain, 1.0 - condition(id, node))
 
+# 1.4.5 window: how many bolts in the bag can mend this node (common, rare and this machine's own).
+func bolts_count(id: String, node: String) -> int:
+	var n = 0
+	for entry in bolt_order(id, node): n += m.casino().junk_count(str(entry[1]))
+	return n
+
+# 1.4.5 window: the node's "resource" — km of steady road wear (dry) until it drops to the lamp line (WARN_BELOW).
+# -1 when the node is not worn by the road (per_km 0) or is already at or below the lamp. Errors (skid, overload) are
+# not counted: they are not steady, so the honest estimate is the dry road pace.
+func resource_km(id: String, node: String) -> float:
+	var def = node_def(id, node)
+	var per_km = float(def.get("per_km", 0.0))
+	if per_km <= 0.0: return -1.0
+	var above = condition(id, node) - WARN_BELOW
+	if above <= 0.0: return -1.0
+	return above / per_km
+
 func repair_bolts_auto(id: String, node: String) -> float:
 	var total = 0.0
 	for entry in bolt_order(id, node):

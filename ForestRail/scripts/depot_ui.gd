@@ -862,8 +862,17 @@ func build_wear_card(right: VBoxContainer) -> void:
 		var line = HBoxContainer.new()
 		line.add_theme_constant_override("separation", 8)
 		c.add_child(line)
-		var label = canvas.add_label(line, "%s  %d%%" % [def.name, roundi(value * 100.0)], 17)
-		label.custom_minimum_size.x = 215
+		# 1.4.5: the name and percent, and under it in small print how far the node lasts to the lamp at the dry road pace;
+		# two lines in the same 215 px, so the row is no wider than before and the buttons stay inside the panel
+		var name_box = VBoxContainer.new()
+		name_box.add_theme_constant_override("separation", -2)
+		name_box.custom_minimum_size.x = 215
+		name_box.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		line.add_child(name_box)
+		canvas.add_label(name_box, "%s  %d%%" % [def.name, roundi(value * 100.0)], 17)
+		var km = wear.resource_km(id, node)
+		if km >= 0.0:
+			canvas.add_label(name_box, "до лампы ~%s км" % (("%d" % roundi(km)) if km >= 10.0 else ("%.1f" % km).replace(".", ",")), 13, canvas.MUTED_INK)
 		var bar = ProgressBar.new()
 		bar.min_value = 0.0
 		bar.max_value = 100.0
@@ -907,7 +916,7 @@ func build_wear_card(right: VBoxContainer) -> void:
 			canvas.notify("Ремнабор: +%d%%" % roundi(got * 100.0))
 			canvas.save_game()
 			canvas.rebuild())
-	canvas.add_label(c, "Узлы изнашиваются от езды и ошибок. 1% стоит " + price_word(wear.coins_per_pct(id)) + "; болты: свои +5%, общие +2%, редкие +4%. На линии чинит только мастерская станции (до 50%)." , 15, canvas.MUTED_INK)
+	canvas.add_label(c, "Узлы изнашиваются от езды и ошибок. 1% стоит " + price_word(wear.coins_per_pct(id)) + ". Болтов в мешке для неё: %d (свои +5%%, общие +2%%, редкие +4%%). На линии чинит только мастерская станции (до 50%%)." % wear.bolts_count(id, str(worst.node)) , 15, canvas.MUTED_INK)
 
 # A button that spends coins: grey and inert with a tooltip when the player cannot pay (the creative mode has unlimited money).
 # 1.4.5: «1 монета», «4,5 монеты», «10 монет» (the price of 1% by the class of the machine)

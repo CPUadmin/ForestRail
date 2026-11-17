@@ -22,13 +22,14 @@ func shot(name: String) -> void:
 	index += 1
 	get_tree().root.get_texture().get_image().save_png(out_dir.path_join("%02d_%s.png" % [index, name]))
 
-func open(kind: String, money: int) -> void:
+func open(kind: String, money: int, bolts: int = 0) -> void:
 	Model.wear_rules = true
 	var m = Model.new()
 	m.new_game(42, 2)
 	m.state.chapter = 4
 	Fixtures.equip(m, kind)
 	m.state.money = money
+	if bolts > 0: m.casino().junk_add("rusty_bolt", bolts)
 	# wear three nodes to different depths so the bars, prices and a grey button all show
 	var nodes = m.wear().nodes_of(kind)
 	var depths = [0.45, 0.2, 0.7]
@@ -60,7 +61,7 @@ func run() -> void:
 
 	open("handcar", 1000)
 	await shot("handcar_rich")
-	open("motorcar", 40)      # price 3/pct: 40 coins cannot cover the cheapest 1%? (3 coins) -> buttons live, "Починить всё" grey
+	open("motorcar", 40, 12)      # price 3/pct: 40 coins cannot cover the cheapest 1%? (3 coins) -> buttons live, "Починить всё" grey
 	await shot("motorcar_poor")
 	open("jet", 120)          # price 10/pct: a full repair costs a lot; some buttons grey
 	await shot("jet_poor")

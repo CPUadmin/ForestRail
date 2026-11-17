@@ -310,6 +310,18 @@ func run() -> void:
 	loco.state.money = 45
 	var loco_got = loco.wear().repair_with_money("locomotive", loco_node, 0.5)
 	check(approx(loco_got, 0.1) and int(loco.state.money) == 0, "45 coins mend 10%% of the electric locomotive (%.2f)" % loco_got)
+	# 1.4.5 window: the resource (km of dry road wear to the lamp line) and the bolts that can mend a node
+	var res = fresh("motorcar")
+	check(approx(res.wear().resource_km("motorcar", "engine"), 300.0), "a new engine lasts 300 km to the lamp (0.6 / 0.002 per km): %.1f" % res.wear().resource_km("motorcar", "engine"))
+	res.wear().set_condition("motorcar", "engine", 0.5)
+	check(approx(res.wear().resource_km("motorcar", "engine"), 50.0), "at 50%% it lasts 50 km (%.1f)" % res.wear().resource_km("motorcar", "engine"))
+	res.wear().set_condition("motorcar", "engine", 0.4)
+	check(res.wear().resource_km("motorcar", "engine") < 0.0, "at the lamp line there is no resource left")
+	res.wear().set_condition("motorcar", "engine", 0.3)
+	check(res.wear().resource_km("motorcar", "engine") < 0.0, "below the lamp: none either")
+	check(res.wear().bolts_count("motorcar", "engine") == 0, "no bolts in the bag: 0")
+	res.casino().junk_add("rusty_bolt", 7)
+	check(res.wear().bolts_count("motorcar", "engine") == 7, "seven common bolts can mend the engine (%d)" % res.wear().bolts_count("motorcar", "engine"))
 	# --- saving
 	var keep = fresh("motorcar")
 	keep.wear().set_condition("motorcar", "engine", 0.37)
