@@ -12,6 +12,7 @@ const TrainArt = preload("res://scripts/train_art.gd")
 const MenuUi = preload("res://scripts/menu_ui.gd")
 const DepotUi = preload("res://scripts/depot_ui.gd")
 const ContactorView = preload("res://scripts/contactor_view.gd")
+const MatchView = preload("res://scripts/match_view.gd")
 const ControlsView = preload("res://scripts/controls_view.gd")
 const ModalUi = preload("res://scripts/modal_ui.gd")
 const SteamCab = preload("res://scripts/steam_cab.gd")
@@ -228,6 +229,7 @@ var land_dust: Dictionary = {}   # B5.5: the puff of dust where the train came d
 var live_in_tests = false   # the view test of the live train looks at it in test mode
 var junk_in_tests = false   # and the view test of the road finds
 var contactor_in_tests = false   # 1.4.10: a test of the box «Скрутка» turns the contactor rule on
+var match_in_tests = false   # 1.4.14: a test of the match turns the match rule on
 var glint_hits: Array = []   # B6.11 b: the glints by the rail on the screen {index, position}
 var smoke_frames = -1
 var screenshot_path = ""
@@ -1127,6 +1129,13 @@ func draw_control_zoom() -> void:
 			else: draw_gate(gate_rect(true),gate_pos if drag=="gear" else gate_slot_pos(int(model.state.gear)),drag==id)
 		elif kind=="key":
 			draw_ignition(geo,pult_t,true)
+		elif kind=="matchbox":
+			# 1.4.14: the box of matches (P31) where the toggle «Розжиг» was; a click anywhere on it gives a match
+			var box_tex=match_view().BOX_CLOSED
+			var box_w=78.0
+			var box_h=box_w*float(box_tex.get_height())/float(box_tex.get_width())
+			point=(pivot+geo.grip)*0.5
+			draw_texture_rect(box_tex,Rect2(point-Vector2(box_w,box_h)*0.5,Vector2(box_w,box_h)),false)
 		elif kind=="wheel":
 			draw_handwheel(pivot,float(geo.radius),angle,GOLD if id=="gear" else GREEN,drag==id)
 		elif kind=="slider":
@@ -1147,11 +1156,11 @@ func draw_control_zoom() -> void:
 			sprite("control_"+id,Rect2(-Vector2(128,224)*factor,Vector2.ONE*256*factor))
 			draw_set_transform_matrix(pult_t)
 		# the key lives in the dashboard outside the pult: its hit counts wherever the mouse is in the cab
-		grip_hits.append({"id":id,"position":pult_t*point,"closeup":true,"dash":kind=="key","radius":float(geo.get("side",0.0))*0.4*pult_t.get_scale().x})
+		grip_hits.append({"id":id,"position":pult_t*point,"closeup":true,"dash":kind=="key","radius":(40.0 if kind=="matchbox" else float(geo.get("side",0.0))*0.4)*pult_t.get_scale().x})
 		var steam=model.vehicle_id()=="steam"
 		var title={"brake":"Тормоз","throttle":{"locomotive":"Тяга","steam":"Вентиль","pneumatic":"Вентиль"}.get(model.vehicle_id(),"Газ"),"gear":"Вода" if steam else ("Редуктор" if model.vehicle_id()=="pneumatic" else "Передача"),"start":"Розжиг" if steam else ("Обогрев" if model.vehicle_id()=="pneumatic" else "Пуск")}[id]
 		var shown_gear=lever_pending_gear if drag=="gear" else int(model.state.gear)
-		var label={"brake":"%d%%" % (model.state.brake*100),"throttle":"%d%%" % (model.state.throttle*100),"gear":("%d%%" % (float(model.boiler().feed)*100)) if steam else (("%.0f бар" % model.working_pressure()) if model.vehicle_id()=="pneumatic" else GEAR_LABELS[shown_gear]),"start":("Горит" if model.state.engine else "Разжечь") if steam else (("Греет" if model.heating_on() else "Выкл.") if model.vehicle_id()=="pneumatic" else key_label())}[id]
+		var label={"brake":"%d%%" % (model.state.brake*100),"throttle":"%d%%" % (model.state.throttle*100),"gear":("%d%%" % (float(model.boiler().feed)*100)) if steam else (("%.0f бар" % model.working_pressure()) if model.vehicle_id()=="pneumatic" else GEAR_LABELS[shown_gear]),"start":("Горит" if model.state.engine else ("спичек: %d" % model.matches().count() if kind=="matchbox" else "Разжечь")) if steam else (("Греет" if model.heating_on() else "Выкл.") if model.vehicle_id()=="pneumatic" else key_label())}[id]
 		if kind!="key": draw_string(font,rect.position+Vector2(15+100*i,78),title,HORIZONTAL_ALIGNMENT_CENTER,100,16,PAPER)
 		# the key has no label under it: the lock, its marks and the lamps say where it stands
 		if kind!="key": draw_string(font,rect.position+Vector2(15+100*i,168 if id=="start" else (268 if kind=="slider" else 253)),label,HORIZONTAL_ALIGNMENT_CENTER,100,16,GOLD)
@@ -1241,6 +1250,8 @@ func _process(dt: float) -> void:
 	model.weather_effect = [1.0, 0.5, 0.0][clampi(int(settings.weather), 0, 2)]
 	Model.wear_rules = not test_mode or live_in_tests   # wear and damage of the nodes (B5.6)
 	Model.contactor_rules = not test_mode or contactor_in_tests   # 1.4.10: the electric locomotive starts in the contactor box (in tests only by its own flag)
+	Model.match_rules = not test_mode or match_in_tests   # 1.4.14: the steam locomotive is lit with a match (in tests only by its own flag)
+	if match_view_cache != null: match_view_cache.process(dt)
 	Model.junk_rules = not test_mode or junk_in_tests   # bolts from the road (B6.11 b)
 	Model.live_effects = not test_mode or live_in_tests   # the live train: couplers, rocking, shifting cargo (B5); the tests keep the rigid numbers
 	Model.order_rules = not test_mode   # deadlines and bonuses of the orders only in the real game (tests keep the old numbers)
@@ -1525,6 +1536,9 @@ func _input(event: InputEvent) -> void:
 	if event is InputEventKey and screen == "game" and not paused and contactor_view_cache != null and contactor_view_cache.key(event):
 		get_viewport().set_input_as_handled()
 		return
+	if event is InputEventKey and screen == "game" and not paused and match_view_cache != null and match_view_cache.key(event):
+		get_viewport().set_input_as_handled()
+		return
 	if depot_anim != "" and ((event is InputEventKey and event.pressed and not event.echo) or (event is InputEventMouseButton and event.pressed)):
 		skip_depot_anim()
 		get_viewport().set_input_as_handled()
@@ -1606,6 +1620,11 @@ func _input(event: InputEvent) -> void:
 			return
 		if drag == "contactor":
 			contactor_view().motion(event.position)
+			get_viewport().set_input_as_handled()
+			return
+		if match_view_cache != null and match_view_cache.active(): match_view_cache.hover(event.position)   # the match follows the hand
+		if drag == "match":
+			match_view().motion(event.position, get_process_delta_time())
 			get_viewport().set_input_as_handled()
 			return
 		if drag == "sail":
@@ -1743,6 +1762,10 @@ func _unhandled_input(event: InputEvent) -> void:
 			toggle_cab_view()
 			get_viewport().set_input_as_handled()
 			return
+		if cab_active() and match_view_cache != null and match_view_cache.press(mouse):
+			drag = "match" if match_view_cache.stroking else ""
+			get_viewport().set_input_as_handled()
+			return
 		if cab_active() and contactor_view_cache != null and contactor_view_cache.press(mouse):
 			drag = "contactor" if contactor_view_cache.mode != "" else ""
 			get_viewport().set_input_as_handled()
@@ -1801,6 +1824,10 @@ func _unhandled_input(event: InputEvent) -> void:
 			# wooden grip still wins when the pointer is directly on it.
 			if hit.rect.has_point(mouse) and distance>6:
 				nearest = {}
+		if not nearest.is_empty() and str(nearest.id) == "start" and control_kind("start") == "matchbox":
+			match_view().take(mouse)   # 1.4.14: the box gives a match (in the cab), no lever to drag
+			get_viewport().set_input_as_handled()
+			return
 		if not nearest.is_empty():
 			drag = nearest.id
 			drag_total = 0
@@ -1896,7 +1923,9 @@ func pole_mouse_rel(mouse: Vector2) -> float:
 	return (outer.affine_inverse() * mouse).x / ArtV3.PX * float(int(model.state.direction))
 
 func finish_drag(mouse: Vector2) -> void:
-	if drag == "contactor":
+	if drag == "match":
+		match_view().release(mouse)
+	elif drag == "contactor":
 		contactor_view().release(mouse)
 	elif drag == "zpult":
 		zpult.release()
@@ -2223,6 +2252,13 @@ func cab_art():
 func draw_cab_scene(size: Vector2) -> void:
 	cab_art().draw_cab_scene(size)
 	if contactor_view_cache != null: contactor_view_cache.draw(get_process_delta_time())   # 1.4.10: the open box lies over the cab
+	if match_view_cache != null: match_view_cache.draw()   # 1.4.14: the striker and the match in the hand
+
+# 1.4.14 the match of the steam locomotive (match_view.gd)
+var match_view_cache = null
+func match_view():
+	if match_view_cache == null: match_view_cache = MatchView.new(self)
+	return match_view_cache
 
 # 1.4.10 «Скрутка»: the contactor box of the electric locomotive (contactor_view.gd)
 var contactor_view_cache = null
@@ -2419,6 +2455,7 @@ func control_kind(id: String) -> String:
 	if model.vehicle_id() == "pneumatic" and id == "gear": return "wheel"   # the reducer: a hand wheel, turn it round like the valve of the steam locomotive
 	if model.vehicle_id() == "motorcar" and id == "gear": return "gate"
 	if model.vehicle_id() == "motorcar" and id == "start": return "key"   # 16.11: the ignition key instead of the toggle
+	if model.vehicle_id() == "steam" and id == "start" and Model.match_rules: return "matchbox"   # 1.4.14: a box of matches instead of the toggle «Розжиг»
 	return "toggle" if id == "start" else "lever"
 
 func gate_rect(closeup: bool) -> Rect2:

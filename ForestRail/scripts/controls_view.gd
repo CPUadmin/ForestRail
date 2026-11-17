@@ -100,6 +100,15 @@ func draw_controls_inner(body_transform: Transform2D, show_labels: bool = true) 
 		elif kind == "key":
 			canvas.draw_ignition(geo, body_transform, false)
 			continue
+		elif kind == "matchbox":
+			# 1.4.14: the box of matches (P31) where the toggle «Розжиг» was, with the count beside it
+			var span = maxf(18.0, geo.pivot.distance_to(geo.grip)) * 1.5
+			var tex: Texture2D = canvas.match_view().BOX_CLOSED
+			var box = Rect2(geo.pivot - Vector2(span * 0.5, span * 0.5 * float(tex.get_height()) / float(tex.get_width()) + span * 0.2), Vector2(span, span * float(tex.get_height()) / float(tex.get_width())))
+			canvas.draw_set_transform_matrix(body_transform)
+			canvas.draw_texture_rect(tex, box, false)
+			canvas.draw_string(canvas.font, box.position + Vector2(0, box.size.y + 13.0), "×%d" % canvas.model.matches().count(), HORIZONTAL_ALIGNMENT_CENTER, box.size.x, 12, canvas.PAPER)
+			continue
 		elif kind == "wheel":
 			canvas.draw_handwheel(geo.pivot, float(geo.radius), angle, canvas.GOLD if id == "gear" else canvas.GREEN, canvas.drag == id)
 		elif kind == "slider":

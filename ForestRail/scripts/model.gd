@@ -95,7 +95,8 @@ static var order_rules = false
 static var live_effects = false
 # B5.6: wear and damage of the nodes. The tests of the older numbers leave it off (every node stays new).
 static var wear_rules = false
-static var contactor_rules = false   # 1.4.10: the electric locomotive starts in the contactor box («Скрутка»); off in most tests, like wear_rules
+static var contactor_rules = false
+static var match_rules = false   # 1.4.14: the steam locomotive is lit with a match (matches.gd); off in most tests   # 1.4.10: the electric locomotive starts in the contactor box («Скрутка»); off in most tests, like wear_rules
 # B6.11 b: bolts from the road (the log of a trip, drops at the end, glints by the rail). The old tests leave it off.
 static var junk_rules = false
 var _wear = null
@@ -542,6 +543,12 @@ func casino() -> Object:
 func wear() -> Object:
 	if _wear == null: _wear = Wear.new(self)
 	return _wear
+
+const Matches = preload("res://scripts/matches.gd")
+var _matches = null
+func matches() -> Object:
+	if _matches == null: _matches = Matches.new(self)
+	return _matches
 
 const Contactor = preload("res://scripts/contactor.gd")
 var _contactor = null
@@ -1255,6 +1262,7 @@ func settle() -> bool:
 	state.gear = 0
 	cool_boiler()
 	if wear_rules: wear().free_touch_up()
+	matches().refill()   # 1.4.14: the depot gives a new box of matches for nothing
 	message = ("Рейс окончен. Заработано %d монет" % reward if reward >= 0 else "Рейс окончен с штрафом: %d монет" % -reward) + (" · " + ", ".join(notes) if not notes.is_empty() else "")
 	return true
 
@@ -1291,6 +1299,7 @@ func rescue() -> void:
 	if wear_rules:
 		wear().free_touch_up()
 		wear().rescue_repair()   # the depot puts the traction nodes in order at once
+	matches().refill()   # 1.4.14: and a new box of matches
 	refuel()
 	message = "Помощь доставила состав в депо за %d монет%s. Груз и покупки сохранены" % [fee, (", долг %d" % (fee - paid)) if fee > paid else ""] if fee > 0 else "Помощь доставила состав в депо. Груз и покупки сохранены"
 
