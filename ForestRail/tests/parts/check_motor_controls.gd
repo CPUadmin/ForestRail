@@ -216,6 +216,9 @@ func run() -> void:
 				# turning the key back by dragging round the lock stops the engine too
 				var lock_point=game.pult_t*game.control_geometry("start",true).grip
 				await mouse(lock_point,true)
+				# 17.11: the real cursor is sent the other way (towards СТАРТЕР); the drag must follow the event, not the OS cursor
+				Input.warp_mouse(lock_point+Vector2(60,-5))
+				await frame()
 				var turn=InputEventMouseMotion.new()
 				turn.position=lock_point+Vector2(-40,-5);turn.relative=Vector2(-40,-5);turn.button_mask=MOUSE_BUTTON_MASK_LEFT
 				get_tree().root.push_input(turn,true)

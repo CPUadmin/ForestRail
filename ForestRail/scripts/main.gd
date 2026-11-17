@@ -2276,7 +2276,7 @@ func _input(event: InputEvent) -> void:
 		elif drag in ["brake","throttle","gear","start"]:
 			lever_travel+=event.relative.length()
 			if drag=="start" and control_kind("start")=="key" and lever_travel>=8:
-				ignition().drag_to(wrapf(key_mouse_angle(get_global_mouse_position())+key_grab,-PI,PI))
+				ignition().drag_to(wrapf(key_mouse_angle(event.position)+key_grab,-PI,PI))   # the event's point, as the press used (not the OS cursor)
 			elif drag!="start":
 				var outer=pult_t if drag_closeup else body_transform(model.vehicle_id(),model.body_s_render(0))
 				# Relative local travel excludes camera motion and preserves the grab offset.
