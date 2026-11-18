@@ -80,6 +80,13 @@ func stroke(share: float, frames: int) -> void:
 		move_match(from.lerp(to, float(i) / float(frames)))
 	await frame()
 
+# a motion the test did not make (the real cursor reporting itself): it moves the hand, no frame is judged
+func stray(point: Vector2) -> void:
+	var e = InputEventMouseMotion.new()
+	e.position = point
+	e.global_position = point
+	get_tree().root.push_input(e, true)
+
 func double_click(point: Vector2) -> void:
 	var e = InputEventMouseButton.new()
 	e.position = point; e.global_position = point; e.button_index = MOUSE_BUTTON_LEFT; e.pressed = true; e.double_click = true
@@ -88,10 +95,10 @@ func double_click(point: Vector2) -> void:
 	await frame()
 	await button(point, false)
 
-# carry the hand smoothly to a point, a frame at a time
+# carry the hand smoothly to a point, a frame at a time, from where the game last judged it (not from a stray report)
 func carry(to: Vector2, frames: int) -> void:
 	var v = game.match_view()
-	var from = v.pos
+	var from = v.last_pos
 	for i in range(1, frames + 1):
 		move_match(from.lerp(to, float(i) / float(frames)))
 
@@ -209,6 +216,10 @@ func run() -> void:
 		await carry(door.get_center(), 20)
 		await click(door.get_center())
 		check(bool(game.model.boiler().door), "the door opens with the match in hand " + tag)
+		# 18.11: while a click waits for frames, Windows may report the real cursor (it sends a move when the window
+		# changes under it). The test drives `process` itself, so such a stray report must not become the start of the
+		# carry: once it did, and the first step "jumped" across the screen and blew the match out (1600x900).
+		stray(Vector2(view.size.x * 0.15, view.size.y * 0.2))
 		await carry(fire.get_center(), 20)
 		check(f.lit() and not bool(game.model.boiler().lit), "over the open firebox it waits for the click " + tag)
 		await click(fire.get_center())
