@@ -77,7 +77,7 @@ func draw_cab_scene(size: Vector2) -> void:
 		right_edge = canvas.menu_hud_button.get_parent().position.x - 10.0
 	canvas.cab_exit_rect = Rect2(right_edge - 190.0, 14, 190, 40)
 	canvas.draw_style_box(canvas.style(Color(0.08, 0.12, 0.10, 0.86), canvas.GOLD, 8), canvas.cab_exit_rect)
-	canvas.draw_string(canvas.font, canvas.cab_exit_rect.position + Vector2(0, 27), "Выйти [E]", HORIZONTAL_ALIGNMENT_CENTER, canvas.cab_exit_rect.size.x, 19, canvas.PAPER)
+	canvas.draw_string(canvas.font, canvas.cab_exit_rect.position + Vector2(0, 27), "Выйти [%s]" % canvas.key_name("cab"), HORIZONTAL_ALIGNMENT_CENTER, canvas.cab_exit_rect.size.x, 19, canvas.PAPER)
 	var ahead = canvas.instruments.climb_ahead(canvas.model.sight_m()) if canvas.instruments != null else {}
 	var text = "Впереди без крутых подъёмов" if ahead.is_empty() else ("Подъём +%.1f%% — сейчас" % ahead.grade if ahead.distance < 10 else "Подъём +%.1f%% через %d м" % [ahead.grade, ahead.distance])
 	if perf: canvas.perf_add("cab_rest", t0)
@@ -381,6 +381,9 @@ func draw_cab_nose(view: Rect2, look: Dictionary) -> void:
 		if bool(canvas.model.jet.started):
 			for ring in range(4): canvas.draw_circle(jet_lamp, vh * (0.05 + ring * 0.03), Color(1.0, 0.9, 0.5, 0.07 - ring * 0.015))
 	elif kind == "steam":
+		if canvas.steam_cab().revised():
+			canvas.steam_cab().draw_boiler_ahead(cx, view, running)
+			return
 		var barrel = Rect2(cx - vh * 0.42, bottom - vh * 0.30, vh * 0.84, vh * 0.30)
 		canvas.draw_rect(barrel, Color("1b2224"))
 		canvas.draw_polygon(PackedVector2Array([barrel.position, Vector2(barrel.end.x, barrel.position.y), Vector2(barrel.end.x, barrel.position.y + barrel.size.y * 0.35), Vector2(barrel.position.x, barrel.position.y + barrel.size.y * 0.35)]), PackedColorArray([Color(1, 1, 1, 0.16), Color(1, 1, 1, 0.16), Color(1, 1, 1, 0.0), Color(1, 1, 1, 0.0)]))
@@ -498,7 +501,9 @@ func draw_cab_frame(size: Vector2, top: float) -> void:
 		canvas.draw_circle(Vector2(size.x * (0.1 + 0.8 * canvas.cab_hash(speck, 20.0)), roof + (top - roof) * canvas.cab_hash(speck, 21.0)), 1.0 + canvas.cab_hash(speck, 22.0) * 1.5, Color(1, 1, 1, 0.1))
 	# dashboard ledge in wood, then the steel panel
 	canvas.draw_texture_rect_region(canvas.CAB_WOOD, Rect2(0, top - 22, size.x, 18), Rect2(54, 790, 1428, 128), Color(0.68, 0.68, 0.64))
-	if dash_v2():
+	if canvas.steam_cab().revised():
+		canvas.draw_texture_rect(canvas.steam_cab().BOARD, Rect2(0, top - 4, size.x, size.y - top + 4), false, Color.WHITE.darkened(canvas.model.night_amount() * 0.22))
+	elif dash_v2():
 		draw_dash_panel_v2(size, top)
 	else:
 		# Use the painted lower panel, leaving the live gauges free to vary by cab.
@@ -522,16 +527,22 @@ func draw_plain_header(size: Vector2, top: float, kind: String, brass: Color) ->
 	canvas.draw_string(canvas.font, plate.position + Vector2(0, 19), title, HORIZONTAL_ALIGNMENT_CENTER, plate.size.x, 14, Color("e6cf8b"))
 	canvas.draw_circle(plate.position + Vector2(8, 13), 2.5, brass)
 	canvas.draw_circle(plate.position + Vector2(plate.size.x - 8, 13), 2.5, brass)
-	# indicator lamps
+	draw_status_lamps(kind, Vector2(60, top + 22), 86)
+
+func draw_status_lamps(kind: String, origin: Vector2, spacing: float) -> void:
 	var amount = float(canvas.model.state.fleet_by_id[kind].fuel)
 	var tank = float(canvas.model.object_stats(kind).tank)
 	var lamps = [["ХОД", absf(float(canvas.model.state.v)) > 0.1, Color("5cc17f")], ["ДВИГАТЕЛЬ", bool(canvas.model.state.engine), Color("e6b34a")], ["ТОРМОЗ", float(canvas.model.state.brake) > 0.1, Color("e0564a")], ["ЗАПАС", amount / maxf(0.001, tank) < 0.15, Color("e0564a")]]
+	var bench = canvas.steam_cab().revised()
+	if bench:
+		lamps[1][0] = "ОГОНЬ"
+		lamps[3][0] = "МАЛО УГЛЯ"
 	for i in range(lamps.size()):
-		var at = Vector2(60 + i * 86, top + 22)
+		var at = origin + Vector2(i * spacing, 0)
 		canvas.draw_circle(at, 9, Color("0c100e"))
 		canvas.draw_circle(at, 7, lamps[i][2] if lamps[i][1] else lamps[i][2].darkened(0.75))
 		if lamps[i][1]: canvas.draw_circle(at, 16, Color(lamps[i][2], 0.22))
-		canvas.draw_string(canvas.font, at + Vector2(-40, 25), lamps[i][0], HORIZONTAL_ALIGNMENT_CENTER, 80, 10, Color("a9a589"))
+		canvas.draw_string(canvas.font, at + Vector2(-45, 25), lamps[i][0], HORIZONTAL_ALIGNMENT_CENTER, 90, 14 if bench else 10, Color("dfceb0") if bench else Color("a9a589"))
 
 
 # ===== Petrol cab dashboard, dark gunmetal with copper trim (the owner's reference picture) =====
@@ -644,10 +655,15 @@ func draw_cab_dash_details(size: Vector2, layout: Dictionary) -> void:
 	var pult: Rect2 = layout.rect
 	var brass = Color("c9a85a")
 	var kind = canvas.model.vehicle_id()
-	if kind == "motorcar": draw_petrol_header_v2(size, top)
+	var bench = canvas.steam_cab().revised()
+	if bench:
+		canvas.steam_cab().draw_board_labels()
+		draw_status_lamps(kind, Vector2(size.x * 0.397, lerpf(top, size.y, 0.86)), size.x * 0.059)
+	elif kind == "motorcar": draw_petrol_header_v2(size, top)
 	else: draw_plain_header(size, top, kind, brass)
 	# brass clock on the right of the ledge
 	var clock = Vector2(size.x - 70, top + 26)
+	if bench: clock = Vector2(size.x * 0.61, lerpf(top, size.y, 0.136))
 	canvas.draw_circle(clock, 22, brass)
 	canvas.draw_circle(clock, 19, Color("f1ead2"))
 	for hour in range(12):
@@ -661,12 +677,13 @@ func draw_cab_dash_details(size: Vector2, layout: Dictionary) -> void:
 	canvas.draw_line(clock, clock + Vector2(cos(ah), sin(ah)) * 10, Color("2a2218"), 2.5, true)
 	canvas.draw_circle(clock, 2, Color("a8231c"))
 	# hanging cables
-	canvas.draw_polyline(PackedVector2Array([Vector2(size.x * 0.30, top + 6), Vector2(size.x * 0.34, top + 42), Vector2(size.x * 0.38, top + 8)]), Color("0b0e0c"), 4.0, true)
+	if not bench:
+		canvas.draw_polyline(PackedVector2Array([Vector2(size.x * 0.30, top + 6), Vector2(size.x * 0.34, top + 42), Vector2(size.x * 0.38, top + 8)]), Color("0b0e0c"), 4.0, true)
 	if kind == "motorcar": draw_petrol_cab_extras(size, layout)
 	if kind in ["steam", "locomotive", "pneumatic"]: draw_cab_reverser(size, layout)
 	if kind == "locomotive": draw_electric_cab_extras(size, layout)
 	if kind == "pneumatic": draw_pneumatic_cab_extras(size, layout)
-	if kind == "steam":
+	if kind == "steam" and not bench:
 		# water glass on the right: tube with the level, brass fittings
 		var tube = Rect2(size.x - 150, top + 70, 16, 120)
 		canvas.draw_rect(tube, Color("a9d1d6", 0.35))
@@ -675,6 +692,7 @@ func draw_cab_dash_details(size: Vector2, layout: Dictionary) -> void:
 		canvas.draw_rect(Rect2(tube.position.x - 6, tube.position.y - 8, tube.size.x + 12, 8), brass)
 		canvas.draw_rect(Rect2(tube.position.x - 6, tube.end.y, tube.size.x + 12, 8), brass)
 		canvas.draw_string(canvas.font, tube.position + Vector2(-20, tube.size.y + 26), "уровень", HORIZONTAL_ALIGNMENT_CENTER, 56, 11, Color("a9a589"))
+	if kind == "steam":
 		# whistle cord with a ring, swaying a little with the speed
 		var sway = sin(canvas.time * 3.0) * minf(6.0, absf(float(canvas.model.state.v))) if not canvas.settings.reduce_motion else 0.0
 		var cord_top = Vector2(size.x * 0.5 + 220, 0.0)
@@ -692,6 +710,8 @@ func draw_cab_reverser(size: Vector2, layout: Dictionary) -> void:
 	var strip_x = size.x * 0.5 + 190.0
 	var brass = Color("c9a85a")
 	var panel = Rect2(strip_x, top + 10, 190, 60)
+	if canvas.steam_cab().revised():
+		panel.position = Vector2(size.x * 0.486 - panel.size.x * 0.5, lerpf(top, size.y, 0.69) - panel.size.y * 0.5)
 	canvas.draw_style_box(canvas.style(Color("1d2320"), brass, 6), panel)
 	canvas.draw_string(canvas.font, panel.position + Vector2(0, 54), "НАПРАВЛЕНИЕ", HORIZONTAL_ALIGNMENT_CENTER, panel.size.x, 10, Color("c7c3a0"))
 	var forward = int(canvas.model.state.get("reverser", 1)) >= 0
@@ -875,7 +895,7 @@ func petrol_right(size: Vector2, layout: Dictionary) -> Dictionary:
 
 func draw_round_gauge(center: Vector2, radius: float, fraction: float, title: String, readout: String, zones: Array, ticks: int = 10, scale_text: Array = []) -> void:
 	fraction = canvas.cab_needle(title, fraction)
-	var v2 = dash_v2()
+	var v2 = dash_v2() or canvas.steam_cab().revised()
 	canvas.draw_circle(center + Vector2(2, 3), radius + 8, Color(0, 0, 0, 0.4))
 	canvas.draw_circle(center, radius + 8, Color("b9793a") if v2 else Color("a98a4a"))
 	canvas.draw_arc(center, radius + 8, PI * 1.1, PI * 1.6, 12, Color("f0c088") if v2 else Color("e6cf8b"), 2.0, true)
@@ -931,6 +951,10 @@ func draw_cab_gauges(size: Vector2, layout: Dictionary) -> void:
 	var nominal = canvas.instruments.nominal_speed() / maximum if canvas.instruments != null else 0.8
 	var speed_zones = [[nominal * 0.72, Color("5cc17f")], [nominal, Color("e6b34a")], [1.0, Color("e0564a")]]
 	var left = pult.position.x * 0.5
+	var bench = canvas.steam_cab().revised()
+	if bench:
+		radius = minf(size.x * 0.055, (size.y - float(layout.dash_top)) * 0.166)
+		left = size.x * 0.164
 	draw_round_gauge(Vector2(left - radius * 1.1, y), radius, speed / maximum, "СКОРОСТЬ", "%.1f км/ч" % speed, speed_zones, 10, [0, roundi(maximum * 0.25), roundi(maximum * 0.5), roundi(maximum * 0.75), roundi(maximum)])
 	var right = pult.end.x + (size.x - pult.end.x) * 0.5
 	var stats = canvas.model.object_stats(kind)
@@ -946,8 +970,9 @@ func draw_cab_gauges(size: Vector2, layout: Dictionary) -> void:
 	elif kind == "steam":
 		var work = float(canvas.model.boiler_cfg().work_pressure_bar) / float(canvas.model.boiler_cfg().max_pressure_bar)
 		draw_round_gauge(Vector2(left + radius * 1.1, y), radius, float(canvas.model.boiler().pressure), "ДАВЛЕНИЕ", "%.1f бар" % canvas.model.pressure_bar(), [[work, Color("e6b34a")], [0.9, Color("5cc17f")], [1.0, Color("e0564a")]], 10, [0, 2, 4, 6, 8, 10])
-		var water = float(canvas.model.state.fleet_by_id.steam.get("water", 0))
-		draw_round_gauge(Vector2(right - radius * 0.9, y), radius, water / float(stats.water), "ВОДА", "%.0f л" % water, low_bad, 4, ["0", "", "1/2", "", "П"])
+		if not bench:
+			var water = float(canvas.model.state.fleet_by_id.steam.get("water", 0))
+			draw_round_gauge(Vector2(right - radius * 0.9, y), radius, water / float(stats.water), "ВОДА", "%.0f л" % water, low_bad, 4, ["0", "", "1/2", "", "П"])
 	else:
 		draw_round_gauge(Vector2(left + radius * 1.1, y), radius, amount / float(stats.tank), "ЗАРЯД", "%d%%" % roundi(amount / float(stats.tank) * 100), low_bad, 10, [0, 25, 50, 75, 100])
 		var charge = amount / float(stats.tank)

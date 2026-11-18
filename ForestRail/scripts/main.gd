@@ -284,6 +284,10 @@ func _ready() -> void:
 	art_world.game = self
 	art_world.art = art
 	add_child(art_world)
+	if "--steam-cab-preview" in qa_args:
+		saves.directory = "user://steam_cab_preview"
+		DirAccess.make_dir_recursive_absolute(saves.directory)
+		settings_path = saves.directory.path_join("settings.json")
 	for argument in qa_args:
 		if argument.begins_with("--profile-dir="):
 			saves.directory=argument.trim_prefix("--profile-dir=")
@@ -336,6 +340,17 @@ func _ready() -> void:
 				selected_object = model.vehicle_id()
 				camera_s = float(model.state.s)
 				camera_y = model.route.sample(camera_s).y
+	if "--steam-cab-preview" in args:
+		model.new_game(42, 2, "creative")
+		model.select_vehicle("steam")
+		model.start_free_ride()
+		model.state.s = 100.0
+		model.state.brake = 1.0
+		selected_object = "steam"
+		camera_s = model.state.s
+		camera_y = model.route.sample(camera_s).y
+		screen = "game"
+		cab_view = true
 	rebuild()
 
 func load_textures() -> void:
@@ -1136,7 +1151,12 @@ func draw_control_zoom() -> void:
 			var box_w=78.0
 			var box_h=box_w*float(box_tex.get_height())/float(box_tex.get_width())
 			point=rect.position+Vector2(65+100*i,127)
+			if steam_cab().revised(): point = steam_cab().board_point(0.743, 0.78)
 			draw_texture_rect(box_tex,Rect2(point-Vector2(box_w,box_h)*0.5,Vector2(box_w,box_h)),false)
+		elif steam_cab().revised() and id in ["brake", "throttle", "gear"]:
+			if id == "brake":
+				draw_arc(pivot, length, -PI / 2 - 0.55, -PI / 2 + 0.55, 24, Color("947953"), 2, true)
+			steam_cab().draw_drive_control(id, geo)
 		elif kind=="wheel":
 			draw_handwheel(pivot,float(geo.radius),angle,GOLD if id=="gear" else GREEN,drag==id)
 		elif kind=="slider":
@@ -1158,10 +1178,18 @@ func draw_control_zoom() -> void:
 			draw_set_transform_matrix(pult_t)
 		# the key lives in the dashboard outside the pult: its hit counts wherever the mouse is in the cab
 		grip_hits.append({"id":id,"position":pult_t*point,"closeup":true,"dash":kind=="key","radius":(40.0 if kind=="matchbox" else float(geo.get("side",0.0))*0.4)*pult_t.get_scale().x})
+		if steam_cab().revised() and kind == "wheel":
+			grip_hits.back().position = pult_t * pivot
+			grip_hits.back().radius = (float(geo.radius) + 7) * pult_t.get_scale().x
 		var steam=model.vehicle_id()=="steam"
 		var title={"brake":"Тормоз","throttle":{"locomotive":"Тяга","steam":"Вентиль","pneumatic":"Вентиль"}.get(model.vehicle_id(),"Газ"),"gear":"Вода" if steam else ("Редуктор" if model.vehicle_id()=="pneumatic" else "Передача"),"start":"Розжиг" if steam else ("Обогрев" if model.vehicle_id()=="pneumatic" else "Пуск")}[id]
 		var shown_gear=lever_pending_gear if drag=="gear" else int(model.state.gear)
 		var label={"brake":"%d%%" % (model.state.brake*100),"throttle":"%d%%" % (model.state.throttle*100),"gear":("%d%%" % (float(model.boiler().feed)*100)) if steam else (("%.0f бар" % model.working_pressure()) if model.vehicle_id()=="pneumatic" else GEAR_LABELS[shown_gear]),"start":("спичек: %d" % model.matches().count() if kind=="matchbox" else ("Горит" if model.state.engine else "Разжечь")) if steam else (("Греет" if model.heating_on() else "Выкл.") if model.vehicle_id()=="pneumatic" else key_label())}[id]
+		if steam and steam_cab().revised() and kind == "matchbox":
+			steam_cab().centered(label, point + Vector2(0, 43), 150, 17, GOLD)
+			continue
+		if steam_cab().revised() and kind == "wheel":
+			title = "Пар" if id == "throttle" else "Вода"
 		if kind!="key": draw_string(font,rect.position+Vector2(15+100*i,78),title,HORIZONTAL_ALIGNMENT_CENTER,100,16,PAPER)
 		# the key has no label under it: the lock, its marks and the lamps say where it stands
 		if kind!="key": draw_string(font,rect.position+Vector2(15+100*i,168 if id=="start" else (268 if kind=="slider" else 253)),label,HORIZONTAL_ALIGNMENT_CENTER,100,16,GOLD)
@@ -1173,6 +1201,7 @@ func draw_control_zoom() -> void:
 				draw_string(font,mark+Vector2(-17,-27 if endpoint==1 else -12),["0","100"][endpoint],HORIZONTAL_ALIGNMENT_CENTER,34,13,PAPER)
 		if kind!="key" and (drag==id or (pult_t*point).distance_to(get_global_mouse_position())<24): draw_arc(point,10,0,TAU,28,PAPER,1.5,true)
 	if model.vehicle_id()=="steam": draw_steam_panel(rect)
+	if steam_cab().revised(): return
 	var feedback=toast if toast_seconds>0 else ("Вентиль закроется сам, когда отпустишь. Спичку возьми из коробка." if model.vehicle_id()=="steam" else ("Веди шар рычага по кулисе: через N в нужный паз. Ключ — держи до пуска." if model.vehicle_id()=="motorcar" else ("Двигай ручки вверх и вниз по прорезям, они держат положение." if model.vehicle_id()=="locomotive" else "Редуктор: крути колесо, 3 оборота. Обогрев и клапаны: щелчок.")))
 	draw_multiline_string(font,rect.position+Vector2(16,rect.size.y-35),feedback,HORIZONTAL_ALIGNMENT_LEFT,310,15,2,GOLD if toast_seconds>0 else Color("c7c3a0"))
 
@@ -1846,6 +1875,12 @@ func _unhandled_input(event: InputEvent) -> void:
 				if control_kind(drag)=="gate": gate_pos=gate_slot_pos(int(model.state.gear))
 				elif control_kind(drag)=="wheel":
 					wheel_last=atan2(press_geo.grip.x-press_geo.pivot.x,-(press_geo.grip.y-press_geo.pivot.y))
+					if drag_closeup and steam_cab().revised():
+						var local_mouse = pult_t.affine_inverse() * mouse
+						if local_mouse.distance_to(press_geo.pivot) > float(press_geo.radius) * 0.25:
+							lever_target_point = local_mouse
+							var arm = local_mouse - Vector2(press_geo.pivot)
+							wheel_last = atan2(arm.x, -arm.y)
 					wheel_acc=float(press_geo.angle)
 				elif control_kind(drag)=="key":
 					key_pivot_screen=nearest.position
@@ -2214,6 +2249,10 @@ func update_cab_sides() -> void:
 			window.queue_redraw()
 
 func pult_screen_rect() -> Rect2:
+	if steam_cab().revised():
+		var size = get_viewport_rect().size
+		var top = float(cab_layout(size).dash_top)
+		return Rect2(0, top, size.x, size.y - top)
 	if cab_active(): return cab_layout(get_viewport_rect().size).rect
 	return Rect2()
 

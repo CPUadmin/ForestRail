@@ -3,12 +3,116 @@ extends RefCounted
 # Работает через canvas (main.gd), как depot_ui.gd.
 
 var canvas = null   # main.gd
+const BOARD = preload("res://assets/art_cab/steam_workbench.png")
+const BOILER = preload("res://assets/art_cab/steam_boiler_forward.png")
+const TOOLS = preload("res://assets/art_cab/steam_firing_tools.png")
+const CONTROLS = preload("res://assets/art_cab/steam_drive_controls.png")
+const BUCKET_ART = Rect2(12, 37, 660, 647)
+const OPEN_ART = Rect2(686, 12, 748, 670)
+const CLOSED_ART = Rect2(1536, 12, 625, 670)
+var classic = "--classic-steam-cab" in OS.get_cmdline_user_args()
 
 func _init(owner_canvas) -> void:
 	canvas = owner_canvas
 
 func steam_fire_rect(rect: Rect2) -> Rect2:
+	if revised():
+		return Rect2(board_point(0.884, 0.45) - Vector2(77, 73), Vector2(154, 146))
 	return Rect2(rect.position+Vector2(150,282),Vector2(130,64))
+
+func revised() -> bool:
+	return not classic and canvas.cab_active() and canvas.model.vehicle_id() == "steam"
+
+# Fractional board positions are mapped back to the same pult coordinates used for mouse input.
+func board_point(x: float, y: float) -> Vector2:
+	var size = canvas.get_viewport_rect().size
+	var top = float(canvas.cab_layout(size).dash_top)
+	return canvas.pult_t.affine_inverse() * Vector2(size.x * x, lerpf(top, size.y, y))
+
+func centered(text: String, point: Vector2, width: float, pixels: int, color: Color) -> void:
+	canvas.draw_string(canvas.font, point - Vector2(width * 0.5, 0), text, HORIZONTAL_ALIGNMENT_CENTER, width, pixels, color)
+
+func draw_drive_control(id: String, geo: Dictionary) -> void:
+	canvas.draw_set_transform_matrix(canvas.pult_t * Transform2D(geo.angle, geo.pivot))
+	if id == "brake":
+		# The painted ball and mounting bolt are 550 texture pixels apart.
+		var scale = Vector2(geo.pivot).distance_to(geo.grip) / 550.0
+		canvas.draw_texture_rect_region(CONTROLS, Rect2(Vector2(-98, -645) * scale, Vector2(196, 720) * scale), Rect2(255, 0, 196, 720))
+	else:
+		var diameter = 2.0 * float(geo.radius) + 10.0
+		var dest = Rect2(Vector2.ONE * -diameter * 0.5, Vector2.ONE * diameter)
+		var source = Rect2(731, 0, 708, 715) if id == "throttle" else Rect2(1456, 0, 707, 715)
+		canvas.draw_texture_rect_region(CONTROLS, dest, source)
+		canvas.draw_circle(Vector2(0, -geo.radius), 3.5, Color("f8dd8a"))
+	canvas.draw_set_transform_matrix(canvas.pult_t)
+
+func draw_board_labels() -> void:
+	canvas.draw_set_transform_matrix(canvas.pult_t)
+	for group in [[0.164, "ПРИБОРЫ"], [0.486, "УПРАВЛЕНИЕ"], [0.827, "ТОПКА"]]:
+		var pos = board_point(group[0], 0.145)
+		centered(group[1], pos, 210, 21, Color("f1dfaf"))
+		canvas.draw_line(pos + Vector2(-43, 9), pos + Vector2(43, 9), Color("aa8854"), 1.5)
+	var fleet = canvas.model.state.fleet_by_id.steam
+	var water = float(fleet.water)
+	var glass = Rect2(board_point(0.164, 0.74) - Vector2(100, 0), Vector2(200, 13))
+	canvas.draw_style_box(canvas.style(Color("142022"), Color("a38a55"), 5), glass.grow(3))
+	var filled = glass.size.x * clampf(water / float(canvas.model.object_stats("steam").water), 0.0, 1.0)
+	canvas.draw_rect(Rect2(glass.position, Vector2(filled, glass.size.y)), Color("57878c"))
+	for i in range(1, 8):
+		var mark = glass.position + Vector2(glass.size.x * i / 8.0, 0)
+		canvas.draw_line(mark, mark + Vector2(0, 5), Color("f5e9c9"), 1.5)
+	centered("Вода в запасе  ·  %.0f л" % water, glass.get_center() + Vector2(0, 36), 260, 18, canvas.PAPER)
+	canvas.draw_set_transform_matrix(Transform2D.IDENTITY)
+
+func draw_boiler_ahead(cx: float, view: Rect2, running: bool) -> void:
+	var height = view.size.y * 0.46
+	var boiler = Rect2(cx - 0.75 * height, view.end.y - height, 1.5 * height, height)
+	canvas.draw_texture_rect(BOILER, boiler, false)
+	if running:
+		var mouth = Vector2(cx, boiler.position.y + height * 0.085)
+		for i in range(7):
+			var age = fposmod(canvas.time * (0.55 + canvas.model.state.throttle) + i / 7.0, 1.0)
+			var offset = Vector2(sin(i + canvas.time) * 7 * age - 22 * age, -age * height * 0.7)
+			canvas.draw_circle(mouth + offset, 4 + age * 24, Color(0.85, 0.83, 0.77, (1.0 - age) * 0.28), true, -1, true)
+
+func draw_firing_station(rect: Rect2) -> void:
+	var boiler = canvas.model.boiler()
+	var fleet = canvas.model.state.fleet_by_id.steam
+	var bucket = Rect2(board_point(0.743, 0.448) - Vector2(63, 61), Vector2(126, 122))
+	var fire = steam_fire_rect(rect)
+	canvas.draw_texture_rect_region(TOOLS, bucket, BUCKET_ART, Color.WHITE if float(fleet.fuel) > 0 else Color("656366"))
+	var open = bool(boiler.door)
+	# The open leaf projects to the left. Keep the actual opening fixed between both states.
+	var frame = Rect2(fire.position - Vector2(23, 0), fire.size + Vector2(23, 0)) if open else fire
+	canvas.draw_rect(fire.grow(-20), Color("120f0c"))
+	canvas.draw_texture_rect_region(TOOLS, frame, OPEN_ART if open else CLOSED_ART)
+	if bool(boiler.lit):
+		var flicker = 0.5 + 0.5 * sin(canvas.time * 8.0) if canvas.light_flicker_enabled() else 0.5
+		var glow = Color(1.0, 0.39, 0.09, 0.12 + flicker * 0.06)
+		if open:
+			var bed = fire.get_center() + Vector2(0, 32)
+			canvas.draw_circle(bed, 30, glow)
+			for i in range(9):
+				var ember = bed + Vector2((i - 4) * 8, sin(i * 2.3) * 3)
+				canvas.draw_circle(ember, 6, Color("983813"), true, -1, true)
+				canvas.draw_circle(ember - Vector2(1, 2), 3.5 + flicker, Color("fbaa4c"), true, -1, true)
+				var height = (10 + 14 * absf(sin(i * 1.4 + flicker))) * (0.55 + 0.45 * float(boiler.heat))
+				var tip = ember + Vector2(sin(i + flicker) * 5, -height)
+				var flame = PackedVector2Array([ember + Vector2(-5, 1), ember + Vector2(-3, -height * 0.5), tip, ember + Vector2(3, -height * 0.44), ember + Vector2(5, 1)])
+				canvas.draw_colored_polygon(flame, Color(1, 0.56, 0.15, 0.8))
+		else:
+			canvas.draw_line(fire.get_center() + Vector2(-23, 4), fire.get_center() + Vector2(20, 4), Color("dd7431"), 3)
+	centered("Уголь  ·  %.0f кг" % fleet.fuel, bucket.get_center() + Vector2(0, 92), 180, 19, canvas.PAPER)
+	centered("%.1f / %.0f кг" % [boiler.firebox, canvas.model.boiler_cfg().firebox_kg], fire.get_center() + Vector2(0, 94), 175, 19, canvas.PAPER)
+	var door = Rect2(board_point(0.884, 0.78) - Vector2(83, 22), Vector2(166, 44))
+	canvas.draw_style_box(canvas.style(Color("24221d"), Color("b69860"), 5), door)
+	centered("Закрыть дверцу" if open else "Открыть дверцу", door.get_center() + Vector2(0, 6), door.size.x, 17, canvas.PAPER)
+	canvas.steam_hits.append({"id":"bucket", "rect":canvas.pult_t * bucket})
+	canvas.steam_hits.append({"id":"door", "rect":canvas.pult_t * door})
+	if canvas.drag == "coal":
+		var coal = canvas.pult_t.affine_inverse() * canvas.drag_cursor
+		canvas.draw_circle(coal, 10, Color("282623"))
+		canvas.draw_arc(coal, 10, PI, TAU, 12, canvas.GOLD, 1.5, true)
 
 # In the cab the steam corner of the dashboard has real props: an iron plate, a bucket
 # with coal in it and a firebox door that glows and flickers with the fire.
@@ -62,6 +166,9 @@ func draw_steam_cab_props(bucket: Rect2, fire: Rect2, door_button: Rect2, boiler
 
 # Boiler corner of the steam pult: coal bucket, firebox with door, manometer.
 func draw_steam_panel(rect: Rect2) -> void:
+	if revised():
+		draw_firing_station(rect)
+		return
 	var b=canvas.model.boiler()
 	var cfg=canvas.model.boiler_cfg()
 	var fleet=canvas.model.state.fleet_by_id.steam

@@ -112,6 +112,22 @@ func fixture():
 	m.state.engine = false
 	return m
 
+func turn_from_right_edge(id: String) -> void:
+	var geo = game.control_geometry(id, true)
+	var right = game.pult_t * (geo.pivot + Vector2.RIGHT * geo.radius)
+	var down = game.pult_t * (geo.pivot + Vector2.DOWN * geo.radius)
+	await button(right, true)
+	check(game.drag == id, "the visible right rim can be grabbed: " + id)
+	var e = InputEventMouseMotion.new()
+	e.button_mask = MOUSE_BUTTON_MASK_LEFT
+	e.position = down
+	e.global_position = down
+	e.relative = down - right
+	get_tree().root.push_input(e, true)
+	await button(down, false)
+	var value = float(game.model.boiler().feed) if id == "gear" else float(game.model.state.throttle)
+	check(is_equal_approx(value, PI * 0.5 / game.wheel_sweep()), "a quarter turn on the rim gives a quarter turn: " + id)
+
 func run() -> void:
 	var args = Array(OS.get_cmdline_user_args()).filter(func(arg): return not arg.begins_with("--"))
 	if not args.is_empty(): output_dir = args[0]
@@ -132,6 +148,7 @@ func run() -> void:
 		get_tree().root.size = size
 		await get_tree().create_timer(0.2).timeout
 		game.model = fixture()
+		game.toast_seconds = 0.0
 		game.screen = "game"
 		game.rebuild()
 		game.camera_s = 100; game.camera_y = 0; game.camera_x = game.get_viewport_rect().size.x * 0.65
@@ -151,6 +168,10 @@ func run() -> void:
 		check(game.model.boiler().firebox >= game.model.boiler_cfg().min_fire_kg, "coal from the bucket reaches the open firebox " + tag)
 		await click(door.get_center())
 		await shot("cab_box_" + tag)
+		if game.steam_cab().revised():
+			game.model.set_feed(0)
+			await turn_from_right_edge("gear")
+			await turn_from_right_edge("throttle")
 		var f = game.model.matches()
 		await take_fresh()
 		check(f.hand == "fresh" and f.count() < 10, "a click on the box gives a match " + tag)
@@ -193,6 +214,18 @@ func run() -> void:
 		await click(fire.get_center())
 		check(bool(game.model.boiler().lit) and not f.in_hand(), "a click with the burning match on the open firebox lights the fire " + tag)
 		await shot("fire_lit_" + tag)
+		if size.x == 1600:
+			game.model.state.stats.seconds = Model.DAY_SECONDS * 0.75
+			game.model.state.v = 4.0
+			game.model.boiler().pressure = 0.55
+			game.model.state.brake = 0.0
+			game.toast_seconds = 0.0
+			for i in range(45):
+				game._process(DT)
+				await frame()
+			await shot("steam_night_running")
+			game.model.state.v = 0.0
+			game.model.state.brake = 1.0
 		# a jerk blows it out
 		game.model.boiler().lit = false
 		game.model.state.engine = false
