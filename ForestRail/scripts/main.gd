@@ -1164,7 +1164,7 @@ func draw_control_zoom() -> void:
 			var box_w=78.0
 			var box_h=box_w*float(box_tex.get_height())/float(box_tex.get_width())
 			point=rect.position+Vector2(65+100*i,127)
-			if steam_cab().revised(): point = steam_cab().board_point(0.743, 0.78)
+			if steam_cab().revised(): point = steam_cab().board_point(steam_cab().BUCKET_X, 0.78)
 			draw_texture_rect(box_tex,Rect2(point-Vector2(box_w,box_h)*0.5,Vector2(box_w,box_h)),false)
 		elif steam_cab().revised() and id in ["brake", "throttle", "gear"]:
 			if id == "brake":

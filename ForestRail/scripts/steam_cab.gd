@@ -17,13 +17,21 @@ const BUCKET_ART = Rect2(12, 37, 660, 647)
 const OPEN_ART = Rect2(686, 12, 748, 670)
 const CLOSED_ART = Rect2(1536, 12, 625, 670)
 var classic = "--classic-steam-cab" in OS.get_cmdline_user_args()
+# 19.11 (owner): the instruments go to the right, the firebox to the left. The painted board keeps its middle; its
+# two outer sections change places, mirrored, so the pipes and brackets stay at the edges. Cut at the middle of a post.
+const BOARD_LEFT = Rect2(0, 0, 692, 724)       # the copper section, up to the middle of the left brass post
+const BOARD_RIGHT = Rect2(1431, 0, 741, 724)   # the green section, from the middle of the right brass post
+const INSTRUMENTS_X = 0.824   # board fractions across the screen
+const FIRING_X = 0.164
+const BUCKET_X = 0.092
+const FIRE_X = 0.222
 
 func _init(owner_canvas) -> void:
 	canvas = owner_canvas
 
 func steam_fire_rect(rect: Rect2) -> Rect2:
 	if revised():
-		return Rect2(board_point(0.884, 0.45) - Vector2(77, 73), Vector2(154, 146))
+		return Rect2(board_point(FIRE_X, 0.45) - Vector2(77, 73), Vector2(154, 146))
 	return Rect2(rect.position+Vector2(150,282),Vector2(130,64))
 
 func revised() -> bool:
@@ -42,7 +50,14 @@ func wall_tint() -> Color:
 
 func draw_window_wall(size: Vector2, top: float) -> void:
 	canvas.draw_texture_rect_region(WINDOW_WALL, Rect2(0, 0, size.x, top), WALL_ART, wall_tint())
-	canvas.draw_texture_rect(BOARD, Rect2(0, top, size.x, size.y - top), false, Color.WHITE.darkened(canvas.model.night_amount() * 0.22))
+	var tint = Color.WHITE.darkened(canvas.model.night_amount() * 0.22)
+	var height = size.y - top
+	var k = size.x / float(BOARD.get_width())
+	canvas.draw_texture_rect(BOARD, Rect2(0, top, size.x, height), false, tint)
+	# a negative width mirrors the section (Godot still draws it from the given x to the right); each one is fitted to
+	# the width of the place it takes
+	canvas.draw_texture_rect_region(BOARD, Rect2(0, top, -BOARD_LEFT.size.x * k, height), BOARD_RIGHT, tint)
+	canvas.draw_texture_rect_region(BOARD, Rect2(BOARD_RIGHT.position.x * k, top, -BOARD_RIGHT.size.x * k, height), BOARD_LEFT, tint)
 
 # Fractional board positions are mapped back to the same pult coordinates used for mouse input.
 func board_point(x: float, y: float) -> Vector2:
@@ -69,13 +84,13 @@ func draw_drive_control(id: String, geo: Dictionary) -> void:
 
 func draw_board_labels() -> void:
 	canvas.draw_set_transform_matrix(canvas.pult_t)
-	for group in [[0.164, "ПРИБОРЫ"], [0.486, "УПРАВЛЕНИЕ"], [0.827, "ТОПКА"]]:
+	for group in [[INSTRUMENTS_X, "ПРИБОРЫ"], [0.486, "УПРАВЛЕНИЕ"], [FIRING_X, "ТОПКА"]]:
 		var pos = board_point(group[0], 0.145)
 		centered(group[1], pos, 210, 21, Color("f1dfaf"))
 		canvas.draw_line(pos + Vector2(-43, 9), pos + Vector2(43, 9), Color("aa8854"), 1.5)
 	var fleet = canvas.model.state.fleet_by_id.steam
 	var water = float(fleet.water)
-	var glass = Rect2(board_point(0.164, 0.74) - Vector2(100, 0), Vector2(200, 13))
+	var glass = Rect2(board_point(INSTRUMENTS_X, 0.74) - Vector2(100, 0), Vector2(200, 13))
 	canvas.draw_style_box(canvas.style(Color("142022"), Color("a38a55"), 5), glass.grow(3))
 	var filled = glass.size.x * clampf(water / float(canvas.model.object_stats("steam").water), 0.0, 1.0)
 	canvas.draw_rect(Rect2(glass.position, Vector2(filled, glass.size.y)), Color("57878c"))
@@ -99,7 +114,7 @@ func draw_boiler_ahead(cx: float, view: Rect2, running: bool) -> void:
 func draw_firing_station(rect: Rect2) -> void:
 	var boiler = canvas.model.boiler()
 	var fleet = canvas.model.state.fleet_by_id.steam
-	var bucket = Rect2(board_point(0.743, 0.448) - Vector2(63, 61), Vector2(126, 122))
+	var bucket = Rect2(board_point(BUCKET_X, 0.448) - Vector2(63, 61), Vector2(126, 122))
 	var fire = steam_fire_rect(rect)
 	canvas.draw_texture_rect_region(TOOLS, bucket, BUCKET_ART, Color.WHITE if float(fleet.fuel) > 0 else Color("656366"))
 	var open = bool(boiler.door)
@@ -125,7 +140,7 @@ func draw_firing_station(rect: Rect2) -> void:
 			canvas.draw_line(fire.get_center() + Vector2(-23, 4), fire.get_center() + Vector2(20, 4), Color("dd7431"), 3)
 	centered("Уголь  ·  %.0f кг" % fleet.fuel, bucket.get_center() + Vector2(0, 92), 180, 19, canvas.PAPER)
 	centered("%.1f / %.0f кг" % [boiler.firebox, canvas.model.boiler_cfg().firebox_kg], fire.get_center() + Vector2(0, 94), 175, 19, canvas.PAPER)
-	var door = Rect2(board_point(0.884, 0.78) - Vector2(83, 22), Vector2(166, 44))
+	var door = Rect2(board_point(FIRE_X, 0.78) - Vector2(83, 22), Vector2(166, 44))
 	canvas.draw_style_box(canvas.style(Color("24221d"), Color("b69860"), 5), door)
 	centered("Закрыть дверцу" if open else "Открыть дверцу", door.get_center() + Vector2(0, 6), door.size.x, 17, canvas.PAPER)
 	canvas.steam_hits.append({"id":"bucket", "rect":canvas.pult_t * bucket})

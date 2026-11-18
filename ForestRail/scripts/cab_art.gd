@@ -1009,7 +1009,7 @@ func draw_cab_gauges(size: Vector2, layout: Dictionary) -> void:
 	var bench = canvas.steam_cab().revised()
 	if bench:
 		radius = minf(size.x * 0.055, (size.y - float(layout.dash_top)) * 0.166)
-		left = size.x * 0.164
+		left = size.x * canvas.steam_cab().INSTRUMENTS_X
 	draw_round_gauge(Vector2(left - radius * 1.1, y), radius, speed / maximum, "СКОРОСТЬ", "%.1f км/ч" % speed, speed_zones, 10, [0, roundi(maximum * 0.25), roundi(maximum * 0.5), roundi(maximum * 0.75), roundi(maximum)])
 	var right = pult.end.x + (size.x - pult.end.x) * 0.5
 	var stats = canvas.model.object_stats(kind)
