@@ -19,7 +19,8 @@ func _draw() -> void:
 	var facing = int(game.model.state.direction)
 	var travelled = game.model.render_s() * facing
 	var speed = absf(float(game.model.state.v))
-	var horizon = h * 0.50
+	var steam_wall = game.steam_cab().revised()
+	var horizon = h * (0.38 if steam_wall else 0.50)
 	draw_polygon(PackedVector2Array([Vector2(0, 0), Vector2(w, 0), Vector2(w, horizon), Vector2(0, horizon)]), PackedColorArray([Color("6ea6d4"), Color("6ea6d4"), Color("d9e8e0"), Color("d9e8e0")]))
 	var forest: Texture2D = game.art.textures["parallax/far_forest"]
 	var forest_height = h * 0.38
@@ -29,6 +30,13 @@ func _draw() -> void:
 		draw_texture_rect(forest, Rect2(x0, horizon - forest_height, forest_width + 1.0, forest_height), false)
 		x0 += forest_width
 	draw_polygon(PackedVector2Array([Vector2(0, horizon), Vector2(w, horizon), Vector2(w, h), Vector2(0, h)]), PackedColorArray([Color("77a06a"), Color("77a06a"), Color("3a5e3c"), Color("3a5e3c")]))
+	if steam_wall:
+		var grass: Texture2D = game.steam_cab().TRACK_GROUND
+		var tile_w = h * 1.1
+		var start = -fposmod(-side * travelled * 40.0, tile_w)
+		while start < w:
+			draw_texture_rect_region(grass, Rect2(start, horizon, tile_w, h - horizon), Rect2(2, 2, grass.get_width() * 0.5 - 4, grass.get_height() - 4), Color(0.83, 0.98, 0.79, 0.57))
+			start += tile_w
 	# three layers: far, middle and near trees, each scrolling at its own rate
 	var layers = [[16.0, 64.0, 0.55, 0.30], [42.0, 110.0, 0.25, 0.55], [125.0, 250.0, 0.0, 0.95]]
 	for layer_index in range(layers.size()):
@@ -58,8 +66,9 @@ func _draw() -> void:
 		draw_line(Vector2(px, h * 0.08), Vector2(px, h * 0.86), Color("4b3a2c"), 5.0, true)
 		draw_line(Vector2(px - 18, h * 0.16), Vector2(px + 18, h * 0.16), Color("4b3a2c"), 3.0, true)
 	# the gravel and a white edge line close to the glass
-	draw_rect(Rect2(0, h * 0.90, w, h * 0.10), Color("8a8174"))
-	draw_line(Vector2(0, h * 0.90), Vector2(w, h * 0.90), Color(1, 1, 1, 0.25), 2.0)
+	if not steam_wall:
+		draw_rect(Rect2(0, h * 0.90, w, h * 0.10), Color("8a8174"))
+		draw_line(Vector2(0, h * 0.90), Vector2(w, h * 0.90), Color(1, 1, 1, 0.25), 2.0)
 	game.art_world.draw_weather(self, Rect2(Vector2.ZERO, size), game.shown_weather(), game.time, bool(game.settings.reduce_motion))
 	draw_rect(Rect2(Vector2.ZERO, size), Color(0.02, 0.04, 0.12, game.night_shade()))
 	# motion streaks, glass sheen and an inner shadow
@@ -70,3 +79,7 @@ func _draw() -> void:
 	draw_colored_polygon(PackedVector2Array([Vector2(w * 0.1, 0), Vector2(w * 0.4, 0), Vector2(w * 0.05, h), Vector2(-w * 0.2, h)]), Color(1, 1, 1, 0.07))
 	draw_rect(Rect2(0, 0, w, h), Color(0, 0, 0, 0.0), false, 1.0)
 	draw_polygon(PackedVector2Array([Vector2(0, 0), Vector2(w, 0), Vector2(w, h), Vector2(0, h)]), PackedColorArray([Color(0, 0, 0, 0.28), Color(0, 0, 0, 0.28), Color(0, 0, 0, 0.0), Color(0, 0, 0, 0.0)]))
+	if steam_wall:
+		# This child draws after the cab. Its piece of the same wall masks the side view.
+		var cab = game.steam_cab()
+		draw_texture_rect_region(cab.WINDOW_WALL, Rect2(Vector2.ZERO, size), cab.side_art(side), cab.wall_tint())

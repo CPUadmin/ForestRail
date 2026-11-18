@@ -2226,6 +2226,7 @@ func update_pult_transform() -> void:
 
 # The side windows sit in the cab pillars; they follow the layout every frame.
 func cab_window_rect(size: Vector2, top: float, window_side: float) -> Rect2:
+	if steam_cab().revised(): return steam_cab().side_rect(size, top, window_side)
 	var pillar = size.x * 0.12
 	var roof = size.y * 0.075
 	var width = pillar * 0.62
@@ -2245,7 +2246,7 @@ func update_cab_sides() -> void:
 			window.size = rect.size
 			# the side windows follow the time of day
 			var dark = model.night_amount()
-			window.modulate = Color(lerpf(1.0, 0.36, dark), lerpf(1.0, 0.4, dark), lerpf(1.0, 0.55, dark))
+			window.modulate = Color.WHITE if steam_cab().revised() else Color(lerpf(1.0, 0.36, dark), lerpf(1.0, 0.4, dark), lerpf(1.0, 0.55, dark))
 			window.queue_redraw()
 
 func pult_screen_rect() -> Rect2:

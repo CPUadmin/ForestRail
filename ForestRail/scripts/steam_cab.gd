@@ -4,6 +4,12 @@ extends RefCounted
 
 var canvas = null   # main.gd
 const BOARD = preload("res://assets/art_cab/steam_workbench.png")
+const WINDOW_WALL = preload("res://assets/art_cab/steam_window_wall.png")
+const TRACK_GROUND = preload("res://assets/art_cab/steam_track_ground.png")
+# Crop the exterior edges. The side-view rectangles terminate inside the solid posts.
+const WALL_ART = Rect2(44, 0, 2084, 724)
+const LEFT_LIGHT = Rect2(44, 142, 216, 548)
+const RIGHT_LIGHT = Rect2(1910, 142, 218, 548)
 const BOILER = preload("res://assets/art_cab/steam_boiler_forward.png")
 const TOOLS = preload("res://assets/art_cab/steam_firing_tools.png")
 const CONTROLS = preload("res://assets/art_cab/steam_drive_controls.png")
@@ -22,6 +28,21 @@ func steam_fire_rect(rect: Rect2) -> Rect2:
 
 func revised() -> bool:
 	return not classic and canvas.cab_active() and canvas.model.vehicle_id() == "steam"
+
+func side_art(side: float) -> Rect2:
+	return LEFT_LIGHT if side < 0.0 else RIGHT_LIGHT
+
+func side_rect(size: Vector2, top: float, side: float) -> Rect2:
+	var region = side_art(side)
+	var scale = Vector2(size.x, top) / WALL_ART.size
+	return Rect2((region.position - WALL_ART.position) * scale, region.size * scale)
+
+func wall_tint() -> Color:
+	return Color.WHITE.darkened(canvas.model.night_amount() * 0.26)
+
+func draw_window_wall(size: Vector2, top: float) -> void:
+	canvas.draw_texture_rect_region(WINDOW_WALL, Rect2(0, 0, size.x, top), WALL_ART, wall_tint())
+	canvas.draw_texture_rect(BOARD, Rect2(0, top, size.x, size.y - top), false, Color.WHITE.darkened(canvas.model.night_amount() * 0.22))
 
 # Fractional board positions are mapped back to the same pult coordinates used for mouse input.
 func board_point(x: float, y: float) -> Vector2:

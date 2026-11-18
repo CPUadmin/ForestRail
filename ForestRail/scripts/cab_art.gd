@@ -157,6 +157,41 @@ func draw_cab_ground(travelled: float) -> void:
 			quad(Vector2(p_cx + left * dn.x, dn.y), Vector2(p_cx + right * dn.x, dn.y), Vector2(p_cx + right * de.x, de.y), Vector2(p_cx + left * de.x, de.y), tint_near, tint_near, tint_far, tint_far, uvs)
 	flush(canvas.ArtWorld.ROAD_GROUND)
 
+# The atlas has turf on the left and gravel on the right. Each band is projected
+# from world metres so its detail stays on the ground as the train moves.
+func draw_steam_ground(travelled: float, view_width: float) -> void:
+	const TILE = 3.0
+	const ROW = 1.5
+	const TURF_WIDTH = 5.0
+	var phase = fposmod(travelled, 2.0 * TILE)
+	for i in range(44, 0, -1):
+		var far_z = i * ROW - phase
+		if far_z <= 1.3: break
+		var near_z = maxf(1.3, far_z - ROW)
+		var near = depth(near_z)
+		var far = depth(far_z)
+		var v0 = lerpf(0.002, 0.998, pingpong((near_z + phase) / TILE, 1.0))
+		var v1 = lerpf(0.002, 0.998, pingpong((far_z + phase) / TILE, 1.0))
+		var grass = Color(0.83, 0.98, 0.79, 0.66 * (1.0 - smoothstep(12.0, 38.0, near_z)))
+		if grass.a > 0.0:
+			var first = floori(-p_cx / (TURF_WIDTH * far.x))
+			var last = ceili((view_width - p_cx) / (TURF_WIDTH * far.x))
+			for col in range(first, last):
+				var u0 = 0.002 if posmod(col, 2) == 0 else 0.498
+				var u1 = 0.50 - u0
+				ground_band(near, far, TURF_WIDTH * col, TURF_WIDTH * (col + 1), u0, u1, v0, v1, grass, grass)
+		var gravel = Color(0.93, 0.89, 0.83, 1.0 - smoothstep(42.0, 60.0, near_z))
+		var verge = Color(gravel, 0.0)
+		ground_band(near, far, -1.52, -0.98, 0.502, 0.59, v0, v1, verge, gravel)
+		ground_band(near, far, -0.98, 0.98, 0.59, 0.91, v0, v1, gravel, gravel)
+		ground_band(near, far, 0.98, 1.52, 0.91, 0.998, v0, v1, gravel, verge)
+	flush(canvas.steam_cab().TRACK_GROUND)
+
+func ground_band(near: Vector2, far: Vector2, left: float, right: float, u0: float, u1: float, v0: float, v1: float, c0: Color, c1: Color) -> void:
+	quad(Vector2(p_cx + left * near.x, near.y), Vector2(p_cx + right * near.x, near.y),
+		Vector2(p_cx + right * far.x, far.y), Vector2(p_cx + left * far.x, far.y),
+		c0, c1, c1, c0, PackedVector2Array([Vector2(u0, v0), Vector2(u1, v0), Vector2(u1, v1), Vector2(u0, v1)]))
+
 func draw_cab_forward(view: Rect2) -> Dictionary:
 	var facing = int(canvas.model.state.direction)
 	var travelled = canvas.model.render_s() * facing
@@ -193,35 +228,50 @@ func draw_cab_forward(view: Rect2) -> Dictionary:
 			canvas.draw_texture_rect(tex, Rect2(layer_x, horizon + float(layer[2]) - layer_h, layer_w + 1.0, layer_h), false, layer[3])
 			layer_x += layer_w
 	canvas.draw_polygon(PackedVector2Array([Vector2(0, horizon - 3), Vector2(view.size.x, horizon - 3), Vector2(view.size.x, horizon + 28), Vector2(0, horizon + 28)]), PackedColorArray([Color(0.85, 0.92, 0.9, 0.0), Color(0.85, 0.92, 0.9, 0.0), Color(0.85, 0.92, 0.9, 0.5), Color(0.85, 0.92, 0.9, 0.5)]))
-	canvas.draw_polygon(PackedVector2Array([Vector2(0, horizon), Vector2(view.size.x, horizon), view.end, Vector2(0, view.end.y)]), PackedColorArray([C_77a06a, C_77a06a, C_3a5e3c, C_3a5e3c]))
-	draw_cab_ground(travelled)
+	var steam_wall = canvas.steam_cab().revised()
+	var ground_top = horizon + 11.0 if steam_wall else horizon
+	canvas.draw_polygon(PackedVector2Array([Vector2(0, ground_top), Vector2(view.size.x, ground_top), view.end, Vector2(0, view.end.y)]), PackedColorArray([C_77a06a, C_77a06a, C_3a5e3c, C_3a5e3c]))
+	if steam_wall:
+		var clear = Color(C_77a06a, 0.0)
+		canvas.draw_polygon(PackedVector2Array([Vector2(0, horizon - 4), Vector2(view.size.x, horizon - 4), Vector2(view.size.x, ground_top), Vector2(0, ground_top)]), PackedColorArray([clear, clear, C_77a06a, C_77a06a]))
+		draw_steam_ground(travelled, view.size.x)
+	else:
+		draw_cab_ground(travelled)
 	var near = 1.3
 	var far = 170.0
 	var steps = [near, 2.0, 3.0, 4.5, 7.0, 11.0, 18.0, 25.0, 33.0, 44.0, 55.0, 70.0, 85.0, 100.0, 125.0, 150.0, far]
-	for bed in [[2.6, C_5f7f54], [1.9, C_8a8174]]:
-		var half: float = bed[0]
-		for i in range(steps.size() - 1):
-			var a: float = steps[i]
-			var b: float = steps[i + 1]
-			var da = depth(a)
-			var db = depth(b)
-			var c: Color = bed[1]
-			quad(Vector2(p_cx - half * da.x, da.y), Vector2(p_cx + half * da.x, da.y), Vector2(p_cx + half * db.x, db.y), Vector2(p_cx - half * db.x, db.y), c, c, c, c)
-	flush()
-	# ballast speckle close to the train
-	for i in range(60):
-		var z = near + 0.4 + fposmod(canvas.cab_hash(i, 6.0) * 14.0 - travelled, 14.0)
-		var spot = proj((canvas.cab_hash(i, 7.0) - 0.5) * 3.4, z)
-		canvas.draw_rect(Rect2(spot, Vector2(clampf(0.06 * focal / z, 1, 5), clampf(0.03 * focal / z, 1, 3))), Color(0.35, 0.32, 0.28, 0.6))
+	if not steam_wall:
+		for bed in [[2.6, C_5f7f54], [1.9, C_8a8174]]:
+			var half: float = bed[0]
+			for i in range(steps.size() - 1):
+				var a: float = steps[i]
+				var b: float = steps[i + 1]
+				var da = depth(a)
+				var db = depth(b)
+				var c: Color = bed[1]
+				quad(Vector2(p_cx - half * da.x, da.y), Vector2(p_cx + half * da.x, da.y), Vector2(p_cx + half * db.x, db.y), Vector2(p_cx - half * db.x, db.y), c, c, c, c)
+		flush()
+		# ballast speckle close to the train
+		for i in range(60):
+			var z = near + 0.4 + fposmod(canvas.cab_hash(i, 6.0) * 14.0 - travelled, 14.0)
+			var spot = proj((canvas.cab_hash(i, 7.0) - 0.5) * 3.4, z)
+			canvas.draw_rect(Rect2(spot, Vector2(clampf(0.06 * focal / z, 1, 5), clampf(0.03 * focal / z, 1, 3))), Color(0.35, 0.32, 0.28, 0.6))
 	var phase = fposmod(-travelled, 0.9)
 	for k in range(0, 150):
 		var z = near + phase + k * 0.9
 		if z > 120.0: break
+		if steam_wall:
+			# Project the four corners of each timber. Screen-width strokes made the
+			# ends look like upright blocks even when viewed almost edge-on.
+			var timber = canvas.cab_fog(C_4a3b2e, z).lightened(0.09 * canvas.cab_hash(k + floori(travelled / 0.9)))
+			quad(proj(-0.88, z), proj(0.88, z), proj(0.88, z + 0.22), proj(-0.88, z + 0.22), timber.darkened(0.17), timber.darkened(0.17), timber, timber)
+			continue
 		var d = depth(z)
 		var a = Vector2(p_cx - 1.15 * d.x, d.y)
 		var b = Vector2(p_cx + 1.15 * d.x, d.y)
 		canvas.draw_line(a, b, canvas.cab_fog(C_4a3b2e, z), clampf(0.2 * focal / z, 1.0, 20.0), true)
 		canvas.draw_line(a + Vector2(0, -clampf(0.07 * focal / z, 0, 6)), b + Vector2(0, -clampf(0.07 * focal / z, 0, 6)), canvas.cab_fog(C_6a5646, z), clampf(0.05 * focal / z, 0.5, 5.0), true)
+	flush()
 	var glints: Array = []
 	for rail_x in [-0.55, 0.55]:
 		for i in range(steps.size() - 1):
@@ -426,6 +476,9 @@ func draw_cab_nose(view: Rect2, look: Dictionary) -> void:
 # The cab around the view: roof lining, pillars, window rubber, wipers, lamps and the
 # dashboard ledge.
 func draw_cab_frame(size: Vector2, top: float) -> void:
+	if canvas.steam_cab().revised():
+		canvas.steam_cab().draw_window_wall(size, top)
+		return
 	var green = Color("2f4a3b")
 	var dark = Color("1f2f27")
 	var brass = Color("c9a85a")
@@ -501,9 +554,7 @@ func draw_cab_frame(size: Vector2, top: float) -> void:
 		canvas.draw_circle(Vector2(size.x * (0.1 + 0.8 * canvas.cab_hash(speck, 20.0)), roof + (top - roof) * canvas.cab_hash(speck, 21.0)), 1.0 + canvas.cab_hash(speck, 22.0) * 1.5, Color(1, 1, 1, 0.1))
 	# dashboard ledge in wood, then the steel panel
 	canvas.draw_texture_rect_region(canvas.CAB_WOOD, Rect2(0, top - 22, size.x, 18), Rect2(54, 790, 1428, 128), Color(0.68, 0.68, 0.64))
-	if canvas.steam_cab().revised():
-		canvas.draw_texture_rect(canvas.steam_cab().BOARD, Rect2(0, top - 4, size.x, size.y - top + 4), false, Color.WHITE.darkened(canvas.model.night_amount() * 0.22))
-	elif dash_v2():
+	if dash_v2():
 		draw_dash_panel_v2(size, top)
 	else:
 		# Use the painted lower panel, leaving the live gauges free to vary by cab.
@@ -695,9 +746,13 @@ func draw_cab_dash_details(size: Vector2, layout: Dictionary) -> void:
 	if kind == "steam":
 		# whistle cord with a ring, swaying a little with the speed
 		var sway = sin(canvas.time * 3.0) * minf(6.0, absf(float(canvas.model.state.v))) if not canvas.settings.reduce_motion else 0.0
-		var cord_top = Vector2(size.x * 0.5 + 220, 0.0)
-		var ring_at = Vector2(size.x * 0.5 + 224 + sway, top - 60 + 12.0 * canvas.whistle_pull)
-		canvas.draw_line(Vector2(cord_top.x, size.y * 0.075), ring_at, Color("a58b57"), 3.0, true)
+		var cord_top = Vector2(size.x * 0.825, top * 0.171) if bench else Vector2(size.x * 0.5 + 220, size.y * 0.075)
+		var rest_y = top * 0.65 if bench else top - 60.0
+		var ring_at = Vector2(cord_top.x + 4 + sway, rest_y + 12.0 * canvas.whistle_pull)
+		if bench:
+			canvas.draw_circle(cord_top, 5.5, Color("28231b"), true, -1, true)
+			canvas.draw_circle(cord_top, 3.0, brass, true, -1, true)
+		canvas.draw_line(cord_top, ring_at, Color("a58b57"), 3.0, true)
 		var ring = ring_at + Vector2(0, 8)
 		var hit = Rect2(ring - Vector2(20, 20), Vector2(40, 40))
 		var hovered = hit.has_point(canvas.get_global_mouse_position())
