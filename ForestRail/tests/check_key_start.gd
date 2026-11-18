@@ -263,6 +263,11 @@ func game_checks() -> void:
 		game_steps(0.8)
 		key_event(false)
 		check(game.model.state.engine and game.ignition().pos == Ignition.ON, "the keyboard way starts the engine and springs back " + tag)
+		key_event(true)
+		game.pause_game()
+		key_event(false)
+		game.close_modal()
+		check(game.model.state.engine and not game.ignition().held, "interrupting a short press does not switch off a running engine " + tag)
 		game_steps(0.15)
 		await shot("outside_fob_swing_" + tag)
 		game_steps(1.0)
@@ -298,6 +303,15 @@ func game_checks() -> void:
 		await mouse(lock, false)
 		game_steps(0.12)
 		await shot("cab_fob_swing_" + tag)
+		key_event(true)
+		game_steps(0.55)
+		game.test_mode = false
+		game.on_window_focus_exited()
+		game.test_mode = true
+		key_event(false)
+		game.close_modal()
+		game_steps(1.5)
+		check(not game.ignition().held and not game.model.state.engine, "a key released while the window is away cannot start the engine after resuming " + tag)
 		game.cab_view = false
 		game.update_pult_transform()
 

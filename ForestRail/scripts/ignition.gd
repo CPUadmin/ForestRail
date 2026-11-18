@@ -98,11 +98,11 @@ func drag_to(target: float) -> void:
 	elif drag_angle < (ANGLES[ON] + ANGLES[START]) * 0.5 + 0.08: set_pos(ON)
 	else: set_pos(START)
 
-func release() -> void:
+func release(cancelled: bool = false) -> void:
 	if not held: return
 	held = false
 	# a short click on ЗАЖИГАНИЕ turns the key back to ВЫКЛ (the engine stops)
-	if not dragging and hold_t < HOLD_TO_START and press_pos == ON and pos == ON: set_pos(OFF)
+	if not cancelled and not dragging and hold_t < HOLD_TO_START and press_pos == ON and pos == ON: set_pos(OFF)
 	if pos == START: set_pos(ON)   # the spring
 	dragging = false
 

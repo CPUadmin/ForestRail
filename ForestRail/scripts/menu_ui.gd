@@ -85,7 +85,8 @@ func build_settings(box: VBoxContainer) -> void:
 			settings_toggle(box, "borderless", "Окно без рамки")
 			settings_toggle(box, "vsync", "Вертикальная синхронизация")
 			settings_choice(box, "fps_cap", "Ограничение кадров", [[0, "Без ограничения"], [30, "30"], [60, "60"], [120, "120"], [144, "144"]])
-			settings_choice(box, "msaa", "Сглаживание краёв", [[0, "Выкл."], [2, "2×"], [4, "4×"]])
+			if canvas.supports_2d_msaa():
+				settings_choice(box, "msaa", "Сглаживание краёв", [[0, "Выкл."], [2, "2×"], [4, "4×"]])
 			settings_choice(box, "instrument_hz", "Частота обновления приборов", [[30, "30 Гц"], [60, "60 Гц"]])
 			settings_choice(box, "weather_frequency", "Частота смены погоды", [[0.5, "Медленнее"], [1.0, "Обычно"], [2.0, "Быстрее"]])
 	else:
@@ -123,8 +124,12 @@ func build_settings(box: VBoxContainer) -> void:
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	actions.add_child(spacer)
 	canvas.add_button(actions, "Отменить", canvas.close_modal, false, false, &"QuietAction").size_flags_horizontal = Control.SIZE_SHRINK_END
+	var write_error = canvas.add_label(box, "Не удалось записать настройки. Можно повторить или отменить изменения.", 18)
+	write_error.hide()
 	canvas.add_button(actions, "Применить", func():
-		canvas.save_settings()
+		if not canvas.save_settings():
+			write_error.show()
+			return
 		canvas.settings_backup = canvas.settings.duplicate(true)
 		canvas.notify("Настройки сохранены")
 		canvas.close_modal(), false, false, &"PrimaryAction").size_flags_horizontal = Control.SIZE_SHRINK_END

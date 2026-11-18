@@ -7,6 +7,14 @@ var canvas = null   # main.gd
 func _init(owner_canvas) -> void:
 	canvas = owner_canvas
 
+func save_from_pause(feedback: Label) -> bool:
+	var saved = canvas.save_game()
+	if saved: canvas.notify("Сохранено")
+	feedback.text = canvas.toast
+	feedback.show()
+	canvas.toast_seconds = 0.0
+	return saved
+
 func build_modal(size: Vector2) -> void:
 	if canvas.modal_kind == "map":
 		var map_view = canvas.Instruments.new()
@@ -67,7 +75,9 @@ func build_modal(size: Vector2) -> void:
 				canvas.notify("Починено узлов: %d" % mended)
 				canvas.save_game()
 				canvas.show_modal("pause"))
-		canvas.add_button(box, "Сохранить", func(): canvas.save_game(); canvas.notify("Сохранено"))
+		var save_feedback = canvas.add_label(box, "", 19)
+		save_feedback.hide()
+		canvas.add_button(box, "Сохранить", func(): save_from_pause(save_feedback))
 		canvas.add_button(box, "Настройки", func(): canvas.show_modal("settings"))
 		# the rare actions are folded under one line: the pause menu shows three things at first sight
 		canvas.add_button(box, "Сохранить в слот ▴" if canvas.pause_slots_open else "Сохранить в слот ▾", func(): canvas.pause_slots_open = not canvas.pause_slots_open; canvas.show_modal("pause"), false, false, &"QuietAction")
@@ -93,7 +103,10 @@ func build_modal(size: Vector2) -> void:
 				canvas.last_paid_count = canvas.model.state.paid_ids.size()
 				canvas.show_modal("result")
 			else: canvas.rebuild()))
-		canvas.add_button(box, "В главное меню", func(): canvas.save_game(); canvas.screen = "menu"; canvas.close_modal())
+		canvas.add_button(box, "В главное меню", func():
+			if save_from_pause(save_feedback):
+				canvas.screen = "menu"
+				canvas.close_modal())
 	elif canvas.modal_kind == "receiving":
 		canvas.build_receiving(box)
 	elif canvas.modal_kind == "settings":

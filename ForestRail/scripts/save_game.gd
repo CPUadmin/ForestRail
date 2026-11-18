@@ -118,8 +118,11 @@ func store_checked(name: String, text: String) -> bool:
 func write(model, preserve_backup: bool = false) -> bool:
 	error = ""
 	var text = save_text(model)
-	if text == "" or not store_checked("save_v2.tmp", text):
+	if text == "":
 		error = "Проверка нового сохранения не пройдена"
+		return false
+	if not store_checked("save_v2.tmp", text):
+		error = "Не удалось записать сохранение. Проверь свободное место и доступ к папке."
 		return false
 	if not preserve_backup:
 		var known = written.get(directory, [])

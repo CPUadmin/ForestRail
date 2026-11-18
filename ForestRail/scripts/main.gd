@@ -442,13 +442,24 @@ func apply_settings() -> void:
 	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_BORDERLESS, bool(settings.borderless) and not bool(settings.fullscreen))
 	DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_ENABLED if settings.vsync else DisplayServer.VSYNC_DISABLED)
 	Engine.max_fps = int(settings.fps_cap)
-	get_viewport().msaa_2d = {0: Viewport.MSAA_DISABLED, 2: Viewport.MSAA_2X, 4: Viewport.MSAA_4X}[int(settings.msaa)]
+	get_viewport().msaa_2d = {0: Viewport.MSAA_DISABLED, 2: Viewport.MSAA_2X, 4: Viewport.MSAA_4X}[int(settings.msaa)] if supports_2d_msaa() else Viewport.MSAA_DISABLED
 
-func save_settings() -> void:
-	var file = FileAccess.open(settings_path, FileAccess.WRITE)
-	if file:
-		file.store_string(JSON.stringify(settings))
+func supports_2d_msaa() -> bool:
+	return RenderingServer.get_current_rendering_method() in ["mobile", "forward_plus"]
+
+func save_settings() -> bool:
 	apply_settings()
+	var temp = "%s.%d.tmp" % [settings_path, OS.get_process_id()]
+	var file = FileAccess.open(temp, FileAccess.WRITE)
+	if file == null: return false
+	var data = JSON.stringify(settings).to_utf8_buffer()
+	file.store_buffer(data)
+	file.flush()
+	var complete = file.get_error() == OK and file.get_length() == data.size()
+	file.close()
+	if complete and DirAccess.rename_absolute(temp, settings_path) == OK: return true
+	DirAccess.remove_absolute(temp)
+	return false
 
 # Settings menu helpers: changes apply at once, "Применить" saves them, "Отменить" (or
 # Esc) puts back what was there when the menu opened.
@@ -525,7 +536,9 @@ func build_menu(size: Vector2) -> void:
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_CLOSE_REQUEST:
 		if screen != "menu" and not model.state.is_empty():
-			save_game()
+			if not save_game():
+				confirm("%s. Выйти без сохранения?" % saves.error, get_tree().quit)
+				return
 		get_tree().quit()
 
 # Automated tests run in windows that other processes can take focus from; a person's game cannot.
@@ -533,7 +546,7 @@ func on_window_focus_exited() -> void:
 	if not test_mode: focus_lost()
 
 func focus_lost() -> void:
-	if screen == "game" and not test_mode:
+	if screen == "game" and not test_mode and modal_kind == "":
 		pause_game()
 	else:
 		cancel_drag()
@@ -997,7 +1010,7 @@ func station_number(id: String) -> int:
 
 func pause_game() -> void:
 	paused = true
-	cancel_drag()
+	cancel_modal_input()
 	modal_kind = "pause"
 	rebuild()
 
@@ -1206,7 +1219,7 @@ func draw_control_zoom() -> void:
 	draw_multiline_string(font,rect.position+Vector2(16,rect.size.y-35),feedback,HORIZONTAL_ALIGNMENT_LEFT,310,15,2,GOLD if toast_seconds>0 else Color("c7c3a0"))
 
 func show_modal(kind: String) -> void:
-	cancel_drag()
+	cancel_modal_input()
 	cab_view = false
 	if screen != "menu": paused = true
 	if kind == "settings":
@@ -1250,6 +1263,10 @@ func save_game() -> bool:
 func notify(text: String) -> void:
 	toast = text
 	toast_seconds = 5.0
+
+func cancel_modal_input() -> void:
+	if ignition_cache != null: ignition_cache.release(true)
+	cancel_drag()
 
 func cancel_drag() -> void:
 	if drag == "start" and ignition_cache != null: ignition_cache.release()
@@ -1635,8 +1652,11 @@ func _input(event: InputEvent) -> void:
 			toggle_cab_view()
 			get_viewport().set_input_as_handled()
 			return
-		if modal_kind == "": pause_game()
-		else: close_modal()
+		if modal_kind != "": close_modal()
+		elif screen != "menu": pause_game()
+		elif menu_page != "main":
+			menu_page = "play" if menu_page in ["new", "load"] else "main"
+			rebuild()
 		get_viewport().set_input_as_handled()
 		return
 	if drag == "" and event is InputEventMouseMotion and screen == "game" and not paused and model.vehicle_id() == "pole" and model.state.phase == "route":

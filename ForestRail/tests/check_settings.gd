@@ -58,6 +58,14 @@ func run() -> void:
 	await get_tree().create_timer(0.2).timeout
 	# the menu opens from the main menu and shows every tab
 	game.screen = "menu"; game.rebuild()
+	for page in ["main", "new", "load", "play"]:
+		game.menu_page = page
+		game.rebuild()
+		get_tree().root.push_input(key_event(KEY_ESCAPE), true)
+		var parent_page = "play" if page in ["new", "load"] else "main"
+		check(game.menu_page == parent_page and game.modal_kind == "" and not game.paused, "Esc on menu page %s stays in menu navigation" % page)
+		if game.modal_kind != "": game.close_modal()
+	game.menu_page = "main"
 	game.show_modal("settings")
 	await frame(3)
 	check(game.modal_kind == "settings", "the menu opens the settings")
@@ -94,10 +102,16 @@ func run() -> void:
 	check(Engine.max_fps == 120, "the frame cap reaches the engine")
 	await press("Без ограничения")
 	check(Engine.max_fps == 0, "and can be lifted")
-	await press("4×")
-	check(get_viewport().msaa_2d == Viewport.MSAA_4X, "anti-aliasing reaches the viewport")
-	await press("Выкл.")
-	check(get_viewport().msaa_2d == Viewport.MSAA_DISABLED, "and can be turned off")
+	if RenderingServer.get_current_rendering_method() == "gl_compatibility":
+		check(find_button("4×") == null, "the OpenGL renderer does not offer unsupported 2D MSAA")
+		game.settings.msaa = 4
+		game.apply_settings()
+		check(get_viewport().msaa_2d == Viewport.MSAA_DISABLED, "an old graphics preference cannot enable unsupported MSAA")
+	else:
+		await press("4×")
+		check(get_viewport().msaa_2d == Viewport.MSAA_4X, "anti-aliasing reaches the viewport")
+		await press("Выкл.")
+		check(get_viewport().msaa_2d == Viewport.MSAA_DISABLED, "and can be turned off")
 	await press("Вертикальная синхронизация")
 	check(not bool(game.settings.vsync) and DisplayServer.window_get_vsync_mode() == DisplayServer.VSYNC_DISABLED, "vsync turns off")
 	await press("Вертикальная синхронизация")
@@ -145,6 +159,11 @@ func run() -> void:
 	game.settings.keys.cab = KEY_V
 	game.settings.autosave = 30
 	game.apply_settings()
+	var settings_file = game.settings_path
+	game.settings_path = settings_file.path_join("blocked")
+	await press("Применить")
+	check(game.modal_kind == "settings" and game.settings_changed(), "failed settings write keeps the draft available for retry or cancel")
+	game.settings_path = settings_file
 	await press("Применить")
 	check(game.modal_kind == "" and FileAccess.file_exists(game.settings_path), "apply closes the menu and writes the file")
 	game.copy_settings(game.settings, game.DEFAULT_SETTINGS)
@@ -194,6 +213,39 @@ func run() -> void:
 	get_tree().root.push_input(key_event(KEY_V), true)
 	await frame(2)
 	check(game.cab_view, "the new cab key opens the cab")
+	game.pause_game()
+	await press("Настройки")
+	var original_volume = float(game.settings.master)
+	game.settings.master = 0.137
+	game.test_mode = false
+	game.on_window_focus_exited()
+	game.test_mode = true
+	check(game.modal_kind == "settings" and game.paused, "switching windows keeps the active settings dialog")
+	get_tree().root.push_input(key_event(KEY_ESCAPE), true)
+	check(is_equal_approx(float(game.settings.master), original_volume), "Esc still cancels the draft after returning to the window")
+	game.pause_game()
+	var profile = game.saves.directory
+	game.saves.directory = game.settings_path.path_join("blocked")
+	await press("Сохранить")
+	check(game.saves.error != "" and game.toast == game.saves.error, "failed manual save reports its error")
+	var visible_error = false
+	for label in game.overlay.find_children("*", "Label", true, false):
+		if label.is_visible_in_tree() and label.text == game.saves.error: visible_error = true
+	check(visible_error, "the save error is visible above the pause overlay")
+	await shot("pause_failed_save")
+	await press("В главное меню")
+	check(game.screen == "game" and game.paused and game.modal_kind == "pause", "failed save keeps the trip open for a retry")
+	game._notification(Node.NOTIFICATION_WM_CLOSE_REQUEST)
+	check(game.modal_kind == "confirm" and game.toast.contains("Выйти без сохранения"), "closing the window after a write failure offers an explicit choice")
+	await press("Отмена")
+	check(game.screen == "game", "cancelling the close keeps the trip")
+	game.saves.directory = profile
+	game.pause_game()
+	await press("В главное меню")
+	check(game.screen == "menu", "successful retry returns to the main menu")
+	game.continue_game()
+	check(game.screen == "game" and game.resume_prompt and game.model.vehicle_id() == "motorcar", "the saved trip reopens on pause")
+	game.close_modal()
 	game.cab_view = false
 	game.copy_settings(game.settings, game.DEFAULT_SETTINGS)
 	game.apply_settings()
