@@ -767,7 +767,9 @@ func trip_forecast(mission: Dictionary = {}) -> Dictionary:
 	var cargo_mass = 0.0
 	for stop in mission.get("dropoffs", []):
 		for entry in stop.get("cargo", []): cargo_mass += float(cargo_base(str(entry[0])).mass_kg) * float(entry[1])
-	var load_factor = 1.0 + 0.35 * cargo_mass / maxf(empty_mass, 1.0)
+	# 19.11: the pneumatic spends more air on a climb with a load (1.4.13, the sander 1.4.15): its own 0.55 (data/game_data.json
+	# "energy_load"; measured: six bundles of logs to D cost it 3% more than 0.35 promised)
+	var load_factor = 1.0 + float(base.get("energy_load", 0.35)) * cargo_mass / maxf(empty_mass, 1.0)
 	return {"far_m": far, "leg_m": leg, "need": (fixed + leg * rate) * load_factor, "load_factor": load_factor, "have": float(fleet.fuel), "tank": float(stats.tank),
 		"water_leg_m": water_leg, "water_need": water_leg * water_rate if float(stats.water) > 0 else 0.0,
 		"water_have": float(fleet.get("water", 0)), "water_tank": float(stats.water), "unit": str(base.energy_unit)}

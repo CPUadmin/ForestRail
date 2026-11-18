@@ -370,6 +370,7 @@
       "energy_fixed": 23.8,
       "energy_per_m_v2": 0.00948,
       "energy_fixed_v2": 14.8,
+      "energy_load": 0.55,
       "air_joule_per_bar": 16000,
       "line_tank_factor": 0.4,
       "energy_unit": "бар",
