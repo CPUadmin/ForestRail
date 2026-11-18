@@ -138,7 +138,7 @@ func update_hud() -> void:
 	elif canvas.model.vehicle_id() == "handcar":
 		hint = "Зажми деревянный хват и веди его по дуге рычага. Ровные полные ходы разгоняют лучше. Красный рычаг — тормоз."
 	elif canvas.model.vehicle_id() == "steam":
-		if not state.engine: hint = "Кабина [E]: открой дверцу, перетащи уголь из ведра в топку, чиркни спичкой по коробку и поднеси к топке." if canvas.Model.match_rules else "Кабина [E]: открой дверцу, перетащи уголь из ведра в топку, закрой дверцу и нажми «Розжиг»."
+		if not state.engine: hint = "Войди в кабину [%s]. Проверь воду, открой дверцу и перетащи уголь в топку. Чиркни спичкой по тёрке и щёлкни по топке." % canvas.key_name("cab") if canvas.Model.match_rules else "Кабина [E]: открой дверцу, перетащи уголь из ведра в топку, закрой дверцу и нажми «Розжиг»."
 		elif not canvas.model.steam_ready(): hint = "Давление растёт: жди %d бар. Вода в кране должна быть открыта." % int(canvas.model.boiler_cfg().work_pressure_bar)
 		else: hint = "Вентиль — колесо: крути по кругу, отпустишь — закроется сам. Тормоз — красный рычаг."
 	elif canvas.model.vehicle_id() == "pneumatic":

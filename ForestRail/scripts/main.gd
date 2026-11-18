@@ -1135,7 +1135,7 @@ func draw_control_zoom() -> void:
 			var box_tex=match_view().BOX_CLOSED
 			var box_w=78.0
 			var box_h=box_w*float(box_tex.get_height())/float(box_tex.get_width())
-			point=(pivot+geo.grip)*0.5
+			point=rect.position+Vector2(65+100*i,127)
 			draw_texture_rect(box_tex,Rect2(point-Vector2(box_w,box_h)*0.5,Vector2(box_w,box_h)),false)
 		elif kind=="wheel":
 			draw_handwheel(pivot,float(geo.radius),angle,GOLD if id=="gear" else GREEN,drag==id)
@@ -1161,7 +1161,7 @@ func draw_control_zoom() -> void:
 		var steam=model.vehicle_id()=="steam"
 		var title={"brake":"Тормоз","throttle":{"locomotive":"Тяга","steam":"Вентиль","pneumatic":"Вентиль"}.get(model.vehicle_id(),"Газ"),"gear":"Вода" if steam else ("Редуктор" if model.vehicle_id()=="pneumatic" else "Передача"),"start":"Розжиг" if steam else ("Обогрев" if model.vehicle_id()=="pneumatic" else "Пуск")}[id]
 		var shown_gear=lever_pending_gear if drag=="gear" else int(model.state.gear)
-		var label={"brake":"%d%%" % (model.state.brake*100),"throttle":"%d%%" % (model.state.throttle*100),"gear":("%d%%" % (float(model.boiler().feed)*100)) if steam else (("%.0f бар" % model.working_pressure()) if model.vehicle_id()=="pneumatic" else GEAR_LABELS[shown_gear]),"start":("Горит" if model.state.engine else ("спичек: %d" % model.matches().count() if kind=="matchbox" else "Разжечь")) if steam else (("Греет" if model.heating_on() else "Выкл.") if model.vehicle_id()=="pneumatic" else key_label())}[id]
+		var label={"brake":"%d%%" % (model.state.brake*100),"throttle":"%d%%" % (model.state.throttle*100),"gear":("%d%%" % (float(model.boiler().feed)*100)) if steam else (("%.0f бар" % model.working_pressure()) if model.vehicle_id()=="pneumatic" else GEAR_LABELS[shown_gear]),"start":("спичек: %d" % model.matches().count() if kind=="matchbox" else ("Горит" if model.state.engine else "Разжечь")) if steam else (("Греет" if model.heating_on() else "Выкл.") if model.vehicle_id()=="pneumatic" else key_label())}[id]
 		if kind!="key": draw_string(font,rect.position+Vector2(15+100*i,78),title,HORIZONTAL_ALIGNMENT_CENTER,100,16,PAPER)
 		# the key has no label under it: the lock, its marks and the lamps say where it stands
 		if kind!="key": draw_string(font,rect.position+Vector2(15+100*i,168 if id=="start" else (268 if kind=="slider" else 253)),label,HORIZONTAL_ALIGNMENT_CENTER,100,16,GOLD)
@@ -1173,7 +1173,7 @@ func draw_control_zoom() -> void:
 				draw_string(font,mark+Vector2(-17,-27 if endpoint==1 else -12),["0","100"][endpoint],HORIZONTAL_ALIGNMENT_CENTER,34,13,PAPER)
 		if kind!="key" and (drag==id or (pult_t*point).distance_to(get_global_mouse_position())<24): draw_arc(point,10,0,TAU,28,PAPER,1.5,true)
 	if model.vehicle_id()=="steam": draw_steam_panel(rect)
-	var feedback=toast if toast_seconds>0 else ("Крути вентиль по кругу, отпусти — закроется сам. Розжиг — щелчком." if model.vehicle_id()=="steam" else ("Веди шар рычага по кулисе: через N в нужный паз. Ключ — держи до пуска." if model.vehicle_id()=="motorcar" else ("Двигай ручки вверх и вниз по прорезям, они держат положение." if model.vehicle_id()=="locomotive" else "Редуктор: крути колесо, 3 оборота. Обогрев и клапаны: щелчок.")))
+	var feedback=toast if toast_seconds>0 else ("Вентиль закроется сам, когда отпустишь. Спичку возьми из коробка." if model.vehicle_id()=="steam" else ("Веди шар рычага по кулисе: через N в нужный паз. Ключ — держи до пуска." if model.vehicle_id()=="motorcar" else ("Двигай ручки вверх и вниз по прорезям, они держат положение." if model.vehicle_id()=="locomotive" else "Редуктор: крути колесо, 3 оборота. Обогрев и клапаны: щелчок.")))
 	draw_multiline_string(font,rect.position+Vector2(16,rect.size.y-35),feedback,HORIZONTAL_ALIGNMENT_LEFT,310,15,2,GOLD if toast_seconds>0 else Color("c7c3a0"))
 
 func show_modal(kind: String) -> void:
@@ -1602,7 +1602,7 @@ func _input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 			return
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
-		if cab_view:
+		if cab_view and not paused:
 			toggle_cab_view()
 			get_viewport().set_input_as_handled()
 			return
@@ -1613,6 +1613,8 @@ func _input(event: InputEvent) -> void:
 	if drag == "" and event is InputEventMouseMotion and screen == "game" and not paused and model.vehicle_id() == "pole" and model.state.phase == "route":
 		model.pole_aim(pole_mouse_rel(event.position))
 		return
+	if event is InputEventMouseMotion and not paused and match_view_cache != null and match_view_cache.active():
+		match_view_cache.hover(event.position)
 	if drag == "": return
 	if event is InputEventMouseMotion:
 		if paused: cancel_drag(); return
@@ -1626,11 +1628,6 @@ func _input(event: InputEvent) -> void:
 			return
 		if drag == "contactor":
 			contactor_view().motion(event.position)
-			get_viewport().set_input_as_handled()
-			return
-		if match_view_cache != null and match_view_cache.active(): match_view_cache.hover(event.position)   # the match follows the hand
-		if drag == "match":
-			match_view().motion(event.position, get_process_delta_time())
 			get_viewport().set_input_as_handled()
 			return
 		if drag == "sail":
@@ -1929,9 +1926,7 @@ func pole_mouse_rel(mouse: Vector2) -> float:
 	return (outer.affine_inverse() * mouse).x / ArtV3.PX * float(int(model.state.direction))
 
 func finish_drag(mouse: Vector2) -> void:
-	if drag == "match":
-		match_view().release(mouse)
-	elif drag == "contactor":
+	if drag == "contactor":
 		contactor_view().release(mouse)
 	elif drag == "zpult":
 		zpult.release()
@@ -2608,6 +2603,8 @@ func draw_tooltip() -> void:
 	for hit in grip_hits:
 		if hit.position.distance_to(mouse) < 31:
 			text = {"pump": "Зажми хват и веди его по дуге рычага", "brake": "Тормоз: двигай ручку вверх по прорези от 0 до 100%" if model.vehicle_id() == "locomotive" else "Тормоз: веди рукоять по дуге от 0 до 100%", "throttle": "Вентиль: крути колесо по кругу, отпустишь — закроется сам" if model.vehicle_id() == "steam" else ("Тяга: двигай ручку вверх по прорези от 0 до 100%" if model.vehicle_id() == "locomotive" else "Подача: веди рукоять по дуге от 0 до 100%"), "gear": "Кран воды: крути по кругу. Без воды пара нет" if model.vehicle_id() == "steam" else "Кулиса: веди шар через N в паз. Менять при газе ниже 15%, R только на остановке", "start": "Щёлкни, чтобы разжечь или погасить огонь" if model.vehicle_id() == "steam" else ("Ключ: держи, пока мотор не схватит. Щелчок — выкл." if model.vehicle_id() == "motorcar" else "Щёлкни тумблер, чтобы включить или выключить")}[hit.id]
+			if hit.id == "start" and control_kind("start") == "matchbox":
+				text = "Щёлкни по коробку, чтобы взять спичку" if cab_active() else "За спичками войди в кабину [%s]" % key_name("cab")
 	for hit in ignition_hits:
 		if hit.rect.has_point(mouse): text = "Подсос: вытяни для холодного мотора, сам уйдёт, когда прогреется"
 	if text=="" and screen=="game" and model.vehicle_id()=="locomotive" and charge_strip_rect.has_point(mouse):

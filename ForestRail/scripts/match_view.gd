@@ -18,7 +18,6 @@ var canvas = null
 var pos = Vector2.ZERO    # the hand (the head of the match)
 var last_pos = Vector2.ZERO
 var speed = 0.0           # screen heights per second, smoothed
-var stroking = false      # kept for main.gd: nothing is held any more
 var in_strip = false
 var stroke_dir = 0
 var stroke_from = Vector2.ZERO
@@ -46,12 +45,17 @@ func take(mouse: Vector2) -> void:
 	if bool(canvas.model.boiler().lit):
 		canvas.notify("Огонь уже горит")
 		return
-	if f().in_hand(): f().drop()   # a new one instead of the one in hand
+	if f().in_hand():
+		if f().count() <= 0 and not canvas.model.creative():
+			canvas.notify("Коробок пуст. У тебя в руке последняя спичка")
+			return
+		f().drop()
 	if f().take():
 		pos = mouse
 		last_pos = mouse
 		speed = 0.0
 		spent_t = 0.0
+		in_strip = false
 		canvas.sound.play("cargo", 0.25, 1.9)   # the little drawer of the box
 	else:
 		canvas.notify(canvas.model.message)
@@ -77,6 +81,7 @@ func fire_rect() -> Rect2:
 # 17.11 (owner, tested on a touchpad): nothing is held down. The match follows the cursor; drawn across the striker it is
 # struck by itself (the speed of the pass decides); a click on the open firebox with the burning match lights the fire.
 func process(dt: float) -> void:
+	if canvas.paused: return
 	if not active():
 		if f() != null and canvas.model.vehicle_id() == "steam" and f().in_hand() and not canvas.cab_active(): f().drop()
 		in_strip = false
@@ -110,8 +115,9 @@ func track_stroke(dt: float) -> void:
 		stroke_t = 0.0
 		stroke_dir = 0
 		return
-	stroke_t += dt
 	var dx = pos.x - last_pos.x
+	if stroke_dir == 0 and is_zero_approx(dx): return
+	stroke_t += dt
 	if absf(dx) > 0.5:
 		var dir = 1 if dx > 0.0 else -1
 		if stroke_dir != 0 and dir != stroke_dir:   # turned back: a new pass starts here
@@ -147,6 +153,9 @@ func press(mouse: Vector2, double: bool = false) -> bool:
 	if double:
 		discard()
 		return true
+	if f().hand in ["fresh", "damp"] and open_box_rect().has_point(mouse):
+		take(mouse)
+		return true
 	if f().lit() and fire_rect().has_point(mouse):
 		if f().to_fire():
 			canvas.notify("Огонь разожжён. Давление растёт, подожди")
@@ -155,13 +164,6 @@ func press(mouse: Vector2, double: bool = false) -> bool:
 			canvas.notify(canvas.model.message)
 		return true
 	return false
-
-# kept for the hooks in main.gd (nothing is dragged now): they only move the hand
-func motion(mouse: Vector2, _dt: float) -> void:
-	pos = mouse
-
-func release(mouse: Vector2) -> void:
-	pos = mouse
 
 func discard() -> void:
 	f().drop()

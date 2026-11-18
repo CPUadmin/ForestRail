@@ -63,7 +63,7 @@ func drop() -> void:
 # Чиркнуть: speed — длин тёрки в секунду. Ответ: "scratch", "rubbed", "lit", "broken" или "" (нечем чиркать).
 func strike(speed: float) -> String:
 	if not hand in ["fresh", "damp"]: return ""
-	if speed > FAST:
+	if hand != "damp" and speed > FAST:
 		hand = "broken"
 		m.events.append("match_broken")
 		m.message = "Слишком резко: спичка сломалась. Возьми другую"

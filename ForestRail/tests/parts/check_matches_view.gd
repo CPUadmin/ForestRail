@@ -44,7 +44,17 @@ func click(point: Vector2) -> void:
 func key(code: int) -> void:
 	var e = InputEventKey.new()
 	e.keycode = code; e.physical_keycode = code; e.pressed = true
-	game._input(e)
+	get_tree().root.push_input(e, true)
+	e.pressed = false
+	get_tree().root.push_input(e, true)
+
+func move_match(point: Vector2) -> void:
+	var e = InputEventMouseMotion.new()
+	e.position = point
+	e.global_position = point
+	e.relative = point - game.match_view().pos
+	get_tree().root.push_input(e, true)
+	game.match_view().process(DT)
 
 func box_point() -> Vector2:
 	for hit in game.grip_hits:
@@ -64,11 +74,10 @@ func stroke(share: float, frames: int) -> void:
 	var s = v.striker_rect()
 	var from = Vector2(s.position.x + s.size.x * 0.08, s.get_center().y)
 	var to = from + Vector2(s.size.x * share, 0)
-	v.hover(from)
-	v.process(DT)
+	move_match(from)
+	for i in range(60): v.process(DT)   # The player may aim before starting the stroke.
 	for i in range(1, frames + 1):
-		v.hover(from.lerp(to, float(i) / float(frames)))
-		v.process(DT)
+		move_match(from.lerp(to, float(i) / float(frames)))
 	await frame()
 
 func double_click(point: Vector2) -> void:
@@ -84,8 +93,7 @@ func carry(to: Vector2, frames: int) -> void:
 	var v = game.match_view()
 	var from = v.pos
 	for i in range(1, frames + 1):
-		v.hover(from.lerp(to, float(i) / float(frames)))
-		v.process(DT)
+		move_match(from.lerp(to, float(i) / float(frames)))
 
 func fixture():
 	var m = Model.new()
@@ -98,7 +106,7 @@ func fixture():
 	m.state.brake = 1.0
 	m.state.throttle = 0.0
 	var b = m.boiler()
-	b.firebox = float(m.boiler_cfg().min_fire_kg) + 3.0
+	b.firebox = 0.0
 	b.lit = false
 	b.door = false
 	m.state.engine = false
@@ -127,10 +135,21 @@ func run() -> void:
 		game.screen = "game"
 		game.rebuild()
 		game.camera_s = 100; game.camera_y = 0; game.camera_x = game.get_viewport_rect().size.x * 0.65
-		game.toggle_cab_view()
+		key(KEY_E)
+		game._process(DT)
 		for i in range(8): await frame()
 		check(game.cab_active() and game.control_kind("start") == "matchbox", "the cab of the steam locomotive has the box of matches " + tag)
 		check(box_point() != Vector2.ZERO, "the box has its place on the pult " + tag)
+		var door = Rect2()
+		var bucket = Rect2()
+		for hit in game.steam_hits:
+			if hit.id == "door": door = hit.rect
+			if hit.id == "bucket": bucket = hit.rect
+		await click(door.get_center())
+		await button(bucket.get_center(), true)
+		await button(game.match_view().fire_rect().get_center(), false)
+		check(game.model.boiler().firebox >= game.model.boiler_cfg().min_fire_kg, "coal from the bucket reaches the open firebox " + tag)
+		await click(door.get_center())
 		await shot("cab_box_" + tag)
 		var f = game.model.matches()
 		await take_fresh()
@@ -152,6 +171,11 @@ func run() -> void:
 		await take_fresh()
 		await stroke(0.8, 24)
 		check(f.lit(), "a stroke in measure lights it " + tag)
+		var remaining = f.burn
+		game.pause_game()
+		for i in range(420): v.process(DT)
+		key(KEY_ESCAPE)
+		check(not game.paused and game.cab_active() and f.lit() and is_equal_approx(f.burn, remaining), "the paused cab keeps the flame and Esc resumes the trip " + tag)
 		await shot("lit_" + tag)
 		# over the firebox with the door closed: no fire, the match still burns
 		var fire = v.fire_rect()
@@ -161,9 +185,6 @@ func run() -> void:
 		check(f.lit() and not bool(game.model.boiler().lit) and game.toast.contains("Дверца"), "a click with the door closed: no fire, the match still burns " + tag)
 		await shot("door_closed_" + tag)
 		# open the door, then the match to the fire
-		var door = Rect2()
-		for hit in game.steam_hits:
-			if hit.id == "door": door = hit.rect
 		await carry(door.get_center(), 20)
 		await click(door.get_center())
 		check(bool(game.model.boiler().door), "the door opens with the match in hand " + tag)
@@ -177,8 +198,7 @@ func run() -> void:
 		game.model.state.engine = false
 		await take_fresh()
 		await stroke(0.8, 24)
-		v.hover(v.pos + Vector2(0, game.get_viewport_rect().size.y * 0.2))
-		v.process(DT)
+		move_match(v.pos + Vector2(0, game.get_viewport_rect().size.y * 0.2))
 		check(f.hand == "burnt" and game.toast.contains("задуло"), "a jerk blows it out " + tag)
 		for i in range(90): v.process(DT)
 		# throwing a match away: a double click, or Esc; a click on the box gives a new one in place of the one in hand
@@ -190,11 +210,15 @@ func run() -> void:
 		check(f.hand == "", "Esc throws it away too " + tag)
 		await take_fresh()
 		var before = f.count()
-		await click(box_point())
+		await click(v.open_box_rect().get_center())
 		check(f.in_hand() and f.count() == before - 1, "a click on the box with a match in hand gives a new one " + tag)
+		game.model.state.fleet_by_id.steam.matches = 0
+		await click(box_point())
+		check(f.in_hand() and f.count() == 0, "the empty box keeps the last match in hand " + tag)
 		key(KEY_ESCAPE)
 		game.cab_view = false
 		game.update_pult_transform()
+		game.saves.collect_warm(true)
 	Model.match_rules = false
 	print("MATCHES VIEW CHECKS ", checks, "; FAILURES ", failures)
 	preload("res://tests/qa_exit.gd").quit(self, 0 if failures.is_empty() else 1)

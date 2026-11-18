@@ -77,6 +77,7 @@ func run() -> void:
 		f.put_back()
 	check(damp_found, "now and then a match is damp")
 	check(f.strike(2.0) == "scratch" and m.message.contains("Отсырела"), "a damp one only scratches")
+	check(f.strike(6.0) == "scratch" and f.strike(0.4) == "rubbed", "a damp head scratches even on a fast stroke, and wears out on the third")
 	f.drop()
 	# about one in ten is damp
 	var counter = fresh()
@@ -94,6 +95,10 @@ func run() -> void:
 	fire.set_door(false)
 	check(not fire.matches().to_fire() and fire.message.contains("Дверца") and fire.matches().lit(), "a closed door: the match still burns in the hand")
 	fire.set_door(true)
+	var water = fire.state.fleet_by_id.steam.water
+	fire.state.fleet_by_id.steam.water = 0.0
+	check(not fire.matches().to_fire() and fire.message.contains("воды") and fire.matches().lit() and not fire.boiler().lit, "an empty boiler refuses ignition and leaves the match lit")
+	fire.state.fleet_by_id.steam.water = water
 	check(fire.matches().to_fire() and bool(fire.boiler().lit) and not fire.matches().in_hand(), "to the open firebox with coal: the fire is lit")
 	# no coal: the match does not light it
 	var cold = fresh()
