@@ -13,8 +13,10 @@ SETTINGS = ROOT / "tools" / "local_settings.json"
 TESTS = ROOT / "ForestRail" / "tests"
 # not in any automatic run: the soak plays for many minutes (tools/run_soak_p8.py)
 SKIPPED = {"check_soak_p8"}
-# only in the full run (before a build, once a day): the long line, the whole career, the frame budget
-SLOW = {"check_forecast_long", "drive_campaign", "check_perf_budget"}
+# only in the full run (before a build, once a day): the long line, the whole career, the frame budget, and the
+# presentation (19.11, owner: its snapshots of every screen and the 60 fps measure are wanted before a build, not after
+# every change; the built exe still runs it, tools/build_trial.py EXPORT_CHECKS)
+SLOW = {"check_forecast_long", "drive_campaign", "check_perf_budget", "check_presentation"}
 
 EXAMPLE = '{\n  "godot": "C:/путь/к/Godot_v4.7.2-stable_win64.exe"\n}'
 

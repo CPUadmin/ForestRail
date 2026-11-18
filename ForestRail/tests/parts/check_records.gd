@@ -95,8 +95,9 @@ func run() -> void:
 	check(saved.records.steam.a_f == 200.0, "the table is in the saved state")
 
 	# --- a real trip by the physics: A to F and back by the electric locomotive records both ways
+	# 19.11: on the old short line (version 1): the same ends A and F, the same physics, 9 s instead of 45
 	var drive = Model.new()
-	drive.new_game(42, 2, "creative")
+	drive.new_game(42, 1, "creative")
 	Fixtures.equip(drive, "locomotive")
 	var result = preload("res://tests/trip_driver.gd").round_trip(drive, "F", 1)
 	check(result.get("ok", false), "the round trip is driven (%s)" % str(result))
