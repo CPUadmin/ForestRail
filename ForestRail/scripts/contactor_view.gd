@@ -24,6 +24,10 @@ const LEFT_X = 105.0
 const RIGHT_X = 533.0
 const LAMP_AT = Vector2(320, 82)
 const FUSES_AT = [Vector2(208, 272), Vector2(320, 272), Vector2(432, 272)]
+# the fuse pictures: the middle of the cartridge, its slant in the picture (radians) and its length along the axis (pixels)
+const FUSE_ART = [Vector2(174.4, 123.8), -0.490, 367.0]
+const FUSE_ART_BURNT = [Vector2(175.2, 125.8), -0.495, 370.0]
+const FUSE_LEN = 104.0   # box pixels: the clip is ~92 long, the caps rest on its ends
 # five wires, each its colour AND its pattern, so they differ without colour too (owner 14.11)
 const COLORS = [Color("c8402f"), Color("3a6fb5"), Color("e0b33a"), Color("4f9a4f"), Color("e8e2d0")]
 const PATTERNS = ["solid", "stripe", "dots", "check", "double"]
@@ -137,11 +141,16 @@ func draw(dt: float) -> void:
 	canvas.draw_texture_rect(BOX, box, false)
 	var kk = k()
 	# the fuses in their sockets; the middle one burnt for a moment after a spark
+	# 19.11 (owner: «почему они криво поставлены»): the P21 fuse is drawn at a slant (28°) while the clips in the box are
+	# level; turn it level and fit its length to the clip, so both caps lie in the clips
 	for f in range(FUSES_AT.size()):
-		var tex = FUSE_BURNT if (f == 1 and spark_t > 0.0) else FUSE
-		var w = 92.0 * kk
-		var h = w * float(tex.get_height()) / float(tex.get_width())
-		canvas.draw_texture_rect(tex, Rect2(at_px(FUSES_AT[f]) - Vector2(w, h) * 0.5, Vector2(w, h)), false)
+		var burnt = f == 1 and spark_t > 0.0
+		var tex = FUSE_BURNT if burnt else FUSE
+		var art = FUSE_ART_BURNT if burnt else FUSE_ART
+		var scale = FUSE_LEN * kk / float(art[2])
+		canvas.draw_set_transform(at_px(FUSES_AT[f]), -float(art[1]), Vector2(scale, scale))
+		canvas.draw_texture_rect(tex, Rect2(-Vector2(art[0]), tex.get_size()), false)
+		canvas.draw_set_transform_matrix(Transform2D.IDENTITY)
 	# the lamp ГОТОВ in the top socket
 	var lamp = LAMP_READY if c().ready() else LAMP_OFF
 	var lw = 104.0 * kk
