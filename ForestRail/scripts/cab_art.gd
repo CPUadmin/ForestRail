@@ -228,7 +228,7 @@ func draw_cab_forward(view: Rect2) -> Dictionary:
 			canvas.draw_texture_rect(tex, Rect2(layer_x, horizon + float(layer[2]) - layer_h, layer_w + 1.0, layer_h), false, layer[3])
 			layer_x += layer_w
 	canvas.draw_polygon(PackedVector2Array([Vector2(0, horizon - 3), Vector2(view.size.x, horizon - 3), Vector2(view.size.x, horizon + 28), Vector2(0, horizon + 28)]), PackedColorArray([Color(0.85, 0.92, 0.9, 0.0), Color(0.85, 0.92, 0.9, 0.0), Color(0.85, 0.92, 0.9, 0.5), Color(0.85, 0.92, 0.9, 0.5)]))
-	var steam_wall = canvas.steam_cab().revised()
+	var steam_wall = canvas.new_cab_wall()
 	var ground_top = horizon + 11.0 if steam_wall else horizon
 	canvas.draw_polygon(PackedVector2Array([Vector2(0, ground_top), Vector2(view.size.x, ground_top), view.end, Vector2(0, view.end.y)]), PackedColorArray([C_77a06a, C_77a06a, C_3a5e3c, C_3a5e3c]))
 	if steam_wall:
@@ -476,7 +476,7 @@ func draw_cab_nose(view: Rect2, look: Dictionary) -> void:
 # The cab around the view: roof lining, pillars, window rubber, wipers, lamps and the
 # dashboard ledge.
 func draw_cab_frame(size: Vector2, top: float) -> void:
-	if canvas.steam_cab().revised():
+	if canvas.new_cab_wall():
 		canvas.steam_cab().draw_window_wall(size, top)
 		return
 	var green = Color("2f4a3b")
@@ -707,14 +707,16 @@ func draw_cab_dash_details(size: Vector2, layout: Dictionary) -> void:
 	var brass = Color("c9a85a")
 	var kind = canvas.model.vehicle_id()
 	var bench = canvas.steam_cab().revised()
+	var electric = canvas.electric_cab().revised()
 	if bench:
 		canvas.steam_cab().draw_board_labels()
 		draw_status_lamps(kind, Vector2(size.x * 0.397, lerpf(top, size.y, 0.86)), size.x * 0.059)
+	elif electric: canvas.electric_cab().draw_board(size, layout)
 	elif kind == "motorcar": draw_petrol_header_v2(size, top)
 	else: draw_plain_header(size, top, kind, brass)
 	# brass clock on the right of the ledge
 	var clock = Vector2(size.x - 70, top + 26)
-	if bench: clock = Vector2(size.x * 0.61, lerpf(top, size.y, 0.136))
+	if bench or electric: clock = Vector2(size.x * 0.61, lerpf(top, size.y, 0.136))
 	canvas.draw_circle(clock, 22, brass)
 	canvas.draw_circle(clock, 19, Color("f1ead2"))
 	for hour in range(12):
@@ -728,11 +730,11 @@ func draw_cab_dash_details(size: Vector2, layout: Dictionary) -> void:
 	canvas.draw_line(clock, clock + Vector2(cos(ah), sin(ah)) * 10, Color("2a2218"), 2.5, true)
 	canvas.draw_circle(clock, 2, Color("a8231c"))
 	# hanging cables
-	if not bench:
+	if not bench and not electric:
 		canvas.draw_polyline(PackedVector2Array([Vector2(size.x * 0.30, top + 6), Vector2(size.x * 0.34, top + 42), Vector2(size.x * 0.38, top + 8)]), Color("0b0e0c"), 4.0, true)
 	if kind == "motorcar": draw_petrol_cab_extras(size, layout)
 	if kind in ["steam", "locomotive", "pneumatic"]: draw_cab_reverser(size, layout)
-	if kind == "locomotive": draw_electric_cab_extras(size, layout)
+	if kind == "locomotive" and not electric: draw_electric_cab_extras(size, layout)
 	if kind == "pneumatic": draw_pneumatic_cab_extras(size, layout)
 	if kind == "steam" and not bench:
 		# water glass on the right: tube with the level, brass fittings
@@ -765,7 +767,10 @@ func draw_cab_reverser(size: Vector2, layout: Dictionary) -> void:
 	var strip_x = size.x * 0.5 + 190.0
 	var brass = Color("c9a85a")
 	var panel = Rect2(strip_x, top + 10, 190, 60)
-	if canvas.steam_cab().revised():
+	if canvas.electric_cab().revised():
+		# right of the two levers, under the clock (the electric pult is lower than the steam one)
+		panel.position = Vector2(size.x * 0.572 - panel.size.x * 0.5, lerpf(top, size.y, 0.52) - panel.size.y * 0.5)
+	elif canvas.new_cab_wall():
 		panel.position = Vector2(size.x * 0.486 - panel.size.x * 0.5, lerpf(top, size.y, 0.69) - panel.size.y * 0.5)
 	canvas.draw_style_box(canvas.style(Color("1d2320"), brass, 6), panel)
 	canvas.draw_string(canvas.font, panel.position + Vector2(0, 54), "НАПРАВЛЕНИЕ", HORIZONTAL_ALIGNMENT_CENTER, panel.size.x, 10, Color("c7c3a0"))
@@ -950,7 +955,7 @@ func petrol_right(size: Vector2, layout: Dictionary) -> Dictionary:
 
 func draw_round_gauge(center: Vector2, radius: float, fraction: float, title: String, readout: String, zones: Array, ticks: int = 10, scale_text: Array = []) -> void:
 	fraction = canvas.cab_needle(title, fraction)
-	var v2 = dash_v2() or canvas.steam_cab().revised()
+	var v2 = dash_v2() or canvas.new_cab_wall()
 	canvas.draw_circle(center + Vector2(2, 3), radius + 8, Color(0, 0, 0, 0.4))
 	canvas.draw_circle(center, radius + 8, Color("b9793a") if v2 else Color("a98a4a"))
 	canvas.draw_arc(center, radius + 8, PI * 1.1, PI * 1.6, 12, Color("f0c088") if v2 else Color("e6cf8b"), 2.0, true)
@@ -1006,6 +1011,9 @@ func draw_cab_gauges(size: Vector2, layout: Dictionary) -> void:
 	var nominal = canvas.instruments.nominal_speed() / maximum if canvas.instruments != null else 0.8
 	var speed_zones = [[nominal * 0.72, Color("5cc17f")], [nominal, Color("e6b34a")], [1.0, Color("e0564a")]]
 	var left = pult.position.x * 0.5
+	if canvas.electric_cab().revised():
+		canvas.electric_cab().draw_gauges(size, layout, [speed / maximum, "%.1f км/ч" % speed, speed_zones, [0, roundi(maximum * 0.25), roundi(maximum * 0.5), roundi(maximum * 0.75), roundi(maximum)]], self)
+		return
 	var bench = canvas.steam_cab().revised()
 	if bench:
 		radius = minf(size.x * 0.055, (size.y - float(layout.dash_top)) * 0.166)

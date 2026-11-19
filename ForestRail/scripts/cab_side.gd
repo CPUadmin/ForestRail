@@ -19,7 +19,7 @@ func _draw() -> void:
 	var facing = int(game.model.state.direction)
 	var travelled = game.model.render_s() * facing
 	var speed = absf(float(game.model.state.v))
-	var steam_wall = game.steam_cab().revised()
+	var steam_wall = game.new_cab_wall()
 	var horizon = h * (0.38 if steam_wall else 0.50)
 	draw_polygon(PackedVector2Array([Vector2(0, 0), Vector2(w, 0), Vector2(w, horizon), Vector2(0, horizon)]), PackedColorArray([Color("6ea6d4"), Color("6ea6d4"), Color("d9e8e0"), Color("d9e8e0")]))
 	var forest: Texture2D = game.art.textures["parallax/far_forest"]

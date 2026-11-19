@@ -16,6 +16,7 @@ const MatchView = preload("res://scripts/match_view.gd")
 const ControlsView = preload("res://scripts/controls_view.gd")
 const ModalUi = preload("res://scripts/modal_ui.gd")
 const SteamCab = preload("res://scripts/steam_cab.gd")
+const ElectricCab = preload("res://scripts/electric_cab.gd")
 const StationUi = preload("res://scripts/station_ui.gd")
 const HudUi = preload("res://scripts/hud_ui.gd")
 const ResultSheet = preload("res://scripts/result_sheet.gd")
@@ -1098,6 +1099,18 @@ func steam_cab():
 func steam_fire_rect(rect: Rect2) -> Rect2:
 	return steam_cab().steam_fire_rect(rect)
 
+# 19.11: the new cab of the electric locomotive, on the base of the steam one (electric_cab.gd)
+var electric_cab_cache = null
+func electric_cab():
+	if electric_cab_cache == null: electric_cab_cache = ElectricCab.new(self)
+	return electric_cab_cache
+
+# a wall with windows in one frame and a painted board: the new steam and electric cabs. Each cab has its own pictures
+# (owner 19.11: «каждая кабина должна быть уникальной»); the electric one turns on only with its own П32 wall and board,
+# and its wall and side windows are to be drawn from those (now the wall code is the steam one's)
+func new_cab_wall() -> bool:
+	return steam_cab().revised() or electric_cab().revised()
+
 func draw_steam_cab_props(bucket: Rect2, fire: Rect2, door_button: Rect2, boiler: Dictionary, fleet: Dictionary) -> void:
 	steam_cab().draw_steam_cab_props(bucket, fire, door_button, boiler, fleet)
 
@@ -1214,7 +1227,7 @@ func draw_control_zoom() -> void:
 				draw_string(font,mark+Vector2(-17,-27 if endpoint==1 else -12),["0","100"][endpoint],HORIZONTAL_ALIGNMENT_CENTER,34,13,PAPER)
 		if kind!="key" and (drag==id or (pult_t*point).distance_to(get_global_mouse_position())<24): draw_arc(point,10,0,TAU,28,PAPER,1.5,true)
 	if model.vehicle_id()=="steam": draw_steam_panel(rect)
-	if steam_cab().revised(): return
+	if new_cab_wall(): return
 	var feedback=toast if toast_seconds>0 else ("Вентиль закроется сам, когда отпустишь. Спичку возьми из коробка." if model.vehicle_id()=="steam" else ("Веди шар рычага по кулисе: через N в нужный паз. Ключ — держи до пуска." if model.vehicle_id()=="motorcar" else ("Двигай ручки вверх и вниз по прорезям, они держат положение." if model.vehicle_id()=="locomotive" else "Редуктор: крути колесо, 3 оборота. Обогрев и клапаны: щелчок.")))
 	draw_multiline_string(font,rect.position+Vector2(16,rect.size.y-35),feedback,HORIZONTAL_ALIGNMENT_LEFT,310,15,2,GOLD if toast_seconds>0 else Color("c7c3a0"))
 
@@ -2246,7 +2259,7 @@ func update_pult_transform() -> void:
 
 # The side windows sit in the cab pillars; they follow the layout every frame.
 func cab_window_rect(size: Vector2, top: float, window_side: float) -> Rect2:
-	if steam_cab().revised(): return steam_cab().side_rect(size, top, window_side)
+	if new_cab_wall(): return steam_cab().side_rect(size, top, window_side)
 	var pillar = size.x * 0.12
 	var roof = size.y * 0.075
 	var width = pillar * 0.62
@@ -2266,11 +2279,11 @@ func update_cab_sides() -> void:
 			window.size = rect.size
 			# the side windows follow the time of day
 			var dark = model.night_amount()
-			window.modulate = Color.WHITE if steam_cab().revised() else Color(lerpf(1.0, 0.36, dark), lerpf(1.0, 0.4, dark), lerpf(1.0, 0.55, dark))
+			window.modulate = Color.WHITE if new_cab_wall() else Color(lerpf(1.0, 0.36, dark), lerpf(1.0, 0.4, dark), lerpf(1.0, 0.55, dark))
 			window.queue_redraw()
 
 func pult_screen_rect() -> Rect2:
-	if steam_cab().revised():
+	if new_cab_wall():
 		var size = get_viewport_rect().size
 		var top = float(cab_layout(size).dash_top)
 		return Rect2(0, top, size.x, size.y - top)
