@@ -37,6 +37,8 @@ Keep exactly as they are (the owner likes them):
 - the contactor door with the porthole showing the twisted wires, the knife switch, the red emergency button, the lightning plate, the handles, the marble, the green riveted walls, the copper wire on porcelain insulators.
 No letters, no numbers.
 
+GPT: done 19.11.2026, files: electric_cab_concept_6_simple_v2.png
+
 ## P19 / wear_overlays.png  [closed 14.11.2026: the _v2 accepted by Claude]
 What is wrong: drawn on magenta. The overlays are half-transparent (soot, smoke, scratches), so after the key the magenta stays in them as a pink tint.
 What to change: the same 9 overlays on a flat pure BLACK #000000 background, exactly as the task says (light, smoke and see-through things go on black).
