@@ -20,6 +20,23 @@ Keep: ...
 
 ---
 
+## P32 / electric_cab_concept_6_simple.png  [open]
+The owner's choice to develop (19.11). Redraw it as `electric_cab_concept_6_simple_v2.png`, the same scene, style, size (16:9) and layout.
+What is wrong and what to change:
+1. The hood ahead stands exactly on the post between the two front windows: half of it is in each window and the track is hidden under it. The driver must see the road. Make the hood narrower and shift it so that the rails run clearly visible into the distance in the LEFT front window, with the hood's end and lamp ahead. The slats on top of the hood read as a staircase: put the louvres on the hood's SIDES as vertical grilles, the top stays smooth with the resistor domes.
+2. Missing parts that the game has:
+   - the five signal lamps (green, amber, red, red, blue; no text) in one row in the middle section;
+   - a small round clock.
+3. The small half-round gauge under the speedometer becomes the AMMETER with a centre zero: the needle stands in the middle at rest, the left half of the scale is blue (recharge), the right half orange (draw). Draw the needle a little to the right.
+4. The tall neon thermometer glows over its whole height, so no level can be read, and it is the brightest thing on the screen, brighter than the speedometer. Show a LEVEL: the glowing column fills about 60% from the bottom (cyan below turning violet at the top of the column), the tube above it is dark glass. Make the glow softer.
+5. Remove the thin green art-deco stripes at the sides of the middle panel.
+Keep exactly as they are (the owner likes them):
+- the small forward/reverse toggle with arrows;
+- the rainbow segment bar at the top of the middle section (it is the battery CHARGE): only light about 8 of the 12 segments, the rest dark;
+- the horn button, the headlamp toggle and the wiper toggle with their pictograms, and the parked wipers;
+- the contactor door with the porthole showing the twisted wires, the knife switch, the red emergency button, the lightning plate, the handles, the marble, the green riveted walls, the copper wire on porcelain insulators.
+No letters, no numbers.
+
 ## P19 / wear_overlays.png  [closed 14.11.2026: the _v2 accepted by Claude]
 What is wrong: drawn on magenta. The overlays are half-transparent (soot, smoke, scratches), so after the key the magenta stays in them as a pink tint.
 What to change: the same 9 overlays on a flat pure BLACK #000000 background, exactly as the task says (light, smoke and see-through things go on black).
