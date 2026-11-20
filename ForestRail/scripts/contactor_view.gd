@@ -1,53 +1,61 @@
 extends RefCounted
-# 1.4.10 «Скрутка» в кабине электровоза: ящик КОНТАКТОР крупно поверх доски (картинки П21 и кнопка с лампой из П17;
-# провода, скрутка, искра и дым рисуются кодом). Работает через canvas (main.gd), как depot_ui.gd.
+# Шкафчик электровоза крупно поверх кабины (1.12, картинки GPT П33 «Подстанция»; провода, искры и свет рисует код).
+# Работает через canvas (main.gd), как depot_ui.gd. Модель — contactor.gd.
 #
-# Мышь: клик по крышке ящика открывает его, клик по откинутой крышке закрывает. Конец провода тащится мышью и прилипает
-# к клемме. Зажав мышь на стыке, обведи его курсором два раза — медь скручивается. Красная кнопка — ПУСК/СТОП.
-# Клавиатура (ящик открыт): цифра выбирает провод, вторая цифра — клемму; пробел, пока держишь, крутит выбранный стык;
-# Enter — ПУСК/СТОП; Esc закрывает ящик.
+# Мышь: провода висят на верёвочной физике. Конец тащится к клемме своего цвета и прилипает. Зажав мышь на стыке,
+# обводи его петлями: 3 петли — тугая скрутка, ровно 5 одним движением — «золотая» (секрет). Хорошенько подёргай
+# зажатый стык — скрутка рвётся, обрывок остаётся в шкафчике. Щелчок по сгоревшему предохранителю ставит запасной;
+# обрывок, донесённый до пустого держателя и обмотанный петлями, — «жучок» (секрет). Пуск — рубильник в кабине.
+# Дверца слева закрывает шкафчик. Клавиатура: цифра — провод, вторая цифра — клемма; пробел крутит; Enter — рубильник;
+# Esc закрывает.
 
-const BOX = preload("res://assets/art_electric/contactor/box_open.png")
-const LID_OPEN = preload("res://assets/art_electric/contactor/lid_open.png")
-const FUSE = preload("res://assets/art_electric/contactor/fuse.png")
-const FUSE_BURNT = preload("res://assets/art_electric/contactor/fuse_burnt.png")
-const TORN = preload("res://assets/art_electric/contactor/torn_ends.png")
-const BUTTON_DARK = preload("res://assets/art_electric/contactor/button_dark.png")
-const BUTTON_LIT = preload("res://assets/art_electric/contactor/button_lit.png")
-const LAMP_OFF = preload("res://assets/art_electric/contactor/lamp_off.png")
-const LAMP_READY = preload("res://assets/art_electric/contactor/lamp_ready.png")
+const DIR = "res://assets/art_electric/cabinet/"
+const INSIDE = preload("res://assets/art_electric/cabinet/inside.png")
+const DOOR = preload("res://assets/art_cab/electric/cabinet_door.png")
+const FUSE_TEX = {"ok": preload("res://assets/art_electric/cabinet/fuse_whole.png"), "burnt": preload("res://assets/art_electric/cabinet/fuse_burnt.png"), "bug": preload("res://assets/art_electric/cabinet/fuse_bug.png")}
+const SCRAP = preload("res://assets/art_electric/cabinet/wire_scrap.png")
+const SPARE_CLOSED = preload("res://assets/art_electric/cabinet/spare_closed.png")
+const SPARE_OPEN = preload("res://assets/art_electric/cabinet/spare_open.png")
 
-# places in the picture of the open box (638 × 343 px)
-const BOX_PX = Vector2(638, 343)
-const ROWS_Y = [78.0, 125.0, 170.0, 213.0, 256.0]
-const LEFT_X = 105.0
-const RIGHT_X = 533.0
-const LAMP_AT = Vector2(320, 82)
-const FUSES_AT = [Vector2(208, 272), Vector2(320, 272), Vector2(432, 272)]
-# the fuse pictures: the middle of the cartridge, its slant in the picture (radians) and its length along the axis (pixels)
-const FUSE_ART = [Vector2(174.4, 123.8), -0.490, 367.0]
-const FUSE_ART_BURNT = [Vector2(175.2, 125.8), -0.495, 370.0]
-const FUSE_LEN = 104.0   # box pixels: the clip is ~92 long, the caps rest on its ends
-# five wires, each its colour AND its pattern, so they differ without colour too (owner 14.11)
+# places in inside.png (1265 × 714 px)
+const PX = Vector2(1265, 714)
+const ROWS_Y = [150.0, 238.0, 321.0, 404.0, 488.0]
+const LEFT_X = 163.0
+const RIGHT_X = 1103.0
+const LAMP_AT = Vector2(633, 169)
+const HOLDERS = [Vector2(345, 585), Vector2(568, 585), Vector2(791, 585)]
+const HOLDER_W = 190.0
+const POCKET = Vector2(970, 587)
+const SCRAP_AT = Vector2(980, 470)
 const COLORS = [Color("c8402f"), Color("3a6fb5"), Color("e0b33a"), Color("4f9a4f"), Color("e8e2d0")]
 const PATTERNS = ["solid", "stripe", "dots", "check", "double"]
 const COPPER = Color("d08a4a")
-const GRAB_R = 26.0        # px of the screen: how near the end must be pressed
-const SNAP_R = 34.0        # px: how near a terminal the end sticks
-const TWIST_LEAVE = 80.0   # px: dragged this far from the joint, the end comes off instead of twisting
+const GRAB_R = 28.0
+const SNAP_R = 36.0
+const TWIST_LEAVE = 90.0
+const ROPE_N = 16
+const TEAR_SPEED = 1800.0   # px/s: a yank this fast…
+const TEAR_YANKS = 3        # …this many times back and forth within TEAR_WINDOW tears the joint
+const TEAR_WINDOW = 0.8
 
 var canvas = null
 var open = false
-var mode = ""              # "" | "wire" (dragging an end) | "twist" (circling a joint)
-var wire = -1              # the wire in hand or being twisted
-var hand = Vector2.ZERO    # where the dragged end is
+var mode = ""              # "" | "wire" | "twist" | "scrap" | "bugwind"
+var wire = -1
+var hand = Vector2.ZERO
 var last_angle = 0.0
-var twist_sum = 0.0        # turns counted in the current circling
-var selected = -1          # keyboard: the chosen wire
-var spark_t = 0.0          # seconds of the flash and smoke after a wrong pair
-var spark_at: Array = []   # screen points of the spark
-var lid_t = 0.0            # 0..1 the lid swings open
+var twist_sum = 0.0
+var selected = -1
+var spark_t = 0.0
+var spark_at: Array = []
+var lid_t = 0.0
 var hits: Dictionary = {}
+var ropes: Array = []      # per wire: {"p": PackedVector2Array, "o": PackedVector2Array}
+var last_mouse = Vector2.ZERO
+var last_mouse_t = 0.0
+var last_dir = 0.0
+var yanks: Array = []      # times of fast reversals while holding a joint
+var bug_slot = -1
 
 func _init(owner_canvas) -> void:
 	canvas = owner_canvas
@@ -64,7 +72,8 @@ func toggle() -> void:
 		open = true
 		lid_t = 0.0
 		selected = -1
-		canvas.sound.play("gear", 0.5, 0.6)   # the hinges
+		ropes = []
+		canvas.sound.play("gear", 0.5, 0.6)
 		if canvas.model.state.fleet_by_id.has("locomotive"): c().st()
 
 func close() -> void:
@@ -77,13 +86,13 @@ func close() -> void:
 # --- geometry
 func box_rect() -> Rect2:
 	var size = canvas.get_viewport_rect().size
-	var w = minf(620.0, size.x * 0.44)
-	var h = w * BOX_PX.y / BOX_PX.x
-	# in the middle of the screen, a little left to leave room for the button; low enough for the lid above it
-	return Rect2(Vector2(size.x * 0.5 - w * 0.5 - 50.0, size.y * 0.5 - h * 0.5 + 10.0), Vector2(w, h))
+	var w = minf(940.0, size.x * 0.6)
+	var h = w * PX.y / PX.x
+	# to the right: the knife switch on the left of the board stays in sight and under the hand (it starts the engine)
+	return Rect2(Vector2(size.x * 0.38, size.y * 0.5 - h * 0.5 - 6.0), Vector2(w, h))
 
 func k() -> float:
-	return box_rect().size.x / BOX_PX.x
+	return box_rect().size.x / PX.x
 
 func at_px(p: Vector2) -> Vector2:
 	return box_rect().position + p * k()
@@ -92,98 +101,153 @@ func first_row() -> int:
 	return (ROWS_Y.size() - c().count()) / 2
 
 func root(i: int) -> Vector2:
-	return at_px(Vector2(LEFT_X + 22.0, ROWS_Y[first_row() + i]))
+	return at_px(Vector2(LEFT_X + 30.0, ROWS_Y[first_row() + i]))
 
 func terminal(t: int) -> Vector2:
-	return at_px(Vector2(RIGHT_X - 22.0, ROWS_Y[first_row() + t]))
+	return at_px(Vector2(RIGHT_X - 30.0, ROWS_Y[first_row() + t]))
 
-func rest(i: int) -> Vector2:   # a free end hangs down in the middle of the box
-	return at_px(Vector2(200.0 + 26.0 * float(i), ROWS_Y[first_row() + i] + 34.0))
+func rest(i: int) -> Vector2:   # a free end lies low in the middle; the cable sags between it and its root
+	return at_px(Vector2(420.0 + 90.0 * float(i), 455.0 - 14.0 * float(i)))
 
 func end_of(i: int) -> Vector2:
 	if mode == "wire" and wire == i: return hand
 	if c().joined(i):
 		var p = terminal(c().at(i))
-		if (c().st().popped as Array).has(i): p += Vector2(-16, 12) * k()   # popped: off the screw
+		if (c().st().popped as Array).has(i): p += Vector2(-20, 16) * k()
 		return p
 	return rest(i)
 
-func button_rect() -> Rect2:
-	var plate = button_plate()
-	var side = plate.size.x - 24.0
-	return Rect2(plate.position + Vector2(12.0, 14.0), Vector2(side, side))
+func holder(slot: int) -> Rect2:
+	var centre = at_px(HOLDERS[slot])
+	var w = HOLDER_W * k()
+	return Rect2(centre - Vector2(w, w * 0.36) * 0.5, Vector2(w, w * 0.36))
 
-# the button sits on its own riveted plate fixed to the right side of the box (it covers what is under it in the cab)
-func button_plate() -> Rect2:
+func door_rect() -> Rect2:
 	var box = box_rect()
-	var w = 104.0 * k() * 1.1 + 24.0
-	var h = w + 30.0
-	return Rect2(Vector2(box.end.x - 6.0, box.position.y + box.size.y * 0.5 - h * 0.5), Vector2(w, h))
+	var h = box.size.y * 0.96
+	var w = h * float(DOOR.get_width()) / float(DOOR.get_height()) * 0.42   # swung open towards us: narrow
+	return Rect2(Vector2(box.position.x - w + 6.0, box.position.y + box.size.y * 0.02), Vector2(w, h))
 
-func lid_rect() -> Rect2:
-	var box = box_rect()
-	var w = box.size.x * 0.92
-	var h = w * float(LID_OPEN.get_height()) / float(LID_OPEN.get_width())
-	return Rect2(Vector2(box.position.x + (box.size.x - w) * 0.5, box.position.y - h + 8.0), Vector2(w, h))
+func scrap_rect() -> Rect2:
+	var w = 150.0 * k()
+	return Rect2(at_px(SCRAP_AT) - Vector2(w, w * 0.19) * 0.5, Vector2(w, w * 0.19))
 
-# --- drawing (called after the cab is drawn, so the box lies on top)
+func pocket_rect() -> Rect2:
+	var w = 120.0 * k()
+	var tx = SPARE_CLOSED
+	var h = w * float(tx.get_height()) / float(tx.get_width())
+	return Rect2(at_px(POCKET) - Vector2(w, h) * 0.5, Vector2(w, h))
+
+# --- the rope: Verlet points between the root and the end, gravity, fixed segment length
+func rope(i: int, dt: float) -> PackedVector2Array:
+	while ropes.size() <= i: ropes.append({})
+	var a = root(i)
+	var b = end_of(i)
+	var r: Dictionary = ropes[i]
+	# the end jumped (a tear, a spark, a new scheme): the cable is laid again instead of whipping across the box
+	if r.has("p") and (r.p as PackedVector2Array).size() == ROPE_N and (r.p as PackedVector2Array)[ROPE_N - 1].distance_to(b) > 150.0 * k() and not (mode == "wire" and wire == i):
+		r.erase("p")
+	if not r.has("p") or (r.p as PackedVector2Array).size() != ROPE_N:
+		var pts = PackedVector2Array()
+		for s in range(ROPE_N): pts.append(a.lerp(b, float(s) / float(ROPE_N - 1)) + Vector2(0, sin(float(s) / float(ROPE_N - 1) * PI) * 120.0 * k()))
+		r.p = pts
+		r.o = pts.duplicate()
+	var p: PackedVector2Array = r.p
+	var o: PackedVector2Array = r.o
+	# a springy cable: its length follows the span with some slack, so a free wire sags and does not pile up
+	var seg = maxf(a.distance_to(b) * 1.12, 180.0 * k()) / float(ROPE_N - 1)
+	var gravity = Vector2(0, 900.0 * k())
+	var step = clampf(dt, 0.0, 1.0 / 30.0)
+	var still = bool(canvas.settings.reduce_motion)
+	for s in range(1, ROPE_N - 1):
+		var v = (p[s] - o[s]) * (0.9 if not still else 0.0)
+		o[s] = p[s]
+		p[s] = p[s] + v + gravity * step * step
+	p[0] = a
+	p[ROPE_N - 1] = b
+	for it in range(10):
+		for s in range(ROPE_N - 1):
+			var d = p[s + 1] - p[s]
+			var len = d.length()
+			if len < 0.001: continue
+			var diff = (len - seg) / len
+			if len < seg: continue   # a rope does not push, it only pulls
+			if s == 0:
+				p[s + 1] -= d * diff
+			elif s + 1 == ROPE_N - 1:
+				p[s] += d * diff
+			else:
+				p[s] += d * diff * 0.5
+				p[s + 1] -= d * diff * 0.5
+		p[0] = a
+		p[ROPE_N - 1] = b
+	r.p = p
+	r.o = o
+	return p
+
+# --- drawing (after the cab, so the cabinet lies on top)
 func draw(dt: float) -> void:
 	if not open or not usable(): return
 	lid_t = minf(1.0, lid_t + dt * 5.0)
 	spark_t = maxf(0.0, spark_t - dt)
 	var box = box_rect()
-	var reduce = bool(canvas.settings.reduce_motion)
-	# the lid swung open on its hinges, with a little bounce
-	var bounce = 0.0 if reduce else sin(lid_t * PI * 2.0) * (1.0 - lid_t) * 8.0
-	var lid = lid_rect()
-	canvas.draw_rect(Rect2(Vector2.ZERO, canvas.get_viewport_rect().size), Color(0, 0, 0, 0.38))   # the cab dims a little: the box is what matters now
-	canvas.draw_texture_rect(LID_OPEN, Rect2(lid.position + Vector2(0, bounce), lid.size), false)
-	canvas.draw_texture_rect(BOX, box, false)
 	var kk = k()
-	# the fuses in their sockets; the middle one burnt for a moment after a spark
-	# 19.11 (owner: «почему они криво поставлены»): the P21 fuse is drawn at a slant (28°) while the clips in the box are
-	# level; turn it level and fit its length to the clip, so both caps lie in the clips
-	for f in range(FUSES_AT.size()):
-		var burnt = f == 1 and spark_t > 0.0
-		var tex = FUSE_BURNT if burnt else FUSE
-		var art = FUSE_ART_BURNT if burnt else FUSE_ART
-		var scale = FUSE_LEN * kk / float(art[2])
-		canvas.draw_set_transform(at_px(FUSES_AT[f]), -float(art[1]), Vector2(scale, scale))
-		canvas.draw_texture_rect(tex, Rect2(-Vector2(art[0]), tex.get_size()), false)
-		canvas.draw_set_transform_matrix(Transform2D.IDENTITY)
-	# the lamp ГОТОВ in the top socket
-	var lamp = LAMP_READY if c().ready() else LAMP_OFF
-	var lw = 104.0 * kk
-	var lh = lw * float(lamp.get_height()) / float(lamp.get_width())
-	canvas.draw_texture_rect(lamp, Rect2(at_px(LAMP_AT) - Vector2(lw, lh) * 0.5, Vector2(lw, lh)), false)
-	canvas.draw_string(canvas.font, at_px(LAMP_AT) + Vector2(-lw * 0.5, lh * 0.5 + 14.0 * kk), "ГОТОВ", HORIZONTAL_ALIGNMENT_CENTER, lw, int(13.0 * kk + 3.0), Color("c7c3a0"))
-	# the coloured tags by the right terminals: here goes the wire of this colour and pattern
+	var reduce = bool(canvas.settings.reduce_motion)
+	canvas.draw_rect(Rect2(Vector2.ZERO, canvas.get_viewport_rect().size), Color(0, 0, 0, 0.42))
+	canvas.electric_cab().draw_switch_lit()   # the knife switch stays bright: after the twist it is the next thing to pull
+	var door = door_rect()
+	canvas.draw_texture_rect(DOOR, door, false, Color(0.82, 0.82, 0.8))
+	canvas.draw_texture_rect(INSIDE, box, false)
+	# the lamp ГОТОВ in its socket
+	var lamp = at_px(LAMP_AT)
+	var ready = c().ready()
+	if ready:
+		canvas.draw_circle(lamp, 46.0 * kk, Color(1.0, 0.85, 0.35, 0.22), true, -1, true)
+		canvas.draw_circle(lamp, 24.0 * kk, Color("f6cf5a"), true, -1, true)
+		canvas.draw_circle(lamp + Vector2(-7, -8) * kk, 7.0 * kk, Color(1, 1, 1, 0.6), true, -1, true)
+	canvas.draw_string(canvas.font, lamp + Vector2(-60.0, 104.0 * kk), "ГОТОВ", HORIZONTAL_ALIGNMENT_CENTER, 120.0, int(14.0 * kk + 4.0), Color("5a4630"))
+	# the fuses in their holders; a hot one glows
+	var st = c().st()
+	for slot in range(3):
+		var kind = str(st.fuses[slot])
+		var tex: Texture2D = FUSE_TEX[kind]
+		var rect = holder(slot)
+		var w = rect.size.x * (1.0 if kind == "bug" else 0.92)
+		var h = w * float(tex.get_height()) / float(tex.get_width())
+		canvas.draw_texture_rect(tex, Rect2(rect.get_center() - Vector2(w, h) * 0.5, Vector2(w, h)), false)
+		if kind == "ok" and c().warning() and slot == (st.fuses as Array).find("ok"):
+			var pulse = 0.5 + 0.5 * sin(float(canvas.time) * 10.0) if not reduce else 0.6
+			canvas.draw_rect(rect.grow(-rect.size.y * 0.2), Color(1.0, 0.55, 0.15, 0.25 + 0.3 * pulse))
+		if mode == "bugwind" and bug_slot == slot:
+			canvas.draw_arc(rect.get_center(), rect.size.x * 0.32, 0.0, TAU * fmod(absf(twist_sum), 1.0), 24, Color("f3d27a"), 3.0, true)
+	# the spare box in its pocket, and the scraps of wire in the corner
+	var pocket = pocket_rect()
+	canvas.draw_texture_rect(SPARE_OPEN if c().spares() > 0 else SPARE_CLOSED, pocket, false)
+	for n in range(c().spares()): canvas.draw_circle(pocket.position + Vector2(pocket.size.x * (0.3 + 0.2 * n), pocket.end.y + 10.0 * kk), 4.0 * kk, Color("e8d9a8"))
+	if c().scraps() > 0 and mode != "scrap":
+		canvas.draw_texture_rect(SCRAP, scrap_rect(), false)
+	if mode == "scrap":
+		var sr = scrap_rect()
+		canvas.draw_texture_rect(SCRAP, Rect2(hand - sr.size * 0.5, sr.size), false)
+	# the coloured tags by the right terminals
 	var n = c().count()
 	for w in range(n):
-		var t = c().terminal_of(w)
-		var tag = Rect2(terminal(t) + Vector2(-46, -9) * kk, Vector2(26, 18) * kk)
-		draw_band(tag, w)
-	# the wires: from the harness on the left, with a soft sag; the bare copper end; the twist as a little spiral
+		draw_band(Rect2(terminal(c().terminal_of(w)) + Vector2(-58, -10) * kk, Vector2(30, 20) * kk), w)
 	for i in range(n):
-		draw_wire(i)
-	# the spark and the smoke after a wrong pair (procedural)
+		draw_wire(i, rope(i, dt))
 	if spark_t > 0.0: draw_spark(reduce)
-	# the button ПУСК/СТОП
-	var btn = button_rect()
-	var btn_plate = button_plate()
-	canvas.draw_style_box(canvas.style(Color("1f2620"), Color("b08a46"), 8), btn_plate)
-	for corner in [Vector2(7, 7), Vector2(btn_plate.size.x - 7, 7), Vector2(7, btn_plate.size.y - 7), Vector2(btn_plate.size.x - 7, btn_plate.size.y - 7)]:
-		canvas.draw_circle(btn_plate.position + corner, 3.0, Color("c9a85a"))
-	canvas.draw_texture_rect(BUTTON_LIT if c().is_on() else BUTTON_DARK, btn, false)
-	canvas.draw_string(canvas.font, Vector2(btn_plate.position.x, btn_plate.end.y - 9.0), "СТОП" if c().is_on() else "ПУСК", HORIZONTAL_ALIGNMENT_CENTER, btn_plate.size.x, 16, canvas.PAPER)
-	# one short line of help, only while it is not ready
-	if not c().is_on():
-		var line = "Подведи каждый провод к клемме с его цветом и обведи стык курсором два раза" if not c().ready() else "Готово: жми ПУСК"
-		var width = canvas.font.get_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, -1, 15).x + 28.0
-		var plate = Rect2(Vector2(box.position.x + box.size.x * 0.5 - width * 0.5, box.end.y + 10.0), Vector2(width, 28.0))
-		canvas.draw_style_box(canvas.style(Color(0.08, 0.07, 0.05, 0.92), Color("8a6a3a"), 6), plate)
-		canvas.draw_string(canvas.font, plate.position + Vector2(0, 19), line, HORIZONTAL_ALIGNMENT_CENTER, plate.size.x, 15, Color("e8dcb4"))
-	hits = {"button": btn, "lid": lid}
+	# one short line of help
+	var line = ""
+	if c().motor_burnt(): line = "Мотор сгорел: только помощь депо"
+	elif c().is_on(): line = "Включено. Рубильник вниз — стоп (провода разведутся)"
+	elif not c().all_joined(): line = "Подведи каждый провод к клемме его цвета"
+	elif not c().ready(): line = "Обведи каждый стык петлями: три — тугая скрутка"
+	else: line = "Готово: рубильник в кабине вверх"
+	var width = canvas.font.get_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, -1, 15).x + 28.0
+	var plate = Rect2(Vector2(box.position.x + box.size.x * 0.5 - width * 0.5, box.end.y + 8.0), Vector2(width, 28.0))
+	canvas.draw_style_box(canvas.style(Color(0.08, 0.07, 0.05, 0.92), Color("8a6a3a"), 6), plate)
+	canvas.draw_string(canvas.font, plate.position + Vector2(0, 19), line, HORIZONTAL_ALIGNMENT_CENTER, plate.size.x, 15, Color("e8dcb4"))
+	hits = {"lid": door}
 
 func draw_band(rect: Rect2, w: int) -> void:
 	var col: Color = COLORS[w % COLORS.size()]
@@ -191,90 +255,84 @@ func draw_band(rect: Rect2, w: int) -> void:
 	canvas.draw_rect(rect, col)
 	var dark = col.darkened(0.55)
 	match PATTERNS[w % PATTERNS.size()]:
-		"stripe":
-			canvas.draw_line(rect.position + Vector2(0, rect.size.y * 0.5), rect.end - Vector2(0, rect.size.y * 0.5), dark, maxf(2.0, rect.size.y * 0.25))
+		"stripe": canvas.draw_line(rect.position + Vector2(0, rect.size.y * 0.5), rect.end - Vector2(0, rect.size.y * 0.5), dark, maxf(2.0, rect.size.y * 0.25))
 		"dots":
 			for d in range(3): canvas.draw_circle(rect.position + Vector2(rect.size.x * (0.2 + 0.3 * d), rect.size.y * 0.5), rect.size.y * 0.18, dark)
 		"check":
 			for d in range(4):
-				if d % 2 == 0: canvas.draw_rect(Rect2(rect.position + Vector2(rect.size.x * 0.25 * d, 0), Vector2(rect.size.x * 0.25, rect.size.y * 0.5)), dark)
-				else: canvas.draw_rect(Rect2(rect.position + Vector2(rect.size.x * 0.25 * d, rect.size.y * 0.5), Vector2(rect.size.x * 0.25, rect.size.y * 0.5)), dark)
+				var y = 0.0 if d % 2 == 0 else rect.size.y * 0.5
+				canvas.draw_rect(Rect2(rect.position + Vector2(rect.size.x * 0.25 * d, y), Vector2(rect.size.x * 0.25, rect.size.y * 0.5)), dark)
 		"double":
 			canvas.draw_line(rect.position + Vector2(0, rect.size.y * 0.3), Vector2(rect.end.x, rect.position.y + rect.size.y * 0.3), dark, 2.0)
 			canvas.draw_line(rect.position + Vector2(0, rect.size.y * 0.7), Vector2(rect.end.x, rect.position.y + rect.size.y * 0.7), dark, 2.0)
 
-func wire_points(i: int) -> PackedVector2Array:
-	var a = root(i)
-	var b = end_of(i)
-	var sway = 0.0 if bool(canvas.settings.reduce_motion) else sin(float(canvas.time) * 2.3 + float(i) * 1.7) * 3.0
-	var sag = Vector2(sway, 30.0 + a.distance_to(b) * 0.12) * k()
-	var ctrl1 = a + (b - a) * 0.33 + sag
-	var ctrl2 = a + (b - a) * 0.66 + sag
-	var pts = PackedVector2Array()
-	for s in range(25):
-		var t = float(s) / 24.0
-		var u = 1.0 - t
-		pts.append(a * u * u * u + ctrl1 * 3.0 * u * u * t + ctrl2 * 3.0 * u * t * t + b * t * t * t)
-	return pts
-
-func draw_wire(i: int) -> void:
-	var pts = wire_points(i)
+func draw_wire(i: int, pts: PackedVector2Array) -> void:
 	var col: Color = COLORS[i % COLORS.size()]
 	var dark = col.darkened(0.55)
 	var kk = k()
-	var body = pts.slice(0, pts.size() - 3)
-	canvas.draw_polyline(body, Color("140f0b"), 11.0 * kk + 1.0, true)
-	canvas.draw_polyline(body, col, 8.0 * kk, true)
+	var body = pts.slice(0, pts.size() - 2)
+	canvas.draw_polyline(body, Color("140f0b"), 13.0 * kk + 1.0, true)
+	canvas.draw_polyline(body, col, 10.0 * kk, true)
 	match PATTERNS[i % PATTERNS.size()]:
 		"stripe":
-			for s in range(0, body.size() - 1, 2): canvas.draw_line(body[s], body[s + 1], dark, 3.0 * kk)
+			for s in range(0, body.size() - 1, 2): canvas.draw_line(body[s], body[s + 1], dark, 3.5 * kk)
 		"dots":
-			for s in range(1, body.size(), 3): canvas.draw_circle(body[s], 2.4 * kk, dark)
+			for s in range(1, body.size()): canvas.draw_circle(body[s], 2.8 * kk, dark)
 		"check":
-			for s in range(0, body.size() - 1, 2):
+			for s in range(0, body.size() - 1):
 				var along = (body[s + 1] - body[s]).normalized()
-				var across = Vector2(-along.y, along.x) * 3.2 * kk
+				var across = Vector2(-along.y, along.x) * 4.0 * kk
 				canvas.draw_line(body[s] - across, body[s] + across, dark, 2.0 * kk)
 		"double":
 			for s in range(body.size() - 1):
 				var along = (body[s + 1] - body[s]).normalized()
-				var across = Vector2(-along.y, along.x) * 2.2 * kk
+				var across = Vector2(-along.y, along.x) * 2.8 * kk
 				canvas.draw_line(body[s] + across, body[s + 1] + across, dark, 1.4)
 				canvas.draw_line(body[s] - across, body[s + 1] - across, dark, 1.4)
-	# the bare copper end
-	canvas.draw_polyline(pts.slice(pts.size() - 4, pts.size()), COPPER, 4.0 * kk, true)
+	canvas.draw_polyline(pts.slice(pts.size() - 3, pts.size()), COPPER, 5.0 * kk, true)
 	var tip = pts[pts.size() - 1]
 	var st = c().st()
 	if (st.torn as Array).has(i) and not c().joined(i):
-		var tw = 46.0 * kk
-		canvas.draw_texture_rect(TORN, Rect2(tip - Vector2(tw * 0.5, tw * 0.35), Vector2(tw, tw * 0.7)), false)
+		for f in range(5): canvas.draw_line(tip, tip + Vector2.from_angle(-0.8 + 0.4 * f) * 12.0 * kk, COPPER.darkened(0.2), 1.6)
 	if c().joined(i):
-		# the twist: a little copper spiral, one coil per half turn; a green dot when it holds
-		var coils = int(c().turns(i) * 2.0)
-		for coil in range(coils):
-			var cx = tip + Vector2(-4.0 - 3.0 * coil, 0) * kk
-			canvas.draw_arc(cx, 4.5 * kk, 0.0, TAU, 12, COPPER.lightened(0.15 if coil % 2 == 0 else 0.0), 1.8 * kk, true)
-		if c().twisted(i):
-			canvas.draw_circle(tip + Vector2(0, -14) * kk, 4.0 * kk, Color("5cc17f"))
-		if (st.popped as Array).has(i) and fmod(float(canvas.time) * 3.0, 1.0) < 0.5:
-			canvas.draw_circle(tip + Vector2(0, -14) * kk, 4.0 * kk, Color("e0564a"))
+		# the twist: copper loops along the joint, one per loop turned; gold for the golden twist
+		var loops = int(c().turns(i))
+		var gold = (st.golden as Array).has(i)
+		var ink = Color("f1c65a") if gold else COPPER
+		for loop in range(loops):
+			canvas.draw_arc(tip + Vector2(-6.0 - 5.0 * loop, 0) * kk, 6.0 * kk, 0.0, TAU, 14, ink.lightened(0.15 if loop % 2 == 0 else 0.0), 2.2 * kk, true)
+		if gold and fmod(float(canvas.time) * 1.3 + float(i) * 0.3, 1.0) < 0.15:
+			canvas.draw_circle(tip + Vector2(-12, -8) * kk, 4.0 * kk, Color(1, 1, 0.8, 0.8))
+		var mark = Color("5cc17f") if c().tight(i) else (Color("e6b34a") if c().twisted(i) else Color(0, 0, 0, 0))
+		if (st.popped as Array).has(i) and fmod(float(canvas.time) * 3.0, 1.0) < 0.5: mark = Color("e0564a")
+		if mark.a > 0.0: canvas.draw_circle(tip + Vector2(0, -18) * kk, 5.0 * kk, mark)
 	if selected == i:
-		canvas.draw_arc(tip, 12.0 * kk, 0.0, TAU, 20, Color("f3d27a"), 2.0, true)
+		canvas.draw_arc(tip, 14.0 * kk, 0.0, TAU, 20, Color("f3d27a"), 2.0, true)
 
 func draw_spark(reduce: bool) -> void:
 	var age = 0.9 - spark_t
 	for p in spark_at:
 		var flash = clampf(1.0 - age / 0.25, 0.0, 1.0)
 		if flash > 0.0:
-			canvas.draw_circle(p, 22.0 * k() * flash, Color(0.85, 0.92, 1.0, 0.55 * flash))
+			canvas.draw_circle(p, 26.0 * k() * flash, Color(0.85, 0.92, 1.0, 0.55 * flash))
 			for r in range(8):
 				var a = float(r) * TAU / 8.0 + (0.0 if reduce else age * 9.0)
-				canvas.draw_line(p, p + Vector2(cos(a), sin(a)) * (14.0 + 26.0 * flash) * k(), Color(1.0, 0.95, 0.7, flash), 2.0)
-		# a grey puff rising from the joint
+				canvas.draw_line(p, p + Vector2(cos(a), sin(a)) * (16.0 + 30.0 * flash) * k(), Color(1.0, 0.95, 0.7, flash), 2.0)
 		for puff in range(3):
 			var up = age * 40.0 + float(puff) * 12.0
 			var alpha = clampf(0.45 - age * 0.45, 0.0, 0.45)
 			canvas.draw_circle(p + Vector2(float(puff - 1) * 8.0, -up) * k(), (8.0 + age * 14.0) * k(), Color(0.55, 0.55, 0.52, alpha))
+
+# a spark shown at the joints of the wrong pairs (the start from the cab switch failed)
+func show_spark(joints: Array) -> void:
+	spark_t = 0.9
+	spark_at = joints
+
+func wrong_joints() -> Array:
+	var joints: Array = []
+	for i in range(c().count()):
+		if c().joined(i) and c().at(i) != c().terminal_of(i): joints.append(terminal(c().at(i)))
+	return joints
 
 # --- the mouse
 func nearest_end(mouse: Vector2) -> int:
@@ -297,54 +355,101 @@ func nearest_terminal(p: Vector2) -> int:
 			best = t
 	return best
 
-# true when the press was the box's
 func press(mouse: Vector2) -> bool:
 	if not open or not usable(): return false
-	if hits.has("button") and (hits.button as Rect2).has_point(mouse):
-		push_button()
-		return true
+	last_mouse = mouse
+	last_mouse_t = float(canvas.time)
+	yanks = []
 	if hits.has("lid") and (hits.lid as Rect2).has_point(mouse):
 		close()
+		return true
+	if mode == "bugwind":
+		if holder(bug_slot).grow(80.0 * k()).has_point(mouse):
+			last_angle = (mouse - holder(bug_slot).get_center()).angle()
+			return true
+		mode = ""   # pressed elsewhere: the winding is given up, the scrap goes back
+	for slot in range(3):
+		if holder(slot).has_point(mouse) and str(c().st().fuses[slot]) == "burnt":
+			if c().replace_fuse(slot): canvas.sound.play("gear", 0.5, 1.8)
+			canvas.notify(canvas.model.message)
+			return true
+	if c().scraps() > 0 and scrap_rect().grow(8.0).has_point(mouse) and not c().is_on():
+		mode = "scrap"
+		hand = mouse
 		return true
 	var i = nearest_end(mouse)
 	if i >= 0:
 		wire = i
-		if c().joined(i) and not c().is_on():
+		if c().is_on():
+			canvas.notify("Включено. Чтобы перекрутить провода, сначала рубильник вниз")
+			mode = ""
+		elif c().joined(i):
 			mode = "twist"
 			twist_sum = 0.0
 			last_angle = (mouse - terminal(c().at(i))).angle()
-		elif not c().is_on():
+		else:
 			mode = "wire"
 			hand = mouse
-		else:
-			canvas.notify("Контактор включён. Чтобы перекрутить провода, сначала СТОП")
-			mode = ""
 		return true
-	return box_rect().has_point(mouse) or button_rect().has_point(mouse)
+	return box_rect().has_point(mouse)
 
 func motion(mouse: Vector2) -> void:
-	if mode == "wire":
+	var now = float(canvas.time)
+	var dtm = maxf(now - last_mouse_t, 0.001)
+	var vel = (mouse - last_mouse) / dtm
+	last_mouse = mouse
+	last_mouse_t = now
+	if mode == "wire" or mode == "scrap":
 		hand = mouse
 	elif mode == "twist":
+		# yanking the held joint back and forth tears it (owner 19.11: «хорошенько подёргав»)
+		if vel.length() > TEAR_SPEED * k():
+			var dir = signf(vel.x if absf(vel.x) > absf(vel.y) else vel.y)
+			if dir != 0.0 and dir != last_dir:
+				yanks.append(now)
+				last_dir = dir
+			while not yanks.is_empty() and now - float(yanks[0]) > TEAR_WINDOW: yanks.pop_front()
+			if yanks.size() >= TEAR_YANKS:
+				var at_joint = terminal(c().at(wire))
+				if c().tear(wire):
+					canvas.sound.play("rail_tick_c", 0.6, 1.4)
+					show_spark([])
+					spark_at = [at_joint]
+					spark_t = 0.25
+					canvas.notify(canvas.model.message)
+				mode = ""
+				wire = -1
+				return
 		var joint = terminal(c().at(wire))
 		if mouse.distance_to(joint) > TWIST_LEAVE * k() * 1.4:
-			# pulled away: the end comes off the terminal and is in hand
 			c().unjoin(wire)
 			mode = "wire"
 			hand = mouse
 			return
-		if mouse.distance_to(joint) < 6.0: return
-		var angle = (mouse - joint).angle()
-		var delta = wrapf(angle - last_angle, -PI, PI)
-		last_angle = angle
-		var before = absf(twist_sum)
-		twist_sum += delta / TAU
-		var gained = absf(twist_sum) - before
-		if gained > 0.0:
+		var loop = circle(joint, mouse)
+		if loop.x > 0.0:
 			var turns_before = c().turns(wire)
-			var after = c().twist(wire, gained)
-			if floori(after * 2.0) > floori(turns_before * 2.0):
-				canvas.sound.play("rail_tick_a", 0.3, 1.9 + 0.1 * after)   # the copper creaks a little on every half turn
+			var after = c().twist(wire, loop.x, loop.y)
+			if floori(after) > floori(turns_before):
+				canvas.sound.play("rail_tick_a", 0.3, 1.9 + 0.1 * after)
+				if (c().st().golden as Array).has(wire): canvas.sound.play("coins", 0.35, 2.2)   # the golden twist rings
+	elif mode == "bugwind":
+		var loop = circle(holder(bug_slot).get_center(), mouse)
+		if loop.y >= 3.0:
+			if c().bug(bug_slot): canvas.sound.play("rail_tick_b", 0.5, 1.2)
+			canvas.notify(canvas.model.message)
+			mode = ""
+
+# counts the loops of the cursor around a centre: (gained now, loops of this whole motion)
+func circle(centre: Vector2, mouse: Vector2) -> Vector2:
+	if mouse.distance_to(centre) < 6.0: return Vector2.ZERO
+	var angle = (mouse - centre).angle()
+	var delta = wrapf(angle - last_angle, -PI, PI)
+	last_angle = angle
+	var before = absf(twist_sum)
+	twist_sum += delta / TAU
+	var gained = absf(twist_sum) - before
+	return Vector2(maxf(gained, 0.0), absf(twist_sum))
 
 func release(mouse: Vector2) -> void:
 	if mode == "wire":
@@ -352,40 +457,32 @@ func release(mouse: Vector2) -> void:
 		if t >= 0:
 			c().join(wire, t)
 			canvas.sound.play("gear", 0.4, 1.6)
+	elif mode == "scrap":
+		for slot in range(3):
+			if holder(slot).grow(10.0).has_point(mouse) and str(c().st().fuses[slot]) == "burnt":
+				# the scrap is on the empty holder: now wind it with loops
+				mode = "bugwind"
+				bug_slot = slot
+				twist_sum = 0.0
+				last_angle = (mouse - holder(slot).get_center()).angle()
+				canvas.notify("Обмотай держатель проволокой: обведи его петлями")
+				return
+	if mode == "bugwind": return   # winding goes on with the next press too
 	mode = ""
 	wire = -1
 
-func push_button() -> void:
-	var m = canvas.model
-	var was_on = c().is_on()
-	# where a wrong pair would spark: the joints as they are before the press (a spark tears those wires off)
-	var joints: Array = []
-	for i in range(c().count()):
-		if c().joined(i) and c().at(i) != c().terminal_of(i): joints.append(terminal(c().at(i)))
-	var ok = c().press()
-	if ok:
-		canvas.sound.play("contactor", 0.9, 0.85 if not was_on else 0.7)
-		canvas.notify(m.message if not was_on else "Контактор выключен, провода разведены")
-	else:
-		if m.message.begins_with("Искра"):
-			spark_t = 0.9
-			spark_at = joints
-			canvas.sound.play("contactor", 1.0, 1.7)
-		canvas.notify(m.message)
-	canvas.save_game()
-
-# --- the keyboard: true when the key was the box's
+# --- the keyboard
 func key(event: InputEventKey) -> bool:
 	if not open or not usable(): return false
 	if event.keycode == KEY_ESCAPE and event.pressed:
 		close()
 		return true
 	if event.keycode in [KEY_ENTER, KEY_KP_ENTER] and event.pressed and not event.echo:
-		push_button()
+		canvas.electric_cab().flip_switch()
 		return true
 	if event.keycode == KEY_SPACE:
 		if event.pressed and selected >= 0 and c().joined(selected) and not c().is_on():
-			c().twist(selected, 0.08)   # held: about a turn every 0.2 s of key repeat
+			c().twist(selected, 0.1)
 		return true
 	var digit = event.keycode - KEY_1
 	if event.pressed and not event.echo and digit >= 0 and digit < c().count():

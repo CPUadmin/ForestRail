@@ -140,9 +140,116 @@ func draw_power(size: Vector2, top: float, hb: float) -> void:
 	var door = put("cabinet_door", pat(size, top, 0, 0.31, 0.5), mh * 0.8)
 	if canvas.model.contactor_rules: canvas.cab_hits.append({"id": "contactor", "rect": door})
 	put("hv_plate", pat(size, top, 0, 0.79, 0.165), mh * 0.13)
-	put("switch_on" if live() else "switch_off", pat(size, top, 0, 0.79, 0.455), mh * 0.40)
+	draw_switch(pat(size, top, 0, 0.79, 0.455), mh * 0.40)
+	draw_fault_lamp(pat(size, top, 0, 0.64, 0.165), mh * 0.05)
 	var button = put("emergency_button", pat(size, top, 0, 0.79, 0.79), mh * 0.22)
 	canvas.cab_hits.append({"id": "emergency", "rect": button})
+
+# --- the knife switch (1.12): up = on (the blades go into the jaws at the top, as P33 is drawn), down = off.
+# A click flips it. Dragged up slowly and evenly, 2 s or more: the soft start (secret). On the move down and back up
+# within half a second: the wink (secret, the regeneration doubled on a descent).
+const SOFT_S = 2.0
+const WINK_WINDOW = 0.5
+var switch_rect = Rect2()
+var knife = -1.0          # -1: at rest (shows the model); 0..1 while held (1 = up)
+var knife_from = 0.0
+var knife_t0 = 0.0
+var knife_jerky = false
+var knife_low_t = -1.0
+var knife_start = Vector2.ZERO
+
+func c():
+	return canvas.model.contactor()
+
+func draw_switch(centre: Vector2, height: float) -> void:
+	var up = (1.0 if live() or (canvas.model.contactor_rules and c().is_on()) else 0.0) if knife < 0.0 else knife
+	var off = t("switch_off")
+	var w = height * float(off.get_width()) / float(off.get_height())
+	switch_rect = Rect2(centre - Vector2(w, height) * 0.5, Vector2(w, height))
+	canvas.draw_texture_rect(off, switch_rect, false, Color(1, 1, 1, 1.0 - up))
+	canvas.draw_texture_rect(t("switch_on"), switch_rect, false, Color(1, 1, 1, up))
+
+# over the dimmed cab while the cabinet is open: the switch again, at full light, glowing when ready
+func draw_switch_lit() -> void:
+	if switch_rect.size.x <= 0.0: return
+	var ready = c().ready() and not c().is_on()
+	if ready:
+		var pulse = 0.5 + 0.5 * sin(float(canvas.time) * 5.0) if canvas.light_flicker_enabled() else 0.7
+		canvas.draw_rect(switch_rect.grow(8.0), Color(1.0, 0.85, 0.4, 0.18 + 0.2 * pulse))
+	draw_switch(switch_rect.get_center(), switch_rect.size.y)
+
+func draw_fault_lamp(centre: Vector2, r: float) -> void:
+	var lit = false
+	var blink = false
+	if canvas.model.contactor_rules and canvas.model.state.fleet_by_id.has("locomotive"):
+		lit = c().fuse_count("burnt") > 0 or c().motor_burnt()
+		blink = c().warning() or (c().is_on() and c().fuse_count("ok") == 0)
+	var on = lit or (blink and fmod(float(canvas.time) * 3.0, 1.0) < 0.5)
+	canvas.draw_circle(centre, r * 1.3, Color("6a5226"), true, -1, true)
+	canvas.draw_circle(centre, r, Color("f08a2a") if on else Color("4a2a14"), true, -1, true)
+	if on: canvas.draw_circle(centre, r * 2.4, Color(1.0, 0.55, 0.15, 0.22), true, -1, true)
+
+func press_switch(mouse: Vector2) -> bool:
+	if not revised() or not canvas.model.contactor_rules or not switch_rect.has_point(mouse): return false
+	knife_from = 1.0 if c().is_on() else 0.0
+	knife = knife_from
+	knife_t0 = float(canvas.time)
+	knife_jerky = false
+	knife_low_t = -1.0
+	knife_start = mouse
+	return true
+
+func switch_motion(mouse: Vector2) -> void:
+	if knife < 0.0: return
+	var target = clampf(knife_from + (knife_start.y - mouse.y) / maxf(switch_rect.size.y * 0.6, 1.0), 0.0, 1.0)
+	if target < knife - 0.15: knife_jerky = true   # it went back down on the way up: not even
+	if target > knife + 0.25 and float(canvas.time) - knife_t0 < 0.1: knife_jerky = true
+	knife = target
+	if knife_from >= 1.0 and knife < 0.4 and knife_low_t < 0.0: knife_low_t = float(canvas.time)
+	if knife_from >= 1.0 and knife > 0.85 and knife_low_t >= 0.0:
+		if float(canvas.time) - knife_low_t <= WINK_WINDOW and c().wink():
+			canvas.sound.play("contactor", 0.6, 1.4)
+			canvas.notify(canvas.model.message)
+		knife_low_t = -1.0
+
+func switch_release(mouse: Vector2) -> void:
+	if knife < 0.0: return
+	var moved = mouse.distance_to(knife_start) > 6.0
+	var held = float(canvas.time) - knife_t0
+	var was_on = knife_from >= 1.0
+	var pos = knife
+	knife = -1.0
+	if not moved:
+		flip_switch()
+		return
+	if not was_on and pos >= 0.85:
+		switch_on(held >= SOFT_S and not knife_jerky)
+	elif was_on and pos <= 0.15:
+		switch_off()
+
+func flip_switch() -> void:
+	if not canvas.model.contactor_rules: return
+	if c().is_on(): switch_off()
+	else: switch_on(false)
+
+func switch_on(soft: bool) -> void:
+	var view = canvas.contactor_view()
+	var joints = view.wrong_joints() if view.open else []
+	if c().start(soft):
+		canvas.sound.play("contactor", 0.9, 0.85)
+	else:
+		if canvas.model.message.begins_with("Искра") or canvas.model.message.begins_with("Габелла"):
+			canvas.sound.play("contactor", 1.0, 1.7)
+			if view.open: view.show_spark(joints)
+			canvas.electric_start_flash = 0.0
+	canvas.notify(canvas.model.message)
+	canvas.save_game()
+
+func switch_off() -> void:
+	c().stop()
+	canvas.sound.play("contactor", 0.7, 0.7)
+	canvas.notify("Рубильник вниз: стоп, провода разведены")
+	canvas.save_game()
 
 func draw_middle(size: Vector2, top: float, hb: float) -> void:
 	# the charge bar: twelve segments, red on the left to green on the right; dark until the start

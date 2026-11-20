@@ -277,6 +277,8 @@ func cab_button(id: String) -> void:
 		if canvas.model.set_reverser(1 if id == "forward" else -1): canvas.save_game()
 		else: canvas.notify(canvas.model.message)
 	elif id == "emergency":
+		if canvas.model.contactor_rules and canvas.model.vehicle_id() == "locomotive" and absf(float(canvas.model.state.v)) > 3.0:
+			canvas.model.contactor().jolt(0.45)   # 1.12: an emergency stop on the move shakes the fuses
 		canvas.model.state.throttle = 0.0
 		canvas.model.state.brake = 1.0
 		canvas.notify("Аварийное торможение: тяга снята, тормоз затянут")

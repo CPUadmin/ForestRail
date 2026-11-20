@@ -1265,6 +1265,7 @@ func settle() -> bool:
 	cool_boiler()
 	if wear_rules: wear().free_touch_up()
 	matches().refill()   # 1.4.14: the depot gives a new box of matches for nothing
+	if contactor_rules: contactor().refill()   # 1.12: new fuses, three spares, the motor mended
 	refill_sand()   # 1.4.15: and fills the sander of the pneumatic train
 	message = ("Рейс окончен. Заработано %d монет" % reward if reward >= 0 else "Рейс окончен с штрафом: %d монет" % -reward) + (" · " + ", ".join(notes) if not notes.is_empty() else "")
 	return true
@@ -1303,6 +1304,7 @@ func rescue() -> void:
 		wear().free_touch_up()
 		wear().rescue_repair()   # the depot puts the traction nodes in order at once
 	matches().refill()   # 1.4.14: and a new box of matches
+	if contactor_rules: contactor().refill()   # 1.12: and new fuses
 	refill_sand()   # 1.4.15: and the sand
 	refuel()
 	message = "Помощь доставила состав в депо за %d монет%s. Груз и покупки сохранены" % [fee, (", долг %d" % (fee - paid)) if fee > paid else ""] if fee > 0 else "Помощь доставила состав в депо. Груз и покупки сохранены"
@@ -1628,7 +1630,7 @@ func heat_rate(fleet: Dictionary) -> float:
 		return 0.035 * (0.1 + 0.9 * throttle) * low_gear * (1.2 if heavy_work else 1.0)   # 1.4.4: lugging uphill heats more
 	# electric: the current heats it (squared), regeneration heats it too
 	var cfg = vehicle_base()
-	return (float(cfg.get("heat_per_s", 0.07)) * throttle * throttle + (0.02 if regen_kw > 0.01 else 0.0)) * (1.2 if heavy_work else 1.0)
+	return (float(cfg.get("heat_per_s", 0.07)) * throttle * throttle + (0.02 if regen_kw > 0.01 else 0.0)) * (1.2 if heavy_work else 1.0) * (contactor().heat_factor() if contactor_rules and vehicle_id() == "locomotive" else 1.0)
 
 func thermal_step(dt: float, fleet: Dictionary) -> void:
 	if not has_temperature(): return
@@ -2776,6 +2778,7 @@ func physics_step(dt: float) -> void:
 				if reverse_gear: gear = 0
 				if vehicle_id() == "motorcar" and not reverse_gear: petrol_stall_check(gear, stats, dt)
 				var traction = float(stats.traction[gear]) * maxf(0, 1 - pow(absf(float(state.v)) / float(stats.speeds[gear]), 2)) * charge_traction_factor() * petrol_lug(gear, stats) * pneumatic_factor() * thermal_factor()
+				if vehicle_id() == "locomotive" and contactor_rules: traction *= contactor().power_factor()   # 1.12: fuses and the rainbow start
 				traction = minf(traction, power_limit_force(charge_traction_factor())) * burst_factor()
 				if shift_cut > 0.0: traction = 0.0
 				pull_full = traction
@@ -2837,6 +2840,9 @@ func physics_step(dt: float) -> void:
 			# bleed the battery while parked.
 			used=shaft_work/0.82
 			recovered=float(vehicle_base().get("regen_fraction",0.25))*brake_work if float(state.throttle)<0.01 else 0.0
+			if contactor_rules:   # 1.12: burnt fuses and the rainbow start spend more; the wink doubles the regeneration
+				used*=contactor().drain_factor()
+				recovered*=contactor().regen_factor()
 			recovered=minf(recovered,maxf(0,(float(stats.tank)-before)*3600000.0+used))
 			fleet.fuel=clampf(before+(recovered-used)/3600000.0,0,float(stats.tank))
 			regen_kw=recovered/dt/1000.0

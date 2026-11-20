@@ -1,7 +1,8 @@
 extends Node
-# 1.4.10 «Скрутка»: запуск электровоза в ящике КОНТАКТОР (модель). Решения владельца 14.11:
-# неверная пара — искра, заряд −5%, урон проводке, провода рвутся; провода разводятся при каждой остановке;
-# ПУСК/СТОП одной кнопкой; проводов от 1 до 5 по прокачке.
+# «Скрутка» электровоза, модель (1.4.10, переделка 1.12 по решениям владельца 19–20.11, docs/ELECTRIC_CABINET_MECHANIC_RU.md):
+# от 3 проводов; петли: 1 — слабая, 3 — тугая; порвать рывком; рубильник: пуск (3% заряда), мягкий пуск без броска;
+# неверная скрутка сжигает предохранитель, третья искра — мотор («габелла»); в пути перегрев и тряска жгут
+# предохранители после предупреждения, −15% тяги за каждый; запасные и жучок; депо всё чинит; пять секреток.
 const Fixtures = preload("res://tests/fixtures.gd")
 const Model = preload("res://scripts/model.gd")
 const Contactor = preload("res://scripts/contactor.gd")
@@ -23,6 +24,7 @@ func fresh(mode: String = "career"):
 	m.new_game(42, 2, mode)
 	m.state.money = 1000000
 	Fixtures.equip(m, "locomotive")
+	m.object_state("locomotive").levels = {}
 	m.state.phase = "route"
 	m.state.s = 400.0
 	m.state.v = 0.0
@@ -31,149 +33,195 @@ func fresh(mode: String = "career"):
 	m.state.brake = 0.0
 	m.state.throttle = 0.0
 	m.state.cargo = []
+	m.contactor().stop()
 	return m
 
-# wire every wire to its own terminal and twist it fully
-func wire_all(m) -> void:
+# every wire to its own terminal, twisted `loops` times
+func wire_all(m, loops: float = 3.0) -> void:
 	var c = m.contactor()
 	for i in range(c.count()):
 		c.join(i, c.terminal_of(i))
-		c.twist(i, 2.0)
+		c.twist(i, loops)
+
+func charge(m) -> float:
+	return float(m.state.fleet_by_id.locomotive.fuel)
 
 func run() -> void:
 	var m = fresh()
 	var c = m.contactor()
-	# --- the number of wires grows with the upgrades
-	m.object_state("locomotive").levels = {}
-	c.stop()
-	check(c.wires() == 1 and c.count() == 1, "a new electric locomotive has one wire (%d)" % c.count())
+	var tank = float(m.object_stats("locomotive").tank)
+	# --- wires: from three, more with the upgrades, five at most
+	check(c.wires() == 3 and c.count() == 3, "a new electric locomotive has three wires (%d)" % c.count())
 	m.object_state("locomotive").levels = {"locomotive_engine": 2, "locomotive_brakes": 1}
 	c.stop()
-	check(c.wires() == 4 and c.count() == 4, "three bought levels: four wires (%d)" % c.count())
-	m.object_state("locomotive").levels = {"locomotive_engine": 9, "locomotive_brakes": 9}
+	check(c.count() == 4, "upgrades add wires (%d)" % c.count())
+	m.object_state("locomotive").levels = {"locomotive_engine": 9}
 	c.stop()
-	check(c.wires() == 5 and c.count() == 5, "never more than five (%d)" % c.count())
-	# --- the scheme: scrambled, never the plain order, a new one at every stop
-	var first: Array = (c.st().to as Array).duplicate()
-	var plain: Array = []
-	for i in range(c.count()): plain.append(i)
-	check(first != plain, "the wires are scrambled (%s)" % str(first))
+	check(c.count() == 5, "never more than five (%d)" % c.count())
+	m.object_state("locomotive").levels = {}
 	c.stop()
-	check((c.st().to as Array) != first, "a stop scrambles them in a new order (%s, then %s)" % [str(first), str(c.st().to)])
-	check(not c.all_joined() and not c.ready() and not c.is_on(), "after a stop every wire is free and it is off")
-	# --- off: no pull at all
-	m.state.throttle = 1.0
-	for i in range(60): m.physics_step(1.0 / 60.0)
-	check(not bool(m.state.engine) and float(m.state.v) < 0.05, "with the contactor off the locomotive does not pull forward (v %.2f, it may roll on the slope)" % float(m.state.v))
-	m.state.throttle = 0.0
-	# --- PUSK with wires missing: refused with a reason
-	check(not c.press() and m.message.contains("Соедини все провода"), "ПУСК with free wires is refused: %s" % m.message)
-	# --- the right scheme: on, it pulls
-	wire_all(m)
-	check(c.ready(), "every wire on its terminal and twisted: the lamp ГОТОВ")
-	m.events.clear()
-	check(c.press() and c.is_on() and m.events.has("contactor_on"), "ПУСК switches the contactor on")
-	m.state.throttle = 1.0
-	for i in range(120): m.physics_step(1.0 / 60.0)
-	check(bool(m.state.engine) and float(m.state.v) > 0.5, "then it pulls (v %.2f)" % float(m.state.v))
-	# --- STOP: the same button, the wires come apart in a new order
-	var before_stop: Array = (c.st().to as Array).duplicate()
-	m.events.clear()
-	check(c.press() and not c.is_on() and m.events.has("contactor_off"), "the same button is СТОП")
-	check(not c.all_joined() and (c.st().to as Array) != before_stop, "and the wires come apart in a new order")
-	m.physics_step(1.0 / 60.0)
-	check(not bool(m.state.engine), "stopped: no pull")
-	# --- a wrong pair: spark, −5% charge, the controller is hurt, those wires are torn
-	m.state.v = 0.0
-	m.state.throttle = 0.0
-	var tank = float(m.object_stats("locomotive").tank)
-	m.state.fleet_by_id.locomotive.fuel = tank
-	var ctrl_before = m.wear().condition("locomotive", "controller")
-	for i in range(c.count()):
-		c.join(i, c.terminal_of(i))
-		c.twist(i, 2.0)
-	var a = 0
-	var b = 1
-	c.join(a, c.terminal_of(b))   # wire a onto b's terminal: b comes off
-	c.join(b, c.terminal_of(a))
-	c.twist(a, 2.0)
-	c.twist(b, 2.0)
-	m.events.clear()
-	check(not c.press() and not c.is_on(), "a wrong pair does not start")
-	check(m.events.has("spark") and m.message.contains("Искра"), "it sparks: %s" % m.message)
-	check(is_equal_approx(float(m.state.fleet_by_id.locomotive.fuel), tank * 0.95), "the battery drops 5%% (%.1f of %.1f)" % [float(m.state.fleet_by_id.locomotive.fuel), tank])
-	check(m.wear().condition("locomotive", "controller") < ctrl_before - 0.02, "the controller is hurt (%.3f from %.3f)" % [m.wear().condition("locomotive", "controller"), ctrl_before])
-	check(not c.joined(a) and not c.joined(b) and (c.st().torn as Array).has(a) and (c.st().torn as Array).has(b), "the wires of the wrong pair are torn")
-	check(c.joined(2) and c.twisted(2), "the right ones stay as they were")
-	c.join(a, c.terminal_of(a))
-	c.join(b, c.terminal_of(b))
-	check(not (c.st().torn as Array).has(a), "joined again, the torn mark goes")
-	c.twist(a, 2.0)
-	c.twist(b, 2.0)
-	check(c.press() and c.is_on(), "joined right, it starts")
-	c.press()
-	# --- a loose twist can pop on the move: no pull until it is twisted again
-	for i in range(c.count()):
-		c.join(i, c.terminal_of(i))
-		c.twist(i, 2.0 if i > 0 else 0.5)
-	check(not c.ready() and c.press() and m.message.contains("Недокручено"), "it starts with a loose twist, but warns: %s" % m.message)
-	m.state.throttle = 0.6
-	var popped = false
-	for i in range(60 * 600):   # up to ten minutes on the move
-		m.physics_step(1.0 / 60.0)
-		if not (c.st().popped as Array).is_empty():
-			popped = true
-			break
-	check(popped and not c.live(), "a loose wire pops on the move and the pull is gone")
-	m.physics_step(1.0 / 60.0)
-	check(not bool(m.state.engine), "no pull while it hangs loose")
-	c.twist(0, 2.0)
+	var plain = true
+	for i in range(c.count()): if c.terminal_of(i) != i: plain = false
+	check(not plain, "the wires are never in the plain order")
+	# --- ready: all joined and twisted at least once; tight from three loops
+	check(not c.ready() and not c.start(), "free wires: no start")
+	for i in range(c.count()): c.join(i, c.terminal_of(i))
+	check(not c.ready() and not c.start() and m.message.contains("Скрути"), "joined but not twisted: no start, it says so")
+	for i in range(c.count()): c.twist(i, 1.0)
+	check(c.ready() and not c.tight(0), "one loop is a weak twist: ready, not tight")
+	var before = charge(m)
+	check(c.start() and bool(m.state.engine) and m.message.contains("Слабых"), "a weak twist starts but warns")
+	check(is_equal_approx(before - charge(m), tank * Contactor.START_CHARGE), "the start costs 3% of the charge")
+	# --- weak twists shake loose on the move; twisted again, the pull is back
+	m.state.v = 6.0
+	for k in range(60 * 60 * 20):
+		m.state.stats.seconds = float(m.state.stats.seconds) + 1.0 / 60.0
+		c.step(1.0 / 60.0)
+		if not c.live(): break
+	check(not c.live() and m.message.contains("отскочил"), "a weak twist pops on the move and the pull is gone")
+	for i in range(c.count()): c.twist(i, 3.0)
 	check(c.live(), "twisted again, the pull is back")
-	c.press()
-	# --- an empty battery stops it, and the wires come apart
+	m.state.v = 0.0
+	# --- stop: the wires are scrambled again
+	c.stop()
+	var free = true
+	for i in range(c.count()): if c.joined(i): free = false
+	check(not c.is_on() and not bool(m.state.engine) and free, "the switch down stops it and scrambles the wires")
+	# --- tear: a yank frees the wire and leaves a scrap
+	c.join(0, c.terminal_of(0))
+	c.twist(0, 2.0)
+	var scraps = c.scraps()
+	check(c.tear(0) and not c.joined(0) and c.scraps() == scraps + 1, "a torn twist frees the wire and leaves a scrap")
+	# --- wrong pairs: a fuse burns each time, the third spark burns the motor
+	m = fresh()
+	c = m.contactor()
+	for i in range(c.count()):
+		c.join(i, (c.terminal_of(i) + 1) % c.count())
+		c.twist(i, 3.0)
+	before = charge(m)
+	check(not c.start() and c.fuse_count("burnt") == 1 and m.message.contains("осталось попыток: 2"), "a wrong twist sparks: a fuse burns, two tries left")
+	check(is_equal_approx(before - charge(m), tank * Contactor.SPARK_CHARGE) and not c.joined(0), "the spark costs 5% and tears the wrong wires")
+	for i in range(c.count()):
+		c.join(i, (c.terminal_of(i) + 1) % c.count())
+		c.twist(i, 3.0)
+	c.start()
+	check(c.fuse_count("burnt") == 2 and m.message.contains("осталось попыток: 1"), "the second spark: one try left")
+	for i in range(c.count()):
+		c.join(i, (c.terminal_of(i) + 1) % c.count())
+		c.twist(i, 3.0)
+	c.start()
+	check(c.motor_burnt() and m.message.contains("Габелла") and m.wear().condition("locomotive", "motor") <= 0.0, "the third spark burns the motor: gabella")
 	wire_all(m)
-	c.press()
-	m.state.fleet_by_id.locomotive.fuel = 0.0
-	m.physics_step(1.0 / 60.0)
-	check(not c.is_on() and not c.all_joined(), "an empty battery switches it off and the wires come apart")
-	check(not c.press() and m.message.contains("пуст"), "and ПУСК says the battery is empty")
-	# --- every trip starts with the wires apart
-	var trip = fresh()
-	wire_all(trip)
-	trip.contactor().press()
-	trip.state.phase = "loading"
-	trip.depart()
-	check(not trip.contactor().is_on() and not trip.contactor().all_joined(), "a new trip starts with the contactor off and the wires apart")
-	# --- the creative mode: the twist is ready, only ПУСК
-	var cr = fresh("creative")
-	cr.contactor().stop()
-	check(cr.contactor().ready(), "in the creative mode the scheme comes ready")
-	check(cr.contactor().press() and cr.contactor().is_on(), "and ПУСК starts at once")
-	# --- the save keeps it, and a JSON round trip (floats) still works
-	var sv = fresh()
-	wire_all(sv)
-	sv.contactor().press()
+	check(not c.start() and m.message.contains("Мотор сгорел"), "a burnt motor does not start")
+	m.rescue()
+	check(not c.motor_burnt() and c.fuse_count("ok") == 3 and c.spares() == 3, "the help of the depot gives new fuses and mends the motor")
+	# --- the factors: −15% pull and +10% drain for every burnt fuse; a bug counts as whole
+	m = fresh()
+	c = m.contactor()
+	c.st().fuses = ["burnt", "ok", "ok"]
+	check(is_equal_approx(c.power_factor(), 0.85) and is_equal_approx(c.drain_factor(), 1.1), "a burnt fuse: pull −15%, drain +10%")
+	c.st().fuses = ["burnt", "burnt", "ok"]
+	check(is_equal_approx(c.power_factor(), 0.7), "two burnt: −30%")
+	# --- spares on a stop, not on the move
+	m.state.v = 4.0
+	check(not c.replace_fuse(0), "fuses are not changed on the move")
+	m.state.v = 0.0
+	var spares = c.spares()
+	check(c.replace_fuse(0) and str(c.fuses()[0]) == "ok" and c.spares() == spares - 1, "a spare goes into the burnt holder")
+	# --- the bug: a scrap wound round an empty holder; whole for the pull, no protection
+	c.st().scraps = 1
+	check(c.bug(1) and str(c.fuses()[1]) == "bug" and c.scraps() == 0, "a scrap makes a bug")
+	check(is_equal_approx(c.power_factor(), 1.0), "the bug gives the full pull back")
+	# --- heat on the move: a warning first, then a fuse burns
+	m = fresh()
+	c = m.contactor()
+	wire_all(m)
+	c.start()
+	m.state.fleet_by_id.locomotive.temp = 0.9
+	for k in range(60): c.step(1.0 / 60.0)
+	check(c.warning() and c.fuse_count("ok") == 3, "an overheated motor: a warning first, the fuse is still whole")
+	for k in range(120): c.step(1.0 / 60.0)
+	check(c.fuse_count("burnt") == 1 and m.message.contains("перегрев"), "it stays hot: the fuse burns and saves the motor")
+	c.st().fuses = ["burnt", "burnt", "bug"]
+	for k in range(200): c.step(1.0 / 60.0)
+	check(c.motor_burnt(), "with no whole fuse left the next burn takes the motor")
+	# --- shake near the top speed burns a fuse
+	m = fresh()
+	c = m.contactor()
+	wire_all(m)
+	c.start()
+	m.state.v = float(m.object_stats("locomotive").speeds[0]) * 0.97
+	for k in range(60 * 20): c.step(1.0 / 60.0)
+	check(c.fuse_count("burnt") >= 1 and m.message.contains("тряска"), "a long run at the top speed shakes a fuse to death")
+	# --- secret: the golden twist (five loops in one motion) does not shake
+	m = fresh()
+	c = m.contactor()
+	for i in range(c.count()):
+		c.join(i, c.terminal_of(i))
+		c.twist(i, 5.0, 5.0)
+	check(c.golden_all(), "five loops in one motion: the golden twist")
+	c.start()
+	m.state.v = float(m.object_stats("locomotive").speeds[0]) * 0.97
+	for k in range(60 * 20): c.step(1.0 / 60.0)
+	check(c.fuse_count("ok") == 3, "golden twists are not shaken")
+	# --- secret: the soft start costs nothing and keeps the first overheat
+	m = fresh()
+	c = m.contactor()
+	wire_all(m)
+	before = charge(m)
+	check(c.start(true) and is_equal_approx(before, charge(m)), "the soft start costs no charge")
+	m.state.fleet_by_id.locomotive.temp = 0.9
+	for k in range(200): c.step(1.0 / 60.0)
+	check(c.fuse_count("ok") == 3 and m.message.contains("выдержал"), "the soft start keeps the first overheat")
+	# --- secret: the rainbow order (red, yellow, blue for three wires) gives +15% pull for +25% drain
+	m = fresh()
+	c = m.contactor()
+	for i in [0, 2, 1]:   # red, yellow, blue
+		c.join(i, c.terminal_of(i))
+		c.twist(i, 3.0)
+	check(c.rainbow_order(), "red, yellow, blue: the rainbow order")
+	c.start()
+	check(is_equal_approx(c.power_factor(), 1.15) and is_equal_approx(c.drain_factor(), 1.25), "the rainbow start: +15% pull, +25% drain")
+	m = fresh()
+	c = m.contactor()
+	for i in [1, 0, 2]:
+		c.join(i, c.terminal_of(i))
+		c.twist(i, 3.0)
+	c.start()
+	check(not bool(c.st().rainbow) and is_equal_approx(c.power_factor(), 1.0), "another order: an ordinary start")
+	# --- secret: the wink on a descent doubles the regeneration for 30 s
+	m = fresh()
+	c = m.contactor()
+	var hill: Array = []
+	for x in range(-40, 3001): hill.append([float(x), 200.0 - float(maxi(0, x)) * 0.04, float(x)])
+	m.route.points = hill
+	m.route.length_m = 3000.0
+	wire_all(m)
+	c.start()
+	m.state.v = 0.2
+	check(not c.wink(), "standing: the wink gives nothing")
+	m.state.v = 6.0
+	check(c.wink() and is_equal_approx(c.regen_factor(), 2.0), "on a descent the wink doubles the regeneration")
+	for k in range(60 * 31): c.step(1.0 / 60.0)
+	check(is_equal_approx(c.regen_factor(), 1.0), "after 30 s it is over")
+	# --- the pull: only with the switch up
+	m = fresh()
+	c = m.contactor()
+	m.state.throttle = 1.0
+	for k in range(60): m.physics_step(1.0 / 60.0)
+	var v_off = float(m.state.v)
+	check(not bool(m.state.engine), "switch down: no power")
+	m.state.v = 0.0
+	m.state.s = 400.0
+	wire_all(m)
+	c.start()
+	for k in range(60): m.physics_step(1.0 / 60.0)
+	check(float(m.state.v) > v_off + 0.1 and bool(m.state.engine), "switch up: it pulls (%.2f against %.2f)" % [float(m.state.v), v_off])
+	# --- saved and restored
+	c.st().fuses = ["burnt", "bug", "ok"]
 	var back = Model.new()
-	check(back.restore(JSON.parse_string(JSON.stringify(sv.serialize()))), "the save with the contactor is valid")
-	check(back.contactor().is_on() and back.contactor().ready(), "the save keeps the contactor on with its twist")
-	check(typeof(back.contactor().st().to[0]) == TYPE_INT, "the wire numbers come back whole")
-	back.contactor().press()
-	check(not back.contactor().is_on() and not back.contactor().all_joined(), "and the loaded one stops and scrambles as usual")
-	# --- the rule is off in the old tests: the locomotive pulls as before
+	check(back.restore(JSON.parse_string(JSON.stringify(m.serialize()))) and str(back.contactor().fuses()[1]) == "bug" and back.contactor().is_on(), "fuses and the switch are saved")
 	Model.contactor_rules = false
-	var old = Model.new()
-	old.new_game(42, 2)
-	old.state.money = 1000000
-	Fixtures.equip(old, "locomotive")
-	old.state.phase = "route"
-	old.state.s = 400.0
-	old.state.v = 0.0
-	old.state.direction = 1
-	old.state.reverser = 1
-	old.state.brake = 0.0
-	old.state.throttle = 1.0
-	for i in range(60): old.physics_step(1.0 / 60.0)
-	check(bool(old.state.engine) and float(old.state.v) > 0.1, "without the rule it pulls as before (old tests)")
 	Model.wear_rules = false
 	print("CONTACTOR CHECKS ", checks, "; FAILURES ", failures)
 	preload("res://tests/qa_exit.gd").quit(self, 0 if failures.is_empty() else 1)

@@ -1701,6 +1701,10 @@ func _input(event: InputEvent) -> void:
 			contactor_view().motion(event.position)
 			get_viewport().set_input_as_handled()
 			return
+		if drag == "knife":
+			electric_cab().switch_motion(event.position)
+			get_viewport().set_input_as_handled()
+			return
 		if drag == "sail":
 			# relative motion in the machine's own frame, so that the car running away from the camera
 			# does not drag the sail with it (the same lesson as with the brake lever)
@@ -1842,6 +1846,10 @@ func _unhandled_input(event: InputEvent) -> void:
 			return
 		if cab_active() and contactor_view_cache != null and contactor_view_cache.press(mouse):
 			drag = "contactor" if contactor_view_cache.mode != "" else ""
+			get_viewport().set_input_as_handled()
+			return
+		if cab_active() and electric_cab().press_switch(mouse):   # 1.12: the knife switch of the electric cab
+			drag = "knife"
 			get_viewport().set_input_as_handled()
 			return
 		if cab_active():
@@ -2005,6 +2013,8 @@ func pole_mouse_rel(mouse: Vector2) -> float:
 func finish_drag(mouse: Vector2) -> void:
 	if drag == "contactor":
 		contactor_view().release(mouse)
+	elif drag == "knife":
+		electric_cab().switch_release(mouse)
 	elif drag == "zpult":
 		zpult.release()
 		jpult.release()
@@ -2278,6 +2288,7 @@ func cab_window_rect(size: Vector2, top: float, window_side: float) -> Rect2:
 
 func update_cab_sides() -> void:
 	var active = cab_active() and not model.state.is_empty()
+	if contactor_view_cache != null and contactor_view_cache.open: active = false   # 1.12: the side windows would lie over the cabinet
 	var size = get_viewport_rect().size
 	var top = float(cab_layout(size).dash_top) if active else 0.0
 	for window in cab_sides:
