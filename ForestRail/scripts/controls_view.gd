@@ -28,6 +28,10 @@ func control_geometry(id: String, closeup: bool = false) -> Dictionary:
 		if closeup:
 			slot_pivot=canvas.control_zoom_rect().position+Vector2(65+100*["brake","throttle","gear","start"].find(id),230)
 			slot_length=124.0
+			if canvas.electric_cab().revised():   # 1.12: the slots of the painted board of the electric cab
+				var slot = canvas.electric_cab().slider_geometry(id)
+				slot_pivot = slot.pivot
+				slot_length = float(slot.length)
 		elif not canvas.art.is_skinned("locomotive"):
 			# The factory cab has two clear panels between the window and steps.
 			slot_pivot = canvas.art.stock_body_point("locomotive", Vector2(200 if id == "brake" else 310, 562))

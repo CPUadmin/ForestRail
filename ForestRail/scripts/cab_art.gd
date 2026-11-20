@@ -41,7 +41,7 @@ func draw_cab_scene(size: Vector2) -> void:
 	var night = canvas.model.night_amount()
 	if canvas.model.twilight() > 0.01: canvas.draw_rect(view, Color(1.0, 0.5, 0.25, 0.16 * minf(1.0, canvas.model.twilight())))
 	var glass_weather = canvas.shown_weather()
-	if canvas.wiper_on and dash_v2(): glass_weather = {"cloud": float(glass_weather.cloud), "rain": float(glass_weather.rain) * 0.35, "fog": float(glass_weather.fog)}
+	if canvas.wiper_on and (dash_v2() or canvas.electric_cab().revised()): glass_weather = {"cloud": float(glass_weather.cloud), "rain": float(glass_weather.rain) * 0.35, "fog": float(glass_weather.fog)}
 	canvas.art_world.draw_weather(canvas, view, glass_weather, canvas.time, bool(canvas.settings.reduce_motion))
 	if night > 0.01:
 		canvas.draw_rect(view, Color(0.02, 0.04, 0.12, canvas.night_shade() * 0.97))
@@ -81,7 +81,12 @@ func draw_cab_scene(size: Vector2) -> void:
 	var ahead = canvas.instruments.climb_ahead(canvas.model.sight_m()) if canvas.instruments != null else {}
 	var text = "Впереди без крутых подъёмов" if ahead.is_empty() else ("Подъём +%.1f%% — сейчас" % ahead.grade if ahead.distance < 10 else "Подъём +%.1f%% через %d м" % [ahead.grade, ahead.distance])
 	if perf: canvas.perf_add("cab_rest", t0)
-	canvas.draw_string(canvas.font, Vector2(0, 44), canvas.model.journey_heading() + "  ·  " + text, HORIZONTAL_ALIGNMENT_CENTER, size.x - 240, 18, Color(canvas.PAPER, 0.92))
+	var heading = canvas.model.journey_heading() + "  ·  " + text
+	if canvas.electric_cab().revised():
+		# 1.12: the top beam of the electric cab carries copper wire on insulators; the line sits on a dark plate
+		var plate_w = canvas.font.get_string_size(heading, HORIZONTAL_ALIGNMENT_LEFT, -1, 18).x + 40.0
+		canvas.draw_style_box(canvas.style(Color(0.07, 0.12, 0.09, 0.92), canvas.GOLD, 8), Rect2((size.x - 240.0) * 0.5 - plate_w * 0.5, 16, plate_w, 38))
+	canvas.draw_string(canvas.font, Vector2(0, 44), heading, HORIZONTAL_ALIGNMENT_CENTER, size.x - 240, 18, Color(canvas.PAPER, 0.92))
 
 # The view forward along the track. Returns the horizon line and focal length so the
 # nose of the machine can be placed against it.
@@ -384,6 +389,9 @@ func draw_cab_forward(view: Rect2) -> Dictionary:
 
 # The front of the machine seen over the dashboard: hood, boiler or battery box.
 func draw_cab_nose(view: Rect2, look: Dictionary) -> void:
+	if canvas.electric_cab().revised():
+		canvas.electric_cab().draw_hood_ahead(float(look.cx), view)
+		return
 	var kind = canvas.model.vehicle_id()
 	var cx = float(look.cx)
 	var bottom = view.end.y
@@ -477,7 +485,7 @@ func draw_cab_nose(view: Rect2, look: Dictionary) -> void:
 # dashboard ledge.
 func draw_cab_frame(size: Vector2, top: float) -> void:
 	if canvas.new_cab_wall():
-		canvas.steam_cab().draw_window_wall(size, top)
+		canvas.wall_cab().draw_window_wall(size, top)
 		return
 	var green = Color("2f4a3b")
 	var dark = Color("1f2f27")
@@ -716,7 +724,8 @@ func draw_cab_dash_details(size: Vector2, layout: Dictionary) -> void:
 	else: draw_plain_header(size, top, kind, brass)
 	# brass clock on the right of the ledge
 	var clock = Vector2(size.x - 70, top + 26)
-	if bench or electric: clock = Vector2(size.x * 0.61, lerpf(top, size.y, 0.136))
+	if bench: clock = Vector2(size.x * 0.61, lerpf(top, size.y, 0.136))
+	if electric: clock = Vector2(-100, -100)   # the electric cab has its own painted clock (electric_cab.gd)
 	canvas.draw_circle(clock, 22, brass)
 	canvas.draw_circle(clock, 19, Color("f1ead2"))
 	for hour in range(12):
@@ -763,6 +772,7 @@ func draw_cab_dash_details(size: Vector2, layout: Dictionary) -> void:
 
 # Direction switch in the top strip of the dashboard: two buttons, the engaged one lit.
 func draw_cab_reverser(size: Vector2, layout: Dictionary) -> void:
+	if canvas.electric_cab().revised(): return   # its direction toggle is in electric_cab.gd
 	var top = float(layout.dash_top)
 	var strip_x = size.x * 0.5 + 190.0
 	var brass = Color("c9a85a")

@@ -166,10 +166,21 @@ func run() -> void:
 			if hit.id == "forward": forward_rect = hit.rect
 			elif hit.id == "back": back_rect = hit.rect
 			elif hit.id == "emergency": emergency_rect = hit.rect
-		check(view.encloses(forward_rect) and view.encloses(back_rect) and view.encloses(emergency_rect), "direction and emergency buttons are on screen")
-		await mouse(back_rect.get_center(), true)
-		await mouse(back_rect.get_center(), false)
-		check(int(game.model.state.reverser) == -1, "the back button reverses the traction")
+		if game.electric_cab().revised():
+			# 1.12: the new electric cab has one direction toggle; a click flips it, its hit is named after where it goes
+			check(view.encloses(back_rect) and back_rect.has_area() and view.encloses(emergency_rect) and emergency_rect.has_area(), "the direction toggle and the emergency stop are on screen")
+			await mouse(back_rect.get_center(), true)
+			await mouse(back_rect.get_center(), false)
+			check(int(game.model.state.reverser) == -1, "a click on the toggle reverses the traction")
+			for i in range(2): await frame()
+			for hit in game.cab_hits:
+				if hit.id == "forward": forward_rect = hit.rect
+			check(forward_rect.has_area() and forward_rect.get_center().distance_to(back_rect.get_center()) < 4.0, "the same toggle now leads forward")
+		else:
+			check(view.encloses(forward_rect) and view.encloses(back_rect) and view.encloses(emergency_rect), "direction and emergency buttons are on screen")
+			await mouse(back_rect.get_center(), true)
+			await mouse(back_rect.get_center(), false)
+			check(int(game.model.state.reverser) == -1, "the back button reverses the traction")
 		await mouse(forward_rect.get_center(), true)
 		await mouse(forward_rect.get_center(), false)
 		check(int(game.model.state.reverser) == 1, "the forward button restores it")

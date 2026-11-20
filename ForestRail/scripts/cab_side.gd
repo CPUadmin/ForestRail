@@ -81,5 +81,5 @@ func _draw() -> void:
 	draw_polygon(PackedVector2Array([Vector2(0, 0), Vector2(w, 0), Vector2(w, h), Vector2(0, h)]), PackedColorArray([Color(0, 0, 0, 0.28), Color(0, 0, 0, 0.28), Color(0, 0, 0, 0.0), Color(0, 0, 0, 0.0)]))
 	if steam_wall:
 		# This child draws after the cab. Its piece of the same wall masks the side view.
-		var cab = game.steam_cab()
+		var cab = game.wall_cab()
 		draw_texture_rect_region(cab.WINDOW_WALL, Rect2(Vector2.ZERO, size), cab.side_art(side), cab.wall_tint())

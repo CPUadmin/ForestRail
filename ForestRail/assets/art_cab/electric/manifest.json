@@ -1,0 +1,192 @@
+{
+ "assets/art_cab/electric/window_wall.png": {
+  "size": [
+   2172,
+   724
+  ]
+ },
+ "assets/art_cab/electric/board.png": {
+  "size": [
+   2172,
+   724
+  ]
+ },
+ "assets/art_cab/electric/hood_forward.png": {
+  "size": [
+   1536,
+   1024
+  ]
+ },
+ "assets/art_cab/electric/brake_handle.png": {
+  "size": [
+   251,
+   292
+  ]
+ },
+ "assets/art_cab/electric/traction_handle.png": {
+  "size": [
+   115,
+   363
+  ]
+ },
+ "assets/art_cab/electric/slot_plate.png": {
+  "size": [
+   177,
+   358
+  ]
+ },
+ "assets/art_cab/electric/horn_button.png": {
+  "size": [
+   253,
+   261
+  ]
+ },
+ "assets/art_cab/electric/toggle_left.png": {
+  "size": [
+   251,
+   180
+  ],
+  "pivot": [
+   134.60804283914322,
+   79.06005879882402
+  ]
+ },
+ "assets/art_cab/electric/toggle_right.png": {
+  "size": [
+   251,
+   180
+  ],
+  "pivot": [
+   114.40713910761154,
+   79.29979002624673
+  ]
+ },
+ "assets/art_cab/electric/toggle_down.png": {
+  "size": [
+   190,
+   227
+  ],
+  "pivot": [
+   93.07544020246621,
+   94.43271767810026
+  ]
+ },
+ "assets/art_cab/electric/toggle_up.png": {
+  "size": [
+   190,
+   227
+  ],
+  "pivot": [
+   93.41892744479495,
+   116.7293948953255
+  ]
+ },
+ "assets/art_cab/electric/speedometer.png": {
+  "size": [
+   389,
+   297
+  ]
+ },
+ "assets/art_cab/electric/ammeter.png": {
+  "size": [
+   295,
+   175
+  ]
+ },
+ "assets/art_cab/electric/thermometer.png": {
+  "size": [
+   123,
+   389
+  ]
+ },
+ "assets/art_cab/electric/charge_bar.png": {
+  "size": [
+   398,
+   94
+  ]
+ },
+ "assets/art_cab/electric/clock.png": {
+  "size": [
+   322,
+   330
+  ]
+ },
+ "assets/art_cab/electric/lamp_socket.png": {
+  "size": [
+   184,
+   189
+  ]
+ },
+ "assets/art_cab/electric/cabinet_door.png": {
+  "size": [
+   260,
+   390
+  ]
+ },
+ "assets/art_cab/electric/emergency_button.png": {
+  "size": [
+   308,
+   310
+  ]
+ },
+ "assets/art_cab/electric/hv_plate.png": {
+  "size": [
+   269,
+   238
+  ]
+ },
+ "assets/art_electric/cabinet/inside.png": {
+  "size": [
+   1265,
+   714
+  ]
+ },
+ "assets/art_electric/cabinet/switch_off.png": {
+  "size": [
+   321,
+   531
+  ]
+ },
+ "assets/art_electric/cabinet/switch_on.png": {
+  "size": [
+   321,
+   531
+  ]
+ },
+ "assets/art_electric/cabinet/fuse_whole.png": {
+  "size": [
+   512,
+   137
+  ]
+ },
+ "assets/art_electric/cabinet/fuse_burnt.png": {
+  "size": [
+   509,
+   136
+  ]
+ },
+ "assets/art_electric/cabinet/fuse_bug.png": {
+  "size": [
+   513,
+   170
+  ]
+ },
+ "assets/art_electric/cabinet/wire_scrap.png": {
+  "size": [
+   1014,
+   195
+  ]
+ },
+ "assets/art_electric/cabinet/spare_closed.png": {
+  "size": [
+   467,
+   329
+  ]
+ },
+ "assets/art_electric/cabinet/spare_open.png": {
+  "size": [
+   466,
+   523
+  ]
+ }
+}

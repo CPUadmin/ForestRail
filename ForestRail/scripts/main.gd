@@ -1111,6 +1111,10 @@ func electric_cab():
 func new_cab_wall() -> bool:
 	return steam_cab().revised() or electric_cab().revised()
 
+# the cab whose wall is shown now: its picture, side windows and tint (steam_cab.gd or electric_cab.gd)
+func wall_cab():
+	return electric_cab() if electric_cab().revised() else steam_cab()
+
 func draw_steam_cab_props(bucket: Rect2, fire: Rect2, door_button: Rect2, boiler: Dictionary, fleet: Dictionary) -> void:
 	steam_cab().draw_steam_cab_props(bucket, fire, door_button, boiler, fleet)
 
@@ -1179,6 +1183,11 @@ func draw_control_zoom() -> void:
 			point=rect.position+Vector2(65+100*i,127)
 			if steam_cab().revised(): point = steam_cab().board_point(steam_cab().BUCKET_X, 0.78)
 			draw_texture_rect(box_tex,Rect2(point-Vector2(box_w,box_h)*0.5,Vector2(box_w,box_h)),false)
+		elif kind == "slider" and electric_cab().revised():
+			# 1.12: the painted handles of the electric cab in their slot plates; no titles, as on the owner's sketch
+			electric_cab().draw_slider(id, geo)
+			grip_hits.append({"id":id,"position":pult_t*point,"closeup":true,"dash":false,"radius":0.0})
+			continue
 		elif steam_cab().revised() and id in ["brake", "throttle", "gear"]:
 			if id == "brake":
 				draw_arc(pivot, length, -PI / 2 - 0.55, -PI / 2 + 0.55, 24, Color("947953"), 2, true)
@@ -2259,7 +2268,7 @@ func update_pult_transform() -> void:
 
 # The side windows sit in the cab pillars; they follow the layout every frame.
 func cab_window_rect(size: Vector2, top: float, window_side: float) -> Rect2:
-	if new_cab_wall(): return steam_cab().side_rect(size, top, window_side)
+	if new_cab_wall(): return wall_cab().side_rect(size, top, window_side)
 	var pillar = size.x * 0.12
 	var roof = size.y * 0.075
 	var width = pillar * 0.62

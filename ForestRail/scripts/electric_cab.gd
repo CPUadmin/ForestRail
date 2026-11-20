@@ -1,141 +1,284 @@
 extends RefCounted
-# Помощник main.gd: новая кабина электровоза (просьба владельца 19.11: «за основу бери как у паровоза»; и сразу же:
-# «каждая кабина должна быть уникальной»). Подход паровоза: стена с окнами в одной раме, рисованная доска из трёх
-# секций, рисованный капот впереди. Но рама и доска у электровоза СВОИ (пакет GPT П32), не паровозные.
-# Слева «ПИТАНИЕ»: вольтметр, амперметр, ящик КОНТАКТОР («Скрутка») и аварийный тормоз; посередине «УПРАВЛЕНИЕ»:
-# тормоз и тяга (ручки в прорезях), направление, лампы, часы; справа «ПРИБОРЫ»: скорость, заряд и нагрев мотора.
-# Пока своих картинок нет, электровоз остаётся в прежней кабине (revised() ложно). Прежнюю кабину и потом можно
-# открыть запуском с --classic-electric-cab.
+# Помощник main.gd: своя кабина электровоза «Подстанция» (выпуск 1.12, решения владельца 19–20.11).
+# Устройство как у паровоза (стена с окнами в одной раме, рисованная доска, рисованный капот), но рисунок свой:
+# картинки GPT П34 (кабина) и П33 (шкафчик), нарезаны tools/cut_electric_cab.py. Раскладка — эскиз 6 владельца:
+#   слева «Питание»: дверца шкафчика с окошком, табличка-молния, рубильник, аварийный тормоз;
+#   посередине «Управление»: полоска заряда, часы, тумблер направления, ручки тормоза и тяги, пять ламп,
+#   гудок, тумблеры фары и дворников;
+#   справа «Приборы»: спидометр, амперметр с нулём посередине, неоновый термометр мотора.
+# Стрелки, столбик, огоньки, дворники рисует код. Пока электровоз не запущен, приборы мёртвые (слово владельца).
+# Прежнюю кабину можно открыть запуском с --classic-electric-cab.
 
 var canvas = null   # main.gd
 var classic = "--classic-electric-cab" in OS.get_cmdline_user_args()
-const WALL_PATH = "res://assets/art_cab/electric_window_wall.png"   # П32
-const BOARD_PATH = "res://assets/art_cab/electric_board.png"         # П32
-
-func art_ready() -> bool:
-	return ResourceLoader.exists(WALL_PATH) and ResourceLoader.exists(BOARD_PATH)
-
-const POWER_X = 0.164
-const CONTROL_X = 0.486
-const INSTRUMENTS_X = 0.824
-const LABEL_Y = 0.145
+const DIR = "res://assets/art_cab/electric/"
+const WALL_PATH = DIR + "window_wall.png"
+const BOARD_PATH = DIR + "board.png"
+var tex = {}
+# the wall picture: the whole canvas; the side openings with a little of their frame (pixels of window_wall.png)
+const WALL_ART = Rect2(0, 0, 2172, 724)
+const LEFT_LIGHT = Rect2(52, 160, 163, 498)
+const RIGHT_LIGHT = Rect2(1955, 160, 164, 498)
+const FRONT_HOLES = [Rect2(297, 170, 742, 478), Rect2(1134, 170, 739, 478)]
+const SELFTEST_S = 1.2   # after the start the needle sweeps and the charge bar fills, as in a car
+var was_live = false
+var selftest_t = 0.0
 
 func _init(owner_canvas) -> void:
 	canvas = owner_canvas
 
+func art_ready() -> bool:
+	return ResourceLoader.exists(WALL_PATH) and ResourceLoader.exists(BOARD_PATH)
+
+func t(name: String) -> Texture2D:
+	if not tex.has(name): tex[name] = load(DIR + name + ".png") if ResourceLoader.exists(DIR + name + ".png") else load("res://assets/art_electric/cabinet/" + name + ".png")
+	return tex[name]
+
 func revised() -> bool:
 	return not classic and art_ready() and canvas.cab_active() and canvas.model.vehicle_id() == "locomotive"
 
-# a point of the board: x across the screen, y from the top of the board (0) to the bottom of the screen (1)
+# --- the wall (shared interface with steam_cab.gd: main.wall_cab())
+var WINDOW_WALL: Texture2D:
+	get:
+		return t("window_wall")
+
+func side_art(side: float) -> Rect2:
+	return LEFT_LIGHT if side < 0.0 else RIGHT_LIGHT
+
+func side_rect(size: Vector2, top: float, side: float) -> Rect2:
+	var region = side_art(side)
+	var k = Vector2(size.x, top) / WALL_ART.size
+	return Rect2((region.position - WALL_ART.position) * k, region.size * k)
+
+func wall_tint() -> Color:
+	return Color.WHITE.darkened(canvas.model.night_amount() * 0.26)
+
+func draw_window_wall(size: Vector2, top: float) -> void:
+	var k = Vector2(size.x, top) / WALL_ART.size
+	# the picture has rounded outer corners: fill them with the wall's own dark green
+	for corner in [Vector2(0, 0), Vector2(size.x - 50 * k.x, 0), Vector2(0, top - 50 * k.y), Vector2(size.x - 50 * k.x, top - 50 * k.y)]:
+		canvas.draw_rect(Rect2(corner, Vector2(50 * k.x, 50 * k.y)), Color("1d3324").darkened(canvas.model.night_amount() * 0.26))
+	canvas.draw_texture_rect(t("window_wall"), Rect2(0, 0, size.x, top), false, wall_tint())
+	draw_wipers(k)
+	var board = Rect2(0, top, size.x, size.y - top)
+	canvas.draw_rect(board, Color("1d3324"))
+	canvas.draw_texture_rect(t("board"), board, false, Color.WHITE.darkened(canvas.model.night_amount() * 0.22))
+
+# parked at the bottom left of each front window; they sweep while switched on (main.wiper_phase)
+func draw_wipers(k: Vector2) -> void:
+	var swing = 0.5 - 0.5 * cos(canvas.wiper_phase * TAU)   # 0 parked at the start and the end of a sweep
+	for hole in FRONT_HOLES:
+		var pivot = Vector2(hole.position.x + hole.size.x * 0.22, hole.end.y - 6) * k
+		var length = hole.size.y * 0.86 * k.y
+		var angle = lerpf(-0.06, -PI * 0.72, swing)   # 0 = lying along the bottom to the right
+		var tip = pivot + Vector2.from_angle(angle) * length
+		canvas.draw_line(pivot, tip, Color("2a2a27"), maxf(2.0, 5.0 * k.y), true)
+		canvas.draw_line(pivot + (tip - pivot) * 0.18, tip, Color("0f0f0e"), maxf(3.0, 8.0 * k.y), true)
+		canvas.draw_circle(pivot, maxf(4.0, 9.0 * k.y), Color("b08a3e"))
+
+# --- the hood ahead, in place of the steam boiler (cab_art.draw_cab_nose)
+func draw_hood_ahead(cx: float, view: Rect2) -> void:
+	var height = view.size.y * 0.52
+	var hood = Rect2(cx - 0.75 * height, view.end.y - height, 1.5 * height, height)
+	canvas.draw_texture_rect(t("hood_forward"), hood, false)
+	if canvas.lights_lit():
+		# the brass lamp at the far end of the hood shines (its glass in the picture: 50% across, 15% down)
+		var lamp = hood.position + hood.size * Vector2(0.5, 0.15)
+		var glow = clampf(0.35 + canvas.model.night_amount() * 0.65, 0.0, 1.0)
+		for ring in range(4): canvas.draw_circle(lamp, height * (0.025 + ring * 0.03), Color(1.0, 0.9, 0.55, (0.5 - ring * 0.11) * glow), true, -1, true)
+
+# --- the board
 func at(size: Vector2, top: float, x: float, y: float) -> Vector2:
 	return Vector2(size.x * x, lerpf(top, size.y, y))
 
-func gauge_radius(size: Vector2, top: float) -> float:
-	return minf(size.x * 0.055, (size.y - top) * 0.166)
+# 20.11 (owner: «всё неровно»): every part is placed on a grid inside the marble of its panel. PANELS are the marble
+# edges across the screen and MARBLE_Y its top and bottom on the board, measured on board.png; u and v run 0..1 inside.
+const PANELS = [[0.0272, 0.3117], [0.3370, 0.6588], [0.6842, 0.9751]]
+const MARBLE_Y = [0.06, 0.92]
+
+func pat(size: Vector2, top: float, panel: int, u: float, v: float) -> Vector2:
+	return Vector2(size.x * lerpf(PANELS[panel][0], PANELS[panel][1], u), lerpf(top, size.y, lerpf(MARBLE_Y[0], MARBLE_Y[1], v)))
+
+func marble_h(size: Vector2, top: float) -> float:
+	return (size.y - top) * (MARBLE_Y[1] - MARBLE_Y[0])
+
+# a picture centred on a point, sized by its height
+func put(name: String, centre: Vector2, height: float, color: Color = Color.WHITE) -> Rect2:
+	var tx = t(name)
+	var w = height * float(tx.get_width()) / float(tx.get_height())
+	var rect = Rect2(centre - Vector2(w, height) * 0.5, Vector2(w, height))
+	canvas.draw_texture_rect(tx, rect, false, color)
+	return rect
+
+func live() -> bool:
+	return bool(canvas.model.state.engine)
 
 func fleet() -> Dictionary:
 	return canvas.model.state.fleet_by_id.locomotive
 
 func charge() -> float:
-	return float(fleet().fuel) / maxf(0.001, float(canvas.model.object_stats("locomotive").tank))
+	return clampf(float(fleet().fuel) / maxf(0.001, float(canvas.model.object_stats("locomotive").tank)), 0.0, 1.0)
 
-func centered(text: String, point: Vector2, width: float, pixels: int, color: Color) -> void:
-	canvas.draw_string(canvas.font, point - Vector2(width * 0.5, 0), text, HORIZONTAL_ALIGNMENT_CENTER, width, pixels, color)
-
-# the whole board except the pult in the middle (the levers are drawn by main.gd in the pult) and the round gauges
-func draw_board(size: Vector2, layout: Dictionary) -> void:
-	var top = float(layout.dash_top)
-	for group in [[POWER_X, "ПИТАНИЕ"], [CONTROL_X, "УПРАВЛЕНИЕ"], [INSTRUMENTS_X, "ПРИБОРЫ"]]:
-		var pos = at(size, top, group[0], LABEL_Y)
-		centered(group[1], pos, 210, 21, Color("f1dfaf"))
-		canvas.draw_line(pos + Vector2(-43, 9), pos + Vector2(43, 9), Color("aa8854"), 1.5)
-	draw_power(size, top)
-	draw_lamps(size, top)
-	draw_motor_bar(size, top)
-
-# Left: the contactor box with its pilot lamp, the high-voltage plate and the red mushroom of the emergency brake.
-func draw_power(size: Vector2, top: float) -> void:
-	var brass = Color("c9a85a")
-	var s = clampf((size.y - top) / 480.0, 0.7, 1.3)
-	# the contactor hatch: a click opens the box «Скрутка» (1.4.10)
-	var hatch_size = Vector2(96, 106) * s
-	var hatch = Rect2(at(size, top, POWER_X - 0.072, 0.72) - hatch_size * 0.5, hatch_size)
-	canvas.draw_texture_rect(canvas.CONTACTOR_HATCH, hatch, false)
-	var pilot = hatch.position + Vector2(hatch.size.x * 0.46, hatch.size.y * 0.2)
-	var energized = bool(canvas.model.state.engine) and canvas.sound.contactor_on
-	canvas.draw_circle(pilot, 6.5 * s, Color("382819"))
-	canvas.draw_circle(pilot, 4.2 * s, canvas.GOLD if energized else Color("695732"))
-	if energized: canvas.draw_circle(pilot, 11.0 * s, Color(canvas.GOLD, 0.25))
-	centered("Контактор", Vector2(hatch.get_center().x, hatch.end.y + 20 * s), 160, 17, canvas.PAPER)
-	if canvas.model.contactor_rules: canvas.cab_hits.append({"id": "contactor", "rect": hatch})
-	# the emergency brake: drops traction and pulls the brake
-	var button = at(size, top, POWER_X + 0.072, 0.70)
-	var r = 27.0 * s
-	canvas.draw_circle(button + Vector2(2, 3) * s, r + 5 * s, Color(0, 0, 0, 0.35))
-	canvas.draw_circle(button, r + 4 * s, Color("3a1512"))
-	canvas.draw_circle(button, r, Color("c23b2e"))
-	canvas.draw_circle(button + Vector2(-0.3, -0.33) * r, r * 0.3, Color(1, 1, 1, 0.3))
-	canvas.draw_arc(button, r + 4 * s, 0, TAU, 28, brass, 2.5, true)
-	centered("Аварийный тормоз", button + Vector2(0, r + 30 * s), 200, 17, canvas.PAPER)
-	canvas.cab_hits.append({"id": "emergency", "rect": Rect2(button - Vector2.ONE * (r + 6 * s), Vector2.ONE * (r + 6 * s) * 2.0)})
-	# the high-voltage plate beside the name of the section
-	var tri = at(size, top, POWER_X - 0.1, LABEL_Y) + Vector2(0, -6 * s)
-	var t = 15.0 * s
-	canvas.draw_colored_polygon(PackedVector2Array([tri + Vector2(0, -t), tri + Vector2(t * 1.1, t), tri + Vector2(-t * 1.1, t)]), Color("e6c13a"))
-	canvas.draw_polyline(PackedVector2Array([tri + Vector2(0, -t), tri + Vector2(t * 1.1, t), tri + Vector2(-t * 1.1, t), tri + Vector2(0, -t)]), Color("2a2218"), 2.0, true)
-	var bolt = PackedVector2Array([Vector2(2, -9), Vector2(-5, 3), Vector2(0, 3), Vector2(-3, 10), Vector2(5, -2), Vector2(1, -2)])
-	for i in range(bolt.size()): bolt[i] = tri + bolt[i] * s * 0.95
-	canvas.draw_colored_polygon(bolt, Color("1a1612"))
-
-# Middle, under the levers: ХОД, ПИТАНИЕ, ТОРМОЗ, НИЗКИЙ ЗАРЯД, РЕКУП.; the start of the engine runs along them as a flash.
-func draw_lamps(size: Vector2, top: float) -> void:
-	var regen = canvas.model.regen_kw > 0.01
-	var lamps = [["ХОД", absf(float(canvas.model.state.v)) > 0.1, Color("5cc17f")],
-		["ПИТАНИЕ", bool(canvas.model.state.engine) and float(fleet().fuel) > 0.0, Color("e6b34a")],
-		["ТОРМОЗ", float(canvas.model.state.brake) > 0.1, Color("e0564a")],
-		["МАЛО ЗАРЯДА", charge() < 0.25, Color("e0564a")],
-		["РЕКУП.", regen, Color("6cc4e0")]]
-	var spacing = size.x * 0.057
-	var origin = at(size, top, 0.372, 0.865)
-	for i in range(lamps.size()):
-		var lamp_at = origin + Vector2(i * spacing, 0)
-		var sweep = 0.0
-		if canvas.electric_start_flash > 0.0 and canvas.light_flicker_enabled():
-			sweep = clampf(1.0 - absf((1.0 - canvas.electric_start_flash / canvas.ELECTRIC_START_FLASH) * 5.0 - float(i)), 0.0, 1.0)
-		canvas.draw_circle(lamp_at, 9, Color("0c100e"))
-		canvas.draw_circle(lamp_at, 7, lamps[i][2] if lamps[i][1] else lamps[i][2].darkened(0.75))
-		if lamps[i][1]: canvas.draw_circle(lamp_at, 16, Color(lamps[i][2], 0.22))
-		if sweep > 0.0: canvas.draw_circle(lamp_at, 12, Color(0.8, 0.93, 1.0, sweep * 0.6))
-		centered(lamps[i][0], lamp_at + Vector2(0, 25), spacing, 12, Color("dfceb0"))
-
-# Right, under the gauges: the warmth of the motor as one bar (as the water of the steam engine); over 85% the pull weakens.
-func draw_motor_bar(size: Vector2, top: float) -> void:
-	var temp = clampf(canvas.model.engine_temp(), 0.0, 1.0)
-	var glass = Rect2(at(size, top, INSTRUMENTS_X, 0.74) - Vector2(100, 0), Vector2(200, 13))
-	canvas.draw_style_box(canvas.style(Color("142022"), Color("a38a55"), 5), glass.grow(3))
-	var color = Color("5cc17f") if temp < 0.7 else (Color("e6b34a") if temp < 0.85 else Color("e0564a"))
-	canvas.draw_rect(Rect2(glass.position, Vector2(glass.size.x * temp, glass.size.y)), color.darkened(0.15))
-	for mark in [0.7, 0.85]:
-		var x = glass.position.x + glass.size.x * mark
-		canvas.draw_line(Vector2(x, glass.position.y), Vector2(x, glass.end.y + 5), Color("f5e9c9"), 1.5)
-	centered("Мотор  ·  %d°" % roundi(20.0 + temp * 100.0), glass.get_center() + Vector2(0, 36), 260, 18, canvas.PAPER)
-
-# The round gauges: speed and charge on the right (as the speed and the pressure of the steam engine), the voltmeter and
-# the ammeter on the left, a little smaller, above the contactor.
-func draw_gauges(size: Vector2, layout: Dictionary, speed_args: Array, art) -> void:
-	var top = float(layout.dash_top)
-	var r = gauge_radius(size, top)
-	var y = top + (size.y - top) * 0.46
-	var right = size.x * INSTRUMENTS_X
-	art.draw_round_gauge(Vector2(right - r * 1.1, y), r, speed_args[0], "СКОРОСТЬ", speed_args[1], speed_args[2], 10, speed_args[3])
-	var low_bad = [[0.15, Color("e0564a")], [0.35, Color("e6b34a")], [1.0, Color("5cc17f")]]
-	art.draw_round_gauge(Vector2(right + r * 1.1, y), r, charge(), "ЗАРЯД", "%d%%" % roundi(charge() * 100), low_bad, 10, [0, 25, 50, 75, 100])
+func amps() -> float:
+	if not live(): return 0.0
 	var stats = canvas.model.object_stats("locomotive")
 	var volts = clampf(40.0 + 9.0 * charge() - 4.0 * float(canvas.model.state.throttle), 0.0, 60.0)
 	var speed_share = clampf(absf(float(canvas.model.state.v)) / float(stats.speeds[0]), 0.0, 1.0)
-	var amps = float(canvas.model.state.throttle) * 260.0 * (1.0 - 0.5 * speed_share) * (1.0 if float(fleet().fuel) > 0.0 else 0.0) - canvas.model.regen_kw * 1000.0 / maxf(volts, 1.0)
-	var small = r * 0.86
-	var left = size.x * POWER_X
-	var gy = top + (size.y - top) * 0.38
-	art.draw_round_gauge(Vector2(left - small * 1.18, gy), small, volts / 60.0, "ВОЛЬТЫ", "%.0f В" % volts, [[0.7, Color("e0564a")], [0.9, Color("5cc17f")], [1.0, Color("e6b34a")]], 6, [0, 20, 40, 60])
-	art.draw_round_gauge(Vector2(left + small * 1.18, gy), small, clampf((amps + 100.0) / 400.0, 0.0, 1.0), "АМПЕРЫ", "%.0f А" % amps, [[0.25, Color("78b8d8")], [0.75, Color("5cc17f")], [0.9, Color("e6b34a")], [1.0, Color("e0564a")]], 8, [-100, 0, 100, 200, 300])
+	return float(canvas.model.state.throttle) * 260.0 * (1.0 - 0.5 * speed_share) * (1.0 if float(fleet().fuel) > 0.0 else 0.0) - canvas.model.regen_kw * 1000.0 / maxf(volts, 1.0)
+
+func draw_board(size: Vector2, layout: Dictionary) -> void:
+	var top = float(layout.dash_top)
+	var hb = size.y - top
+	if live() and not was_live: selftest_t = SELFTEST_S
+	was_live = live()
+	selftest_t = maxf(0.0, selftest_t - canvas.get_process_delta_time())
+	draw_power(size, top, hb)
+	draw_middle(size, top, hb)
+
+func draw_power(size: Vector2, top: float, hb: float) -> void:
+	var mh = marble_h(size, top)
+	var door = put("cabinet_door", pat(size, top, 0, 0.31, 0.5), mh * 0.8)
+	if canvas.model.contactor_rules: canvas.cab_hits.append({"id": "contactor", "rect": door})
+	put("hv_plate", pat(size, top, 0, 0.79, 0.165), mh * 0.13)
+	put("switch_on" if live() else "switch_off", pat(size, top, 0, 0.79, 0.455), mh * 0.40)
+	var button = put("emergency_button", pat(size, top, 0, 0.79, 0.79), mh * 0.22)
+	canvas.cab_hits.append({"id": "emergency", "rect": button})
+
+func draw_middle(size: Vector2, top: float, hb: float) -> void:
+	# the charge bar: twelve segments, red on the left to green on the right; dark until the start
+	var mh = marble_h(size, top)
+	var bar = put("charge_bar", pat(size, top, 1, (COL_BRAKE + COL_TRACTION) * 0.5, 0.12), mh * 0.11)
+	var inner = Rect2(bar.position + bar.size * Vector2(0.075, 0.27), bar.size * Vector2(0.85, 0.46))
+	var shown = charge() * (1.0 - selftest_t / SELFTEST_S)   # after the start it fills up to the real charge
+	var lit = roundi(shown * 12.0) if live() else 0
+	for i in range(12):
+		var seg = Rect2(inner.position + Vector2(inner.size.x * i / 12.0 + 1.0, 0), Vector2(inner.size.x / 12.0 - 2.0, inner.size.y))
+		if i < lit:
+			var hue = Color.from_hsv(lerpf(0.0, 0.33, i / 11.0), 0.85, 0.95)
+			canvas.draw_rect(seg, hue)
+			canvas.draw_rect(seg.grow(2.0), Color(hue, 0.18))
+	# the clock
+	var clock = put("clock", pat(size, top, 1, COL_RIGHT, 0.12), mh * 0.2)
+	var c = clock.get_center()
+	var r = clock.size.x * 0.36
+	var minutes = fposmod(canvas.model.world_hours() * 60.0, 60.0)
+	var hours = fposmod(canvas.model.world_hours(), 12.0)
+	canvas.draw_line(c, c + Vector2.from_angle(TAU * minutes / 60.0 - PI / 2) * r, Color("2a2218"), 1.5, true)
+	canvas.draw_line(c, c + Vector2.from_angle(TAU * hours / 12.0 - PI / 2) * r * 0.62, Color("2a2218"), 2.5, true)
+	canvas.draw_circle(c, 2.0, Color("a8231c"))
+	# the direction toggle: left = back, right = forward; a click flips it
+	var forward = int(canvas.model.state.get("reverser", 1)) >= 0
+	var toggle = put("toggle_right" if forward else "toggle_left", pat(size, top, 1, COL_RIGHT, 0.5), mh * 0.12)   # under the clock, level with the middle of the slots
+	draw_arrow(toggle, -1.0, not forward)
+	draw_arrow(toggle, 1.0, forward)
+	canvas.cab_hits.append({"id": "back" if forward else "forward", "rect": toggle.grow(6.0)})
+	# the five lamps: ход, питание, тормоз, мало заряда, рекуперация
+	var lamps = [absf(float(canvas.model.state.v)) > 0.1, live() and float(fleet().fuel) > 0.0, float(canvas.model.state.brake) > 0.1, charge() < 0.25, canvas.model.regen_kw > 0.01]
+	var colors = [Color("5cc17f"), Color("e6b34a"), Color("e0564a"), Color("e0564a"), Color("6cc4e0")]
+	for i in range(5):
+		var sweep = 0.0
+		if canvas.electric_start_flash > 0.0 and canvas.light_flicker_enabled():
+			sweep = clampf(1.0 - absf((1.0 - canvas.electric_start_flash / canvas.ELECTRIC_START_FLASH) * 5.0 - float(i)), 0.0, 1.0)
+		var socket = put("lamp_socket", pat(size, top, 1, 0.14 + i * 0.18, 0.745), mh * 0.085)
+		var on = live() and bool(lamps[i])
+		var glass = socket.get_center()
+		var gr = socket.size.x * 0.3
+		if on:
+			canvas.draw_circle(glass, gr * 2.3, Color(colors[i], 0.22), true, -1, true)
+			canvas.draw_circle(glass, gr * 1.15, colors[i].lightened(0.15), true, -1, true)
+			canvas.draw_circle(glass, gr * 0.6, colors[i].lightened(0.55), true, -1, true)
+			canvas.draw_circle(glass + Vector2(-gr * 0.35, -gr * 0.4), gr * 0.25, Color(1, 1, 1, 0.6), true, -1, true)
+		else:
+			canvas.draw_circle(glass, gr, Color(colors[i].darkened(0.7), 0.55), true, -1, true)
+		if sweep > 0.0: canvas.draw_circle(glass, gr * 1.4, Color(0.8, 0.93, 1.0, sweep * 0.6), true, -1, true)
+	# the horn, the headlamp toggle and the wiper toggle, with little pictures above them
+	var specs = [["whistle", COL_BRAKE], ["light", 0.5], ["wiper", COL_RIGHT]]
+	for spec in specs:
+		var centre = pat(size, top, 1, spec[1], 0.935)
+		var rect: Rect2
+		if spec[0] == "whistle": rect = put("horn_button", centre, mh * 0.095)
+		else:
+			var on = canvas.lights_lit() if spec[0] == "light" else canvas.wiper_on
+			rect = put("toggle_up" if on else "toggle_down", centre, mh * 0.11)
+		draw_pictogram(str(spec[0]), pat(size, top, 1, spec[1], 0.835), mh * 0.033)
+		canvas.cab_hits.append({"id": spec[0], "rect": rect.grow(4.0)})
+
+func draw_arrow(toggle: Rect2, side: float, lit: bool) -> void:
+	var c = toggle.get_center() + Vector2(side * (toggle.size.x * 0.5 + 14.0), 0)
+	var ink = canvas.GOLD if lit else Color("6f6656")
+	canvas.draw_line(c - Vector2(side * 8, 0), c + Vector2(side * 6, 0), ink, 2.5, true)
+	canvas.draw_colored_polygon(PackedVector2Array([c + Vector2(side * 10, 0), c + Vector2(side * 2, -6), c + Vector2(side * 2, 6)]), ink)
+
+func draw_pictogram(id: String, c: Vector2, r: float) -> void:
+	var ink = Color("3a2c1c")
+	match id:
+		"whistle":
+			canvas.draw_rect(Rect2(c + Vector2(-r, -r * 0.35), Vector2(r * 0.9, r * 0.7)), ink)
+			canvas.draw_colored_polygon(PackedVector2Array([c + Vector2(-r * 0.1, -r * 0.35), c + Vector2(r, -r), c + Vector2(r, r), c + Vector2(-r * 0.1, r * 0.35)]), ink)
+		"light":
+			canvas.draw_arc(c + Vector2(-r * 0.3, 0), r * 0.7, -PI * 0.5, PI * 0.5, 12, ink, 2.0, true)
+			for k in range(3): canvas.draw_line(c + Vector2(r * 0.55, -r * 0.6 + k * r * 0.6), c + Vector2(r * 1.3, -r * 0.75 + k * r * 0.75), ink, 1.8, true)
+		"wiper":
+			canvas.draw_arc(c + Vector2(0, r * 0.8), r * 1.3, -PI * 0.85, -PI * 0.15, 12, ink, 1.8, true)
+			canvas.draw_line(c + Vector2(0, r * 0.8), c + Vector2(r * 0.7, -r * 0.4), ink, 2.5, true)
+
+# --- the right panel: the speedometer, the centre-zero ammeter, the neon thermometer of the motor
+func draw_gauges(size: Vector2, layout: Dictionary, speed_args: Array, _art) -> void:
+	var top = float(layout.dash_top)
+	var hb = size.y - top
+	var test = sin(clampf(1.0 - selftest_t / SELFTEST_S, 0.0, 1.0) * PI) if selftest_t > 0.0 else 0.0
+	var speed = clampf(float(speed_args[0]), 0.0, 1.0) if live() else 0.0
+	speed = maxf(speed, test)
+	var mh = marble_h(size, top)
+	var dial = put("speedometer", pat(size, top, 2, 0.38, 0.36), mh * 0.56)
+	needle(dial.position + dial.size * Vector2(0.5, 0.86), dial.size.x * 0.37, PI - speed * PI)
+	var a = amps()
+	var share = clampf(a / 300.0, 0.0, 1.0) if a >= 0.0 else -clampf(-a / 100.0, 0.0, 1.0)
+	var am = put("ammeter", pat(size, top, 2, 0.38, 0.80), mh * 0.24)
+	needle(am.position + am.size * Vector2(0.5, 0.78), am.size.x * 0.36, PI * 0.5 - share * PI * 0.5)
+	var th = put("thermometer", pat(size, top, 2, 0.84, 0.5), mh * 0.84)
+	if live() or test > 0.0:
+		var temp = maxf(clampf(canvas.model.engine_temp(), 0.0, 1.0), test * 0.9)
+		var tube = Rect2(th.position + th.size * Vector2(0.17, 0.12), th.size * Vector2(0.33, 0.76))
+		var column = Rect2(Vector2(tube.position.x, tube.end.y - tube.size.y * temp), Vector2(tube.size.x, tube.size.y * temp))
+		var low = Color("49d8e6")
+		var high = Color("b45ae0") if temp < 0.85 else Color("e04a8a")
+		canvas.draw_rect(column.grow(3.0), Color(low.lerp(high, 0.5), 0.16))
+		canvas.draw_polygon(PackedVector2Array([column.position, Vector2(column.end.x, column.position.y), column.end, Vector2(column.position.x, column.end.y)]), PackedColorArray([high, high, low, low]))
+		if temp >= 0.85 and canvas.light_flicker_enabled() and fmod(canvas.time, 0.5) < 0.25:
+			canvas.draw_rect(column.grow(5.0), Color(high, 0.25))
+
+func needle(pivot: Vector2, length: float, angle: float) -> void:
+	var tip = pivot + Vector2(cos(angle), -sin(angle)) * length
+	canvas.draw_line(pivot + (pivot - tip) * 0.12, tip, Color("1c1a17"), 3.0, true)
+	canvas.draw_circle(pivot, 5.0, Color("b08a3e"))
+
+# --- the brake and traction handles slide in their slot plates (main.draw_control_zoom, pult coordinates)
+const COL_BRAKE = 0.2
+const COL_TRACTION = 0.5
+const COL_RIGHT = 0.8
+const SLIDER_U = {"brake": COL_BRAKE, "throttle": COL_TRACTION}
+const SLOT_TOP = 0.38   # panel v: the knob at 100% rises above, clear of the charge bar
+const SLOT_BOTTOM = 0.6
+
+func slider_geometry(id: String) -> Dictionary:
+	var size = canvas.get_viewport_rect().size
+	var top = float(canvas.cab_layout(size).dash_top)
+	var back = canvas.pult_t.affine_inverse()
+	var bottom = back * pat(size, top, 1, SLIDER_U[id], SLOT_BOTTOM)
+	var upper = back * pat(size, top, 1, SLIDER_U[id], SLOT_TOP)
+	return {"pivot": bottom, "length": bottom.y - upper.y}
+
+func draw_slider(id: String, geo: Dictionary) -> void:
+	var size = canvas.get_viewport_rect().size
+	var top = float(canvas.cab_layout(size).dash_top)
+	var hb = size.y - top
+	canvas.draw_set_transform_matrix(Transform2D.IDENTITY)
+	put("slot_plate", pat(size, top, 1, SLIDER_U[id], (SLOT_TOP + SLOT_BOTTOM) * 0.5), marble_h(size, top) * 0.36)
+	var grip = canvas.pult_t * Vector2(geo.grip)
+	var handle = t("brake_handle" if id == "brake" else "traction_handle")
+	var h = hb * (0.17 if id == "brake" else 0.2)
+	var w = h * float(handle.get_width()) / float(handle.get_height())
+	# the handle's tongue sits in the slot: the grip point is near the bottom of the picture
+	canvas.draw_texture_rect(handle, Rect2(grip - Vector2(w * 0.5, h * 0.82), Vector2(w, h)), false)
+	canvas.draw_set_transform_matrix(canvas.pult_t)
