@@ -16,6 +16,9 @@ const MatchView = preload("res://scripts/match_view.gd")
 const ControlsView = preload("res://scripts/controls_view.gd")
 const ModalUi = preload("res://scripts/modal_ui.gd")
 const SteamCab = preload("res://scripts/steam_cab.gd")
+const ScreenFx = preload("res://scripts/screen_fx.gd")
+const PlaceWalk = preload("res://scripts/place_walk.gd")
+const SettingsIo = preload("res://scripts/settings_io.gd")
 const ElectricCab = preload("res://scripts/electric_cab.gd")
 const StationUi = preload("res://scripts/station_ui.gd")
 const HudUi = preload("res://scripts/hud_ui.gd")
@@ -383,115 +386,28 @@ func load_textures() -> void:
 		visual_layout[name] = [0,0,rect.size.x,rect.size.y]
 
 func load_settings() -> void:
-	if FileAccess.file_exists(settings_path):
-		var saved = JSON.parse_string(FileAccess.get_file_as_string(settings_path))
-		if saved is Dictionary:
-			for key in DEFAULT_SETTINGS:
-				if not saved.has(key): continue
-				var value = saved[key]
-				var fallback = DEFAULT_SETTINGS[key]
-				if fallback is bool:
-					if value is bool: settings[key] = value
-				elif fallback is Dictionary:
-					if value is Dictionary:
-						for action in fallback:
-							if value.has(action) and (value[action] is int or value[action] is float) and is_finite(float(value[action])):
-								settings[key][action] = int(value[action])
-				elif (value is int or value is float) and is_finite(float(value)):
-					settings[key] = value
-	apply_settings()
-	apply_window_size.call_deferred(true)   # the first window fits the screen and its scaling
+	settings_io().load_settings()
 
 func apply_settings() -> void:
-	if art != null: art.reduce_motion_flag = bool(settings.reduce_motion)
-	for key in ["master", "mechanisms", "forest", "music", "interface"]:
-		settings[key] = clampf(float(settings[key]), 0, 1)
-	settings.fullscreen = settings.fullscreen is bool and settings.fullscreen
-	settings.borderless = settings.borderless is bool and settings.borderless
-	settings.vsync = settings.vsync is bool and settings.vsync
-	settings.reduce_motion = settings.reduce_motion is bool and settings.reduce_motion
-	settings.text_scale = clampf(float(settings.text_scale), 1, 1.5)
-	settings.sensitivity = clampf(float(settings.sensitivity), 0.5, 2)
-	settings.cab_shake = clampf(float(settings.cab_shake), 0, 1)
-	settings.window_size = clampi(int(settings.window_size), 0, WINDOW_SIZES.size() - 1)
-	settings.fps_cap = int(settings.fps_cap) if int(settings.fps_cap) in [0, 30, 60, 120, 144] else 0
-	settings.msaa = int(settings.msaa) if int(settings.msaa) in [0, 2, 4] else 0
-	settings.instrument_hz = 60 if int(settings.instrument_hz) >= 60 else 30
-	settings.autosave = int(settings.autosave) if int(settings.autosave) in [0, 30, 60, 120, 300] else 60
-	settings.night_light = clampf(float(settings.night_light), 0.0, 1.0)
-	settings.light_flicker = settings.light_flicker is not bool or settings.light_flicker
-	settings.weather = int(settings.weather) if int(settings.weather) in [0, 1, 2] else 0
-	settings.weather_frequency = float(settings.weather_frequency) if float(settings.weather_frequency) in [0.5, 1.0, 2.0] else 1.0
-	model.weather_frequency = float(settings.weather_frequency)
-	# Hot keys: valid, never Escape (it always pauses), never twice; otherwise back to the defaults.
-	var keys: Dictionary = settings.keys
-	if not keys.has("burst"): keys["burst"] = KEY_B   # saves from before the supercapacitor keep their own keys
-	if not keys.has("grapnel"): keys["grapnel"] = KEY_G
-	if not keys.has("ignition"): keys["ignition"] = KEY_K   # the key of the petrol motorcar, added 16.11
-	var seen: Array = []
-	var valid = true
-	for action in DEFAULT_SETTINGS.keys:
-		var code = int(keys.get(action, 0))
-		if code <= 0 or code == KEY_ESCAPE or code in seen: valid = false
-		seen.append(code)
-	if not valid:
-		for action in DEFAULT_SETTINGS.keys: keys[action] = int(DEFAULT_SETTINGS.keys[action])
-	else:
-		for action in DEFAULT_SETTINGS.keys: keys[action] = int(keys[action])
-	var mode = DisplayServer.WINDOW_MODE_FULLSCREEN if settings.fullscreen else DisplayServer.WINDOW_MODE_WINDOWED
-	if DisplayServer.window_get_mode() != mode: DisplayServer.window_set_mode(mode)
-	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_BORDERLESS, bool(settings.borderless) and not bool(settings.fullscreen))
-	DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_ENABLED if settings.vsync else DisplayServer.VSYNC_DISABLED)
-	Engine.max_fps = int(settings.fps_cap)
-	get_viewport().msaa_2d = {0: Viewport.MSAA_DISABLED, 2: Viewport.MSAA_2X, 4: Viewport.MSAA_4X}[int(settings.msaa)] if supports_2d_msaa() else Viewport.MSAA_DISABLED
+	settings_io().apply_settings()
 
 func supports_2d_msaa() -> bool:
-	return RenderingServer.get_current_rendering_method() in ["mobile", "forward_plus"]
+	return settings_io().supports_2d_msaa()
 
 func save_settings() -> bool:
-	apply_settings()
-	var temp = "%s.%d.tmp" % [settings_path, OS.get_process_id()]
-	var file = FileAccess.open(temp, FileAccess.WRITE)
-	if file == null: return false
-	var data = JSON.stringify(settings).to_utf8_buffer()
-	file.store_buffer(data)
-	file.flush()
-	var complete = file.get_error() == OK and file.get_length() == data.size()
-	file.close()
-	if complete and DirAccess.rename_absolute(temp, settings_path) == OK: return true
-	DirAccess.remove_absolute(temp)
-	return false
+	return settings_io().save_settings()
 
-# Settings menu helpers: changes apply at once, "Применить" saves them, "Отменить" (or
-# Esc) puts back what was there when the menu opened.
 func copy_settings(target: Dictionary, source: Dictionary) -> void:
-	for key in source:
-		target[key] = source[key].duplicate(true) if source[key] is Dictionary else source[key]
+	settings_io().copy_settings(target, source)
 
 func settings_changed() -> bool:
-	return JSON.stringify(settings) != JSON.stringify(settings_backup)
+	return settings_io().settings_changed()
 
-# The window sizes of the settings are in the points of the screen, not in its pixels: on a laptop with Windows scaling 200%
-# (2880x1800) a window of 1600x900 pixels was a small box with tiny letters (owner 15.11). The size is multiplied by the
-# scaling of the screen and kept inside the free area of the screen (16:9), and the window stands in its middle.
 func window_pixels(index: int) -> Vector2i:
-	var screen = DisplayServer.window_get_current_screen()
-	var factor = maxf(1.0, maxf(DisplayServer.screen_get_scale(screen), float(DisplayServer.screen_get_dpi(screen)) / 96.0))
-	var want = Vector2(WINDOW_SIZES[clampi(index, 0, WINDOW_SIZES.size() - 1)]) * factor
-	var usable = Vector2(DisplayServer.screen_get_usable_rect(screen).size) * 0.94
-	if usable.x > 0.0 and usable.y > 0.0:
-		var fit = minf(1.0, minf(usable.x / want.x, usable.y / want.y))
-		want *= fit
-	return Vector2i(want.round())
+	return settings_io().window_pixels(index)
 
 func apply_window_size(at_start: bool = false) -> void:
-	if bool(settings.fullscreen) or DisplayServer.get_name() == "headless": return
-	if at_start and test_mode: return   # the checks set their own window
-	var screen = DisplayServer.window_get_current_screen()
-	var size = window_pixels(int(settings.window_size))
-	DisplayServer.window_set_size(size)
-	var usable = DisplayServer.screen_get_usable_rect(screen)
-	DisplayServer.window_set_position(usable.position + (usable.size - size) / 2)
+	settings_io().apply_window_size(at_start)
 
 func key_name(action: String) -> String:
 	var name = OS.get_keycode_string(int(settings.keys[action]))
@@ -770,66 +686,17 @@ func yard_ui():
 	if yard_ui_cache == null: yard_ui_cache = YardUi.new(self)
 	return yard_ui_cache
 
-# a walk across the yard: the screen darkens (the camera comes closer to the building), the place opens, the light comes back
 func go_place(id: String) -> void:
-	if id == "casino":
-		var open = func():
-			casino_intro = true
-			show_modal("casino")
-		if test_mode and not animate_in_tests:
-			open.call()
-			return
-		if depot_anim != "": return
-		cancel_drag()
-		if place == "yard" and not bool(settings.reduce_motion): yard_ui().entering = "casino"
-		place_style = "casino_in" if not bool(settings.reduce_motion) else ""
-		fade_tint = UiKit.GLOW if place_style != "" else Color(0, 0, 0)
-		place_change = true
-		depot_exit_action = open
-		depot_anim = "leave"
-		depot_anim_t = 0.0
-		ensure_fade_rect()
-		sound.play("gear", 0.3, 1.5)
-		return
-	var change = func():
-		place = id
-		tab = PLACE_TAB.get(id, "Рейсы")
-		free_trips_open = false
-		selected_object = model.vehicle_id()
-		rebuild()
-	if place == id: return
-	if test_mode and not animate_in_tests:
-		change.call()
-		return
-	cancel_drag()
-	place_change = true
-	depot_exit_action = change
-	depot_anim = "leave"
-	depot_anim_t = 0.0
-	ensure_fade_rect()
+	place_walk().go_place(id)
 
 func place_fade_s() -> float:
-	if place_style == "casino_in": return CASINO_OUT_S if depot_anim == "out" else CASINO_IN_S
-	if place_style == "casino_out": return CASINO_LEAVE_S
-	return 0.25 if place_change else DEPOT_FADE_S
+	return place_walk().place_fade_s()
 
-# the way out of the casino: a short warm fade back to the yard
 func leave_casino() -> void:
-	if (test_mode and not animate_in_tests) or depot_anim != "":
-		close_modal()
-		return
-	cancel_drag()
-	place_style = "casino_out"
-	fade_tint = UiKit.GLOW
-	place_change = true
-	depot_exit_action = close_modal
-	depot_anim = "leave"
-	depot_anim_t = 0.0
-	ensure_fade_rect()
+	place_walk().leave_casino()
 
-# the cover of the fade: black for the usual walks, warm light for the casino doors
 func set_fade(alpha: float) -> void:
-	if fade_rect != null: fade_rect.color = Color(fade_tint.r, fade_tint.g, fade_tint.b, alpha)
+	place_walk().set_fade(alpha)
 
 # how far the casino flood has come (0 to 1) while the camera flies to the door
 func casino_flight() -> float:
@@ -1098,6 +965,24 @@ func steam_cab():
 	return steam_cab_cache
 func steam_fire_rect(rect: Rect2) -> Rect2:
 	return steam_cab().steam_fire_rect(rect)
+
+# настройки игры: чтение, проверка, запись, размер окна (нарезка main.gd, 21.11)
+var settings_io_cache = null
+func settings_io():
+	if settings_io_cache == null: settings_io_cache = SettingsIo.new(self)
+	return settings_io_cache
+
+# переходы по двору и депо: прогулка к зданию, затемнение, казик, заезд в депо (нарезка main.gd, 21.11)
+var place_walk_cache = null
+func place_walk():
+	if place_walk_cache == null: place_walk_cache = PlaceWalk.new(self)
+	return place_walk_cache
+
+# мелкие экранные эффекты и подсказки: блики, облачко песочницы, пыль при посадке, плашка уведомления, всплывающая подсказка (нарезка main.gd, 21.11)
+var screen_fx_cache = null
+func screen_fx():
+	if screen_fx_cache == null: screen_fx_cache = ScreenFx.new(self)
+	return screen_fx_cache
 
 # 19.11: the new cab of the electric locomotive, on the base of the steam one (electric_cab.gd)
 var electric_cab_cache = null
@@ -1532,79 +1417,14 @@ func _physics_process(dt: float) -> void:
 			autosave = 0
 			save_game()
 
-# --- Entering the depot (B1.2a): the train rolls to its mark, the view closes in, the screen fades to
-# black, the depot opens and fades in. Any key or click skips the rolling part.
 func start_depot_entry() -> void:
-	if depot_anim != "" or screen != "game" or model.state.phase == "depot": return
-	if not model.stopped():
-		notify("Остановись у платформы, чтобы заехать в депо")
-		return
-	if model.station_index() != 0:
-		notify(model.message if model.message != "" else "Заехать в депо можно на станции Лесная")
-		return
-	cancel_drag()
-	depot_anim = "in"
-	depot_anim_t = 0.0
-	depot_anim_from = float(model.state.s)
-	depot_anim_zoom = zoom_level
-	ensure_fade_rect()
-	sound.play("gear", 0.5, 0.7)
+	place_walk().start_depot_entry()
 
 func skip_depot_anim() -> void:
-	if depot_anim == "in": depot_anim_t = maxf(depot_anim_t, DEPOT_MOVE_S)
-	elif depot_anim == "leave": depot_anim_t = place_fade_s()
-	elif depot_anim == "out": depot_anim_t = place_fade_s()
-	if place_style != "":   # the casino doors: a click goes straight to the end
-		advance_depot_anim(0.0)
-		if depot_anim == "out":
-			depot_anim_t = place_fade_s()
-			advance_depot_anim(0.0)
+	place_walk().skip_depot_anim()
 
 func advance_depot_anim(dt: float) -> void:
-	depot_anim_t += dt
-	if depot_anim == "in":
-		var mark = float(model.service_stop(0))
-		var move = clampf(depot_anim_t / DEPOT_MOVE_S, 0.0, 1.0)
-		model.state.s = lerpf(depot_anim_from, mark, smoothstep(0.0, 1.0, move))
-		model.state.v = 0.0
-		model.state.brake = 1.0
-		zoom_level = lerpf(depot_anim_zoom, minf(1.5, depot_anim_zoom * 1.25), smoothstep(0.0, 1.0, move))
-		if fade_rect != null: fade_rect.color.a = clampf((depot_anim_t - DEPOT_MOVE_S) / DEPOT_FADE_S, 0.0, 1.0)
-		if depot_anim_t >= DEPOT_MOVE_S + DEPOT_FADE_S:
-			zoom_level = depot_anim_zoom
-			if model.back_to_depot():
-				screen = "depot"
-				place = "yard"
-				save_game()
-				rebuild()
-				depot_anim = "out"
-				depot_anim_t = 0.0
-			else:
-				notify(model.message)
-				depot_anim = ""
-				if fade_rect != null: fade_rect.color.a = 0.0
-	elif depot_anim == "leave":
-		var p = clampf(depot_anim_t / place_fade_s(), 0.0, 1.0)
-		if place_style == "casino_in":
-			fade_tint = UiKit.GLOW.lerp(CASINO_DEEP, smoothstep(0.4, 1.0, p))
-			set_fade(smoothstep(0.35, 1.0, p))   # the light floods in at the end of the flight, not from the start
-		else: set_fade(p)
-		if screen == "depot" and place == "yard": queue_redraw()   # the camera comes closer to the building
-		if depot_anim_t >= place_fade_s():
-			if depot_exit_action.is_valid(): depot_exit_action.call()
-			depot_exit_action = Callable()
-			depot_anim = "out"
-			depot_anim_t = 0.0
-	elif depot_anim == "out":
-		var q = clampf(depot_anim_t / place_fade_s(), 0.0, 1.0)
-		if place_style != "": fade_tint = CASINO_DEEP.lerp(UiKit.LAMP, q)
-		set_fade(1.0 - smoothstep(0.0, 1.0, q) if place_style != "" else 1.0 - q)
-		if depot_anim_t >= place_fade_s():
-			depot_anim = ""
-			place_change = false
-			place_style = ""
-			fade_tint = Color(0, 0, 0)
-			set_fade(0.0)
+	place_walk().advance_depot_anim(dt)
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventKey and screen == "game" and not paused and contactor_view_cache != null and contactor_view_cache.key(event):
@@ -2251,16 +2071,8 @@ func _draw_scene() -> void:
 			rect = Rect2(size.x * 0.02, size.y - 215, size.x * 0.44, 44)
 		draw_toast_box(rect, screen != "game")
 
-# The notice: a long text wraps to up to three lines instead of being cut at the edge of the box (it was cut in the narrow depot column).
-# A box that stands low on the screen grows upward, so that it does not cover the buttons under it.
 func draw_toast_box(rect: Rect2, grow_up: bool) -> void:
-	var width = rect.size.x - 30
-	var text_h = font.get_multiline_string_size(toast, HORIZONTAL_ALIGNMENT_LEFT, width, 19, 3).y
-	var extra = maxf(0.0, text_h + 20.0 - rect.size.y)
-	rect.size.y += extra
-	if grow_up: rect.position.y -= extra
-	draw_style_box(style(INK, GOLD, 8), rect)
-	draw_multiline_string(font, rect.position + Vector2(18, 29), toast, HORIZONTAL_ALIGNMENT_LEFT, width, 19, 3, PAPER)
+	screen_fx().draw_toast_box(rect, grow_up)
 
 # ===== Cab scene (E): looking ahead through the glass, the dashboard below ==========
 # Everything is drawn here in code. The pult (levers, gate, wheels, coal, door) is the
@@ -2384,60 +2196,14 @@ func grounded_sprite(id: String, foot: Vector2, height: float, color: Color = Co
 	var anchor = Vector2((float(bounds[0]) + float(bounds[2])) * 0.5, float(bounds[3]))
 	sprite(id, Rect2(foot - anchor * factor, texture.get_size() * factor), color)
 
-# B6.11 b: a glint of brass by the rail: a bolt lies in the gravel. It twinkles when the train is near; a click picks it up.
 func draw_glints() -> void:
-	if model.state.phase != "route" or not model.casino().has_trip(): return
-	var sc = view_scale()
-	var list = model.casino().glints()
-	for i in range(list.size()):
-		var g = list[i]
-		if bool(g.taken): continue
-		var p = world_point(float(g.s))
-		if p.x < -60 or p.x > get_viewport_rect().size.x + 60: continue
-		p += Vector2(0, 17 * sc)
-		var gold = bool(g.golden)
-		var pulse = 0.55 + 0.45 * sin(time * 5.0 + float(i) * 2.1)
-		if settings.reduce_motion: pulse = 0.85
-		var tint = Color(1.0, 0.82, 0.3) if gold else Color(0.95, 0.78, 0.45)
-		ellipse(p, Vector2(16, 6) * sc, Color(tint.r, tint.g, tint.b, 0.3 * pulse))
-		var arm = (12.0 + 8.0 * pulse) * sc * (1.4 if gold else 1.0)
-		draw_line(p + Vector2(-arm, 0), p + Vector2(arm, 0), Color(tint.r, tint.g, tint.b, 0.9 * pulse), 2.0 * sc, true)
-		draw_line(p + Vector2(0, -arm), p + Vector2(0, arm), Color(tint.r, tint.g, tint.b, 0.9 * pulse), 2.0 * sc, true)
-		draw_circle(p, 2.6 * sc, Color(1, 0.97, 0.8, pulse))
-		glint_hits.append({"index": i, "position": p})
+	screen_fx().draw_glints()
 
-# B5.5: a landing kicks up the dust of the track bed: a few soft puffs that spread and fade.
-# 1.4.15: the sander blows sand under both driving wheels: a small sandy cloud at each, low on the rail, gone in 0.7 s
 func draw_sand_puff() -> void:
-	if sand_puff.is_empty(): return
-	var age = float(sand_puff.t)
-	if age > 0.7:
-		sand_puff = {}
-		return
-	var sc = view_scale()
-	var s0 = model.body_s_render(0)
-	for axle in [-0.75, 0.75]:
-		var at = world_point(s0 + axle) + Vector2(0, 4 * sc)
-		for k in range(4):
-			var side = (float(k) - 1.5) / 1.5
-			var p = at + Vector2(side * (10.0 + 40.0 * age) * sc, -(6.0 + 18.0 * age * (1.0 - absf(side) * 0.4)) * sc)
-			var r = (10.0 + 24.0 * age) * sc * (0.8 + 0.2 * absf(sin(float(k) * 1.7)))
-			ellipse(p, Vector2(r * 1.3, r * 0.7), Color(0.80, 0.68, 0.44, 0.78 * (1.0 - age / 0.7)))
+	screen_fx().draw_sand_puff()
 
 func draw_land_dust() -> void:
-	if land_dust.is_empty(): return
-	var age = float(land_dust.t)
-	if age > 0.8:
-		land_dust = {}
-		return
-	var sc = view_scale()
-	var power = float(land_dust.power)
-	for k in range(7):
-		var side = (float(k) - 3.0) / 3.0
-		var spread = (0.4 + age * 3.2) * power
-		var p = world_point(float(land_dust.s) + side * (1.5 + age * 3.5) * power) + Vector2(0, 6 * sc)
-		var radius = (16.0 + 34.0 * age) * sc * power * (0.7 + 0.3 * absf(sin(float(k) * 2.1)))
-		ellipse(p + Vector2(0, -age * 26.0 * sc * (0.5 + 0.5 * absf(side))), Vector2(radius * (1.0 + spread * 0.2), radius * 0.6), Color(0.66, 0.58, 0.45, 0.5 * (1.0 - age / 0.8)))
+	screen_fx().draw_land_dust()
 
 func start_shunting(id: String, attach: bool) -> void:
 	if not coupling_anim.is_empty(): return
@@ -2690,28 +2456,7 @@ func update_charge_warning() -> void:
 	controls_view().update_charge_warning()
 
 func draw_tooltip() -> void:
-	if drag != "": return
-	var mouse = get_global_mouse_position()
-	var text = ""
-	for hit in grip_hits:
-		if hit.position.distance_to(mouse) < 31:
-			text = {"pump": "Зажми хват и веди его по дуге рычага", "brake": "Тормоз: двигай ручку вверх по прорези от 0 до 100%" if model.vehicle_id() == "locomotive" else "Тормоз: веди рукоять по дуге от 0 до 100%", "throttle": "Вентиль: крути колесо по кругу, отпустишь — закроется сам" if model.vehicle_id() == "steam" else ("Тяга: двигай ручку вверх по прорези от 0 до 100%" if model.vehicle_id() == "locomotive" else "Подача: веди рукоять по дуге от 0 до 100%"), "gear": "Кран воды: крути по кругу. Без воды пара нет" if model.vehicle_id() == "steam" else "Кулиса: веди шар через N в паз. Менять при газе ниже 15%, R только на остановке", "start": "Щёлкни, чтобы разжечь или погасить огонь" if model.vehicle_id() == "steam" else ("Ключ: держи, пока мотор не схватит. Щелчок — выкл." if model.vehicle_id() == "motorcar" else "Щёлкни тумблер, чтобы включить или выключить")}[hit.id]
-			if hit.id == "start" and control_kind("start") == "matchbox":
-				text = "Щёлкни по коробку, чтобы взять спичку" if cab_active() else "За спичками войди в кабину [%s]" % key_name("cab")
-	for hit in ignition_hits:
-		if hit.rect.has_point(mouse): text = "Подсос: вытяни для холодного мотора, сам уйдёт, когда прогреется"
-	if text=="" and screen=="game" and model.vehicle_id()=="locomotive" and charge_strip_rect.has_point(mouse):
-		text="Заряд %d%% · доступная тяга %d%%" % [roundi(charge_fraction()*100),roundi(model.charge_traction_factor()*100)]
-	for hit in cargo_hits:
-		if hit.rect.has_point(mouse):
-			for item in model.state.cargo:
-				if item.id == hit.id:
-					text = "%s · %d кг → %s" % [model.cargo_base(item.type).name, model.cargo_base(item.type).mass_kg, model.station_name(item.destination)]
-	Input.set_default_cursor_shape(Input.CURSOR_POINTING_HAND if text != "" else Input.CURSOR_ARROW)
-	if text != "":
-		var p = Vector2(clampf(mouse.x - 180, 20, get_viewport_rect().size.x - 560), mouse.y - 68)
-		draw_style_box(style(INK, GOLD, 6), Rect2(p, Vector2(540, 45)))
-		draw_string(font, p + Vector2(12, 29), text, HORIZONTAL_ALIGNMENT_LEFT, 515, 18, PAPER)
+	screen_fx().draw_tooltip()
 
 func draw_menu_train(size: Vector2) -> void:
 	var p = Vector2(size.x*0.74,size.y*0.75)
