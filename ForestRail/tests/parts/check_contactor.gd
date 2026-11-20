@@ -142,17 +142,26 @@ func run() -> void:
 	check(c.warning() and c.fuse_count("ok") == 3, "an overheated motor: a warning first, the fuse is still whole")
 	for k in range(120): c.step(1.0 / 60.0)
 	check(c.fuse_count("burnt") == 1 and m.message.contains("перегрев"), "it stays hot: the fuse burns and saves the motor")
+	for k in range(60 * 15): c.step(1.0 / 60.0)
+	check(c.fuse_count("burnt") == 1 and not c.motor_burnt(), "a breather after the burnt fuse: still hot, nothing else burns for 15 s")
 	c.st().fuses = ["burnt", "burnt", "bug"]
-	for k in range(200): c.step(1.0 / 60.0)
+	for k in range(60 * 25): c.step(1.0 / 60.0)
 	check(c.motor_burnt(), "with no whole fuse left the next burn takes the motor")
-	# --- shake near the top speed burns a fuse
+	# --- shake near the top speed: tight twists ride it out, a weak twist rattles a fuse to death
 	m = fresh()
 	c = m.contactor()
 	wire_all(m)
 	c.start()
 	m.state.v = float(m.object_stats("locomotive").speeds[0]) * 0.97
+	for k in range(60 * 300): c.step(1.0 / 60.0)
+	check(c.fuse_count("ok") == 3 and c.live(), "five minutes at the top speed with tight twists: nothing burns")
+	m = fresh()
+	c = m.contactor()
+	wire_all(m, 1.0)
+	c.start()
+	m.state.v = float(m.object_stats("locomotive").speeds[0]) * 0.97
 	for k in range(60 * 20): c.step(1.0 / 60.0)
-	check(c.fuse_count("burnt") >= 1 and m.message.contains("тряска"), "a long run at the top speed shakes a fuse to death")
+	check(c.fuse_count("burnt") >= 1 and m.message.contains("тряска"), "a weak twist at the top speed shakes a fuse to death")
 	# --- secret: the golden twist (five loops in one motion) does not shake
 	m = fresh()
 	c = m.contactor()

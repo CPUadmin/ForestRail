@@ -36,6 +36,7 @@ const FUSE_POWER = 0.15         # −15% тяги за сгоревший пре
 const FUSE_DRAIN = 0.10         # +10% расхода за сгоревший
 const HEAT_LIMIT = 0.85         # нагрев мотора, с которого патрон начинает греться
 const HEAT_GRACE = 2.5          # секунд предупреждения до перегорания
+const FUSE_COOLDOWN = 20.0      # секунд передышки после сгоревшего в пути: успеть сбавить
 const SHAKE_TOP = 0.92          # доля высшей скорости, на которой начинает трясти
 const RAINBOW_POWER = 1.15
 const RAINBOW_DRAIN = 1.25
@@ -327,24 +328,28 @@ func step(dt: float) -> void:
 	if float(fleet().fuel) <= 0.0:
 		stop()
 		return
+	# after a fuse has burnt the player gets a breather to ease off (audit 21.11: else all three and the motor went in ~10 s)
+	s.cool_t = maxf(0.0, float(s.get("cool_t", 0.0)) - dt)
 	if float(s.get("wink_t", 0.0)) > 0.0:
 		s.wink_t = maxf(0.0, float(s.wink_t) - dt)
-		if m.engine_temp() > WINK_HOT: burn_fuse("перегрев на рекуперации")
+		if m.engine_temp() > WINK_HOT:
+			s.wink_t = 0.0   # the wink is over with the burnt fuse, not one fuse a frame
+			burn_fuse("перегрев на рекуперации")
 	# heat: over the limit the fuse warms; after the grace it burns
-	if m.engine_temp() >= HEAT_LIMIT:
+	if m.engine_temp() >= HEAT_LIMIT and float(s.cool_t) <= 0.0:
 		s.heat_t = float(s.get("heat_t", 0.0)) + dt
 		if float(s.heat_t) >= HEAT_GRACE:
 			s.heat_t = 0.0
 			burn_fuse("перегрев")
 	else:
 		s.heat_t = maxf(0.0, float(s.get("heat_t", 0.0)) - dt * 2.0)
-	# shake: near the top speed the cab shakes; a weak twist shakes twice as much
+	# shake: near the top speed only a weak twist rattles (audit 21.11: tight ones burnt a fuse every 12 s of a fast run)
 	var speed = absf(float(m.state.v))
 	var top = float(m.object_stats("locomotive").speeds[0])
 	var loose = 0
 	for i in range(count()): if not tight(i): loose += 1
-	if speed > SHAKE_TOP * top:
-		s.shake = float(s.get("shake", 0.0)) + dt * 0.08 * (2.0 if loose > 0 else 1.0)
+	if speed > SHAKE_TOP * top and loose > 0 and float(s.cool_t) <= 0.0:
+		s.shake = float(s.get("shake", 0.0)) + dt * 0.08
 	else:
 		s.shake = maxf(0.0, float(s.get("shake", 0.0)) - dt * 0.05)
 	if float(s.shake) >= 1.0:
@@ -381,6 +386,7 @@ func burn_fuse(why: String) -> void:
 		burn_motor(why)
 		return
 	s.fuses[slot] = "burnt"
+	s.cool_t = FUSE_COOLDOWN
 	m.events.append("fuse_burnt")
 	m.message = "Сгорел предохранитель (%s) и спас мотор: тяга −%d%%%s" % [why, roundi(FUSE_POWER * 100.0 * float(fuse_count("burnt"))), "" if fuse_count("ok") > 0 else ". Целых не осталось: следующая искра сожжёт мотор"]
 
