@@ -2,7 +2,7 @@ extends Node
 # Снимки новой кабины электровоза (1.12): мёртвая до пуска, живая на ходу, ночь с фарой и дворниками, 1280 и 1600.
 # Не проверка с галочкой. Запуск: godot --path ForestRail -- --qa-suite=probe_electric_cab <папка>
 const Fixtures = preload("res://tests/fixtures.gd")
-const Model = preload("res://scripts/model.gd")
+const Model = preload("res://scripts/core/model.gd")
 
 var game
 var out_dir = "user://qa_electric_cab"

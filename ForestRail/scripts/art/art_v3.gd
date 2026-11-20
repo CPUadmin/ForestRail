@@ -16,8 +16,8 @@ const STOCK_WHEEL_TINT = {
 	"pneumatic": Color("c2d4e1"),
 	"motorcar": Color("f0b8a5"),
 }
-const Geometry = preload("res://scripts/world_geometry.gd")
-const Mechanism = preload("res://scripts/handcar_mechanism.gd")
+const Geometry = preload("res://scripts/core/world_geometry.gd")
+const Mechanism = preload("res://scripts/vehicles/handcar/handcar_mechanism.gd")
 const PX = Geometry.PX
 const WORKER_TEXTURE = preload("res://assets/art_consists/rail_worker_side.png")
 const WORKER_REGION = Rect2(382, 21, 357, 1273)
@@ -59,7 +59,7 @@ const STOCK_POLE = preload("res://assets/art_pole_truck/pole_truck_body.png")
 const STOCK_JET = preload("res://assets/art_consists/rocket_train_compact_body.png")   # B6.6: the rocket train (the picture of the other helper, the file is not changed)
 const STOCK_ZEPPELIN = preload("res://assets/art_zeppelin/body_clean.png")   # the same picture without the movable parts (tools/make_zeppelin_wings.py)
 # The exhaust and the parachute of the rocket railcar (P15, painted by GPT): flames of three strengths and the afterburner, two smokes, the open parachute.
-const JetFlame = preload("res://scripts/jet_flame.gd")   # the flame of the rocket is drawn by code
+const JetFlame = preload("res://scripts/vehicles/jet/jet_flame.gd")   # the flame of the rocket is drawn by code
 const JET_FX = {
 	"smoke_light": preload("res://assets/art_jet/smoke_light.png"), "smoke_dark": preload("res://assets/art_jet/smoke_dark.png"),
 	"chute_open": preload("res://assets/art_jet/chute_open.png"), "chute_slack": preload("res://assets/art_jet/chute_slack.png")}

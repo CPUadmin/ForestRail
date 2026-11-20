@@ -122,7 +122,7 @@ func run() -> void:
 	game.queue_redraw()
 	await shot("sail_map")
 	game.toggle_map()
-	var sounds = load("res://scripts/sound.gd").new()
+	var sounds = load("res://scripts/audio/sound.gd").new()
 	check(sounds.clips.has("sail_flap") or "sail_flap" in sounds.CLIP_NAMES, "the clip of the flapping sail is known")
 	check("sail_creak" in sounds.CLIP_NAMES, "the clip of the creaking rigging is known")
 	# B6.9: the oars in the hands (placeholder oars on the picture) and the button of the stopped car

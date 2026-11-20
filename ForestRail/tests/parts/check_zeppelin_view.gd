@@ -126,8 +126,8 @@ func run() -> void:
 	check(game.model.zep.wing_angle < -30.0 and game.model.zep.tail_angle < -5.0, "the picture state follows the levers (wing %.1f, tail %.1f)" % [game.model.zep.wing_angle, game.model.zep.tail_angle])
 	game.zoom_level = 1.0
 	# the lesson line follows the state of the machine
-	var Pult = preload("res://scripts/zeppelin_pult.gd")
-	var Zep = preload("res://scripts/zeppelin.gd")
+	var Pult = preload("res://scripts/vehicles/zeppelin/zeppelin_pult.gd")
+	var Zep = preload("res://scripts/vehicles/zeppelin/zeppelin.gd")
 	var lesson = Zep.new()
 	check(Pult.hint(lesson, 130.0, 1.0, 0.0).begins_with("Тормоз"), "the lesson: the brake first")
 	check(Pult.hint(lesson, 130.0, 0.0, 0.0).begins_with("Отпусти тормоз"), "the lesson: throttle and fine pitch at the start")

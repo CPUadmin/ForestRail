@@ -2,8 +2,8 @@ extends Node
 # В6.9: вёсла парусной на штиле (scripts/oars.gd и model.set_oars): гребок даёт ход, возврат не даёт, потолок около 6 км/ч, усталость, парус с вёслами молчит,
 # ветер возвращает к парусу, вёсла только у парусной.
 const Fixtures = preload("res://tests/fixtures.gd")
-const Model = preload("res://scripts/model.gd")
-const Oars = preload("res://scripts/oars.gd")
+const Model = preload("res://scripts/core/model.gd")
+const Oars = preload("res://scripts/vehicles/sail/oars.gd")
 
 var checks = 0
 var failures: Array = []

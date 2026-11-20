@@ -2,7 +2,7 @@ extends Node
 # B6.2 (ROADMAP_RU.md 6.6): the reducer sets the working pressure (the pull and the frost follow it), the heating tap slows the frost
 # down and costs air, the four drain valves stop the ice plugs.
 const Fixtures = preload("res://tests/fixtures.gd")
-const Model = preload("res://scripts/model.gd")
+const Model = preload("res://scripts/core/model.gd")
 
 var checks = 0
 var failures: Array = []

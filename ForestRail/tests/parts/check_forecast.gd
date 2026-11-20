@@ -2,7 +2,7 @@ extends Node
 # N7.2: services exist only where the data says so, and the trip forecast covers what
 # the model really burns on a full round trip (driven with the player's own inputs).
 const Fixtures = preload("res://tests/fixtures.gd")
-const Model = preload("res://scripts/model.gd")
+const Model = preload("res://scripts/core/model.gd")
 const Driver = preload("res://tests/trip_driver.gd")
 
 var checks = 0

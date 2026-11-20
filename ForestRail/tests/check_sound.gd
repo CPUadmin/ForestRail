@@ -3,8 +3,8 @@ extends Node
 # with the track, each class sounds like itself, the cab muffles the outside, pause
 # silences the machine. Whether it SOUNDS good is for the owner's ears, not for tests.
 const Fixtures = preload("res://tests/fixtures.gd")
-const Model = preload("res://scripts/model.gd")
-const Sound = preload("res://scripts/sound.gd")
+const Model = preload("res://scripts/core/model.gd")
+const Sound = preload("res://scripts/audio/sound.gd")
 
 var checks = 0
 var failures: Array = []

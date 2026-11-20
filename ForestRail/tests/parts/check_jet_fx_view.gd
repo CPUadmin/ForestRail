@@ -1,7 +1,7 @@
 extends Node
 # Пламя, дым и парашют реактивного (картинки П15): рисуются без ошибок при разной тяге, с форсажем и с раскрытым парашютом; снимки для глаз.
 const Fixtures = preload("res://tests/fixtures.gd")
-const Model = preload("res://scripts/model.gd")
+const Model = preload("res://scripts/core/model.gd")
 
 var game
 var checks = 0

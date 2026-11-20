@@ -4,7 +4,7 @@ extends Node
 # разводятся; неверная скрутка даёт искру и сжигает предохранитель; рывками стык рвётся; щелчок по сгоревшему
 # предохранителю ставит запасной; то же с клавиатуры. Шкафчик и рубильник помещаются в окне. Снимки при 1280 и 1600.
 const Fixtures = preload("res://tests/fixtures.gd")
-const Model = preload("res://scripts/model.gd")
+const Model = preload("res://scripts/core/model.gd")
 
 var game
 var failures: Array = []

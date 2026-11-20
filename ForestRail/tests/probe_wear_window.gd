@@ -2,7 +2,7 @@ extends Node
 # Снимок окна «Состояние» для 1.4.5: цена ремонта по классу, склонение слова, серая кнопка при нехватке.
 # Не проверка с галочкой. Запуск: godot --path ForestRail -- --qa-suite=probe_wear_window <папка>
 const Fixtures = preload("res://tests/fixtures.gd")
-const Model = preload("res://scripts/model.gd")
+const Model = preload("res://scripts/core/model.gd")
 
 var game
 var out_dir = "user://qa_wear_window"

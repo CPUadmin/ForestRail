@@ -9,7 +9,7 @@ const LOOP_NAMES = ["amb_wind", "amb_rain", "amb_insects", "amb_water", "music_m
 const MACHINE_LOOPS = ["steam_hiss", "fire_crackle", "petrol_idle", "petrol_run", "electric_hum", "electric_whine", "brake", "zep_engine", "zep_prop", "zep_wind", "jet_roar"]
 const INTERFACE_CLIPS = ["coins", "finale", "ui_click", "sting_start"]
 const JOINT_SPACING = 12.0
-const Geometry = preload("res://scripts/world_geometry.gd")
+const Geometry = preload("res://scripts/core/world_geometry.gd")
 const CHUFF_SPACING = 0.43
 
 var clips: Dictionary = {}

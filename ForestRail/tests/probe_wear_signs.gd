@@ -2,7 +2,7 @@ extends Node
 # Снимки для глаз (шаг 1.4.2 «Ступени износа»): как выглядит усталая машина. Не тест с галочкой.
 # Запуск: godot --path ForestRail -- --qa-suite=probe_wear_signs <папка_для_снимков>
 const Fixtures = preload("res://tests/fixtures.gd")
-const Model = preload("res://scripts/model.gd")
+const Model = preload("res://scripts/core/model.gd")
 
 var game
 var out_dir = "user://qa_wear_signs"

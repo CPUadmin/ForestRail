@@ -2,8 +2,8 @@ extends Node
 # The ordinary upgrades of the pole truck, the sail car, the steam engine and the pneumatic train:
 # each branch buys, shows in the machine's numbers and really reaches the physics.
 const Fixtures = preload("res://tests/fixtures.gd")
-const Model = preload("res://scripts/model.gd")
-const Wind = preload("res://scripts/wind.gd")
+const Model = preload("res://scripts/core/model.gd")
+const Wind = preload("res://scripts/vehicles/sail/wind.gd")
 
 var checks = 0
 var failures: Array = []

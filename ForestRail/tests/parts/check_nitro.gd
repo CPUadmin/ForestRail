@@ -1,7 +1,7 @@
 extends Node
 # Гаджет «Закись азота» бензиновой (docs/GADGET_EFFECTS_PROPOSAL_RU.md): кнопка «Нитро», +60% тяги на 4 с, два заряда на рейс, бензин горит вдвое быстрее на это время.
 const Fixtures = preload("res://tests/fixtures.gd")
-const Model = preload("res://scripts/model.gd")
+const Model = preload("res://scripts/core/model.gd")
 
 var failures: Array = []
 var checks = 0

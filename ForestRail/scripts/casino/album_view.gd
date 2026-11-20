@@ -2,7 +2,7 @@ extends Control
 # Альбом карточек Таро Михалыча (docs/KAZIK_CARDS_RU.md, этап «д»): 22 места, выбитые лицом, остальные рубашкой вверх.
 # Щелчок по выбитой карточке открывает её крупно с репликой Михалыча. Что выбито, решает Casino (state.casino.cards).
 
-const CardView = preload("res://scripts/card_view.gd")
+const CardView = preload("res://scripts/casino/card_view.gd")
 const SECRET_IDS = ["moon", "sun", "judgement", "world"]
 
 var game

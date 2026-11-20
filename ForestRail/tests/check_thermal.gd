@@ -2,7 +2,7 @@ extends Node
 # B3.4: temperatures and the hungry fire. The petrol engine and the electric motor warm with work and cool
 # in the wind of the run; the steam fire burns fast, gives heat by the coal on the grate and wants stoking.
 const Fixtures = preload("res://tests/fixtures.gd")
-const Model = preload("res://scripts/model.gd")
+const Model = preload("res://scripts/core/model.gd")
 
 var failures: Array = []
 var checks = 0

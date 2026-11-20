@@ -2,7 +2,7 @@ extends Node
 # N14.1: the train is not fastened to the rail. Springboard knolls on the long line, flight off a
 # crest when v^2 * curvature beats gravity, landing impact on fragile cargo.
 const Fixtures = preload("res://tests/fixtures.gd")
-const Model = preload("res://scripts/model.gd")
+const Model = preload("res://scripts/core/model.gd")
 
 var checks = 0
 var failures: Array = []

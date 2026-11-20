@@ -8,7 +8,7 @@ func quit(code: int = 0) -> void:
 
 
 
-const Model = preload("res://scripts/model.gd")
+const Model = preload("res://scripts/core/model.gd")
 var failures: Array = []
 var stats: Array = []
 var steps = 0

@@ -12,7 +12,7 @@ var images: Array = []
 const OUT = "user://qa_instruments"
 
 func _ready() -> void:
-	preload("res://scripts/model.gd").legacy_tanks = true  # these tests are about the screens, on the old tank sizes (B2.2)
+	preload("res://scripts/core/model.gd").legacy_tanks = true  # these tests are about the screens, on the old tank sizes (B2.2)
 	call_deferred("run")
 
 func check(ok: bool, message: String) -> void:
@@ -219,7 +219,7 @@ func run() -> void:
 	var file = FileAccess.open(OUT.path_join("results.json"),FileAccess.WRITE)
 	file.store_string(JSON.stringify(result,"\t"))
 	file.close()
-	var InstrumentsClass = preload("res://scripts/instruments.gd")
+	var InstrumentsClass = preload("res://scripts/cabs/instruments.gd")
 	check(InstrumentsClass.lamp_state(0.9) == "off" and InstrumentsClass.lamp_state(0.39) == "warn" and InstrumentsClass.lamp_state(0.19) == "alarm" and InstrumentsClass.lamp_state(0.0) == "alarm", "the wear lamp: dark above 40%, amber below 40%, red below 20%")
 	print("INSTRUMENT CHECKS ",checks,"; FAILURES ",failures)
 	game.queue_free()

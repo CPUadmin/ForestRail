@@ -4,7 +4,7 @@ extends Node
 # the creative mode disables nothing; a gadget without its card is absent from the workshop; with the card it offers «Установить по карте»;
 # Model.upgrade refuses a gadget for coins. Pictures for the eyes.
 const Fixtures = preload("res://tests/fixtures.gd")
-const Model = preload("res://scripts/model.gd")
+const Model = preload("res://scripts/core/model.gd")
 
 var game
 var failures: Array = []

@@ -2,7 +2,7 @@ extends Node
 # Чистые кадры сцены без интерфейса (рейс, кабина, депо, погрузка) как фон для макетов нового интерфейса (суд интерфейса 14.11.2026).
 # Запуск: godot --path ForestRail -- --qa-suite=probe_clean_scenes <папка>
 const Fixtures = preload("res://tests/fixtures.gd")
-const Model = preload("res://scripts/model.gd")
+const Model = preload("res://scripts/core/model.gd")
 var game
 
 func _ready() -> void:

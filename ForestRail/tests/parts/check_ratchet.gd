@@ -1,7 +1,7 @@
 extends Node
 # Гаджет «Храповик» ручной дрезины: усилие рычага больше на четверть (потолок мощности руки прежний, поэтому выигрыш на разгоне и в подъёме, где упирается момент), +8 кг.
 const Fixtures = preload("res://tests/fixtures.gd")
-const Model = preload("res://scripts/model.gd")
+const Model = preload("res://scripts/core/model.gd")
 
 var failures: Array = []
 var checks = 0

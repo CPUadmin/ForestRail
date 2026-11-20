@@ -3,7 +3,7 @@ extends Node
 # чтобы разбирать интерфейс по снимкам. Не проверка с галочкой, а кадры для глаз.
 # Запуск: godot --path ForestRail -- --qa-suite=probe_ui_tour <папка_для_снимков>   (или python tools/ui_tour.py)
 const Fixtures = preload("res://tests/fixtures.gd")
-const Model = preload("res://scripts/model.gd")
+const Model = preload("res://scripts/core/model.gd")
 
 var game
 var out_dir = "user://qa_ui_tour"

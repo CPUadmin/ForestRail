@@ -2,7 +2,7 @@ extends Node
 # Веха 5, В5.4: сцепление колёс. Тормоз держит ровно столько, сколько держат колёса; сильнее потянул,
 # колёса заблокировались (юз) и держат хуже. В дождь сцепление хуже. Подсказка тормозного пути.
 const Fixtures = preload("res://tests/fixtures.gd")
-const Model = preload("res://scripts/model.gd")
+const Model = preload("res://scripts/core/model.gd")
 
 var checks = 0
 var failures: Array = []

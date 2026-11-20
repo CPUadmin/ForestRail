@@ -3,8 +3,8 @@ extends Node
 # Главное правило: жёсткая основная физика не меняется, живой слой только добавляет картинку, звук
 # и порчу хрупкого груза.
 const Fixtures = preload("res://tests/fixtures.gd")
-const Model = preload("res://scripts/model.gd")
-const Live = preload("res://scripts/live.gd")
+const Model = preload("res://scripts/core/model.gd")
+const Live = preload("res://scripts/core/live.gd")
 
 var checks = 0
 var failures: Array = []

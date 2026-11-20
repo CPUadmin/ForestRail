@@ -1,7 +1,7 @@
 extends Node
 # Детали гаджетов на машинах (картинки П12): у каждой машины со всеми гаджетами снимок для глаз.
 const Fixtures = preload("res://tests/fixtures.gd")
-const Model = preload("res://scripts/model.gd")
+const Model = preload("res://scripts/core/model.gd")
 
 var game
 var checks = 0

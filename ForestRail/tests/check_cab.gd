@@ -2,7 +2,7 @@ extends Node
 # Cab scene on E: the whole screen becomes the cab, the track ahead is seen through
 # the glass and the dashboard carries the working pult (same states as outside).
 const Fixtures = preload("res://tests/fixtures.gd")
-const Model = preload("res://scripts/model.gd")
+const Model = preload("res://scripts/core/model.gd")
 
 var game
 var checks = 0

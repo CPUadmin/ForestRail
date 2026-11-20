@@ -2,7 +2,7 @@ extends Node
 # The driving wheels spin when the engine asks more than the rail holds (steam, motorcar, locomotive);
 # a smooth trip pays +5% with a medal, a harsh one −5%.
 const Fixtures = preload("res://tests/fixtures.gd")
-const Model = preload("res://scripts/model.gd")
+const Model = preload("res://scripts/core/model.gd")
 
 var checks = 0
 var failures: Array = []

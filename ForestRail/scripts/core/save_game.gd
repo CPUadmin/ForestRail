@@ -1,6 +1,6 @@
 extends RefCounted
 
-const Model = preload("res://scripts/model.gd")
+const Model = preload("res://scripts/core/model.gd")
 const PREVIOUS_CAREER = "save_v2.previous_career.json"
 var validator
 var directory = "user://"

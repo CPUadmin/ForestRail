@@ -17,7 +17,7 @@ func build_depot(size: Vector2) -> void:
 	build_place_nav(size)
 	build_place_room(size)
 
-const CasinoView = preload("res://scripts/casino_view.gd")
+const CasinoView = preload("res://scripts/casino/casino_view.gd")
 const COIN_ICON = preload("res://assets/ui/coin.png")
 
 func headline(label: Label, outline: int) -> void:

@@ -2,8 +2,8 @@ extends Node
 # B2.6: every new career gets its own line. Over many seeds: legs within +-15% of the data, stations
 # within the grade limits, flat platforms, no fallback profile, the starter handcar's first legs within
 # 3%, the same seed gives the same line, different seeds give different lines, and a saved line comes back.
-const Model = preload("res://scripts/model.gd")
-const Route = preload("res://scripts/route.gd")
+const Model = preload("res://scripts/core/model.gd")
+const Route = preload("res://scripts/core/route.gd")
 
 var checks = 0
 var failures: Array = []

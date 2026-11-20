@@ -2,7 +2,7 @@ extends Node
 # Веха 6, В6.11 этап «г»: экран казика (scripts/casino_view.gd): вкладка в депо, колесо останавливается на выпавшем секторе,
 # «деп» превращает шлак в жетоны, кнопки по состоянию кармана. Кадры в двух размерах окна.
 const Fixtures = preload("res://tests/fixtures.gd")
-const Model = preload("res://scripts/model.gd")
+const Model = preload("res://scripts/core/model.gd")
 
 var game
 var failures: Array = []

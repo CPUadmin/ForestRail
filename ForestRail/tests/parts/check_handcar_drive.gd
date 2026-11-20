@@ -1,6 +1,6 @@
 extends Node
 
-const Model=preload("res://scripts/model.gd")
+const Model=preload("res://scripts/core/model.gd")
 const InputDriver=preload("res://tests/handcar_input.gd")
 var checks=0
 var failures: Array=[]

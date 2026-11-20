@@ -1,7 +1,7 @@
 extends Node
 # Веха 5, В5.6: окно «Состояние» в мастерской депо: узлы шкалами, ремонт болтами и деньгами, в двух размерах окна.
 const Fixtures = preload("res://tests/fixtures.gd")
-const Model = preload("res://scripts/model.gd")
+const Model = preload("res://scripts/core/model.gd")
 
 var game
 var failures: Array = []

@@ -3,7 +3,7 @@ extends Node
 # Air pressure limits the pull, frost builds on the pipes and is chipped off by clicks, the
 # compressor is a station service, the energy is paid for by work on the shaft.
 const Fixtures = preload("res://tests/fixtures.gd")
-const Model = preload("res://scripts/model.gd")
+const Model = preload("res://scripts/core/model.gd")
 
 var checks = 0
 var failures: Array = []

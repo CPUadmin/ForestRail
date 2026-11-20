@@ -2,8 +2,8 @@ extends Node
 # Замер для шага 1.3.9: из чего складывается сохранение при выезде (кадр со щелчком «Отправиться»).
 # Не тест с галочкой. Запуск: godot --path ForestRail -- --qa-suite=probe_save_cost
 const Fixtures = preload("res://tests/fixtures.gd")
-const Model = preload("res://scripts/model.gd")
-const Saves = preload("res://scripts/save_game.gd")
+const Model = preload("res://scripts/core/model.gd")
+const Saves = preload("res://scripts/core/save_game.gd")
 
 var game
 

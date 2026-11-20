@@ -2,7 +2,7 @@ extends Node
 # В6.5, шаг 2: цеппелин в модели игры (Model): скрыт из гаража, покупается, едет по physics_step, рычаги шага и джойстика
 # держат положение, топливо расходуется, взлёт на 130 км/ч, крушение: возврат в депо и штраф 50% монет.
 const Fixtures = preload("res://tests/fixtures.gd")
-const Model = preload("res://scripts/model.gd")
+const Model = preload("res://scripts/core/model.gd")
 
 var checks = 0
 var failures: Array = []

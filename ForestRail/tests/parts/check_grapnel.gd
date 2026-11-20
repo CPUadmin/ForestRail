@@ -1,7 +1,7 @@
 extends Node
 # Кошка с лебёдкой, чистая модель (scripts/grapnel.gd): опоры на местах, бросок по дуге цепляет у верха опоры или падает, лебёдка тянет дрезину силой ≈ четверти веса,
 # слабая опора (куст, пень под тяжёлым составом) вырывается, крюк снимается под опорой, назад (направление −1) тоже работает.
-const Grapnel = preload("res://scripts/grapnel.gd")
+const Grapnel = preload("res://scripts/vehicles/pole/grapnel.gd")
 
 var failures: Array = []
 var checks = 0

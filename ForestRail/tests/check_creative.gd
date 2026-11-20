@@ -1,7 +1,7 @@
 extends Node
 # Creative mode: everything is open, money and fuel do not run out, any order can be taken
 # again and again, nothing counts as progress; the career is untouched.
-const Model = preload("res://scripts/model.gd")
+const Model = preload("res://scripts/core/model.gd")
 
 var checks = 0
 var failures: Array = []

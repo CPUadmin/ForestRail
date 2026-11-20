@@ -2,8 +2,8 @@ extends Node
 # 1.4.14 Спичка у паровоза (модель): коробок на 10, медленно — царапает, в меру — вспыхивает, резко — ломается,
 # сырая только царапает, горит ~6 с, рывок задувает, к открытой топке с углём — огонь; коробок в депо бесплатно.
 const Fixtures = preload("res://tests/fixtures.gd")
-const Model = preload("res://scripts/model.gd")
-const Matches = preload("res://scripts/matches.gd")
+const Model = preload("res://scripts/core/model.gd")
+const Matches = preload("res://scripts/vehicles/steam/matches.gd")
 
 var checks = 0
 var failures: Array = []

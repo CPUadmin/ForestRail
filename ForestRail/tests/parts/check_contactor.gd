@@ -4,8 +4,8 @@ extends Node
 # неверная скрутка сжигает предохранитель, третья искра — мотор («габелла»); в пути перегрев и тряска жгут
 # предохранители после предупреждения, −15% тяги за каждый; запасные и жучок; депо всё чинит; пять секреток.
 const Fixtures = preload("res://tests/fixtures.gd")
-const Model = preload("res://scripts/model.gd")
-const Contactor = preload("res://scripts/contactor.gd")
+const Model = preload("res://scripts/core/model.gd")
+const Contactor = preload("res://scripts/vehicles/locomotive/contactor.gd")
 
 var checks = 0
 var failures: Array = []

@@ -1,19 +1,19 @@
 extends RefCounted
 
-const Route = preload("res://scripts/route.gd")
-const StationInteraction = preload("res://scripts/station_interaction.gd")
-const HandcarMechanism = preload("res://scripts/handcar_mechanism.gd")
-const HandcarDrive = preload("res://scripts/handcar_drive.gd")
-const Pole = preload("res://scripts/pole.gd")
-const Casino = preload("res://scripts/casino.gd")
-const Live = preload("res://scripts/live.gd")
-const Wear = preload("res://scripts/wear.gd")
-const Wind = preload("res://scripts/wind.gd")
-const Zeppelin = preload("res://scripts/zeppelin.gd")
-const Jet = preload("res://scripts/jet.gd")
-const Oars = preload("res://scripts/oars.gd")
-const Records = preload("res://scripts/records.gd")
-const Grapnel = preload("res://scripts/grapnel.gd")
+const Route = preload("res://scripts/core/route.gd")
+const StationInteraction = preload("res://scripts/core/station_interaction.gd")
+const HandcarMechanism = preload("res://scripts/vehicles/handcar/handcar_mechanism.gd")
+const HandcarDrive = preload("res://scripts/vehicles/handcar/handcar_drive.gd")
+const Pole = preload("res://scripts/vehicles/pole/pole.gd")
+const Casino = preload("res://scripts/casino/casino.gd")
+const Live = preload("res://scripts/core/live.gd")
+const Wear = preload("res://scripts/core/wear.gd")
+const Wind = preload("res://scripts/vehicles/sail/wind.gd")
+const Zeppelin = preload("res://scripts/vehicles/zeppelin/zeppelin.gd")
+const Jet = preload("res://scripts/vehicles/jet/jet.gd")
+const Oars = preload("res://scripts/vehicles/sail/oars.gd")
+const Records = preload("res://scripts/core/records.gd")
+const Grapnel = preload("res://scripts/vehicles/pole/grapnel.gd")
 const G = 9.81
 const BUFFER_SAFE_SPEED = 1.0
 const VEHICLE_IDS = ["handcar", "pole", "sail", "steam", "motorcar", "pneumatic", "locomotive", "zeppelin", "jet"]
@@ -403,10 +403,10 @@ func body_s(index: int) -> float:
 	return float(state.s) - float(state.direction) * body_offset(index)
 
 func body_offset(index: int) -> float:
-	return preload("res://scripts/world_geometry.gd").offset(body_ids(),index)
+	return preload("res://scripts/core/world_geometry.gd").offset(body_ids(),index)
 
 func train_length() -> float:
-	return preload("res://scripts/world_geometry.gd").train_length(body_ids())
+	return preload("res://scripts/core/world_geometry.gd").train_length(body_ids())
 
 # B6.6d: the record runs. The table is per machine: the best time from the first station to the last and back, the top speed.
 func records_open() -> bool:
@@ -544,13 +544,13 @@ func wear() -> Object:
 	if _wear == null: _wear = Wear.new(self)
 	return _wear
 
-const Matches = preload("res://scripts/matches.gd")
+const Matches = preload("res://scripts/vehicles/steam/matches.gd")
 var _matches = null
 func matches() -> Object:
 	if _matches == null: _matches = Matches.new(self)
 	return _matches
 
-const Contactor = preload("res://scripts/contactor.gd")
+const Contactor = preload("res://scripts/vehicles/locomotive/contactor.gd")
 var _contactor = null
 func contactor() -> Object:
 	if _contactor == null: _contactor = Contactor.new(self)

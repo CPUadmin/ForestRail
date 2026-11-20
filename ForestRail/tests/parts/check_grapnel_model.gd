@@ -2,7 +2,7 @@ extends Node
 # Кошка с лебёдкой в модели шестовой (model.throw_grapnel, grapnel_step): без гаджета бросить нельзя, с гаджетом лебёдка тянет дрезину к опоре по физике,
 # масса гаджета в массе, новый рейс прячет крюк в скобу.
 const Fixtures = preload("res://tests/fixtures.gd")
-const Model = preload("res://scripts/model.gd")
+const Model = preload("res://scripts/core/model.gd")
 
 var failures: Array = []
 var checks = 0

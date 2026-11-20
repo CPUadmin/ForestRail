@@ -13,7 +13,7 @@ func check(ok: bool, text: String) -> void:
 	if not ok: failures.append(text);print("FAIL: ",text)
 
 func _ready() -> void:
-	preload("res://scripts/model.gd").legacy_tanks = true  # these tests are about the screens, on the old tank sizes (B2.2)
+	preload("res://scripts/core/model.gd").legacy_tanks = true  # these tests are about the screens, on the old tank sizes (B2.2)
 	call_deferred("run")
 
 func frame(count: int = 2) -> void:
@@ -187,7 +187,7 @@ func run() -> void:
 	check(game.model.state.stats.deliveries==2 and game.model.state.money==0,"duplicate release cannot deliver or pay twice")
 	await shot("04_panel_success_return_home")
 	if not movie:
-		var legacy=load("res://scripts/model.gd").new()
+		var legacy=load("res://scripts/core/model.gd").new()
 		legacy.new_game(42)
 		legacy.state.money=10000
 		Fixtures.equip(legacy,"locomotive")

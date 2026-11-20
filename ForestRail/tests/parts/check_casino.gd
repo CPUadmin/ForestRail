@@ -1,7 +1,7 @@
 extends Node
 # КАЗИК, этап «а»: болты, жетоны, лудка, гарант, карточки гаджетов, миграция. Числа из docs/KAZIK_ODDS_RU.md.
 const Fixtures = preload("res://tests/fixtures.gd")
-const Model = preload("res://scripts/model.gd")
+const Model = preload("res://scripts/core/model.gd")
 
 var checks = 0
 var failures: Array = []

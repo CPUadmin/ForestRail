@@ -1,8 +1,8 @@
 extends Node2D
 
-const Mechanism = preload("res://scripts/handcar_mechanism.gd")
-const Art = preload("res://scripts/art_v3.gd")
-const Model = preload("res://scripts/model.gd")
+const Mechanism = preload("res://scripts/vehicles/handcar/handcar_mechanism.gd")
+const Art = preload("res://scripts/art/art_v3.gd")
+const Model = preload("res://scripts/core/model.gd")
 const PAPER = Color("f5ecd6")
 const GOLD = Color("c5a76b")
 var mechanism = Mechanism.new()

@@ -3,7 +3,7 @@ extends Node
 # level adds (v2 - v1) * 0.7^(n - 2), so the gain shrinks every level and is nothing at level 100; the price
 # grows by a factor every level. The discrete branches and the gadgets keep their levels; a save with level 7 loads.
 const Fixtures = preload("res://tests/fixtures.gd")
-const Model = preload("res://scripts/model.gd")
+const Model = preload("res://scripts/core/model.gd")
 
 var checks = 0
 var failures: Array = []

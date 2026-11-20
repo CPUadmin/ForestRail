@@ -1,7 +1,7 @@
 extends Node
 # Карточки Таро Михалыча (scripts/card_view.gd): 18 карточек гаджетов и 4 тайные рисуются в рамке без ошибок,
 # у каждой своя цифра, название и реплика, невыбитая лежит рубашкой вверх. Контактный лист всех 22 карточек.
-const CardView = preload("res://scripts/card_view.gd")
+const CardView = preload("res://scripts/casino/card_view.gd")
 
 var game
 var failures: Array = []

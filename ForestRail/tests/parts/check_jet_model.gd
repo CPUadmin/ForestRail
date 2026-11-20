@@ -2,7 +2,7 @@ extends Node
 # В6.6: реактивный (ракетный) поезд в модели игры (Model): скрыт из гаража, запуск с предохранителями и отсчётом через physics_step,
 # тяга регулируется, состав из вагонов, парашют (один или оба с гаджетом), расход керосина, сохранение положений предохранителей.
 const Fixtures = preload("res://tests/fixtures.gd")
-const Model = preload("res://scripts/model.gd")
+const Model = preload("res://scripts/core/model.gd")
 
 var checks = 0
 var failures: Array = []

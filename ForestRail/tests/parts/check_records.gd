@@ -2,8 +2,8 @@ extends Node
 # В6.6д: режим рекордов (scripts/records.gd и model.track_records): заезд от первой станции до последней и обратно считается с последней остановки,
 # лучшее время запоминается по машинам, высшая скорость тоже, телепорт помощью депо не заезд, вкладка открыта в творческом всегда, в карьере после финала.
 const Fixtures = preload("res://tests/fixtures.gd")
-const Model = preload("res://scripts/model.gd")
-const Records = preload("res://scripts/records.gd")
+const Model = preload("res://scripts/core/model.gd")
+const Records = preload("res://scripts/core/records.gd")
 
 var checks = 0
 var failures: Array = []

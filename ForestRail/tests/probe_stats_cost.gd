@@ -2,7 +2,7 @@ extends Node
 # Замер для шага 1.3.3: сколько раз за кадр считаются характеристики машины (object_stats) и сколько стоит один подсчёт.
 # Не тест с галочкой. Запуск: godot --path ForestRail -- --qa-suite=probe_stats_cost
 const Fixtures = preload("res://tests/fixtures.gd")
-const Model = preload("res://scripts/model.gd")
+const Model = preload("res://scripts/core/model.gd")
 
 var game
 

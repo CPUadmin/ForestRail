@@ -2,7 +2,7 @@ extends Node
 # Снимки для 1.4.15: облачко воздушной песочницы у колёс пневмовоза и подпись «песок: N» в пульте.
 # Не проверка с галочкой. Запуск: godot --path ForestRail -- --qa-suite=probe_sand_view <папка>
 const Fixtures = preload("res://tests/fixtures.gd")
-const Model = preload("res://scripts/model.gd")
+const Model = preload("res://scripts/core/model.gd")
 
 var game
 var out_dir = "user://qa_sand_view"

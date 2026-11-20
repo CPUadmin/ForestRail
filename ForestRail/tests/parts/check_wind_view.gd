@@ -2,7 +2,7 @@ extends Node
 # B6.3: the wind of the line is in the picture: the smoke goes with the air that moves over the train, the pennants of the
 # stations stream down the wind, the grass at the track bends. Frames of a strong wind from behind and from ahead.
 const Fixtures = preload("res://tests/fixtures.gd")
-const Model = preload("res://scripts/model.gd")
+const Model = preload("res://scripts/core/model.gd")
 
 var game
 var failures: Array = []

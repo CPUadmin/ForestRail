@@ -9,8 +9,8 @@ func quit(code: int = 0) -> void:
 
 
 
-const Model = preload("res://scripts/model.gd")
-const SaveGame = preload("res://scripts/save_game.gd")
+const Model = preload("res://scripts/core/model.gd")
+const SaveGame = preload("res://scripts/core/save_game.gd")
 
 func _ready() -> void:
 	var args = OS.get_cmdline_user_args()

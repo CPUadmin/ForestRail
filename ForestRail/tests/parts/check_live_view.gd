@@ -1,7 +1,7 @@
 extends Node
 # Веха 5: взгляд на живой состав в окне. Разгон, ход и торможение: сцепки, наклон кузовов, груз на ремнях.
 const Fixtures = preload("res://tests/fixtures.gd")
-const Model = preload("res://scripts/model.gd")
+const Model = preload("res://scripts/core/model.gd")
 
 var game
 var failures: Array = []

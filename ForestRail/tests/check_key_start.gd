@@ -5,8 +5,8 @@ extends Node
 # stopping the engine, the key of the keyboard, the same dice for the same career. Pictures of the key in the cab
 # and outside at 1280x720 and 1600x900 for the eyes.
 const Fixtures = preload("res://tests/fixtures.gd")
-const Model = preload("res://scripts/model.gd")
-const Ignition = preload("res://scripts/ignition.gd")
+const Model = preload("res://scripts/core/model.gd")
+const Ignition = preload("res://scripts/vehicles/motorcar/ignition.gd")
 const DT = 1.0 / 60.0
 
 var game

@@ -1,6 +1,6 @@
 extends Node
 
-const Model=preload("res://scripts/model.gd")
+const Model=preload("res://scripts/core/model.gd")
 var game
 var checks=0
 var failures: Array=[]
@@ -8,7 +8,7 @@ var economies: Array=[]
 var out_dir=""
 
 func _ready() -> void:
-	preload("res://scripts/model.gd").legacy_tanks = true  # calibrated on the old tank sizes (B2.2)
+	preload("res://scripts/core/model.gd").legacy_tanks = true  # calibrated on the old tank sizes (B2.2)
 	call_deferred("run")
 func check(ok: bool,label: String) -> void:
 	checks+=1

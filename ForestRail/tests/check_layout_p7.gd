@@ -9,7 +9,7 @@ var out_dir=""
 var context=""
 
 func _ready() -> void:
-	preload("res://scripts/model.gd").legacy_tanks = true  # these tests are about the screens, on the old tank sizes (B2.2)
+	preload("res://scripts/core/model.gd").legacy_tanks = true  # these tests are about the screens, on the old tank sizes (B2.2)
 	call_deferred("run")
 func check(ok: bool,label: String) -> void:
 	checks+=1

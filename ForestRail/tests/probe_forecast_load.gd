@@ -1,7 +1,7 @@
 extends Node
 # The load factor of the trip forecast for the heavy test trip (six bundles of logs to D), per class. Not a check.
 const Fixtures = preload("res://tests/fixtures.gd")
-const Model = preload("res://scripts/model.gd")
+const Model = preload("res://scripts/core/model.gd")
 
 func _ready() -> void:
 	for kind in ["motorcar", "locomotive", "pneumatic"]:

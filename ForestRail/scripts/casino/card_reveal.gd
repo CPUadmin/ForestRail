@@ -3,7 +3,7 @@ extends Control
 # карта вылетает из колеса рубашкой вверх и кружится, замирает с пульсирующим свечением, переворачивается со вспышкой,
 # волной и россыпью золотых искр; Михалыч говорит свою реплику. Щелчок во время показа пропускает к концу, потом забирает карту.
 
-const CardView = preload("res://scripts/card_view.gd")
+const CardView = preload("res://scripts/casino/card_view.gd")
 
 signal closed
 

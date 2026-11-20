@@ -4,7 +4,7 @@ extends Node
 # Запуск: godot --path ForestRail -- --qa-suite=probe_visual_audit <папка_для_снимков>
 # Потом tools/visual_audit_sheet.py склеивает листы; смотреть листы глазами, а не по хэшам.
 const Fixtures = preload("res://tests/fixtures.gd")
-const Model = preload("res://scripts/model.gd")
+const Model = preload("res://scripts/core/model.gd")
 const KINDS = ["handcar", "pole", "sail", "steam", "motorcar", "pneumatic", "locomotive", "zeppelin", "jet"]
 
 var game

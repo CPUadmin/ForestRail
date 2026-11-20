@@ -3,7 +3,7 @@ extends Node
 # player's own inputs; the forecast covers what it really cost, and the tank is enough for
 # one round trip but not for two.
 const Fixtures = preload("res://tests/fixtures.gd")
-const Model = preload("res://scripts/model.gd")
+const Model = preload("res://scripts/core/model.gd")
 const Driver = preload("res://tests/trip_driver.gd")
 
 var checks = 0

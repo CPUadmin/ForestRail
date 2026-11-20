@@ -1,7 +1,7 @@
 extends Node
 # Автоматическая КПП в кабине: вместо кулисы селектор Д/Н/З, настоящая мышь двигает его, отпускание ставит режим.
 const Fixtures = preload("res://tests/fixtures.gd")
-const Model = preload("res://scripts/model.gd")
+const Model = preload("res://scripts/core/model.gd")
 
 var game
 var checks = 0

@@ -1,9 +1,9 @@
 extends Node
 const Fixtures = preload("res://tests/fixtures.gd")
 
-const Mechanism = preload("res://scripts/handcar_mechanism.gd")
-const Art = preload("res://scripts/art_v3.gd")
-const Model = preload("res://scripts/model.gd")
+const Mechanism = preload("res://scripts/vehicles/handcar/handcar_mechanism.gd")
+const Art = preload("res://scripts/art/art_v3.gd")
+const Model = preload("res://scripts/core/model.gd")
 var checks = 0
 var failures: Array = []
 var max_rod_error_m = 0.0

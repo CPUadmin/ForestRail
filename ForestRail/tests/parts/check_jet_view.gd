@@ -78,8 +78,8 @@ func run() -> void:
 	check("кабину" in cold.message, "the lever without a lit engine says where the start is (%s)" % cold.message)
 	cold.state.throttle = 0.0
 	# the lesson line follows the state
-	var Pult = preload("res://scripts/jet_pult.gd")
-	var Jet = preload("res://scripts/jet.gd")
+	var Pult = preload("res://scripts/vehicles/jet/jet_pult.gd")
+	var Jet = preload("res://scripts/vehicles/jet/jet.gd")
 	var j = Jet.new()
 	check("колпачок" in Pult.hint(j, 1.0, 0.0), "the lesson: open the cap")
 	j.open_cover(true)
@@ -91,7 +91,7 @@ func run() -> void:
 	for i in range(60 * 16): j.step(1.0 / 60.0)
 	check("рычаг" in Pult.hint(j, 0.0, 0.0), "the lesson: the engine burns, raise the lever")
 	# the ring of the chute (owner 14.11): a short pull springs back, the whole pull lets the chute out
-	var ring_model = load("res://scripts/model.gd").new()
+	var ring_model = load("res://scripts/core/model.gd").new()
 	ring_model.new_game(42, 2)
 	Fixtures.equip(ring_model, "jet")
 	ring_model.state.phase = "route"

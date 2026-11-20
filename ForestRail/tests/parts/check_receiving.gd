@@ -2,7 +2,7 @@ extends Node
 # Веха 6, В6.11 этап «в»: приёмка болтов (продажа за монеты в депо и на станциях A и F) и оплата половины цены
 # улучшения болтами (docs/KAZIK_ECONOMY_RU.md, раздел 2).
 const Fixtures = preload("res://tests/fixtures.gd")
-const Model = preload("res://scripts/model.gd")
+const Model = preload("res://scripts/core/model.gd")
 
 var checks = 0
 var failures: Array = []

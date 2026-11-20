@@ -1,7 +1,7 @@
 extends Node
 const Fixtures = preload("res://tests/fixtures.gd")
 
-const Model = preload("res://scripts/model.gd")
+const Model = preload("res://scripts/core/model.gd")
 var failures: Array = []
 var checks = 0
 

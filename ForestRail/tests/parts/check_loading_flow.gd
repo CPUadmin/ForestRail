@@ -2,7 +2,7 @@ extends Node
 # B1.1: loading without the rigid chain. A train that has come to rest on a platform holds itself, the
 # brake is not a condition of loading, and giving traction is the departure (no button, no brake to release).
 const Fixtures = preload("res://tests/fixtures.gd")
-const Model = preload("res://scripts/model.gd")
+const Model = preload("res://scripts/core/model.gd")
 
 var checks = 0
 var failures: Array = []

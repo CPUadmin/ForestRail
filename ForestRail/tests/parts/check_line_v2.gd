@@ -1,8 +1,8 @@
 extends Node
 # N7.3: the long line. Shape (length, heights, flat platforms, grades, smoothness), seeds,
 # the fallback profile, saving, the old line left alone, and what scales with the length.
-const Model = preload("res://scripts/model.gd")
-const Route = preload("res://scripts/route.gd")
+const Model = preload("res://scripts/core/model.gd")
+const Route = preload("res://scripts/core/route.gd")
 
 var checks = 0
 var failures: Array = []

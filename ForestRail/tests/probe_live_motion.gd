@@ -1,7 +1,7 @@
 extends Node
 # Probe (not a check): writes the motion of the suspension of every body to a CSV, to see it as curves.
 const Fixtures = preload("res://tests/fixtures.gd")
-const Model = preload("res://scripts/model.gd")
+const Model = preload("res://scripts/core/model.gd")
 
 func _ready() -> void:
 	call_deferred("run")

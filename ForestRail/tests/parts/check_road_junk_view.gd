@@ -1,7 +1,7 @@
 extends Node
 # Веха 6, В6.11 этап «б»: блик у рельса на дороге (виден, берётся щелчком) и окно «Принесли с дороги» в итоге рейса.
 const Fixtures = preload("res://tests/fixtures.gd")
-const Model = preload("res://scripts/model.gd")
+const Model = preload("res://scripts/core/model.gd")
 
 var game
 var failures: Array = []

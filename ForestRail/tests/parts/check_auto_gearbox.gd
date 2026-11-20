@@ -2,7 +2,7 @@ extends Node
 # Гаджет «Автоматическая КПП» бензиновой: на пульте селектор Д/Н/З вместо кулисы; в Д передачу выбирает сама коробка по скорости, переключение не рвёт тягу,
 # бензина уходит на 5% меньше. Окно: настоящая мышь двигает селектор (check_auto_gearbox_view).
 const Fixtures = preload("res://tests/fixtures.gd")
-const Model = preload("res://scripts/model.gd")
+const Model = preload("res://scripts/core/model.gd")
 
 var failures: Array = []
 var checks = 0

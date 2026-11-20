@@ -2,7 +2,7 @@ extends Node
 # Замер для шага 1.3.11: камера едет по всей трассе, каждый кадр дольше 25 мс записывается с местом и ближайшей станцией.
 # Не тест с галочкой. Запуск (с окном): godot --path ForestRail -- --qa-suite=probe_route_frames
 const Fixtures = preload("res://tests/fixtures.gd")
-const Model = preload("res://scripts/model.gd")
+const Model = preload("res://scripts/core/model.gd")
 const STEP_M = 1.5   # metres per frame: 90 m/s, fast-forward; a first-time cost shows up the same
 
 var game

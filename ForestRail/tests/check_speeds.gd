@@ -2,7 +2,7 @@ extends Node
 # N11: each class reaches its stated top speed on a flat road with a light load, and the
 # steam locomotive accelerates slowest of the engines. Handcar speed comes from a scripted
 # pumper (tests/handcar_input.gd), not from a person.
-const Model = preload("res://scripts/model.gd")
+const Model = preload("res://scripts/core/model.gd")
 const Fixtures = preload("res://tests/fixtures.gd")
 const HandcarInput = preload("res://tests/handcar_input.gd")
 

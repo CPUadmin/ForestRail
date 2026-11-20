@@ -4,7 +4,7 @@ extends Node
 # огонь загорается; рывок задувает. Снимки для глаз при 1280x720 и 1600x900. Скорость взмаха задаётся тестом
 # (motion с dt 1/60), чтобы не зависеть от частоты кадров окна.
 const Fixtures = preload("res://tests/fixtures.gd")
-const Model = preload("res://scripts/model.gd")
+const Model = preload("res://scripts/core/model.gd")
 const DT = 1.0 / 60.0
 
 var game

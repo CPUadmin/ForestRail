@@ -1,6 +1,6 @@
 extends Node
 
-const Art = preload("res://scripts/art_v3.gd")
+const Art = preload("res://scripts/art/art_v3.gd")
 var failures: Array = []
 var checks = 0
 

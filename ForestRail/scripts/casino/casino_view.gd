@@ -1,6 +1,6 @@
 extends Control
-const CardView = preload("res://scripts/card_view.gd")
-const CardReveal = preload("res://scripts/card_reveal.gd")
+const CardView = preload("res://scripts/casino/card_view.gd")
+const CardReveal = preload("res://scripts/casino/card_reveal.gd")
 # КАЗИК «у стрелки», этап «г» (docs/KAZIK_RU.md): экран с колесом «лудки», Михалычем, жетонами и мешком шлака.
 # Логика во всём лежит в Casino (scripts/casino.gd); здесь только показ и анимация. Сектора колеса рисуются по весам из данных,
 # поэтому ширина сектора и есть настоящий шанс (карточка почти невидима: 0,2%, так и задумано, цифры честные).

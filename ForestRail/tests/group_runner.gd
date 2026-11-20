@@ -5,7 +5,7 @@ extends Node
 # script added to the root and puts the shared switches of the model back to their defaults.
 # A group file: `extends "res://tests/group_runner.gd"` and `func parts() -> Array: return ["check_a", "check_b"]`.
 
-const Model = preload("res://scripts/model.gd")
+const Model = preload("res://scripts/core/model.gd")
 
 var results: Array = []
 var current: Node = null

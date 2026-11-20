@@ -1,8 +1,8 @@
 extends Node
 # Skins: a player's body.png (and wheel.png) replaces the built-in picture while the
 # class keeps its standard platform length, axle places and floor height.
-const Art = preload("res://scripts/art_v3.gd")
-const Geometry = preload("res://scripts/world_geometry.gd")
+const Art = preload("res://scripts/art/art_v3.gd")
+const Geometry = preload("res://scripts/core/world_geometry.gd")
 
 var failures: Array = []
 var checks = 0

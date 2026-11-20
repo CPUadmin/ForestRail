@@ -2,8 +2,8 @@ extends Node
 # Пассивные гаджеты (docs/GADGET_EFFECTS_PROPOSAL_RU.md): Маховик-накопитель (ручная: качение ×0,8, +25 кг), Запасной баллон (пневмовоз: запас воздуха +35%, +20 кг),
 # Пого-шест (шестовая: ход под вкопанным шестом +35%, +5 кг). Гаджеты действуют своими ключами и не затирают обычные улучшения.
 const Fixtures = preload("res://tests/fixtures.gd")
-const Model = preload("res://scripts/model.gd")
-const Pole = preload("res://scripts/pole.gd")
+const Model = preload("res://scripts/core/model.gd")
+const Pole = preload("res://scripts/vehicles/pole/pole.gd")
 
 var failures: Array = []
 var checks = 0

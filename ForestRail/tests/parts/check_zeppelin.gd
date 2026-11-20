@@ -2,7 +2,7 @@ extends Node
 # В6.5, шаг 1: ходовая модель цеппелина (scripts/zeppelin.gd): числа проекта владельца. Взлёт на 130 км/ч, потолок 135 км/ч,
 # шаг винта (крупнее скорости: обороты падают и мотор глохнет, мельче: обороты в красную зону и износ), тормоза слабеют
 # при разгрузке колёс, мягкая посадка не крушение, грубая посадка и кроны это крушение, штраф 50% монет.
-const Zeppelin = preload("res://scripts/zeppelin.gd")
+const Zeppelin = preload("res://scripts/vehicles/zeppelin/zeppelin.gd")
 
 var checks = 0
 var failures: Array = []

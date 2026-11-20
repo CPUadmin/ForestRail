@@ -127,7 +127,7 @@ func run() -> void:
 	await RenderingServer.frame_post_draw
 	get_tree().root.get_texture().get_image().save_png(output_dir.path_join("board_%d.png" % get_tree().root.size.y))
 	# B4.4: with the order rules on, the notices say how long the order may take
-	var Rules = load("res://scripts/model.gd")
+	var Rules = load("res://scripts/core/model.gd")
 	Rules.order_rules = true
 	game.rebuild()
 	var term_labels = 0

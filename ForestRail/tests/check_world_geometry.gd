@@ -1,7 +1,7 @@
 extends Node
 const Fixtures = preload("res://tests/fixtures.gd")
 
-const Geometry = preload("res://scripts/world_geometry.gd")
+const Geometry = preload("res://scripts/core/world_geometry.gd")
 var game
 var checks = 0
 var failures: Array = []

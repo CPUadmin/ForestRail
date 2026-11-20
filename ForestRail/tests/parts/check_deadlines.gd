@@ -2,7 +2,7 @@ extends Node
 # B4.4: the deadlines and the bonuses of the orders. Early pays extra, on time is 100%, late costs a fine and the
 # free order burns; a story order is only cancelled (nothing paid, no progress, to be done again).
 const Fixtures = preload("res://tests/fixtures.gd")
-const Model = preload("res://scripts/model.gd")
+const Model = preload("res://scripts/core/model.gd")
 
 var checks = 0
 var failures: Array = []

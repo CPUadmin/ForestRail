@@ -2,7 +2,7 @@ extends Node
 # Гаджет «Автоматический редуктор» пневмовоза: давление держится само по тяге (на холостом мало, на полной тяге много), колеса в кабине нет,
 # воздуха уходит на 10% меньше, потолок давления ниже на 5%.
 const Fixtures = preload("res://tests/fixtures.gd")
-const Model = preload("res://scripts/model.gd")
+const Model = preload("res://scripts/core/model.gd")
 
 var failures: Array = []
 var checks = 0

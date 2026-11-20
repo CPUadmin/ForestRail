@@ -8,7 +8,7 @@ func quit(code: int = 0) -> void:
 
 
 
-const Model = preload("res://scripts/model.gd")
+const Model = preload("res://scripts/core/model.gd")
 
 # Model scenarios may position a fixture directly. Service still has to observe
 # the same physical dwell as the GUI, rather than bypassing the new guard.
@@ -17,7 +17,7 @@ func park(m, index: int) -> void:
 	m.state.v=0
 	m.state.brake=1
 	for i in range(20): m.physics_step(1.0/60)
-const SaveGame = preload("res://scripts/save_game.gd")
+const SaveGame = preload("res://scripts/core/save_game.gd")
 var checks = 0
 var failures: Array = []
 

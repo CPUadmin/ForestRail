@@ -2,7 +2,7 @@ extends Node
 # 16.11.2026: the petrol car has 3 forward gears when new; the «Коробка передач» upgrade opens the 4th (level 1)
 # and the 5th (level 2). The creative mode has all five. Old saves in a closed gear go down to the highest open one.
 # The gate covers a closed slot with a brass plate; the snapshots go to the output folder for the eyes.
-const Model = preload("res://scripts/model.gd")
+const Model = preload("res://scripts/core/model.gd")
 const Fixtures = preload("res://tests/fixtures.gd")
 
 var game

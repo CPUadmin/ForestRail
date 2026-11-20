@@ -239,7 +239,7 @@ for name, (params, ret, headline) in block_funcs.items():
 extra = "var %s_cache = null\nfunc %s():\n\tif %s_cache == null: %s_cache = %s.new(self)\n\treturn %s_cache\n\n" % (
     ACC, ACC, ACC, ACC, CONST, ACC)
 t2 = "\n".join(lines[:START] + (extra + "\n\n".join(wr)).split("\n") + [""] + lines[END:])
-anchor = "const CabArt = preload(\"res://scripts/cab_art.gd\")"
+anchor = "const CabArt = preload(\"res://scripts/cabs/cab_art.gd\")"
 assert t2.count(anchor) == 1
 t2 = t2.replace(anchor, anchor + "\nconst %s = preload(\"res://scripts/%s\")" % (CONST, OUT))
 io.open(R + "main.gd", "w", encoding="utf-8", newline="").write(t2.replace("\n", nl))

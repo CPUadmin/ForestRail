@@ -4,7 +4,7 @@ extends Node
 # Бюджеты не придуманы: первый запуск на этой машине пишет базу (qa/perf_baseline.json, по имени процессора), дальше порог = база ×1,3 по медиане
 # и ×1,6 по 95-му процентилю (плюс малый запас в миллисекундах от шума). Путь к базе: аргумент --perf-baseline=<файл>.
 const Fixtures = preload("res://tests/fixtures.gd")
-const Model = preload("res://scripts/model.gd")
+const Model = preload("res://scripts/core/model.gd")
 
 const WARMUP = 30
 const FRAMES = 240

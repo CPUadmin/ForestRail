@@ -3,8 +3,8 @@ extends Node
 # tip, nothing else limits pushing. The checks cover the ground map, the planting rules, the
 # directions of force, the slip, the reach, and a driver that pushes freely and what comes out.
 const Fixtures = preload("res://tests/fixtures.gd")
-const Model = preload("res://scripts/model.gd")
-const Pole = preload("res://scripts/pole.gd")
+const Model = preload("res://scripts/core/model.gd")
+const Pole = preload("res://scripts/vehicles/pole/pole.gd")
 
 var checks = 0
 var failures: Array = []

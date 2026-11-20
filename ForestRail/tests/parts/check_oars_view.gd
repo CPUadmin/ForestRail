@@ -1,7 +1,7 @@
 extends Node
 # Вёсла и гребец парусной (картинки П16): три позы по фазе гребка, весло качается в уключине; снимки для глаз.
 const Fixtures = preload("res://tests/fixtures.gd")
-const Model = preload("res://scripts/model.gd")
+const Model = preload("res://scripts/core/model.gd")
 
 var game
 var checks = 0

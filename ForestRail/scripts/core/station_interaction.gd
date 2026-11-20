@@ -1,6 +1,6 @@
 extends RefCounted
 
-const Geometry = preload("res://scripts/world_geometry.gd")
+const Geometry = preload("res://scripts/core/world_geometry.gd")
 const SERVICE_LENGTH = 18.0
 const STOP_SPEED = 0.05
 const DWELL = 0.25

@@ -1,7 +1,7 @@
 extends Node
 # Кошка с лебёдкой на экране: кнопка «Кошка [G]» у шестовой с гаджетом, опоры вдоль линии, крюк и трос рисуются без ошибок в полёте, на опоре и после срыва.
 const Fixtures = preload("res://tests/fixtures.gd")
-const Model = preload("res://scripts/model.gd")
+const Model = preload("res://scripts/core/model.gd")
 
 var game
 var checks = 0

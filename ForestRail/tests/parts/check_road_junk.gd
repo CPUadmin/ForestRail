@@ -2,7 +2,7 @@ extends Node
 # Веха 6, В6.11 этап «б»: источники болтов в рейсе (docs/KAZIK_ECONOMY_RU.md). Журнал рейса, выпадение хлама пути
 # и машины по условиям, редкий шлак, блики у рельса, итог «Принесли с дороги», сохранение.
 const Fixtures = preload("res://tests/fixtures.gd")
-const Model = preload("res://scripts/model.gd")
+const Model = preload("res://scripts/core/model.gd")
 
 var checks = 0
 var failures: Array = []

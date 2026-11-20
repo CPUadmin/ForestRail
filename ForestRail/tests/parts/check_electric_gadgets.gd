@@ -2,7 +2,7 @@ extends Node
 # Gadgets of the electric locomotive (docs/GADGET_EFFECTS_PROPOSAL_RU.md): the supercapacitor gives a burst of pull
 # (+50% for 5 s, 45 s to charge, 2% of the battery), the liquid cooling keeps the motor cooler.
 const Fixtures = preload("res://tests/fixtures.gd")
-const Model = preload("res://scripts/model.gd")
+const Model = preload("res://scripts/core/model.gd")
 
 var failures: Array = []
 var checks = 0

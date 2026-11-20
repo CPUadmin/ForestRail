@@ -2,7 +2,7 @@ extends Node
 # Жизненный цикл каждой машины в карьере и в творческом режиме: двигатель можно запустить и потушить, расходники не кончаются без возврата.
 # Появилась после находок владельца 07.11.2026 (реактивный нельзя было потушить, в творческом не пополнялись парашюты): тесты были зелёными, а игра нет.
 const Fixtures = preload("res://tests/fixtures.gd")
-const Model = preload("res://scripts/model.gd")
+const Model = preload("res://scripts/core/model.gd")
 
 var failures: Array = []
 var checks = 0

@@ -1,7 +1,7 @@
 extends Node
 # Веха 6, В6.11 этап «в»: кнопка «Приёмка» в депо, окно приёмки болтов и кнопка «Доплатить болтами» в мастерской.
 const Fixtures = preload("res://tests/fixtures.gd")
-const Model = preload("res://scripts/model.gd")
+const Model = preload("res://scripts/core/model.gd")
 
 var game
 var failures: Array = []

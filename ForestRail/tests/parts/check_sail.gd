@@ -3,8 +3,8 @@ extends Node
 # takes its force from the apparent wind by the angle and the trim, and the car goes where the wind
 # pushes it; in a calm it stands, against the wind it does not go.
 const Fixtures = preload("res://tests/fixtures.gd")
-const Model = preload("res://scripts/model.gd")
-const Wind = preload("res://scripts/wind.gd")
+const Model = preload("res://scripts/core/model.gd")
+const Wind = preload("res://scripts/vehicles/sail/wind.gd")
 
 var checks = 0
 var failures: Array = []
