@@ -154,9 +154,11 @@ func run() -> void:
 		var scraps = c.scraps()
 		await button(joint, true)
 		var prev = joint
-		for y in range(8):
+		for y in range(8):   # no frame between the yanks: under a loaded run a frame each made them «slow»
 			var p = joint + Vector2(90.0 if y % 2 == 0 else -90.0, 0)
-			await move(p, prev)
+			var e = InputEventMouseMotion.new()
+			e.position = p; e.global_position = p; e.relative = p - prev; e.button_mask = MOUSE_BUTTON_MASK_LEFT
+			get_tree().root.push_input(e, true)
 			prev = p
 		await button(prev, false)
 		check(not c.joined(0) and c.scraps() == scraps + 1, "yanking the held joint tears it, a scrap is left " + tag)
