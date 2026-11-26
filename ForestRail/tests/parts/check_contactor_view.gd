@@ -60,7 +60,7 @@ func drag_wire(v, wire: int, terminal: int) -> void:
 	await button(to, false)
 
 # loops of the cursor round a joint, held down
-func twist(v, wire: int, turns: float) -> void:
+func twist(v, wire: int, turns: float, sign: float = 1.0) -> void:
 	var joint = v.terminal(v.c().at(wire))
 	var start = joint + Vector2(0, -2)
 	await button(start, true)
@@ -70,10 +70,23 @@ func twist(v, wire: int, turns: float) -> void:
 	var steps = int(turns * 16.0)
 	for s in range(1, steps + 1):
 		var a = TAU * float(s) / 16.0
-		var p = joint + Vector2(cos(a), sin(a)) * r
+		var p = joint + Vector2(cos(a), sign * sin(a)) * r
 		await move(p, prev)
 		prev = p
 	await button(prev, false)
+
+# a knotted end: through the ring of its colour, then on to its terminal, in one motion
+func pull_through(v, wire: int) -> void:
+	var from = v.end_of(wire)
+	var ring = v.hook(wire)
+	var to = v.terminal(v.c().terminal_of(wire))
+	await button(from, true)
+	var prev = from
+	for s in range(1, 13):
+		var p = from.lerp(ring, s / 6.0) if s <= 6 else ring.lerp(to, (s - 6) / 6.0)
+		await move(p, prev)
+		prev = p
+	await button(to, false)
 
 func switch_click() -> void:
 	await click(game.electric_cab().switch_rect.get_center())
@@ -174,6 +187,23 @@ func run() -> void:
 		var spares = c.spares()
 		await click(v.holder(slot).get_center())
 		check(c.fuse_count("burnt") == 0 and c.spares() == spares - 1, "a click on the burnt fuse puts a spare in " + tag)
+		# after a repair the ends lie in a knot: each is pulled through the ring of its colour, then to its terminal
+		c.stop()
+		c.st().knot = [0, 1, 2]
+		await shot("box_knot_" + tag)
+		await drag_wire(v, 0, c.terminal_of(0))
+		check(not c.joined(0) and c.knotted(0), "a knotted end does not take to its terminal " + tag)
+		for w in range(3): await pull_through(v, w)
+		check(c.knot_left() == 0 and c.all_joined(), "pulled through their rings, the ends take to their terminals " + tag)
+		# a loop the other way takes the last one off
+		await twist(v, 0, 3.3)
+		var loops = c.turns(0)
+		await twist(v, 0, 1.2, -1.0)
+		check(is_equal_approx(c.turns(0), loops - 1.0), "a loop the other way takes a loop off (%s from %s) %s" % [c.turns(0), loops, tag])
+		c.st().loops[1] = [1.0, 0.55, 0.42]   # a slack twist: its weakest loop blinks red, the line says what to do
+		c.st().loops[2] = [1.0, 1.0, 1.0]
+		check(v.weak_wire() == 1 and c.weakest(1) == 2, "a slack twist shows its weakest loop " + tag)
+		await shot("box_loops_" + tag)
 		# the keyboard: a digit for the wire, a digit for the terminal, the space held twists, Enter is the switch
 		c.stop()
 		for w in range(c.count()):

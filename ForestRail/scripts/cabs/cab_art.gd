@@ -39,8 +39,8 @@ func draw_cab_scene(size: Vector2) -> void:
 	if perf: canvas.perf_add("cab_nose", t0); t0 = Time.get_ticks_usec()
 	# B4.1: the glass at night and at dawn
 	var night = canvas.model.night_amount()
-	if canvas.model.twilight() > 0.01: canvas.draw_rect(view, Color(1.0, 0.5, 0.25, 0.16 * minf(1.0, canvas.model.twilight())))
 	var glass_weather = canvas.shown_weather()
+	canvas.ArtWorld.draw_twilight(canvas, view, float(look.horizon), canvas.model.twilight() * (1.0 - 0.65 * float(glass_weather.cloud)))
 	if canvas.wiper_on and (dash_v2() or canvas.electric_cab().revised()): glass_weather = {"cloud": float(glass_weather.cloud), "rain": float(glass_weather.rain) * 0.35, "fog": float(glass_weather.fog)}
 	canvas.art_world.draw_weather(canvas, view, glass_weather, canvas.time, bool(canvas.settings.reduce_motion))
 	if night > 0.01:

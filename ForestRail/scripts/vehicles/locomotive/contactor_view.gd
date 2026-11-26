@@ -2,8 +2,10 @@ extends RefCounted
 # Шкафчик электровоза крупно поверх кабины (1.12, картинки GPT П33 «Подстанция»; провода, искры и свет рисует код).
 # Работает через canvas (main.gd), как depot_ui.gd. Модель — contactor.gd.
 #
-# Мышь: провода висят на верёвочной физике. Конец тащится к клемме своего цвета и прилипает. Зажав мышь на стыке,
-# обводи его петлями: 3 петли — тугая скрутка, ровно 5 одним движением — «золотая» (секрет). Хорошенько подёргай
+# Мышь: провода висят на верёвочной физике. Конец тащится к клемме своего цвета (и знака: ○ △ □ ◇ +) и прилипает.
+# Зажав мышь на стыке, обводи его петлями (loop_stroke.gd, из демки владельца): 3 ровные петли — тугая скрутка,
+# рыхлый виток краснеет, петля в обратную сторону снимает виток; 5 ровных одним движением — «золотая» (секрет).
+# После ремонта мотора концы спутаны в клубок: каждый протягивают через кольцо своего цвета. Хорошенько подёргай
 # зажатый стык — скрутка рвётся, обрывок остаётся в шкафчике. Щелчок по сгоревшему предохранителю ставит запасной;
 # обрывок, донесённый до пустого держателя и обмотанный петлями, — «жучок» (секрет). Пуск — рубильник в кабине.
 # Дверца слева закрывает шкафчик. Клавиатура: цифра — провод, вторая цифра — клемма; пробел крутит; Enter — рубильник;
@@ -37,14 +39,21 @@ const ROPE_N = 16
 const TEAR_SPEED = 1800.0   # px/s: a yank this fast…
 const TEAR_YANKS = 3        # …this many times back and forth within TEAR_WINDOW tears the joint
 const TEAR_WINDOW = 0.8
+const LoopStroke = preload("res://scripts/vehicles/locomotive/loop_stroke.gd")
+const LOOP_R = 40.0         # px of inside.png: a comfortable loop round a joint; wider ones hold worse
+const KNOT_AT = Vector2(610, 430)
+const HOOKS = [Vector2(420, 290), Vector2(830, 290), Vector2(700, 515), Vector2(380, 470), Vector2(870, 430)]
+const HOOK_R = 26.0
+const MARKS = ["circle", "triangle", "square", "diamond", "plus"]   # the demo's marks by colour, for colour-blind players
 
 var canvas = null
 var open = false
 var mode = ""              # "" | "wire" | "twist" | "scrap" | "bugwind"
 var wire = -1
 var hand = Vector2.ZERO
-var last_angle = 0.0
-var twist_sum = 0.0
+var stroke = null            # LoopStroke of the held twist or the bug winding
+var run = 0                  # loops added in this one motion (the golden twist)
+var key_spin = 0.0           # the held space bar: ten presses make a loop
 var selected = -1
 var spark_t = 0.0
 var spark_at: Array = []
@@ -97,6 +106,12 @@ func k() -> float:
 func at_px(p: Vector2) -> Vector2:
 	return box_rect().position + p * k()
 
+func px(p: Vector2) -> Vector2:
+	return (p - box_rect().position) / k()
+
+func hook(i: int) -> Vector2:
+	return at_px(HOOKS[i % HOOKS.size()])
+
 func first_row() -> int:
 	return (ROWS_Y.size() - c().count()) / 2
 
@@ -111,6 +126,7 @@ func rest(i: int) -> Vector2:   # a free end lies low in the middle; the cable s
 
 func end_of(i: int) -> Vector2:
 	if mode == "wire" and wire == i: return hand
+	if c().knotted(i): return at_px(KNOT_AT + Vector2(-40.0 + 40.0 * float(i % 3), 26.0 if i >= 3 else -6.0 * float(i % 2)))
 	if c().joined(i):
 		var p = terminal(c().at(i))
 		if (c().st().popped as Array).has(i): p += Vector2(-20, 16) * k()
@@ -219,7 +235,8 @@ func draw(dt: float) -> void:
 			var pulse = 0.5 + 0.5 * sin(float(canvas.time) * 10.0) if not reduce else 0.6
 			canvas.draw_rect(rect.grow(-rect.size.y * 0.2), Color(1.0, 0.55, 0.15, 0.25 + 0.3 * pulse))
 		if mode == "bugwind" and bug_slot == slot:
-			canvas.draw_arc(rect.get_center(), rect.size.x * 0.32, 0.0, TAU * fmod(absf(twist_sum), 1.0), 24, Color("f3d27a"), 3.0, true)
+			var done = (float(stroke.count) + absf(stroke.spin) / TAU) / 3.0 if stroke else 0.0
+			canvas.draw_arc(rect.get_center(), rect.size.x * 0.32, 0.0, TAU * clampf(done, 0.0, 1.0), 24, Color("f3d27a"), 3.0, true)
 	# the spare box in its pocket, and the scraps of wire in the corner
 	var pocket = pocket_rect()
 	canvas.draw_texture_rect(SPARE_OPEN if c().spares() > 0 else SPARE_CLOSED, pocket, false)
@@ -232,7 +249,24 @@ func draw(dt: float) -> void:
 	# the coloured tags by the right terminals
 	var n = c().count()
 	for w in range(n):
-		draw_band(Rect2(terminal(c().terminal_of(w)) + Vector2(-58, -10) * kk, Vector2(30, 20) * kk), w)
+		var tag = Rect2(terminal(c().terminal_of(w)) + Vector2(-58, -10) * kk, Vector2(30, 20) * kk)
+		draw_band(tag, w)
+		draw_mark(tag.position + Vector2(-12, 10) * kk, 7.0 * kk, w, Color("2a2018"))
+	# the knot after a repair: a ring of each wire's colour to pull its end through
+	if c().knot_left() > 0:
+		for i in range(n):
+			if not c().knotted(i): continue
+			var ring = hook(i)
+			var pulse = 0.0 if reduce else 0.15 * sin(float(canvas.time) * 4.0 + float(i))
+			canvas.draw_arc(ring, HOOK_R * kk * (1.0 + pulse), 0.0, TAU, 28, Color("1a1410"), 6.0 * kk, true)
+			canvas.draw_arc(ring, HOOK_R * kk * (1.0 + pulse), 0.0, TAU, 28, COLORS[i % COLORS.size()], 3.5 * kk, true)
+			draw_mark(ring, 7.0 * kk, i, COLORS[i % COLORS.size()])
+		var knot = at_px(KNOT_AT)
+		for i in range(n):
+			if not c().knotted(i): continue
+			var at = knot + Vector2(14.0 * float(i) - 20.0, 6.0 * float(i % 2)) * kk
+			canvas.draw_arc(at, 36.0 * kk, float(i) * 1.3, float(i) * 1.3 + 4.4, 20, Color("140f0b"), 12.0 * kk + 1.0, true)
+			canvas.draw_arc(at, 36.0 * kk, float(i) * 1.3, float(i) * 1.3 + 4.4, 20, COLORS[i % COLORS.size()], 9.0 * kk, true)
 	for i in range(n):
 		draw_wire(i, rope(i, dt))
 	if spark_t > 0.0: draw_spark(reduce)
@@ -240,8 +274,10 @@ func draw(dt: float) -> void:
 	var line = ""
 	if c().motor_burnt(): line = "Мотор сгорел: только помощь депо"
 	elif c().is_on(): line = "Включено. Рубильник вниз — стоп (провода разведутся)"
-	elif not c().all_joined(): line = "Подведи каждый провод к клемме его цвета"
-	elif not c().ready(): line = "Обведи каждый стык петлями: три — тугая скрутка"
+	elif c().knot_left() > 0: line = "После ремонта провода спутаны: протяни каждый конец через кольцо его цвета"
+	elif not c().all_joined(): line = "Подведи каждый провод к клемме его цвета и знака"
+	elif not c().ready(): line = "Обведи каждый стык петлями: три ровные — тугая скрутка"
+	elif weak_wire() >= 0: line = "Красный виток рыхлый: обведи стык плотнее или сними виток петлёй в обратную сторону"
 	else: line = "Готово: рубильник в кабине вверх"
 	var width = canvas.font.get_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, -1, 15).x + 28.0
 	var plate = Rect2(Vector2(box.position.x + box.size.x * 0.5 - width * 0.5, box.end.y + 8.0), Vector2(width, 28.0))
@@ -296,18 +332,44 @@ func draw_wire(i: int, pts: PackedVector2Array) -> void:
 		for f in range(5): canvas.draw_line(tip, tip + Vector2.from_angle(-0.8 + 0.4 * f) * 12.0 * kk, COPPER.darkened(0.2), 1.6)
 	if c().joined(i):
 		# the twist: copper loops along the joint, one per loop turned; gold for the golden twist
-		var loops = int(c().turns(i))
 		var gold = (st.golden as Array).has(i)
-		var ink = Color("f1c65a") if gold else COPPER
-		for loop in range(loops):
-			canvas.draw_arc(tip + Vector2(-6.0 - 5.0 * loop, 0) * kk, 6.0 * kk, 0.0, TAU, 14, ink.lightened(0.15 if loop % 2 == 0 else 0.0), 2.2 * kk, true)
+		var quality: Array = c().loop_quality(i)
+		var weak = c().weakest(i)
+		for loop in range(quality.size()):
+			var q = float(quality[loop])
+			# a good loop is copper (gold for the golden twist), a slack one dull, one past the joint grey; the weakest blinks red
+			var ink = Color("f1c65a") if gold else (COPPER if q >= LoopStroke.GOOD else (COPPER.darkened(0.45) if q > 0.0 else Color("6a625a")))
+			ink = ink.lightened(0.15 if loop % 2 == 0 else 0.0)
+			if loop == weak and fmod(float(canvas.time) * 2.0, 1.0) < 0.6: ink = Color("e0564a")
+			canvas.draw_arc(tip + Vector2(-9.0 - 4.0 * loop, 0) * kk, 8.0 * kk * (1.0 + 0.4 * (1.0 - q)), 0.0, TAU, 16, ink, 3.0 * kk, true)
 		if gold and fmod(float(canvas.time) * 1.3 + float(i) * 0.3, 1.0) < 0.15:
 			canvas.draw_circle(tip + Vector2(-12, -8) * kk, 4.0 * kk, Color(1, 1, 0.8, 0.8))
 		var mark = Color("5cc17f") if c().tight(i) else (Color("e6b34a") if c().twisted(i) else Color(0, 0, 0, 0))
 		if (st.popped as Array).has(i) and fmod(float(canvas.time) * 3.0, 1.0) < 0.5: mark = Color("e0564a")
 		if mark.a > 0.0: canvas.draw_circle(tip + Vector2(0, -18) * kk, 5.0 * kk, mark)
+	if not c().joined(i) and not c().knotted(i):
+		canvas.draw_circle(tip + Vector2(0, -20) * kk, 9.0 * kk, Color(0.95, 0.92, 0.84, 0.9), true, -1, true)
+		draw_mark(tip + Vector2(0, -20) * kk, 5.5 * kk, i, Color("2a2018"))
 	if selected == i:
 		canvas.draw_arc(tip, 14.0 * kk, 0.0, TAU, 20, Color("f3d27a"), 2.0, true)
+
+# the shape mark of wire w (its colour's sign), drawn in ink
+func draw_mark(at: Vector2, r: float, w: int, ink: Color) -> void:
+	var width = maxf(1.5, r * 0.32)
+	match MARKS[w % MARKS.size()]:
+		"circle": canvas.draw_arc(at, r, 0.0, TAU, 16, ink, width, true)
+		"triangle": canvas.draw_polyline(PackedVector2Array([at + Vector2(0, -r), at + Vector2(r * 0.9, r * 0.6), at + Vector2(-r * 0.9, r * 0.6), at + Vector2(0, -r)]), ink, width, true)
+		"square": canvas.draw_rect(Rect2(at - Vector2(r, r) * 0.75, Vector2(r, r) * 1.5), ink, false, width)
+		"diamond": canvas.draw_polyline(PackedVector2Array([at + Vector2(0, -r), at + Vector2(r, 0), at + Vector2(0, r), at + Vector2(-r, 0), at + Vector2(0, -r)]), ink, width, true)
+		"plus":
+			canvas.draw_line(at + Vector2(-r, 0), at + Vector2(r, 0), ink, width)
+			canvas.draw_line(at + Vector2(0, -r), at + Vector2(0, r), ink, width)
+
+# a joined wire whose twist is slack enough to show its weakest loop
+func weak_wire() -> int:
+	for i in range(c().count()):
+		if c().weakest(i) >= 0: return i
+	return -1
 
 func draw_spark(reduce: bool) -> void:
 	var age = 0.9 - spark_t
@@ -365,7 +427,7 @@ func press(mouse: Vector2) -> bool:
 		return true
 	if mode == "bugwind":
 		if holder(bug_slot).grow(80.0 * k()).has_point(mouse):
-			last_angle = (mouse - holder(bug_slot).get_center()).angle()
+			stroke.regrip(px(mouse))
 			return true
 		mode = ""   # pressed elsewhere: the winding is given up, the scrap goes back
 	for slot in range(3):
@@ -385,8 +447,8 @@ func press(mouse: Vector2) -> bool:
 			mode = ""
 		elif c().joined(i):
 			mode = "twist"
-			twist_sum = 0.0
-			last_angle = (mouse - terminal(c().at(i))).angle()
+			stroke = LoopStroke.new(px(mouse))
+			run = 0
 		else:
 			mode = "wire"
 			hand = mouse
@@ -401,6 +463,10 @@ func motion(mouse: Vector2) -> void:
 	last_mouse_t = now
 	if mode == "wire" or mode == "scrap":
 		hand = mouse
+		if mode == "wire" and c().knotted(wire) and mouse.distance_to(hook(wire)) < HOOK_R * k():
+			c().unknot(wire)
+			canvas.sound.play("gear", 0.45, 1.3)
+			canvas.notify(canvas.model.message)
 	elif mode == "twist":
 		# yanking the held joint back and forth tears it (owner 19.11: «хорошенько подёргав»)
 		if vel.length() > TEAR_SPEED * k():
@@ -426,33 +492,37 @@ func motion(mouse: Vector2) -> void:
 			mode = "wire"
 			hand = mouse
 			return
-		var loop = circle(joint, mouse)
-		if loop.x > 0.0:
-			var turns_before = c().turns(wire)
-			var after = c().twist(wire, loop.x, loop.y)
-			if floori(after) > floori(turns_before):
-				canvas.sound.play("rail_tick_a", 0.3, 1.9 + 0.1 * after)
-				if (c().st().golden as Array).has(wire): canvas.sound.play("coins", 0.35, 2.2)   # the golden twist rings
+		stroke.add(px(mouse))
+		take_loops()
 	elif mode == "bugwind":
-		var loop = circle(holder(bug_slot).get_center(), mouse)
-		if loop.y >= 3.0:
+		stroke.add(px(mouse))
+		stroke.take()
+		if stroke.count >= 3:
 			if c().bug(bug_slot): canvas.sound.play("rail_tick_b", 0.5, 1.2)
 			canvas.notify(canvas.model.message)
 			mode = ""
 
-# counts the loops of the cursor around a centre: (gained now, loops of this whole motion)
-func circle(centre: Vector2, mouse: Vector2) -> Vector2:
-	if mouse.distance_to(centre) < 6.0: return Vector2.ZERO
-	var angle = (mouse - centre).angle()
-	var delta = wrapf(angle - last_angle, -PI, PI)
-	last_angle = angle
-	var before = absf(twist_sum)
-	twist_sum += delta / TAU
-	var gained = absf(twist_sum) - before
-	return Vector2(maxf(gained, 0.0), absf(twist_sum))
+# the loops the stroke has finished go onto the held joint; a loop the other way takes the last one off
+func take_loops() -> void:
+	var joint = px(terminal(c().at(wire)))
+	for loop in stroke.take():
+		var before = c().turns(wire)
+		var after = c().twist(wire, 1.0, float(run + 1), LoopStroke.quality(loop, joint, LOOP_R), int(loop.dir))
+		if after > before:
+			run += 1
+			canvas.sound.play("rail_tick_a", 0.3, 1.9 + 0.1 * after)
+			if (c().st().golden as Array).has(wire): canvas.sound.play("coins", 0.35, 2.2)   # the golden twist rings
+		elif after < before:
+			run = 0
+			canvas.sound.play("rail_tick_a", 0.3, 1.2)
 
 func release(mouse: Vector2) -> void:
-	if mode == "wire":
+	if mode == "twist" and stroke:
+		stroke.end()
+		take_loops()
+	if mode == "wire" and c().knotted(wire):
+		canvas.notify("Сначала протяни конец через кольцо его цвета")
+	elif mode == "wire":
 		var t = nearest_terminal(mouse)
 		if t >= 0:
 			c().join(wire, t)
@@ -463,8 +533,7 @@ func release(mouse: Vector2) -> void:
 				# the scrap is on the empty holder: now wind it with loops
 				mode = "bugwind"
 				bug_slot = slot
-				twist_sum = 0.0
-				last_angle = (mouse - holder(slot).get_center()).angle()
+				stroke = LoopStroke.new(px(mouse))
 				canvas.notify("Обмотай держатель проволокой: обведи его петлями")
 				return
 	if mode == "bugwind": return   # winding goes on with the next press too
@@ -482,12 +551,19 @@ func key(event: InputEventKey) -> bool:
 		return true
 	if event.keycode == KEY_SPACE:
 		if event.pressed and selected >= 0 and c().joined(selected) and not c().is_on():
-			c().twist(selected, 0.1)
+			key_spin += 0.1
+			if key_spin >= 0.999:
+				key_spin = 0.0
+				c().twist(selected, 1.0)
 		return true
 	var digit = event.keycode - KEY_1
 	if event.pressed and not event.echo and digit >= 0 and digit < c().count():
 		if selected < 0 or c().joined(selected):
 			selected = digit
+			key_spin = 0.0
+		elif c().knotted(selected):
+			c().unknot(selected)   # the keyboard pulls the end through its ring
+			canvas.notify(canvas.model.message)
 		elif not c().is_on():
 			c().join(selected, digit)
 			canvas.sound.play("gear", 0.4, 1.6)

@@ -2460,7 +2460,7 @@ func draw_tooltip() -> void:
 
 func draw_menu_train(size: Vector2) -> void:
 	var p = Vector2(size.x*0.74,size.y*0.75)
-	draw_line(Vector2(size.x*0.48,p.y-5),Vector2(size.x,p.y-5),INK,7,true)
+	ArtWorld.glow(self, p + Vector2(-14, 1), Vector2(222, 10), Color(0.11, 0.08, 0.05, 0.54))
 	var outer = Transform2D(0,Vector2(1.7,1.7),0,p)
 	art.draw_vehicle(self,"handcar",0,1,outer,menu_preview,false,art.forward_pose(time*1.5))
 	draw_set_transform_matrix(Transform2D.IDENTITY)

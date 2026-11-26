@@ -1,6 +1,8 @@
 """A trial build for the owner, the way a release is built, but WITHOUT the release itself.
 
-  python tools/build_trial.py
+  python tools/build_trial.py           build the version written in ForestRail/project.godot
+  python tools/build_trial.py --force   build it again over an existing release/trial/<version>
+  python tools/build_trial.py --help    this text; any other argument shows it too and builds nothing
 
 Steps (the quality gates of docs/PLAN_RAZRABOTKI_RU.md): a clean copy of the last commit, the export template in place,
 the import twice, the Windows export into release/trial/<version>/ForestRail.exe, short checks of the exported exe,
@@ -29,16 +31,23 @@ def git(*args, cwd=ROOT) -> str:
     return subprocess.run(["git", *args], cwd=cwd, capture_output=True, text=True, encoding="utf-8", errors="replace").stdout
 
 
+# 21.11: «--help» used to start a build and overwrote the B11 exe; an unknown argument now builds nothing
+args = sys.argv[1:]
+if args and args != ["--force"]:
+    print(__doc__)
+    raise SystemExit(0 if args[0] in ("-h", "--help") else 2)
 if not TEMPLATE.is_file():
     raise SystemExit(f"Нет шаблона экспорта {TEMPLATE}.\nСкачай его: python tools/fetch_windows_template.py")
 godot = devenv.godot_path()
-devenv.ensure_no_godot()
 version = devenv.project_version()
 changed = [l for l in git("status", "--short").splitlines() if not l.startswith("??")]
 if changed:
     print(f"Внимание: {len(changed)} файлов изменено и не закоммичено. Сборка берёт ПОСЛЕДНИЙ КОММИТ, этих правок в ней не будет.")
 out_dir = ROOT / "release" / "trial" / version
 exe = out_dir / "ForestRail.exe"
+if exe.exists() and "--force" not in args:
+    raise SystemExit(f"Сборка {version} уже есть: {exe}\nПодними версию в ForestRail/project.godot или собери поверх: python tools/build_trial.py --force")
+devenv.ensure_no_godot()
 worktree = ROOT / "release" / "_trial_worktree"
 
 try:

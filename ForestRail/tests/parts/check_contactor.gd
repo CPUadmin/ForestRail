@@ -1,11 +1,13 @@
 extends Node
 # «Скрутка» электровоза, модель (1.4.10, переделка 1.12 по решениям владельца 19–20.11, docs/ELECTRIC_CABINET_MECHANIC_RU.md):
 # от 3 проводов; петли: 1 — слабая, 3 — тугая; порвать рывком; рубильник: пуск (3% заряда), мягкий пуск без броска;
-# неверная скрутка сжигает предохранитель, третья искра — мотор («габелла»); в пути перегрев и тряска жгут
+# неверная скрутка сжигает предохранитель, третья искра — мотор; в пути перегрев и тряска жгут
 # предохранители после предупреждения, −15% тяги за каждый; запасные и жучок; депо всё чинит; пять секреток.
 const Fixtures = preload("res://tests/fixtures.gd")
 const Model = preload("res://scripts/core/model.gd")
 const Contactor = preload("res://scripts/vehicles/locomotive/contactor.gd")
+const ContactorView = preload("res://scripts/vehicles/locomotive/contactor_view.gd")
+const LoopStroke = preload("res://scripts/vehicles/locomotive/loop_stroke.gd")
 
 var checks = 0
 var failures: Array = []
@@ -42,6 +44,28 @@ func wire_all(m, loops: float = 3.0) -> void:
 	for i in range(c.count()):
 		c.join(i, c.terminal_of(i))
 		c.twist(i, loops)
+
+# a cursor path of `turns` circles round centre; sign -1 goes the other way
+func spiral(centre: Vector2, radius: float, turns: float, sign: float = 1.0) -> PackedVector2Array:
+	var pts = PackedVector2Array()
+	for s in range(int(turns * 45.0) + 1):
+		var a = TAU * float(s) / 45.0
+		pts.append(centre + Vector2(cos(a), sign * sin(a)) * radius)
+	return pts
+
+func noisy_line(from: Vector2) -> PackedVector2Array:
+	var pts = PackedVector2Array()
+	for x in range(0, 300, 4): pts.append(from + Vector2(x, 2.0 if x % 8 == 0 else -2.0))
+	return pts
+
+func gesture(pts: PackedVector2Array) -> Array:
+	var s = LoopStroke.new(pts[0])
+	for p in pts: s.add(p)
+	s.end()
+	return s.take()
+
+func feed(c, wire: int, pts: PackedVector2Array, joint: Vector2) -> void:
+	for loop in gesture(pts): c.twist(wire, 1.0, 0.0, LoopStroke.quality(loop, joint, ContactorView.LOOP_R), int(loop.dir))
 
 func charge(m) -> float:
 	return float(m.state.fleet_by_id.locomotive.fuel)
@@ -110,11 +134,18 @@ func run() -> void:
 		c.join(i, (c.terminal_of(i) + 1) % c.count())
 		c.twist(i, 3.0)
 	c.start()
-	check(c.motor_burnt() and m.message.contains("Габелла") and m.wear().condition("locomotive", "motor") <= 0.0, "the third spark burns the motor: gabella")
+	check(c.motor_burnt() and m.message.contains("сожгла мотор") and m.wear().condition("locomotive", "motor") <= 0.0, "the third spark burns the motor")
 	wire_all(m)
 	check(not c.start() and m.message.contains("Мотор сгорел"), "a burnt motor does not start")
 	m.rescue()
 	check(not c.motor_burnt() and c.fuse_count("ok") == 3 and c.spares() == 3, "the help of the depot gives new fuses and mends the motor")
+	# --- owner 21.11: after the repair (only then) the wires come back in a knot; each is pulled through its ring
+	check(c.knot_left() == c.count() and not c.all_joined() and not c.join(0, c.terminal_of(0)) and m.message.contains("спутан"), "after the repair the wires are in a knot: no joining")
+	check(not c.start() and m.message.contains("спутаны"), "no start with a knot")
+	for i in range(c.count()): c.unknot(i)
+	check(c.knot_left() == 0 and m.message.contains("распутан") and c.join(0, c.terminal_of(0)), "each wire pulled through its ring: the knot is gone")
+	m.rescue()
+	check(c.knot_left() == 0, "help without a burnt motor brings no knot")
 	# --- the factors: −15% pull and +10% drain for every burnt fuse; a bug counts as whole
 	m = fresh()
 	c = m.contactor()
@@ -230,6 +261,31 @@ func run() -> void:
 	c.st().fuses = ["burnt", "bug", "ok"]
 	var back = Model.new()
 	check(back.restore(JSON.parse_string(JSON.stringify(m.serialize()))) and str(back.contactor().fuses()[1]) == "bug" and back.contactor().is_on(), "fuses and the switch are saved")
+	# --- loops read from the cursor path (the owner's demo «Мастерская двигателя», its three gestures)
+	var joint = Vector2(500, 300)
+	var r = ContactorView.LOOP_R
+	check(gesture(spiral(joint, r, 3.0)).size() == 3, "three even turns of the cursor are three loops")
+	check(gesture(noisy_line(joint)).is_empty(), "a shaky straight drag makes no loop")
+	check(gesture(spiral(joint, 3.0, 3.0)).is_empty(), "tiny jitter circles make no loop")
+	m = fresh()
+	c = m.contactor()
+	c.join(0, c.terminal_of(0))
+	feed(c, 0, spiral(joint, r, 3.0), joint)
+	check(c.tight(0), "three even loops: a tight twist")
+	c.join(0, c.terminal_of(0))
+	feed(c, 0, spiral(joint, r * 46.0 / 30.0, 3.0), joint)
+	check(c.twisted(0) and not c.tight(0) and c.weakest(0) >= 0, "three wide loops (the demo's radius 46 against 30): weak, the weakest is shown")
+	feed(c, 0, spiral(joint, r, 1.0), joint)
+	check(c.tight(0) and c.weakest(0) == -1, "one more even loop: tight")
+	feed(c, 0, spiral(joint, r, 1.0, -1.0), joint)
+	check(is_equal_approx(c.turns(0), 3.0) and not c.tight(0), "a loop the other way takes the last one off")
+	c.join(1, c.terminal_of(1))
+	feed(c, 1, spiral(joint + Vector2(400, 0), r, 3.0), joint)
+	check(is_equal_approx(c.turns(1), 3.0) and not c.twisted(1), "loops beside the joint hold nothing")
+	# an old save counted turns as a number
+	var old = {"on": false, "to": [1, 0, 2], "at": [1, -1, -1], "turns": [3.0, 0.0, 0.0], "popped": [], "torn": [], "serial": 1}
+	m.state.fleet_by_id.locomotive.contactor = old
+	check(c.tight(0) and not c.st().has("turns"), "an old save: three turns become three good loops")
 	Model.contactor_rules = false
 	Model.wear_rules = false
 	print("CONTACTOR CHECKS ", checks, "; FAILURES ", failures)

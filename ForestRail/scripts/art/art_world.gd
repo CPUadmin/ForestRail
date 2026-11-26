@@ -135,17 +135,26 @@ func draw_ground_shade(canvas: Node2D) -> void:
 	vertical_gradient(canvas, Rect2(0, y + 70, size.x, 130), Color(shade, 0.0), Color(shade, 0.78))
 	canvas.draw_rect(Rect2(0, y + 200, size.x, maxf(0, size.y - y - 200)), Color(shade, 0.78))
 
+# Keep the warm band at the horizon, including through the cab's lower windscreen.
+static func draw_twilight(canvas: CanvasItem, rect: Rect2, horizon_y: float, strength: float) -> void:
+	if strength < 0.01: return
+	var sky = Color(0.27, 0.22, 0.49, 0.31 * strength)
+	var amber = Color(1.0, 0.62, 0.31, 0.38 * strength)
+	var horizon = clampf(horizon_y, rect.position.y + 1, rect.end.y - 1)
+	vertical_gradient(canvas, Rect2(rect.position, Vector2(rect.size.x, horizon - rect.position.y)), sky, amber)
+	vertical_gradient(canvas, Rect2(rect.position.x, horizon, rect.size.x, rect.end.y - horizon), amber, Color(amber, 0.0))
+
 # B4.1: night and twilight over the world, then the lights of the machine and of the stations on top of it.
 func draw_day_night(canvas: Node2D, size: Vector2) -> void:
 	var model = game.model
 	if model == null or model.state.is_empty() or game.screen != "game": return
 	var night = model.night_amount()
-	var tw = minf(1.0, model.twilight())
-	if tw > 0.01: canvas.draw_rect(Rect2(Vector2.ZERO, size), Color(1.0, 0.5, 0.25, 0.16 * tw))
+	var weather = game.shown_weather()
+	draw_twilight(canvas, Rect2(Vector2.ZERO, size), rail_y() - size.y * 0.22, model.twilight() * (1.0 - 0.65 * float(weather.cloud)))
 	if night > 0.01: canvas.draw_rect(Rect2(Vector2.ZERO, size), Color(0.02, 0.04, 0.12, game.night_shade()))
-	draw_weather(canvas, Rect2(Vector2.ZERO, size), game.shown_weather(), Time.get_ticks_msec() / 1000.0, bool(game.settings.reduce_motion))
+	draw_weather(canvas, Rect2(Vector2.ZERO, size), weather, Time.get_ticks_msec() / 1000.0, bool(game.settings.reduce_motion))
 	# the lights burn at night and, brighter than the fog, in a thick fog by day
-	var lit = maxf(clampf((night - 0.25) / 0.5, 0.0, 1.0), clampf(float(game.shown_weather().fog) * 1.2, 0.0, 1.0))
+	var lit = maxf(clampf((night - 0.25) / 0.5, 0.0, 1.0), clampf(float(weather.fog) * 1.2, 0.0, 1.0))
 	if lit < 0.05: return
 	var sc = game.view_scale()
 	# windows of the stations
@@ -187,15 +196,17 @@ func draw_weather(canvas: CanvasItem, rect: Rect2, weather: Dictionary, time: fl
 	if rain > 0.05:
 		canvas.draw_rect(rect, Color(0.12, 0.16, 0.22, 0.2 * rain))
 		var drops = int(110.0 * rain)
-		var length = rect.size.y * 0.035
 		for i in range(drops):
 			var seed_x = fposmod(float(i) * 0.6180339 + 0.13, 1.0)
-			var seed_y = fposmod(float(i) * 0.3819660 + 0.71, 1.0)
-			var speed = 0.0 if calm else (0.9 + 0.5 * fposmod(float(i) * 0.137, 1.0))
+			var seed_y = fposmod(float(i) * 0.7548777 + 0.71, 1.0)
+			var depth = fposmod(float(i) * 0.137, 1.0)
+			var speed = 0.0 if calm else lerpf(0.7, 1.45, depth)
 			var y = fposmod(seed_y + time * speed, 1.0)
 			var x = fposmod(seed_x + y * 0.12, 1.0)
-			var at = rect.position + Vector2(x * rect.size.x, y * rect.size.y)
-			canvas.draw_line(at, at + Vector2(length * 0.2, length), Color(0.78, 0.85, 0.92, 0.38), 1.2)
+			var length = rect.size.y * lerpf(0.012, 0.038, depth)
+			var streak = Vector2(length * 0.2, length)
+			var at = rect.position + Vector2(x, y) * (rect.size - streak)
+			canvas.draw_line(at, at + streak, Color(0.81, 0.88, 0.94, lerpf(0.14, 0.42, depth)), lerpf(1.0, 1.5, depth), true)
 
 func draw_light(canvas: Node2D) -> void:
 	var size = game.get_viewport_rect().size

@@ -238,7 +238,7 @@ func switch_on(soft: bool) -> void:
 	if c().start(soft):
 		canvas.sound.play("contactor", 0.9, 0.85)
 	else:
-		if canvas.model.message.begins_with("Искра") or canvas.model.message.begins_with("Габелла"):
+		if canvas.model.message.begins_with("Искра"):
 			canvas.sound.play("contactor", 1.0, 1.7)
 			if view.open: view.show_spark(joints)
 			canvas.electric_start_flash = 0.0
